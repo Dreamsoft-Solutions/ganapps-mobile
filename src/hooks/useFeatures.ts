@@ -17,6 +17,14 @@ export const featureQueryKeys = {
   detail: (id: string) => [...featureQueryKeys.all, 'detail', id] as const,
 };
 
+export function useFeatureDetail(id: string) {
+  return useQuery<Feature, Error>({
+    queryKey: featureQueryKeys.detail(id),
+    queryFn: () => featuresAPI.getById(id),
+    enabled: !!id,
+  });
+}
+
 export function useFeatures() {
   const queryClient = useQueryClient();
 
@@ -42,13 +50,6 @@ export function useFeatures() {
     },
     initialPageParam: 0,
   });
-
-  const detailQuery = (id: string) =>
-    useQuery<Feature, Error>({
-      queryKey: featureQueryKeys.detail(id),
-      queryFn: () => featuresAPI.getById(id),
-      enabled: !!id,
-    });
 
   const createMutation = useMutation<Feature, Error, CreateFeatureDto>({
     mutationFn: (dto) => featuresAPI.create(dto),
@@ -88,7 +89,6 @@ export function useFeatures() {
     hasNextPage,
     fetchNextPage,
     isFetchingNextPage,
-    detail: detailQuery,
     create: createMutation.mutateAsync,
     update: updateMutation.mutateAsync,
     delete: deleteMutation.mutateAsync,

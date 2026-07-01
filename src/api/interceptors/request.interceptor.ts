@@ -1,4 +1,4 @@
-import { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/store/auth.store';
 
 export const requestInterceptor = {

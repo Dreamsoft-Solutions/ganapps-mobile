@@ -1,4 +1,4 @@
-import { AxiosError } from 'axios';
+import type { AxiosError } from 'axios';
 import { useAuthStore } from '@/store/auth.store';
 import { parseApiError } from '@/utils/error-handling';
 

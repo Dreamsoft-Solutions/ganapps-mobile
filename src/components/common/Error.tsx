@@ -1,12 +1,12 @@
 import { View, Pressable } from 'react-native';
 import { Text } from './Text';
 
-interface ErrorProps {
+interface ErrorViewProps {
   error: Error | null;
   onRetry?: () => void;
 }
 
-export function Error({ error, onRetry }: ErrorProps) {
+export function ErrorView({ error, onRetry }: ErrorViewProps) {
   return (
     <View className="flex-1 items-center justify-center p-xl">
       <Text className="text-lynx-error text-headline-sm mb-sm">

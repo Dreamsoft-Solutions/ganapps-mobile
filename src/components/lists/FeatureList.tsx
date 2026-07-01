@@ -3,7 +3,7 @@ import { useFeatures } from '@/hooks/useFeatures';
 import { Card } from '@/components/common/Card';
 import { Text } from '@/components/common/Text';
 import { Loading } from '@/components/common/Loading';
-import { Error } from '@/components/common/Error';
+import { ErrorView } from '@/components/common/Error';
 import { Empty } from '@/components/common/Empty';
 
 export function FeatureList() {
@@ -17,7 +17,7 @@ export function FeatureList() {
   } = useFeatures();
 
   if (isLoading) return <Loading />;
-  if (error) return <Error error={error} />;
+  if (error) return <ErrorView error={error} />;
   if (items.length === 0) return <Empty message="No features found" />;
 
   return (

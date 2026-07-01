@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { remoteConfigService } from '@/services/remote-config.service';
 
 export function useFeatureFlag(key: string, defaultValue = false): boolean {

@@ -1,4 +1,4 @@
-import { AxiosError } from 'axios';
+import type { AxiosError } from 'axios';
 import type { ApiErrorResponse } from '@/api/types/api-error';
 
 export function parseApiError(error: AxiosError): Error & { errorCode?: string } {

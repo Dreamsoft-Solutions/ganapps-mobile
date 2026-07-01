@@ -7,7 +7,7 @@ import type { LoginDto, RegisterDto } from '@/types/auth.types';
 
 export function useAuth() {
   const router = useRouter();
-  const { token, clearAuth } = useAuthStore();
+  const { token } = useAuthStore();
   const {
     data: user,
     isLoading: userLoading,
@@ -33,10 +33,10 @@ export function useAuth() {
     [registerMutation, router],
   );
 
-  const logout = useCallback(() => {
-    clearAuth();
+  const logout = useCallback(async () => {
+    await logoutMutation.mutateAsync();
     router.replace('/(auth)/login');
-  }, [clearAuth, router]);
+  }, [logoutMutation, router]);
 
   return {
     user,
@@ -48,7 +48,7 @@ export function useAuth() {
     error: userError,
     login,
     register,
-    logout: logoutMutation.mutateAsync,
+    logout,
     isAuthenticated: !!token,
   };
 }

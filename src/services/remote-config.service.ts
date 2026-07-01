@@ -1,6 +1,4 @@
-import remoteConfig, {
-  FirebaseRemoteConfigTypes,
-} from '@react-native-firebase/remote-config';
+import remoteConfig from '@react-native-firebase/remote-config';
 
 interface FeatureFlagStore {
   [key: string]: boolean | string | number;
@@ -18,15 +16,18 @@ class RemoteConfigService {
 
   private loadDefaults() {
     if (DEFAULT_CONFIG.features) {
-      for (const [key, value] of Object.entries(DEFAULT_CONFIG.features)) {
+      for (const [key, raw] of Object.entries(DEFAULT_CONFIG.features)) {
+        const value = raw as Record<string, unknown>;
         if (
           typeof value === 'object' &&
           value !== null &&
           'enabled' in value
         ) {
-          this.defaults[key] = (value as { enabled: boolean }).enabled;
+          this.defaults[key] = (value as { enabled: boolean })
+            .enabled as FeatureFlagStore[string];
         } else {
-          this.defaults[key] = value;
+          this.defaults[key] =
+            value as unknown as FeatureFlagStore[string];
         }
       }
     }
@@ -59,14 +60,6 @@ class RemoteConfigService {
     return process.env[envKey];
   }
 
-  private parseValue(value: string): boolean | string | number {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    const num = Number(value);
-    if (!isNaN(num) && String(num) === value) return num;
-    return value;
-  }
-
   getBoolean(key: string, defaultValue = false): boolean {
     const envOverride = this.getEnvOverride(key);
     if (envOverride !== undefined) {
@@ -81,12 +74,6 @@ class RemoteConfigService {
 
     const value = remoteConfig().getValue(key);
     try {
-      const source = value.source as FirebaseRemoteConfigTypes.ValueSource;
-      if (source === 'static') {
-        return typeof this.defaults[key] === 'boolean'
-          ? (this.defaults[key] as boolean)
-          : defaultValue;
-      }
       return value.asBoolean();
     } catch {
       return defaultValue;
@@ -115,7 +102,7 @@ class RemoteConfigService {
     const envOverride = this.getEnvOverride(key);
     if (envOverride !== undefined) {
       const parsed = Number(envOverride);
-      return isNaN(parsed) ? defaultValue : parsed;
+      return Number.isNaN(parsed) ? defaultValue : parsed;
     }
 
     if (!this.initialized) {
