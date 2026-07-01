@@ -1,0 +1,8 @@
+{
+  "features": {
+    "example-feature": {
+      "enabled": false,
+      "description": "Example feature flag"
+    }
+  }
+}
