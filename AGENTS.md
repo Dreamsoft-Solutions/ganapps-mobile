@@ -6,7 +6,9 @@ Always read this file before taking any action in this repository.
 
 **GanApps Mobile** is the React Native mobile app for the GanApps event platform, built with Expo SDK 57. It provides the native mobile experience for event discovery, feature management, and user interactions.
 
-**Tech stack:** Expo SDK 57 · Expo Router (file-based) · React Native · TypeScript 6 · NativeWind v4 (Tailwind) · TanStack Query v5 · Zustand v5 · react-hook-form · Zod v4 · Axios · Drizzle ORM (SQLite) · Biome · Vitest · EAS Build
+**Tech stack:** Expo SDK 57 · Expo Router (file-based) · React Native · TypeScript 6 · NativeWind v4 (Tailwind) · TanStack Query v5 · Zustand v5 · react-hook-form · Zod v4 · Axios · Drizzle ORM (SQLite) · Biome · Jest · EAS Build
+
+**Package manager:** npm
 
 ---
 
@@ -22,21 +24,22 @@ eas build --profile preview   # Preview build (Android APK / iOS sim)
 eas build --profile production # Production build
 
 # Lint & Format (Biome)
-pnpm lint                     # Lint check (biome lint src/)
-pnpm format                   # Auto-format (biome format --write src/)
-pnpm check                    # Lint + format check
+npm run lint                  # Lint check (biome lint src/)
+npm run lint:fix              # Lint with auto-fix (biome lint --write src/)
+npm run format                # Auto-format (biome format --write src/)
+npm run check                 # Lint + format check (biome check src/)
 
-# Test (Vitest)
-pnpm test                     # Run all unit tests
-pnpm test:watch               # Watch mode
-pnpm test:coverage            # With coverage
+# Test (Jest)
+npm run test                  # Run all unit tests
+npm run test:watch            # Watch mode
+npm run test:coverage         # With coverage
 
 # Type Check
-pnpm type-check               # tsc --noEmit
+npm run type-check            # tsc --noEmit
 
 # Database (Drizzle)
-pnpm db:generate              # Generate Drizzle migrations
-pnpm db:migrate               # Apply migrations
+npm run db:generate           # Generate Drizzle migrations
+npm run db:migrate            # Apply migrations
 ```
 
 ---
@@ -479,11 +482,19 @@ Before writing code, validate:
 - [ ] Typed error path? → `parseApiError()` + typed error codes
 - [ ] Function doing too much? → split
 
+## Git Workflow
+
+- Conventional Commits enforced via commitlint (100 char header limit)
+- `pre-commit`: lint-staged (Biome check + format on staged files)
+- `pre-push`: lint + test (no build)
+
+---
+
 ## Code Review Process
 
 Every feature implementation **must** conclude with a structured code review:
 
-1. **Run** `pnpm check` (Biome lint + format), `pnpm type-check` (TypeScript), and `pnpm test` (Vitest)
+1. **Run** `npm run check` (Biome lint + format), `npm run type-check` (TypeScript), and `npm run test` (Jest)
 2. **Audit** the diff against these categories:
 
 | Category | Checks |
