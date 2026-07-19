@@ -1,21 +1,29 @@
 import { useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { useLoginMutation, useRegisterMutation, useLogoutMutation } from './mutations/useAuthMutation';
+import {
+  useLoginMutation,
+  useRegisterMutation,
+  useLogoutMutation,
+  useVerifyEmailMutation,
+  useResendVerificationMutation,
+  useUpdateProfileMutation,
+} from './mutations/useAuthMutation';
 import { useAuthQuery } from './queries/useAuthQuery';
 import { useAuthStore } from '@/store/auth.store';
-import type { LoginDto, RegisterDto } from '@/types/auth.types';
+import type { LoginDto, RegisterDto, VerifyEmailRequest, UpdateProfileRequest } from '@/types/auth.types';
 
 export function useAuth() {
   const router = useRouter();
-  const { token } = useAuthStore();
-  const {
-    data: user,
-    isLoading: userLoading,
-    error: userError,
-  } = useAuthQuery();
+  const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
+  const { isLoading: userLoading, error: userError } = useAuthQuery();
+
   const loginMutation = useLoginMutation();
   const registerMutation = useRegisterMutation();
   const logoutMutation = useLogoutMutation();
+  const verifyEmailMutation = useVerifyEmailMutation();
+  const resendVerificationMutation = useResendVerificationMutation();
+  const updateProfileMutation = useUpdateProfileMutation();
 
   const login = useCallback(
     async (dto: LoginDto) => {
@@ -28,7 +36,7 @@ export function useAuth() {
   const register = useCallback(
     async (dto: RegisterDto) => {
       await registerMutation.mutateAsync(dto);
-      router.replace('/(auth)/login');
+      router.replace('/verify-email');
     },
     [registerMutation, router],
   );
@@ -37,6 +45,27 @@ export function useAuth() {
     await logoutMutation.mutateAsync();
     router.replace('/(auth)/login');
   }, [logoutMutation, router]);
+
+  const verifyEmailAction = useCallback(
+    async (dto: VerifyEmailRequest) => {
+      await verifyEmailMutation.mutateAsync(dto);
+      router.replace('/onboarding');
+    },
+    [verifyEmailMutation, router],
+  );
+
+  const resendVerification = useCallback(async () => {
+    await resendVerificationMutation.mutateAsync();
+  }, [resendVerificationMutation]);
+
+  const updateProfileAction = useCallback(
+    async (dto: UpdateProfileRequest) => {
+      await updateProfileMutation.mutateAsync(dto);
+      await useAuthStore.getState().completeOnboarding();
+      router.replace('/(app)/(home)');
+    },
+    [updateProfileMutation, router],
+  );
 
   return {
     user,
@@ -49,6 +78,16 @@ export function useAuth() {
     login,
     register,
     logout,
+    verifyEmail: verifyEmailAction,
+    resendVerification,
+    updateProfile: updateProfileAction,
     isAuthenticated: !!token,
+    isVerified: user?.isVerified ?? false,
+    loginMutation,
+    registerMutation,
+    logoutMutation,
+    verifyEmailMutation,
+    resendVerificationMutation,
+    updateProfileMutation,
   };
 }

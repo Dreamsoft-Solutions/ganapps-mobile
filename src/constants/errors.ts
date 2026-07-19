@@ -1,19 +1,44 @@
 export const ErrorCodes = {
+  INVALID_INPUT: 'INVALID_INPUT',
   UNAUTHORIZED: 'UNAUTHORIZED',
   FORBIDDEN: 'FORBIDDEN',
   NOT_FOUND: 'NOT_FOUND',
-  VALIDATION_ERROR: 'VALIDATION_ERROR',
-  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  CONFLICT: 'CONFLICT',
+  TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS',
+  INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR',
+  DATABASE_ERROR: 'DATABASE_ERROR',
+  EXTERNAL_SERVICE_ERROR: 'EXTERNAL_SERVICE_ERROR',
+  USER_NOT_FOUND: 'USER_NOT_FOUND',
+  USER_ALREADY_EXISTS: 'USER_ALREADY_EXISTS',
+  FEATURE_NOT_FOUND: 'FEATURE_NOT_FOUND',
+  INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  REFRESH_TOKEN_EXPIRED: 'REFRESH_TOKEN_EXPIRED',
+  REFRESH_TOKEN_REVOKED: 'REFRESH_TOKEN_REVOKED',
+  AUTH_METHOD_DISABLED: 'AUTH_METHOD_DISABLED',
+  GOOGLE_AUTH_FAILED: 'GOOGLE_AUTH_FAILED',
+  TOKEN_THEFT_DETECTED: 'TOKEN_THEFT_DETECTED',
+  EMAIL_NOT_VERIFIED: 'EMAIL_NOT_VERIFIED',
+  INVALID_VERIFICATION_CODE: 'INVALID_VERIFICATION_CODE',
+  VERIFICATION_CODE_EXPIRED: 'VERIFICATION_CODE_EXPIRED',
+  INVITE_NOT_FOUND: 'INVITE_NOT_FOUND',
+  INVITE_EXPIRED: 'INVITE_EXPIRED',
+  INVITE_ALREADY_CLAIMED: 'INVITE_ALREADY_CLAIMED',
+  INVITE_EMAIL_MISMATCH: 'INVITE_EMAIL_MISMATCH',
   NETWORK_ERROR: 'NETWORK_ERROR',
 } as const;
 
-export const ErrorMessages = {
+export const ErrorMessages: Record<string, string> = {
   [ErrorCodes.UNAUTHORIZED]: 'Please sign in to continue',
   [ErrorCodes.FORBIDDEN]: 'You do not have permission to perform this action',
   [ErrorCodes.NOT_FOUND]: 'The requested resource was not found',
-  [ErrorCodes.VALIDATION_ERROR]: 'Please check your input and try again',
-  [ErrorCodes.INTERNAL_ERROR]: 'Something went wrong. Please try again later',
+  [ErrorCodes.INVALID_INPUT]: 'Please check your input and try again',
+  [ErrorCodes.INTERNAL_SERVER_ERROR]: 'Something went wrong. Please try again later',
   [ErrorCodes.NETWORK_ERROR]: 'No internet connection. Please check your network',
-} as const;
+  [ErrorCodes.USER_ALREADY_EXISTS]: 'An account with this email already exists',
+  [ErrorCodes.INVALID_CREDENTIALS]: 'Invalid email or password',
+  [ErrorCodes.EMAIL_NOT_VERIFIED]: 'Please verify your email address',
+  [ErrorCodes.INVALID_VERIFICATION_CODE]: 'Invalid verification code',
+  [ErrorCodes.VERIFICATION_CODE_EXPIRED]: 'Verification code has expired',
+};
 
 export type ErrorCode = keyof typeof ErrorCodes;

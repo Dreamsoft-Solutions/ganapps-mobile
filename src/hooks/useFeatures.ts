@@ -43,10 +43,10 @@ export function useFeatures() {
         take: 10,
       }),
     getNextPageParam: (lastPage) => {
-      if (!lastPage.pagination) return undefined;
+      if (!lastPage.meta) return undefined;
       const nextSkip =
-        lastPage.pagination.skip + lastPage.pagination.take;
-      return nextSkip < lastPage.pagination.total ? nextSkip : undefined;
+        lastPage.meta.skip + lastPage.meta.take;
+      return nextSkip < lastPage.meta.total ? nextSkip : undefined;
     },
     initialPageParam: 0,
   });

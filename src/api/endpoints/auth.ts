@@ -1,26 +1,51 @@
 import axiosInstance from '../axios-instance';
-import type { LoginDto, RegisterDto, LoginResponse } from '@/types/auth.types';
+import type {
+  LoginDto,
+  RegisterDto,
+  TokenResponse,
+  RegisterResponse,
+  RefreshRequest,
+  VerifyEmailRequest,
+  UpdateProfileRequest,
+} from '@/types/auth.types';
 import type { User } from '@/types/user.types';
 
 export const authAPI = {
   login: (dto: LoginDto) =>
     axiosInstance
-      .post<LoginResponse>('/auth/login', dto)
+      .post<TokenResponse>('/auth/login', dto)
       .then((res) => res.data),
 
   register: (dto: RegisterDto) =>
     axiosInstance
-      .post<LoginResponse>('/auth/register', dto)
+      .post<RegisterResponse>('/auth/register', dto)
       .then((res) => res.data),
 
-  logout: () =>
-    axiosInstance.post('/auth/logout').then((res) => res.data),
+  logout: (refreshToken?: string) =>
+    axiosInstance
+      .post<void>('/auth/logout', { refreshToken })
+      .then((res) => res.data),
 
   getMe: () =>
     axiosInstance.get<User>('/auth/me').then((res) => res.data),
 
-  refreshToken: (refreshToken: string) =>
+  refreshToken: (dto: RefreshRequest) =>
     axiosInstance
-      .post<LoginResponse>('/auth/refresh', { refreshToken })
+      .post<TokenResponse>('/auth/refresh', dto)
+      .then((res) => res.data),
+
+  verifyEmail: (dto: VerifyEmailRequest) =>
+    axiosInstance
+      .post<User>('/auth/verify-email', dto)
+      .then((res) => res.data),
+
+  resendVerification: () =>
+    axiosInstance
+      .post<{ message: string }>('/auth/resend-verification')
+      .then((res) => res.data),
+
+  updateProfile: (dto: UpdateProfileRequest) =>
+    axiosInstance
+      .patch<User>('/auth/me', dto)
       .then((res) => res.data),
 };

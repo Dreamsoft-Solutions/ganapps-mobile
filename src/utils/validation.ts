@@ -7,15 +7,25 @@ export const loginSchema = z.object({
 
 export const registerSchema = z
   .object({
-    name: z.string().min(3, 'Name must be at least 3 characters'),
+    username: z.string().min(3, 'Username must be at least 3 characters').max(32, 'Username must be at most 32 characters'),
     email: z.string().email('Invalid email address'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
+    password: z.string().min(8, 'Password must be at least 8 characters').max(128, 'Password must be at most 128 characters'),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
     path: ['confirmPassword'],
   });
+
+export const verifyEmailSchema = z.object({
+  code: z.string().length(6, 'Code must be 6 digits').regex(/^\d{6}$/, 'Code must be 6 digits'),
+});
+
+export const onboardingSchema = z.object({
+  firstName: z.string().max(64, 'First name must be at most 64 characters').optional(),
+  lastName: z.string().max(64, 'Last name must be at most 64 characters').optional(),
+  interests: z.array(z.string()).optional(),
+});
 
 export const createFeatureSchema = z.object({
   name: z.string().min(3, 'Name must be at least 3 characters'),
@@ -24,4 +34,6 @@ export const createFeatureSchema = z.object({
 
 export type LoginFormData = z.infer<typeof loginSchema>;
 export type RegisterFormData = z.infer<typeof registerSchema>;
+export type VerifyEmailFormData = z.infer<typeof verifyEmailSchema>;
+export type OnboardingFormData = z.infer<typeof onboardingSchema>;
 export type CreateFeatureFormData = z.infer<typeof createFeatureSchema>;

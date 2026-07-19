@@ -3,6 +3,8 @@ export const Routes = {
     login: '/(auth)/login',
     register: '/(auth)/register',
     forgotPassword: '/(auth)/forgot-password',
+    verifyEmail: '/(auth)/verify-email',
+    onboarding: '/(auth)/onboarding',
   },
   app: {
     home: '/(app)/(home)',

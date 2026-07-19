@@ -1,8 +1,13 @@
 export interface User {
   id: string;
   email: string;
-  name: string;
-  avatar?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  username: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  displayPicture?: string | null;
+  interests: string[];
+  isVerified: boolean;
+  createdAt: string;
+  googleId?: string | null;
+  isAdmin?: boolean;
 }
