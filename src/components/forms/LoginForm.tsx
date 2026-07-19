@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema } from '@/utils/validation';
 import { Input } from '@/components/common/Input';
 import { Button } from '@/components/common/Button';
+import { Text } from '@/components/common/Text';
 import { useAuth } from '@/hooks/useAuth';
 import type { LoginDto } from '@/types/auth.types';
 
@@ -38,6 +39,22 @@ export function LoginForm() {
           loading={isLoading}
         >
           Login
+        </Button>
+
+        <View className="flex-row justify-end mt-2">
+          <Text className="text-lynx-primary-container font-semibold text-sm">
+            Forgot Password?
+          </Text>
+        </View>
+
+        <View className="flex-row items-center gap-3 mt-4">
+          <View className="flex-1 h-px bg-lynx-outline-variant" />
+          <Text className="text-lynx-secondary text-sm">or</Text>
+          <View className="flex-1 h-px bg-lynx-outline-variant" />
+        </View>
+
+        <Button variant="secondary" onPress={() => {}}>
+          Continue with Google
         </Button>
       </View>
     </FormProvider>

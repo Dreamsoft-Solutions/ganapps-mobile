@@ -1,6 +1,7 @@
 import { View, ScrollView } from 'react-native';
 import { Link } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { RegisterForm } from '@/components/forms/RegisterForm';
 import { Text } from '@/components/common/Text';
 
 export default function RegisterScreen() {
@@ -14,6 +15,8 @@ export default function RegisterScreen() {
           <Text className="text-lynx-on-surface-variant text-center mb-8">
             Sign up to get started
           </Text>
+
+          <RegisterForm />
 
           <View className="mt-6 flex-row justify-center gap-2">
             <Text className="text-lynx-on-surface-variant">
