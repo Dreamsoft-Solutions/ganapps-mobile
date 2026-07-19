@@ -116,7 +116,7 @@ src/
 │   ├── remote-config.service.ts # Firebase Remote Config singleton
 │   └── sync.service.ts        # Offline outbox sync processor
 ├── store/
-│   └── auth.store.ts          # Zustand auth store (persisted to AsyncStorage)
+│   └── auth.store.ts          # Zustand auth store (tokens in expo-secure-store)
 ├── types/                     # Shared TypeScript types
 │   ├── auth.types.ts
 │   ├── feature.types.ts
@@ -125,7 +125,8 @@ src/
 ├── utils/
 │   ├── error-handling.ts      # parseApiError helper
 │   ├── formatting.ts          # Date formatting (formatDate, formatDateTime)
-│   ├── storage.ts             # AsyncStorage wrapper (get, set, remove)
+│   ├── secure-storage.ts      # expo-secure-store wrapper (encrypted token storage)
+│   ├── storage.ts             # AsyncStorage wrapper for non-sensitive data
 │   └── validation.ts          # Zod schemas (login, register, createFeature)
 └── global.css                 # Tailwind input (@tailwind base/components/utilities)
 ```
@@ -292,11 +293,20 @@ export function LoginForm(): ReactElement {
 
 ### Auth & API Convention
 
-- **Token storage**: `auth.store.ts` (Zustand, persisted to AsyncStorage via `zustand/middleware/persist`). Only `token` and `refreshToken` persisted; `user` is not.
+- **Token storage**: `auth.store.ts` uses `expo-secure-store` for encrypted token persistence. `accessToken` and `refreshToken` stored in SecureStore; non-sensitive state (`user`, `expiresAt`) kept in-memory or AsyncStorage.
 - **Token attachment**: Request interceptor reads `useAuthStore.getState().token` directly (outside React lifecycle)
-- **Auto-logout**: Error interceptor catches 401 → calls `useAuthStore.getState().clearAuth()`
+- **Auto-refresh**: Hybrid strategy — preemptive refresh 2 min before token expiry via `expiresAt` timestamp, plus reactive 401 queue with single refresh + retry. Refresh calls `POST /auth/refresh` with the stored refresh token.
+- **Auto-logout**: Error interceptor catches 401 (after refresh fails) → calls `useAuthStore.getState().clearAuth()`
 - **Conditional routing**: Root layout reads `useAuthStore.token` to decide auth vs app navigation
 - **Axios instance** (`api/axios-instance.ts`): `baseURL` from `EXPO_PUBLIC_API_URL` env (default `http://localhost:3000/api`), 30s timeout, JSON content type
+
+---
+
+## Design Rules
+
+- **No emojis** in UI text, labels, or error messages. Use icons instead.
+- **Icons**: Use `lucide-react-native` for all iconography. Import from `lucide-react-native` (e.g., `import { Mail, Lock, User as UserIcon } from 'lucide-react-native'`).
+- **Spacing**: Follow the spacing scale defined in `constants/theme.ts` via Tailwind classes (`p-md`, `gap-lg`, etc.).
 
 ---
 
@@ -400,8 +410,8 @@ Custom spacing scale: `base` (4px), `xs` (8px), `sm` (12px), `md` (16px), `lg` (
 
 - **TanStack Query** for server state (queries, mutations, cache invalidation)
 - **Zustand** for client-only state (auth tokens, UI toggles)
-  - Auth store persisted to AsyncStorage via `zustand/middleware/persist`
-  - Only `token` and `refreshToken` persisted (`partialize`); `user` is not
+  - Auth tokens stored in `expo-secure-store` (encrypted keychain/keystore)
+  - `accessToken` and `refreshToken` persisted via `expo-secure-store`; `user` is in-memory only
   - Store accessed both inside React (via hook `useAuthStore(s => s.token)`) and outside React (via `useAuthStore.getState()` in interceptors/services)
 - Query key factory pattern used consistently across all domains
 - `QueryClient` defaults: `retry: 1`, `gcTime: 5 minutes`
@@ -410,10 +420,11 @@ Custom spacing scale: `base` (4px), `xs` (8px), `sm` (12px), `md` (16px), `lg` (
 
 ## Architecture Decisions
 
-### Cookie-only auth on web, token-in-store on mobile
-- Mobile stores tokens in Zustand (persisted to AsyncStorage) — not `httpOnly` cookies, because React Native has no cookie concept
+### Cookie-only auth on web, token-in-secure-store on mobile
+- Mobile stores tokens in `expo-secure-store` (encrypted device keychain/keystore) — not `httpOnly` cookies, because React Native has no cookie concept
 - Axios request interceptor reads token from Zustand store and attaches as `Authorization: Bearer` header
-- Error interceptor catches 401 responses and calls `clearAuth()` to force logout
+- Hybrid auto-refresh: preemptive + reactive 401 queue
+- Error interceptor catches 401 responses (after refresh fails) and calls `clearAuth()` to force logout
 - Root layout reads token to conditionally render auth vs app navigation
 
 ### Expo Router file-based navigation
