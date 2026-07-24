@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# Claude Code — personal settings, not shared
+.claude/settings.local.json
+
 # Expo
 .expo/
 dist/
