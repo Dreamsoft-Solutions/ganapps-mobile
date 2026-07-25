@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
@@ -5,7 +6,7 @@ import { Text } from '@/components/common/Text';
 import { VerifyEmailForm } from '@/components/forms/VerifyEmailForm';
 import { useAuth } from '@/hooks/useAuth';
 
-export default function VerifyEmailScreen() {
+export default function VerifyEmailScreen(): ReactElement {
   const { resendVerification, resendVerificationMutation } = useAuth();
 
   return (
@@ -24,7 +25,7 @@ export default function VerifyEmailScreen() {
             <Button
               variant="ghost"
               size="sm"
-              onPress={() => resendVerification()}
+              onPress={(): Promise<void> => resendVerification()}
               loading={resendVerificationMutation.isPending}
             >
               Resend Code

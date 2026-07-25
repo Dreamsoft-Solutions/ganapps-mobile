@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react';
+import { type ReactElement, useEffect, useState } from 'react';
 import { Loading } from '@/components/common/Loading';
 import { RootProvider } from '@/providers/RootProvider';
 import { remoteConfigService } from '@/services/remote-config.service';
@@ -8,7 +8,7 @@ import { useAuthStore } from '@/store/auth.store';
 
 SplashScreen.preventAutoHideAsync();
 
-function RootLayoutNav() {
+function RootLayoutNav(): ReactElement {
   const token = useAuthStore((s) => s.token);
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const [hasHiddenSplash, setHasHiddenSplash] = useState(false);
@@ -46,7 +46,7 @@ function RootLayoutNav() {
   );
 }
 
-export default function RootLayout() {
+export default function RootLayout(): ReactElement {
   return (
     <RootProvider>
       <RootLayoutNav />

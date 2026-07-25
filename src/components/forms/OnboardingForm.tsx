@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { ReactElement } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { View } from 'react-native';
 import { Button } from '@/components/common/Button';
@@ -7,14 +8,14 @@ import { useAuth } from '@/hooks/useAuth';
 import type { OnboardingFormData } from '@/utils/validation';
 import { onboardingSchema } from '@/utils/validation';
 
-export function OnboardingForm() {
+export function OnboardingForm(): ReactElement {
   const { updateProfile, updateProfileMutation } = useAuth();
 
   const methods = useForm<OnboardingFormData>({
     resolver: zodResolver(onboardingSchema),
   });
 
-  const onSubmit = async (data: OnboardingFormData) => {
+  const onSubmit = async (data: OnboardingFormData): Promise<void> => {
     await updateProfile({
       firstName: data.firstName || undefined,
       lastName: data.lastName || undefined,

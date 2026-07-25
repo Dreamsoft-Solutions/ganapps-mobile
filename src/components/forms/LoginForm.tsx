@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { ReactElement } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { View } from 'react-native';
 import { Button } from '@/components/common/Button';
@@ -8,14 +9,14 @@ import { useAuth } from '@/hooks/useAuth';
 import type { LoginDto } from '@/types/auth.types';
 import { loginSchema } from '@/utils/validation';
 
-export function LoginForm() {
+export function LoginForm(): ReactElement {
   const { login, isLoading } = useAuth();
 
   const methods = useForm<LoginDto>({
     resolver: zodResolver(loginSchema),
   });
 
-  const onSubmit = async (data: LoginDto) => {
+  const onSubmit = async (data: LoginDto): Promise<void> => {
     await login(data);
   };
 
@@ -38,7 +39,7 @@ export function LoginForm() {
           <View className="flex-1 h-px bg-lynx-outline-variant" />
         </View>
 
-        <Button variant="secondary" onPress={() => {}}>
+        <Button variant="secondary" onPress={(): void => {}}>
           Continue with Google
         </Button>
       </View>

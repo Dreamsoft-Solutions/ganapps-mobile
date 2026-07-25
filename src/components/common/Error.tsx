@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { Pressable, View } from 'react-native';
 import { Text } from './Text';
 
@@ -6,7 +7,7 @@ interface ErrorViewProps {
   onRetry?: () => void;
 }
 
-export function ErrorView({ error, onRetry }: ErrorViewProps) {
+export function ErrorView({ error, onRetry }: ErrorViewProps): ReactElement {
   return (
     <View className="flex-1 items-center justify-center p-xl">
       <Text className="text-lynx-error text-headline-sm mb-sm">Something went wrong</Text>

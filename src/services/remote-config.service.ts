@@ -14,7 +14,7 @@ class RemoteConfigService {
     this.loadDefaults();
   }
 
-  private loadDefaults() {
+  private loadDefaults(): void {
     if (DEFAULT_CONFIG.features) {
       for (const [key, raw] of Object.entries(DEFAULT_CONFIG.features)) {
         const value = raw as Record<string, unknown>;

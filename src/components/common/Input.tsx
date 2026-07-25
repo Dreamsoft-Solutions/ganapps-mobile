@@ -1,4 +1,5 @@
-import { Controller, useFormContext } from 'react-hook-form';
+import type { ReactElement } from 'react';
+import { Controller, type ControllerRenderProps, useFormContext } from 'react-hook-form';
 import { TextInput, View } from 'react-native';
 import { Text } from './Text';
 
@@ -10,7 +11,7 @@ interface InputProps {
   keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'number-pad';
 }
 
-export function Input({ name, label, placeholder, secureTextEntry, keyboardType }: InputProps) {
+export function Input({ name, label, placeholder, secureTextEntry, keyboardType }: InputProps): ReactElement {
   const { control, formState } = useFormContext();
   const error = formState.errors[name]?.message as string | undefined;
 
@@ -18,7 +19,7 @@ export function Input({ name, label, placeholder, secureTextEntry, keyboardType 
     <Controller
       control={control}
       name={name}
-      render={({ field: { value, onChange } }) => (
+      render={({ field: { value, onChange } }: { field: ControllerRenderProps }): ReactElement => (
         <View className="mb-4">
           {label && <Text className="text-sm font-semibold text-lynx-on-surface mb-2">{label}</Text>}
           <TextInput

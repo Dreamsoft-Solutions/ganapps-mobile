@@ -1,10 +1,10 @@
 import { Tabs, useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { type ReactElement, useEffect } from 'react';
 import { Loading } from '@/components/common/Loading';
 import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
 import { useAuthStore } from '@/store/auth.store';
 
-export default function AppLayout() {
+export default function AppLayout(): ReactElement {
   const router = useRouter();
   const { data: user, isLoading } = useAuthQuery();
   const hasCompletedOnboarding = useAuthStore((s) => s.hasCompletedOnboarding);

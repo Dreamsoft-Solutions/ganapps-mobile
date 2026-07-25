@@ -1,10 +1,11 @@
 import { Link } from 'expo-router';
+import type { ReactElement } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/common/Text';
 import { LoginForm } from '@/components/forms/LoginForm';
 
-export default function LoginScreen() {
+export default function LoginScreen(): ReactElement {
   return (
     <SafeAreaView className="flex-1 bg-lynx-background">
       <ScrollView className="flex-1 px-6">

@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { ReactElement } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { View } from 'react-native';
 import { Button } from '@/components/common/Button';
@@ -7,14 +8,14 @@ import { useAuth } from '@/hooks/useAuth';
 import type { RegisterDto } from '@/types/auth.types';
 import { type RegisterFormData, registerSchema } from '@/utils/validation';
 
-export function RegisterForm() {
+export function RegisterForm(): ReactElement {
   const { register, isLoading } = useAuth();
 
   const methods = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   });
 
-  const onSubmit = async (data: RegisterFormData) => {
+  const onSubmit = async (data: RegisterFormData): Promise<void> => {
     const dto: RegisterDto = {
       email: data.email,
       password: data.password,

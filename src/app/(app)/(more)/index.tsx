@@ -1,7 +1,8 @@
+import type { ReactElement } from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/common/Text';
 
-export default function MoreScreen() {
+export default function MoreScreen(): ReactElement {
   return (
     <View className="flex-1 bg-lynx-background p-md items-center justify-center">
       <Text className="text-headline-md">More</Text>

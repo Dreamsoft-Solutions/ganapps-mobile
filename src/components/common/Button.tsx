@@ -1,5 +1,5 @@
 import { cva, type VariantProps } from 'class-variance-authority';
-import { useCallback } from 'react';
+import { type ReactElement, useCallback } from 'react';
 import { ActivityIndicator, Pressable } from 'react-native';
 import { Text } from './Text';
 
@@ -53,7 +53,7 @@ interface ButtonProps extends VariantProps<typeof buttonVariants> {
   children: string;
 }
 
-export function Button({ variant, size, onPress, disabled, loading, children }: ButtonProps) {
+export function Button({ variant, size, onPress, disabled, loading, children }: ButtonProps): ReactElement {
   const handlePress = useCallback(async () => {
     try {
       await onPress();

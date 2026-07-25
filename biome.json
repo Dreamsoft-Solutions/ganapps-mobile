@@ -31,6 +31,9 @@
         "noUnusedVariables": "error",
         "useExhaustiveDependencies": "warn"
       },
+      "nursery": {
+        "useExplicitType": "error"
+      },
       "style": {
         "useImportType": "off"
       },

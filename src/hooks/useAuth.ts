@@ -1,7 +1,16 @@
+import type { UseMutationResult } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback } from 'react';
 import { useAuthStore } from '@/store/auth.store';
-import type { LoginDto, RegisterDto, UpdateProfileRequest, VerifyEmailRequest } from '@/types/auth.types';
+import type {
+  LoginDto,
+  RegisterDto,
+  RegisterResponse,
+  TokenResponse,
+  UpdateProfileRequest,
+  VerifyEmailRequest,
+} from '@/types/auth.types';
+import type { User } from '@/types/user.types';
 import {
   useLoginMutation,
   useLogoutMutation,
@@ -12,7 +21,28 @@ import {
 } from './mutations/useAuthMutation';
 import { useAuthQuery } from './queries/useAuthQuery';
 
-export function useAuth() {
+export interface UseAuthResult {
+  user: User | null;
+  token: string | null;
+  isLoading: boolean;
+  error: Error | null;
+  login: (dto: LoginDto) => Promise<void>;
+  register: (dto: RegisterDto) => Promise<void>;
+  logout: () => Promise<void>;
+  verifyEmail: (dto: VerifyEmailRequest) => Promise<void>;
+  resendVerification: () => Promise<void>;
+  updateProfile: (dto: UpdateProfileRequest) => Promise<void>;
+  isAuthenticated: boolean;
+  isVerified: boolean;
+  loginMutation: UseMutationResult<TokenResponse, Error, LoginDto>;
+  registerMutation: UseMutationResult<RegisterResponse, Error, RegisterDto>;
+  logoutMutation: UseMutationResult<void, Error, void>;
+  verifyEmailMutation: UseMutationResult<User, Error, VerifyEmailRequest>;
+  resendVerificationMutation: UseMutationResult<{ message: string }, Error, void>;
+  updateProfileMutation: UseMutationResult<User, Error, UpdateProfileRequest>;
+}
+
+export function useAuth(): UseAuthResult {
   const router = useRouter();
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);

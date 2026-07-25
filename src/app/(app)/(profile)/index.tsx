@@ -1,9 +1,10 @@
+import type { ReactElement } from 'react';
 import { View } from 'react-native';
 import { Button } from '@/components/common/Button';
 import { Text } from '@/components/common/Text';
 import { useAuth } from '@/hooks/useAuth';
 
-export default function ProfileScreen() {
+export default function ProfileScreen(): ReactElement {
   const { user, logout } = useAuth();
 
   return (
@@ -22,7 +23,7 @@ export default function ProfileScreen() {
           )}
         </View>
       )}
-      <Button variant="secondary" onPress={() => logout()}>
+      <Button variant="secondary" onPress={(): Promise<void> => logout()}>
         Sign Out
       </Button>
     </View>

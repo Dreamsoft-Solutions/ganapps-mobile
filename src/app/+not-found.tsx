@@ -1,8 +1,9 @@
 import { Link, Stack } from 'expo-router';
+import type { ReactElement } from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/common/Text';
 
-export default function NotFoundScreen() {
+export default function NotFoundScreen(): ReactElement {
   return (
     <View className="flex-1 bg-lynx-background items-center justify-center p-xl">
       <Stack.Screen options={{ title: 'Not Found' }} />

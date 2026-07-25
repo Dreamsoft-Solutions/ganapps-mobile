@@ -24,7 +24,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isHydrated: false,
   hasCompletedOnboarding: false,
 
-  setAuth: async (accessToken, refreshToken, expiresIn) => {
+  setAuth: async (accessToken: string, refreshToken: string, expiresIn: number): Promise<void> => {
     await secureStorage.setTokens(accessToken, refreshToken, expiresIn);
     set({
       token: accessToken,
@@ -32,7 +32,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
 
-  setUser: (user) => set({ user }),
+  setUser: (user: User): void => set({ user }),
 
   clearAuth: async () => {
     await secureStorage.clearTokens();

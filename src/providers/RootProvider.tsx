@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 const queryClient = new QueryClient({
@@ -11,7 +11,7 @@ const queryClient = new QueryClient({
   },
 });
 
-export function RootProvider({ children }: { children: ReactNode }) {
+export function RootProvider({ children }: { children: ReactNode }): ReactElement {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authAPI } from '@/api/endpoints/auth';
 import { useAuthStore } from '@/store/auth.store';
 import type {
@@ -12,31 +12,31 @@ import type {
 import type { User } from '@/types/user.types';
 import { authQueryKeys } from '../queries/useAuthQuery';
 
-export function useLoginMutation() {
+export function useLoginMutation(): UseMutationResult<TokenResponse, Error, LoginDto> {
   const queryClient = useQueryClient();
   const setAuth = useAuthStore((s) => s.setAuth);
 
   return useMutation<TokenResponse, Error, LoginDto>({
-    mutationFn: (dto) => authAPI.login(dto),
-    onSuccess: (data) => {
+    mutationFn: (dto: LoginDto): Promise<TokenResponse> => authAPI.login(dto),
+    onSuccess: (data: TokenResponse): void => {
       setAuth(data.accessToken, data.refreshToken, data.expiresIn);
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
     },
   });
 }
 
-export function useRegisterMutation() {
+export function useRegisterMutation(): UseMutationResult<RegisterResponse, Error, RegisterDto> {
   const setAuth = useAuthStore((s) => s.setAuth);
 
   return useMutation<RegisterResponse, Error, RegisterDto>({
-    mutationFn: (dto) => authAPI.register(dto),
-    onSuccess: (data) => {
+    mutationFn: (dto: RegisterDto): Promise<RegisterResponse> => authAPI.register(dto),
+    onSuccess: (data: RegisterResponse): void => {
       setAuth(data.accessToken, data.refreshToken, data.expiresIn);
     },
   });
 }
 
-export function useLogoutMutation() {
+export function useLogoutMutation(): UseMutationResult<void, Error, void> {
   const queryClient = useQueryClient();
   const clearAuth = useAuthStore((s) => s.clearAuth);
 
@@ -49,32 +49,32 @@ export function useLogoutMutation() {
   });
 }
 
-export function useVerifyEmailMutation() {
+export function useVerifyEmailMutation(): UseMutationResult<User, Error, VerifyEmailRequest> {
   const queryClient = useQueryClient();
   const setUser = useAuthStore((s) => s.setUser);
 
   return useMutation<User, Error, VerifyEmailRequest>({
-    mutationFn: (dto) => authAPI.verifyEmail(dto),
-    onSuccess: (user) => {
+    mutationFn: (dto: VerifyEmailRequest): Promise<User> => authAPI.verifyEmail(dto),
+    onSuccess: (user: User): void => {
       setUser(user);
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
     },
   });
 }
 
-export function useResendVerificationMutation() {
+export function useResendVerificationMutation(): UseMutationResult<{ message: string }, Error, void> {
   return useMutation<{ message: string }, Error, void>({
     mutationFn: () => authAPI.resendVerification(),
   });
 }
 
-export function useUpdateProfileMutation() {
+export function useUpdateProfileMutation(): UseMutationResult<User, Error, UpdateProfileRequest> {
   const queryClient = useQueryClient();
   const setUser = useAuthStore((s) => s.setUser);
 
   return useMutation<User, Error, UpdateProfileRequest>({
-    mutationFn: (dto) => authAPI.updateProfile(dto),
-    onSuccess: (user) => {
+    mutationFn: (dto: UpdateProfileRequest): Promise<User> => authAPI.updateProfile(dto),
+    onSuccess: (user: User): void => {
       setUser(user);
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
     },

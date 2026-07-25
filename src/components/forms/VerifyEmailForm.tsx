@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { ReactElement } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { View } from 'react-native';
 import { Button } from '@/components/common/Button';
@@ -7,14 +8,14 @@ import { useAuth } from '@/hooks/useAuth';
 import type { VerifyEmailFormData } from '@/utils/validation';
 import { verifyEmailSchema } from '@/utils/validation';
 
-export function VerifyEmailForm() {
+export function VerifyEmailForm(): ReactElement {
   const { verifyEmail, verifyEmailMutation } = useAuth();
 
   const methods = useForm<VerifyEmailFormData>({
     resolver: zodResolver(verifyEmailSchema),
   });
 
-  const onSubmit = async (data: VerifyEmailFormData) => {
+  const onSubmit = async (data: VerifyEmailFormData): Promise<void> => {
     await verifyEmail({ code: data.code });
   };
 

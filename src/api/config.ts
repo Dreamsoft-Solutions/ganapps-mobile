@@ -10,4 +10,4 @@
  * device, not the host machine: use `http://10.0.2.2:3000/api/v1` on an Android
  * emulator, or the host's LAN IP on a physical device.
  */
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+export const API_BASE_URL: string = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api/v1';

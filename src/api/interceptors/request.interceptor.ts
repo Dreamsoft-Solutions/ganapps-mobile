@@ -6,7 +6,7 @@ import { refreshAccessToken } from './refresh-token';
 const PREEMPTIVE_REFRESH_MS = 2 * 60 * 1000;
 
 export const requestInterceptor = {
-  onFulfilled: async (config: InternalAxiosRequestConfig) => {
+  onFulfilled: async (config: InternalAxiosRequestConfig): Promise<InternalAxiosRequestConfig> => {
     const state = useAuthStore.getState();
     let token = state.token;
 
@@ -31,5 +31,5 @@ export const requestInterceptor = {
 
     return config;
   },
-  onRejected: (error: AxiosError) => Promise.reject(error),
+  onRejected: (error: AxiosError): Promise<never> => Promise.reject(error),
 };

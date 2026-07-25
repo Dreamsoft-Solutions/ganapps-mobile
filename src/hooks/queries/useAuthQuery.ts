@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 import { authAPI } from '@/api/endpoints/auth';
 import { useAuthStore } from '@/store/auth.store';
 import type { User } from '@/types/user.types';
@@ -8,7 +8,7 @@ export const authQueryKeys = {
   me: () => [...authQueryKeys.all, 'me'] as const,
 };
 
-export function useAuthQuery() {
+export function useAuthQuery(): UseQueryResult<User, Error> {
   const token = useAuthStore((s) => s.token);
 
   return useQuery<User, Error>({

@@ -1,4 +1,4 @@
-import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import type { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/store/auth.store';
 import { parseApiError } from '@/utils/error-handling';
 import { secureStorage } from '@/utils/secure-storage';
@@ -13,7 +13,7 @@ interface QueueItem {
 let isRefreshing = false;
 let failedQueue: QueueItem[] = [];
 
-function processQueue(error: unknown, token: string | null) {
+function processQueue(error: unknown, token: string | null): void {
   failedQueue.forEach((item) => {
     if (error || !token) {
       item.reject(error);
@@ -25,7 +25,7 @@ function processQueue(error: unknown, token: string | null) {
 }
 
 export const errorInterceptor = {
-  onRejected: async (error: AxiosError) => {
+  onRejected: async (error: AxiosError): Promise<AxiosResponse> => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {

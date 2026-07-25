@@ -1,8 +1,9 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
+import type { ReactElement } from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/common/Text';
 
-export default function FeatureDetailScreen() {
+export default function FeatureDetailScreen(): ReactElement {
   const { 'feature-id': featureId } = useLocalSearchParams<{
     'feature-id': string;
   }>();
