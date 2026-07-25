@@ -1,9 +1,8 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/auth.store';
 import type { TokenResponse } from '@/types/auth.types';
-
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+import { API_BASE_URL } from '../config';
+import { type ApiResponse, isApiResponse } from '../types/api-response';
 
 let refreshPromise: Promise<TokenResponse> | null = null;
 
@@ -13,6 +12,12 @@ let refreshPromise: Promise<TokenResponse> | null = null;
  * Deduplicates concurrent refresh calls by sharing a single
  * in-flight promise.
  *
+ * Uses the bare `axios` module rather than `axiosInstance` on purpose: routing
+ * the refresh call through the instance would re-enter the error interceptor on
+ * a 401 and deadlock against its own refresh queue. The cost is that the
+ * instance's response interceptor does not run here, so the server's envelope
+ * has to be unwrapped explicitly.
+ *
  * @param refreshToken - The refresh token to exchange
  * @returns New token pair
  * @throws When the refresh request fails
@@ -20,8 +25,8 @@ let refreshPromise: Promise<TokenResponse> | null = null;
 export async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> {
   if (!refreshPromise) {
     refreshPromise = axios
-      .post<TokenResponse>(`${API_BASE_URL}/auth/refresh`, { refreshToken })
-      .then((res) => res.data)
+      .post<ApiResponse<TokenResponse> | TokenResponse>(`${API_BASE_URL}/auth/refresh`, { refreshToken })
+      .then((res) => (isApiResponse<TokenResponse>(res.data) ? res.data.data : res.data))
       .then((tokens) => {
         useAuthStore.getState().setAuth(tokens.accessToken, tokens.refreshToken, tokens.expiresIn);
         return tokens;

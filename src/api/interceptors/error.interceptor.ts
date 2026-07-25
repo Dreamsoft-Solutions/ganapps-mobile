@@ -1,7 +1,8 @@
-import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/store/auth.store';
-import { secureStorage } from '@/utils/secure-storage';
 import { parseApiError } from '@/utils/error-handling';
+import { secureStorage } from '@/utils/secure-storage';
+import axiosInstance from '../axios-instance';
 import { refreshAccessToken } from './refresh-token';
 
 interface QueueItem {
@@ -40,8 +41,9 @@ export const errorInterceptor = {
           failedQueue.push({ resolve, reject });
         })
           .then((token) => {
+            originalRequest._retry = true;
             originalRequest.headers.Authorization = `Bearer ${token}`;
-            return axios(originalRequest);
+            return axiosInstance(originalRequest);
           })
           .catch((err) => Promise.reject(err));
       }
@@ -53,7 +55,7 @@ export const errorInterceptor = {
         const tokens = await refreshAccessToken(refreshToken);
         processQueue(null, tokens.accessToken);
         originalRequest.headers.Authorization = `Bearer ${tokens.accessToken}`;
-        return axios(originalRequest);
+        return axiosInstance(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
         await useAuthStore.getState().clearAuth();
