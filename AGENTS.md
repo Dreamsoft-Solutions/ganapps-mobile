@@ -398,7 +398,10 @@ helpers need one only when the logic is non-obvious.
 
 **Current code does not comply.** Most of `components/`, `hooks/`, and `api/endpoints/`
 predates enforcement. Do not retrofit the repo wholesale — add TSDoc to every export you
-create, and to any export you meaningfully change. The same applies to explicit return types.
+create, and to any export you meaningfully change.
+
+Unlike explicit return types, TSDoc has **no Biome rule** and nothing enforces it, so this one
+does depend on review. Explicit types are a hard gate — see *TypeScript Standards*.
 
 ---
 
@@ -455,11 +458,40 @@ Radii: `sm` 4px, `md` 12px, `lg` 16px, `xl` 24px, `full` 9999px.
 
 - Strict mode (extends `expo/tsconfig.base`)
 - No `any` — use `unknown` plus type guards
-- Explicit return types on all exported functions
 - `const` over `let` unless mutation is required
 - No unused imports or commented-out code — delete it
 - `import type` for type-only imports
 - Prefer derived types (`Pick`, `Omit`, `Partial`) over duplicated shapes
+
+### Explicit types — enforced by Biome
+
+`nursery/useExplicitType` is set to `error` in `biome.json`, so this is a build gate, not a
+review convention. `npm run lint` fails on a violation, and `pre-push` runs `npm run lint`.
+
+The rule is **broader than "exported functions"** — it has no options, and it flags:
+
+- every function's return type, including **private helpers** and **inline callbacks**
+  (`onPress`, `renderItem`, `keyExtractor`, `mutationFn`, `onSuccess`)
+- every **parameter** without an annotation, even where TypeScript infers it contextually
+  from a generic — Biome does not do type inference, so a contextually-typed callback
+  parameter still has to be written out
+- **module-level variables** that are not plain literals — `export const API_BASE_URL: string`
+
+Practical consequences:
+
+- Screens and layouts are `(): ReactElement`. So are components — see the `LoginForm`
+  example under *Form Pattern*.
+- Endpoint functions are `(dto: Dto): Promise<Payload>`, naming the **inner** payload.
+- Hooks return TanStack's own result types: `UseQueryResult<T, Error>`,
+  `UseMutationResult<T, Error, V>`. An aggregated hook returning an object literal needs a
+  named exported interface — see `UseAuthResult` in `hooks/useAuth.ts`.
+- Annotating a `queryFn`'s `pageParam` **breaks TanStack's inference of `TPageParam`**, which
+  silently degrades to `unknown`. Pass explicit generics to `useInfiniteQuery` instead;
+  `hooks/useFeatures.ts` shows the five-generic form.
+
+There is no autofix. `@biomejs/biome` is pinned to an exact version rather than a caret range
+because this is a **nursery** rule: a minor bump could change its behaviour and break
+`pre-push` for everyone. Do not widen that range without re-running the rule across `src/`.
 
 ## File Naming
 
@@ -571,15 +603,27 @@ cannot run without them.
 - [ ] New component? → `components/common/` if shared; decide `className` per the rule above
 - [ ] Offline write? → outbox via `db/schema.ts` + `sync.service.ts`
 - [ ] Error/loading/empty states covered? → `ErrorView` with retry, `Loading`, `Empty`
-- [ ] TSDoc and an explicit return type on every new or touched export?
+- [ ] TSDoc on every new or touched export? (not linted — this one is on you)
+- [ ] Explicit types on every function, callback, and parameter? (`npm run lint` will tell you)
 - [ ] Test written first (hooks, utils, services, API layer)?
 
 ## Git Workflow
 
-- Branch: `dev`. `master` is not a working branch.
+- Branch: `dev`. `master` is not a working branch. Note that `origin/HEAD` still points at
+  `master`, so anything defaulting to it — a new PR's base, for one — targets the wrong branch.
 - Conventional Commits, enforced by commitlint (100 char header limit)
 - `pre-commit`: lint-staged; `pre-push`: lint + test. Do not bypass with `--no-verify`
 - Do not commit or push unless asked
+
+### CI
+
+`.github/workflows/ci.yml` runs `npm ci`, `npm run check`, `npm run type-check`, and
+`npm run test` on every push and pull request to `dev` or `master`. It is the same sequence
+`pre-push` runs locally, minus the shortcuts — `npm ci` installs strictly from
+`package-lock.json` and fails on drift between it and `package.json`.
+
+Node comes from `.nvmrc` in both CI and local `nvm` shells, so bump the two together rather
+than letting CI test a version nobody develops on.
 
 ---
 
@@ -592,7 +636,7 @@ Every feature implementation **must** conclude with a structured review.
 
 | Category | Checks |
 |---|---|
-| Best practices | TSDoc on new/touched exports? `@param`/`@returns`/`@throws` correct? No `any`? Explicit return types? |
+| Best practices | TSDoc on new/touched exports? `@param`/`@returns`/`@throws` correct? No `any`? (Explicit types are gated by `npm run lint`, so step 1 already covers them.) |
 | API layer | Imports `axiosInstance`, not bare `axios`? Version-free path? No second unwrap of the envelope? Route confirmed against the server? |
 | Hook conventions | Endpoint in `api/endpoints/`? Query/mutation in `hooks/queries|mutations/`? Aggregated hook? Query key factory exported? |
 | Navigation | Correct route group? Layout updated? Dynamic params right? |
