@@ -8,9 +8,13 @@
     "scheme": "ganappsmobile",
     "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.dreamsoft.ganapps",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
+      "package": "com.dreamsoft.ganapps",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#00c853",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -33,8 +37,7 @@
           "imageWidth": 76
         }
       ],
-      "@react-native-firebase/app",
-      "@react-native-firebase/remote-config"
+      "@react-native-firebase/app"
     ],
     "experiments": {
       "typedRoutes": true,
