@@ -2,13 +2,26 @@
 
 Always read this file before taking any action in this repository.
 
+This file is the authoritative source for **code conventions**. Where it disagrees with the
+code, that is a bug in one of them — say so rather than silently following either. Where it
+disagrees with `../ganapps-server/`, **the server wins**: it owns the API contract.
+
 ## Overview
 
-**Ganapps Mobile** is the React Native mobile app for the Ganapps event platform, built with Expo SDK 57. It provides the native mobile experience for event discovery, feature management, and user interactions.
+**Ganapps Mobile** is the React Native app for Ganapps, a campus event discovery product for
+Central Philippine University. Students browse events on a map or feed, register, join the
+event chat, check in by QR, and leave feedback.
 
-**Tech stack:** Expo SDK 57 · Expo Router (file-based) · React Native · TypeScript 6 · NativeWind v4 (Tailwind) · TanStack Query v5 · Zustand v5 · react-hook-form · Zod v4 · Axios · Drizzle ORM (SQLite) · Biome · Jest · EAS Build
+Domain vocabulary lives in `CONTEXT.md` at the repo root — read it before naming anything.
+The two terms that matter most: a **Ganap** is an event (never `Event`, which collides with
+DOM and React Native types), and a **Business** is a campus organization.
 
-**Package manager:** npm
+**Tech stack:** Expo SDK 57 · Expo Router (file-based) · React Native 0.86 · TypeScript 6 ·
+NativeWind v4 (Tailwind) · TanStack Query v5 · Zustand v5 · react-hook-form · Zod v4 · Axios ·
+Drizzle ORM (SQLite) · Biome · Jest · EAS Build
+
+**Package manager:** npm. Not pnpm — do not copy install commands from the server or web repos.
+Expo packages must be added with `npx expo install` so SDK-compatible versions are chosen.
 
 ---
 
@@ -20,14 +33,14 @@ npx expo start                # Start Expo dev server
 npx expo start --clear        # Clear metro cache then start
 
 # Build (EAS)
-eas build --profile preview   # Preview build (Android APK / iOS sim)
-eas build --profile production # Production build
+eas build --profile preview     # Preview build (Android APK / iOS sim)
+eas build --profile production  # Production build
 
 # Lint & Format (Biome)
-npm run lint                  # Lint check (biome lint src/)
-npm run lint:fix              # Lint with auto-fix (biome lint --write src/)
-npm run format                # Auto-format (biome format --write src/)
-npm run check                 # Lint + format check (biome check src/)
+npm run lint                  # Lint only            (biome lint src/)
+npm run lint:fix              # Lint with auto-fix   (biome lint --write src/)
+npm run format                # Format only          (biome format --write src/)
+npm run check                 # Lint + format + assists (biome check src/)
 
 # Test (Jest)
 npm run test                  # Run all unit tests
@@ -42,97 +55,166 @@ npm run db:generate           # Generate Drizzle migrations
 npm run db:migrate            # Apply migrations
 ```
 
+**`npm run format` alone cannot make `npm run check` pass.** `check` also runs assists
+(`assist/source/organizeImports`), which `format` never applies. To clear everything:
+
+```bash
+npm run format
+npx biome check --write --only=assist/source/organizeImports src/
+```
+
+`npm run reset-project` still exists in `package.json`. **Do not run it** — it moves `src/`
+aside and scaffolds a blank app.
+
 ---
 
 ## Project Structure
 
 ```
 src/
-├── api/                       # Axios HTTP client layer
-│   ├── axios-instance.ts      # Axios config, base URL, timeout
+├── api/                              # Axios HTTP client layer
+│   ├── axios-instance.ts             # The configured instance — always import this
+│   ├── config.ts                     # API_BASE_URL (includes /api/v1)
 │   ├── interceptors/
-│   │   ├── request.interceptor.ts  # Attaches bearer token from auth store
-│   │   ├── response.interceptor.ts # Pass-through
-│   │   └── error.interceptor.ts    # 401 → clearAuth, parseApiError
-│   ├── endpoints/             # API endpoint wrappers (one per domain)
-│   │   ├── auth.ts            # login, register, logout, getMe, refreshToken
-│   │   ├── features.ts        # getAll, getById, create, update, delete
-│   │   └── users.ts           # getMe, updateProfile
-│   └── types/
-│       ├── api-response.ts    # ApiResponse<T>, PaginatedResponse<T>
-│       └── api-error.ts       # ApiErrorResponse types
-├── app/                       # Expo Router file-based routing
-│   ├── _layout.tsx            # Root layout — conditional auth/app routing
-│   ├── +not-found.tsx         # 404 screen
-│   ├── (auth)/                # Unauthenticated group (login, register)
-│   │   ├── _layout.tsx        # Auth stack (fade animation, no header)
+│   │   ├── request.interceptor.ts    # Bearer token + preemptive refresh (2 min before expiry)
+│   │   ├── response.interceptor.ts   # Unwraps the server's response envelope
+│   │   ├── error.interceptor.ts      # 401 → refresh + retry queue → clearAuth
+│   │   └── refresh-token.ts          # POST /auth/refresh, deduped via shared promise
+│   ├── endpoints/
+│   │   ├── auth.ts                   # 8 auth calls (see API Layer below)
+│   │   ├── features.ts               # DEAD — no such endpoint on the server
+│   │   └── users.ts                  # DEAD — no such endpoint on the server
+│   ├── types/
+│   │   ├── api-response.ts           # ApiResponse<T>, PaginatedResponse<T>, isApiResponse
+│   │   └── api-error.ts              # ApiErrorResponse
+│   └── api-layer.test.ts             # URL shape + envelope unwrapping tests
+├── app/                              # Expo Router file-based routing
+│   ├── _layout.tsx                   # Root layout — hydrate, splash, auth vs app routing
+│   ├── +not-found.tsx
+│   ├── onboarding.tsx                # Root level, NOT in (auth)
+│   ├── verify-email.tsx              # Root level, NOT in (auth)
+│   ├── (auth)/                       # Unauthenticated group
+│   │   ├── _layout.tsx
 │   │   ├── login.tsx
 │   │   └── register.tsx
-│   └── (app)/                 # Authenticated group (tab navigator)
-│       ├── _layout.tsx        # Tab navigator (Home, Features, Profile, More)
-│       ├── (home)/            # Home tab stack
-│       │   ├── _layout.tsx
-│       │   └── index.tsx
-│       ├── (features)/        # Features tab stack
-│       │   ├── _layout.tsx
-│       │   ├── index.tsx
-│       │   └── [feature-id].tsx
-│       ├── (profile)/         # Profile tab stack
-│       │   ├── _layout.tsx
-│       │   ├── index.tsx
-│       │   ├── edit.tsx
-│       │   └── settings.tsx
-│       └── (more)/            # More tab stack
-│           ├── _layout.tsx
-│           └── index.tsx
+│   └── (app)/                        # Authenticated group (tab navigator)
+│       ├── _layout.tsx               # Tabs: Home, Features, Profile, More
+│       ├── (home)/{_layout,index}.tsx
+│       ├── (features)/{_layout,index,[feature-id]}.tsx   # DEAD — see Known Drift
+│       ├── (profile)/{_layout,index,edit,settings}.tsx
+│       └── (more)/{_layout,index}.tsx
 ├── components/
-│   ├── common/                # Reusable UI primitives (CVA-based)
-│   │   ├── Button.tsx         # CVA variants: primary/secondary/danger/ghost
-│   │   ├── Card.tsx           # White card with rounded-xl
-│   │   ├── Empty.tsx          # Centered empty state message
-│   │   ├── Error.tsx          # Error display with optional retry button
-│   │   ├── Input.tsx          # react-hook-form Controller wrapper
-│   │   ├── Loading.tsx        # Centered ActivityIndicator
-│   │   └── Text.tsx           # Base Text wrapper (font-sans, lynx text color)
-│   ├── forms/                 # Form compositions
-│   │   └── LoginForm.tsx
-│   └── lists/                 # List components with FlatList
-│       └── FeatureList.tsx
-├── constants/                 # Design tokens and route constants
-│   ├── errors.ts              # Error code constants
-│   ├── routes.ts              # Route path constants (type-safe)
-│   └── theme.ts               # Dark mode color palette
-├── db/                        # SQLite via Drizzle ORM
-│   ├── index.ts               # DB instance (openDatabaseSync)
-│   └── schema.ts              # Tables: outbox, feature_cache, user_cache
-├── hooks/                     # TanStack Query hooks + feature hooks
-│   ├── queries/               # Read hooks + query key factories
-│   │   └── useAuthQuery.ts
-│   ├── mutations/             # Write hooks
-│   │   └── useAuthMutation.ts
-│   ├── useAuth.ts             # Aggregated auth hook
-│   ├── useFeatureFlag.ts      # Firebase Remote Config hooks
-│   └── useFeatures.ts         # Aggregated features hook (CRUD + infinite query)
-├── providers/
-│   └── RootProvider.tsx       # GestureHandlerRootView + QueryClientProvider
+│   ├── common/                       # UI primitives
+│   │   ├── Button.tsx                # CVA variants; takes `children: string`
+│   │   ├── Card.tsx                  # Accepts className (ViewProps spread)
+│   │   ├── Empty.tsx                 # Centered empty state
+│   │   ├── Error.tsx                 # Exports `ErrorView`, not `Error`
+│   │   ├── Input.tsx                 # react-hook-form Controller wrapper
+│   │   ├── Loading.tsx               # Centered ActivityIndicator
+│   │   └── Text.tsx                  # Accepts className (TextProps spread)
+│   ├── forms/                        # LoginForm, RegisterForm, VerifyEmailForm, OnboardingForm
+│   └── lists/                        # FeatureList.tsx
+├── constants/
+│   ├── errors.ts                     # ErrorCodes + ErrorMessages, mirrors server AppError
+│   ├── routes.ts                     # STALE — see Known Drift
+│   └── theme.ts                      # Dark mode palette
+├── db/                               # SQLite via Drizzle
+│   ├── index.ts
+│   └── schema.ts                     # outbox, feature_cache, user_cache
+├── hooks/
+│   ├── queries/useAuthQuery.ts
+│   ├── mutations/useAuthMutation.ts
+│   ├── useAuth.ts
+│   ├── useFeatureFlag.ts             # useFeatureFlag / ...String / ...Number
+│   └── useFeatures.ts                # DEAD — see Known Drift
+├── providers/RootProvider.tsx        # GestureHandlerRootView + QueryClientProvider
 ├── services/
-│   ├── remote-config.service.ts # Firebase Remote Config singleton
-│   └── sync.service.ts        # Offline outbox sync processor
-├── store/
-│   └── auth.store.ts          # Zustand auth store (tokens in expo-secure-store)
-├── types/                     # Shared TypeScript types
-│   ├── auth.types.ts
-│   ├── feature.types.ts
-│   ├── user.types.ts
-│   └── firebase-remote-config.d.ts
+│   ├── remote-config.service.ts      # Firebase Remote Config singleton
+│   └── sync.service.ts               # Offline outbox processor
+├── store/auth.store.ts               # Zustand; tokens in expo-secure-store
+├── types/                            # auth.types, user.types, feature.types, firebase-remote-config.d.ts
 ├── utils/
-│   ├── error-handling.ts      # parseApiError helper
-│   ├── formatting.ts          # Date formatting (formatDate, formatDateTime)
-│   ├── secure-storage.ts      # expo-secure-store wrapper (encrypted token storage)
-│   ├── storage.ts             # AsyncStorage wrapper for non-sensitive data
-│   └── validation.ts          # Zod schemas (login, register, createFeature)
-└── global.css                 # Tailwind input (@tailwind base/components/utilities)
+│   ├── error-handling.ts             # parseApiError
+│   ├── formatting.ts  formatting.test.ts
+│   ├── secure-storage.ts             # expo-secure-store wrapper
+│   ├── storage.ts                    # AsyncStorage wrapper
+│   └── validation.ts                 # Zod schemas
+└── global.css
 ```
+
+---
+
+## API Layer
+
+### Base URL
+
+The server sets `setGlobalPrefix('api')`, enables **URI versioning**, and declares every
+controller `version: '1'`. Real routes are therefore `/api/v1/<path>`.
+
+`src/api/config.ts` owns the single `API_BASE_URL`, which already includes `/api/v1`.
+**Endpoint modules hold version-free paths** (`/auth/login`). Never rebuild the base URL
+inline — that duplication is what let the refresh path drift out of sync once already.
+
+`localhost` means the device, not your machine. Use `http://10.0.2.2:3000/api/v1` on an
+Android emulator, or the host's LAN IP on a physical device.
+
+### The response envelope
+
+The server wraps **every** response via a global `ResponseInterceptor`:
+
+```json
+{ "success": true, "statusCode": 200, "data": { }, "message": "Success" }
+```
+
+`response.interceptor.ts` unwraps this centrally, so **endpoint functions and hooks see the
+inner value already**. Do not unwrap a second time; `.then((res) => res.data)` in an endpoint
+yields the payload, not the envelope.
+
+Paginated payloads nest **inside** `data` — the server returns
+`data: { items: [...], pagination: { total, skip, take, pages } }`. There is no top-level
+`meta`.
+
+One place deliberately bypasses the instance and unwraps by hand with `isApiResponse`:
+`refresh-token.ts` uses bare `axios` so a 401 on the refresh call cannot re-enter the error
+interceptor and deadlock against its own refresh queue.
+
+Anything else must import `axiosInstance`. A call made with bare `axios` silently returns the
+raw envelope, and the resulting `undefined` surfaces far from its cause.
+
+### Interceptor order
+
+Registered in `axios-instance.ts`, and the order matters:
+
+1. **request** — attaches `Authorization: Bearer <token>` from the Zustand store, refreshing
+   preemptively when the token expires within 2 minutes.
+2. **response (fulfilled)** — unwraps the envelope.
+3. **response (rejected)** — `error.interceptor`: on 401, refreshes once, queues concurrent
+   failures, retries them through `axiosInstance`, and calls `clearAuth()` if refresh fails.
+
+Retries go through `axiosInstance` so they are unwrapped like any other response. Each retried
+request carries `_retry` to prevent an infinite refresh loop.
+
+### Endpoints that exist
+
+`authAPI` (`api/endpoints/auth.ts`) — all live:
+
+| Function | Route |
+|---|---|
+| `login` | `POST /auth/login` |
+| `register` | `POST /auth/register` |
+| `logout` | `POST /auth/logout` |
+| `refreshToken` | `POST /auth/refresh` |
+| `getMe` | `GET /auth/me` |
+| `updateProfile` | `PATCH /auth/me` |
+| `verifyEmail` | `POST /auth/verify-email` |
+| `resendVerification` | `POST /auth/resend-verification` |
+
+The server also exposes `POST /auth/google` and `POST /auth/link-google`, which mobile does not
+wrap yet.
+
+Beyond auth, the server has only `ganaps`, `businesses`, and `health`. Read
+`../ganapps-server/docs/flags.md` for every path — **do not infer endpoints from existing
+mobile code**, which contains wrappers for routes that do not exist.
 
 ---
 
@@ -140,137 +222,124 @@ src/
 
 Every feature follows a strict three-layer hook pattern, consistent with the web app.
 
-### Three-Layer Hook Pattern
-
 ```
 Endpoints  →  Queries/Mutations  →  Aggregated Hook
 (API calls)    (TanStack wrappers)    (feature hook)
 ```
 
-#### Layer 1: Endpoints (`api/endpoints/<domain>.ts`)
+### Layer 1: Endpoints (`api/endpoints/<domain>.ts`)
 
-- Plain object with arrow functions, one per API route
-- Calls `apiClient.<method>()` and unwraps with `.then(r => r.data)`
-- No async/await — flat `.then()` unwrapping
-- Fully typed with response generics (`ApiResponse<T>`, `PaginatedResponse<T>`)
+- Plain object of arrow functions, one per route
+- Imports `axiosInstance` — never bare `axios`, never a re-derived base URL
+- Flat `.then((res) => res.data)`; no async/await
+- The response generic is the **inner** payload, because the interceptor has already unwrapped
 
 ```typescript
-// api/endpoints/auth.ts
-export const authAPI = {
-  login: (data: LoginRequestDto) =>
-    apiClient.post<ApiResponse<AuthResponseDto>>('/auth/login', data).then(r => r.data),
-  getMe: () =>
-    apiClient.get<ApiResponse<User>>('/auth/me').then(r => r.data),
+// api/endpoints/ganaps.ts
+export const ganapsAPI = {
+  getById: (ganapId: string) => axiosInstance.get<Ganap>(`/ganaps/${ganapId}`).then((res) => res.data),
+
+  list: (params?: { skip?: number; take?: number }) =>
+    axiosInstance.get<GanapPage>('/ganaps', { params }).then((res) => res.data),
 };
 ```
 
-#### Layer 2: Queries & Mutations (`hooks/queries/`, `hooks/mutations/`)
+### Layer 2: Queries & Mutations (`hooks/queries/`, `hooks/mutations/`)
 
-- **Queries**: Export `use<Domain>Query()` + a query key factory (`<domain>QueryKeys`)
-- **Mutations**: Export `use<Domain><Action>Mutation()` per write operation
-- Mutations invalidate the relevant query keys on success
-- Query defaults: `staleTime: 5min`, `gcTime: 10min`, `retry: 1`
-- Mutations use `retry: 0`
+- **Queries**: export `use<Domain>Query()` plus a query key factory (`<domain>QueryKeys`)
+- **Mutations**: export `use<Domain><Action>Mutation()` per write, invalidating relevant keys
+- Query defaults in these hooks: `staleTime: 5 min`, `gcTime: 10 min`, `retry: 1`
+- Gate queries that need auth with `enabled: !!token`
 
 ```typescript
-// hooks/queries/useAuthQuery.ts
 export const authQueryKeys = {
   all: ['auth'] as const,
-  me: () => ['auth', 'me'] as const,
+  me: () => [...authQueryKeys.all, 'me'] as const,
 };
 
-export function useAuthQuery(): UseQueryResult<User> {
+export function useAuthQuery(): UseQueryResult<User, Error> {
+  const token = useAuthStore((s) => s.token);
+
   return useQuery<User, Error>({
     queryKey: authQueryKeys.me(),
-    queryFn: () => authAPI.getMe().then(r => r.data),
+    queryFn: () => authAPI.getMe(),   // already unwrapped — no second .data
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     retry: 1,
+    enabled: !!token,
   });
 }
 ```
 
-```typescript
-// hooks/mutations/useAuthMutation.ts
-export function useLoginMutation(): UseMutationResult<..., Error, LoginRequestDto> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: LoginRequestDto) => authAPI.login(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
-    },
-  });
-}
-```
+### Layer 3: Aggregated Hook (`hooks/use<Domain>.ts`)
 
-#### Layer 3: Aggregated Hook (`hooks/use<Domain>.ts`)
+Combines the query and mutations into one value, exposes derived states, and owns navigation
+side effects. Paginated domains use `useInfiniteQuery` here and expose flattened `items`,
+`fetchNextPage`, `hasNextPage`, and pending flags (`isCreating`, `isUpdating`, `isDeleting`).
 
-- Combines query + all mutations into a single return value
-- Exposes `isLoading`, `error`, `isAuthenticated`/`isPending` derived states
-- Handles navigation side effects where needed
+---
 
-```typescript
-// hooks/useAuth.ts
-export function useAuth(): {
-  user: User | null;
-  token: string | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-  error: Error | null;
-  login: (data: LoginRequestDto) => Promise<void>;
-  register: (data: RegisterRequestDto) => Promise<void>;
-  logout: () => Promise<void>;
-} {
-  const { data: user, isLoading, error } = useAuthQuery();
-  const { loginMutation, registerMutation, logoutMutation } = useAuthMutations();
-  const token = useAuthStore(s => s.token);
-  return {
-    user: user ?? null,
-    token,
-    isLoading,
-    isAuthenticated: !!token && !!user,
-    error,
-    login: (data) => loginMutation.mutateAsync(data).then(() => {}),
-    register: (data) => registerMutation.mutateAsync(data).then(() => {}),
-    logout: () => logoutMutation.mutateAsync(),
-  };
-}
-```
+## Navigation Convention
 
-For features with paginated lists, aggregator hooks use `useInfiniteQuery` and expose `items` (flattened pages), `fetchNextPage`, `hasNextPage`, plus create/update/delete mutations with pending states (`isCreating`, `isUpdating`, `isDeleting`).
+`app/_layout.tsx` hydrates the auth store from SecureStore, holds the splash screen until
+`isHydrated`, then branches on `token`:
 
-### Navigation Convention
+- **Token** → `(app)` tab navigator, plus `verify-email` and `onboarding` as full-screen modals
+- **No token** → `(auth)` stack
 
-Root `_layout.tsx` conditionally renders `(auth)` or `(app)` group based on `useAuthStore.token`:
+`verify-email.tsx` and `onboarding.tsx` live at the **root** of `app/`, not inside `(auth)`.
+They are reachable only once a token exists, because registration returns tokens immediately.
 
-- Token exists → `(app)` tab navigator with 4 tabs: Home, Features, Profile, More
-- No token → `(auth)` stack navigator: login → register
+### Post-registration flow
 
-Nested layouts use Stack navigators with `headerBackTitle: 'Back'`. Dynamic routes follow the `[param].tsx` Expo Router convention.
-
-Route paths are centralized in `constants/routes.ts` as a const object with helper functions for dynamic routes (e.g., `featureDetail(id)` → `'/(app)/(features)/${id}'`).
-
-### Component Convention
+Owned by `useAuth`, which navigates after each mutation resolves:
 
 ```
-common/ (CVA primitives)  →  forms/ (compositions)  →  screens (Expo Router pages)
-                            lists/ (FlatList wrappers)
+register → /verify-email → /onboarding → /(app)/(home)
+login    → /(app)/(home)
+logout   → /(auth)/login
 ```
 
-- **`common/`** — Reusable UI primitives using `class-variance-authority` (CVA) for variants. Always named exports. Accept `className` for Tailwind overrides.
-  - `Button`: variants `primary`/`secondary`/`danger`/`ghost`, sizes `sm`/`md`/`lg`, supports `loading` + `disabled`
-  - `Input`: react-hook-form `Controller`-based, expects `<FormProvider>` parent, shows inline error messages
-  - All use Tailwind `className` strings — no inline `StyleSheet.create()`
-- **`forms/`** — Composed form components using `FormProvider` from react-hook-form + common components
-- **`lists/`** — FlatList wrappers that handle loading/error/empty states, infinite scroll via `onEndReached`
+`updateProfile` also calls `completeOnboarding()` before redirecting home.
+
+Nested layouts use Stack navigators with `headerBackTitle: 'Back'`. Dynamic routes use the
+`[param].tsx` convention.
+
+---
+
+## Component Convention
+
+```
+common/ (primitives)  →  forms/ (compositions)  →  screens (Expo Router pages)
+                         lists/ (FlatList wrappers)
+```
+
+- **`common/`** — primitives, always named exports, Tailwind `className` strings only (no
+  `StyleSheet.create()`). `Button` uses CVA for variants.
+  - `Button`: variants `primary`/`secondary`/`danger`/`ghost`, sizes `sm`/`md`/`lg`,
+    supports `loading` and `disabled`. Its label is **`children: string`** — there is no
+    `title` prop. `onPress` may be async; it is wrapped in try/catch internally and errors are
+    delegated to the global error interceptor.
+  - `Input`: `Controller`-based, requires a `<FormProvider>` ancestor, renders inline errors.
+  - `Error.tsx` exports **`ErrorView`**.
+- **`forms/`** — `FormProvider` compositions built from `common/`
+- **`lists/`** — FlatList wrappers handling loading/error/empty states and `onEndReached`
+
+### The `className` rule
+
+**Only `Text` and `Card` accept `className`**, by spreading React Native's `TextProps` /
+`ViewProps`. `Button`, `Input`, `Empty`, `ErrorView`, and `Loading` have closed prop
+interfaces on purpose — variants belong in CVA, not in per-call-site overrides.
+
+When adding a primitive, decide deliberately and follow the existing split: pass-through
+wrappers spread their RN props; variant-driven components stay closed. Do not add `className`
+to a closed component just to reach a one-off style — add a variant instead.
 
 ### Form Pattern
 
-Every form follows this structure:
-
 ```typescript
 export function LoginForm(): ReactElement {
-  const { login } = useAuth();
+  const { login, isLoading } = useAuth();
   const methods = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
@@ -280,233 +349,259 @@ export function LoginForm(): ReactElement {
     try {
       await login(data);
     } catch (_error) {
-      // handled by global error interceptor
+      // handled by the global error interceptor
     }
   }
 
   return (
     <FormProvider {...methods}>
-      <Input name="email" label="Email" placeholder="Enter your email" />
+      <Input name="email" label="Email" placeholder="Enter your email" keyboardType="email-address" />
       <Input name="password" label="Password" placeholder="Enter your password" secureTextEntry />
-      <Button title="Login" onPress={methods.handleSubmit(handleLogin)} loading={isLoading} />
+      <Button onPress={methods.handleSubmit(handleLogin)} loading={isLoading}>
+        Login
+      </Button>
     </FormProvider>
   );
 }
 ```
 
-### Auth & API Convention
+---
 
-- **Token storage**: `auth.store.ts` uses `expo-secure-store` for encrypted token persistence. `accessToken` and `refreshToken` stored in SecureStore; non-sensitive state (`user`, `expiresAt`) kept in-memory or AsyncStorage.
-- **Token attachment**: Request interceptor reads `useAuthStore.getState().token` directly (outside React lifecycle)
-- **Auto-refresh**: Hybrid strategy — preemptive refresh 2 min before token expiry via `expiresAt` timestamp, plus reactive 401 queue with single refresh + retry. Refresh calls `POST /auth/refresh` with the stored refresh token.
-- **Auto-logout**: Error interceptor catches 401 (after refresh fails) → calls `useAuthStore.getState().clearAuth()`
-- **Conditional routing**: Root layout reads `useAuthStore.token` to decide auth vs app navigation
-- **Axios instance** (`api/axios-instance.ts`): `baseURL` from `EXPO_PUBLIC_API_URL` env (default `http://localhost:3000/api`), 30s timeout, JSON content type
+## Auth & API Convention
+
+- **Token storage** — `expo-secure-store` via `utils/secure-storage.ts`, keyed
+  `ganapps_access_token`, `ganapps_refresh_token`, `ganapps_expires_at`. The `user` object is
+  in-memory only.
+- **Hydration** — `auth.store.ts` has **no `persist` middleware**. `hydrate()` reads
+  SecureStore explicitly and is called once from the root layout; `isHydrated` gates rendering.
+- **Token attachment** — the request interceptor reads `useAuthStore.getState().token` outside
+  the React lifecycle.
+- **Auto-refresh** — hybrid: preemptive (2 min before `expiresAt`) plus reactive 401 with a
+  single shared refresh promise and a queue of waiting requests.
+- **Auto-logout** — when refresh fails, the error interceptor calls `clearAuth()`.
 
 ---
 
 ## Design Rules
 
-- **No emojis** in UI text, labels, or error messages. Use icons instead.
-- **Icons**: Use `lucide-react-native` for all iconography. Import from `lucide-react-native` (e.g., `import { Mail, Lock, User as UserIcon } from 'lucide-react-native'`).
-- **Spacing**: Follow the spacing scale defined in `constants/theme.ts` via Tailwind classes (`p-md`, `gap-lg`, etc.).
+- **No emojis** in UI text, labels, or error messages.
+- **Icons** — `lucide-react-native` for all iconography.
+- **Spacing** — use the Tailwind scale below (`p-md`, `gap-lg`), not raw pixel values.
 
 ---
 
 ## TSDoc Requirements
 
-Every exported function, class, and method **must** have a TSDoc comment:
+Every exported function, class, and method **must** have a TSDoc comment covering purpose,
+`@param` (singular, one per parameter), `@returns`, and `@throws` where applicable. Private
+helpers need one only when the logic is non-obvious.
 
-```typescript
-/**
- * Fetches a paginated list of features.
- *
- * @param pageParams - Cursor/offset for pagination
- * @returns Paginated response with feature items and pagination metadata
- * @throws {ApiError} When the request fails or token is invalid
- */
-```
-
-- **Purpose** — what it does in one sentence
-- **`@param`** — one per parameter (use `@param`, not `@params`)
-- **`@returns`** — what is returned
-- **`@throws`** — any expected exceptions
-
-Private/internal helpers do not require TSDoc unless the logic is non-obvious.
+**Current code does not comply.** Most of `components/`, `hooks/`, and `api/endpoints/`
+predates enforcement. Do not retrofit the repo wholesale — add TSDoc to every export you
+create, and to any export you meaningfully change. The same applies to explicit return types.
 
 ---
 
 ## NativeWind & Theme
 
-### Tailwind / NativeWind
+Styling is NativeWind v4 utility classes via `className`. Global styles in `src/global.css`;
+Metro wraps the config with `withNativeWind(config, { input: './src/global.css' })`.
 
-- Styling uses NativeWind v4 with Tailwind CSS utility classes via `className` on all components
-- Global styles in `src/global.css` (`@tailwind base/components/utilities`)
-- Metro config wraps default config with `withNativeWind(config, { input: './src/global.css' })`
+### Lynx colors
 
-### Lynx Color System
+Material Design 3-style palette in `tailwind.config.js`. Frequently used tokens:
 
-The app uses a custom "Lynx" color palette defined in `tailwind.config.js` (Material Design 3-style):
-
-| Token | Light Value | Usage |
+| Token | Value | Usage |
 |---|---|---|
 | `lynx-primary` | `#006e2a` | Primary actions, active states |
-| `lynx-primary-container` | `#00c853` | Primary backgrounds, highlights |
-| `lynx-secondary` | `#5e5e5e` | Secondary text, subdued elements |
+| `lynx-primary-container` | `#00c853` | Primary buttons, highlights |
+| `lynx-on-primary-container` | `#004c1b` | Text on primary containers |
+| `lynx-secondary` | `#5e5e5e` | Secondary text |
 | `lynx-tertiary` | `#9d4139` | Tertiary accents |
-| `lynx-error` | `#ba1a1a` | Error states, validation messages |
+| `lynx-error` | `#ba1a1a` | Error states, validation |
 | `lynx-background` | `#f9f9f9` | Screen backgrounds |
-| `lynx-surface` | `#eeeeee` | Card/surface backgrounds |
-| `lynx-outline` | `#6c7b6a` | Borders, dividers |
+| `lynx-surface` | `#f9f9f9` | Surfaces — same value as background |
+| `lynx-surface-container` | `#eeeeee` | Raised container backgrounds |
+| `lynx-surface-container-low` | `#f3f3f3` | Input backgrounds |
+| `lynx-on-background` / `lynx-on-surface` | `#1a1c1c` | Body text |
+| `lynx-on-surface-variant` | `#3c4a3c` | Muted text |
+| `lynx-outline` | `#6c7b6a` | Borders |
+| `lynx-outline-variant` | `#bbcbb8` | Subtle borders, card edges |
 
-Dark mode palette is defined separately in `src/constants/theme.ts` as a dark color object.
+The full set includes `-fixed`, `-dim`, and `inverse-` variants — read `tailwind.config.js`
+rather than guessing a token name. The dark palette is separate, in `src/constants/theme.ts`.
 
 ### Typography
 
-Custom font size utilities defined in `tailwind.config.js`:
+| Utility | Size / Weight |
+|---|---|
+| `headline-lg` | 32px / 700 |
+| `headline-md` | 20px / 600 |
+| `headline-sm` | 16px / 600 |
+| `body-lg` | 16px / 400 |
+| `body-md` | 14px / 400 |
+| `label-md` | 12px / 600 |
+| `label-sm` | 11px / 500 |
 
-| Utility | Size/Weight | Usage |
-|---|---|---|
-| `headline-lg` | 32px / 700 | Page titles |
-| `headline-md` | 20px / 600 | Section headers |
-| `headline-sm` | 16px / 600 | Card titles |
-| `body-lg` | 16px / 400 | Body text |
-| `body-md` | 14px / 400 | Secondary text |
-| `label-md` | 12px / 600 | Labels |
-| `label-sm` | 11px / 500 | Captions |
+### Spacing & radii
 
-### Spacing
-
-Custom spacing scale: `base` (4px), `xs` (8px), `sm` (12px), `md` (16px), `lg` (24px), `xl` (32px), `margin-mobile` (16px), `gutter-mobile` (12px). Border radii: `sm` (4px), `md` (12px), `lg` (16px), `xl` (24px), `full` (9999px).
+Spacing: `base` 4px, `xs` 8px, `sm` 12px, `md` 16px, `lg` 24px, `xl` 32px,
+`margin-mobile` 16px, `gutter-mobile` 12px.
+Radii: `sm` 4px, `md` 12px, `lg` 16px, `xl` 24px, `full` 9999px.
 
 ---
 
 ## TypeScript Standards
 
-- Strict mode enabled (extends `expo/tsconfig.base`)
-- No `any` — use `unknown` + type guards
+- Strict mode (extends `expo/tsconfig.base`)
+- No `any` — use `unknown` plus type guards
 - Explicit return types on all exported functions
 - `const` over `let` unless mutation is required
 - No unused imports or commented-out code — delete it
-- Prefer `type` for type-only imports (`import type { User } from ...`)
+- `import type` for type-only imports
 - Prefer derived types (`Pick`, `Omit`, `Partial`) over duplicated shapes
 
 ## File Naming
 
-- Components: PascalCase named exports (`Button.tsx`, `LoginForm.tsx`)
-- Hooks: `use` prefix, camelCase (`useAuth.ts`, `useFeatures.ts`)
-- Utilities/Services/Constants: kebab-case (`error-handling.ts`, `auth.store.ts`, `remote-config.service.ts`)
-- API endpoints: kebab-case (`auth.ts`, `features.ts`)
-- Screens/Pages: default exports (Expo Router convention); all other files: named exports
-- Stores: kebab-case with `.store.ts` suffix (`auth.store.ts`)
+- Components: PascalCase, named exports (`Button.tsx`, `LoginForm.tsx`)
+- Hooks: `use` prefix, camelCase (`useAuth.ts`)
+- Utilities / services / constants / stores: kebab-case (`error-handling.ts`, `auth.store.ts`)
+- API endpoints: kebab-case (`auth.ts`)
+- Screens: default exports (Expo Router requirement); everything else: named exports
 - Path aliases: `@/*` → `./src/*`, `@/assets/*` → `./assets/*`
+
+---
 
 ## Error Handling
 
-- `parseApiError()` in `utils/error-handling.ts` — extracts `message` + `errorCode` from Axios errors
-- Error interceptor (`api/interceptors/error.interceptor.ts`) — catches 401 → `clearAuth()`, parses all errors
-- `ErrorView` component (`components/common/Error.tsx`) — displays error with optional "Try Again" button
-- Button's `onPress` wrapped in try/catch (errors delegated to global interceptor)
-- Error codes from server's AppError enum, mirrored in `constants/errors.ts`
+- `parseApiError()` (`utils/error-handling.ts`) extracts `message` and `errorCode` from an
+  Axios error, matching the server's `GlobalExceptionFilter` shape in `api/types/api-error.ts`.
+- The error interceptor parses every rejection, so components receive plain `Error` objects
+  carrying an optional `errorCode`.
+- `ErrorView` renders an error with an optional retry.
+- Error codes mirror the server's `AppError` enum in `constants/errors.ts`; `ErrorMessages`
+  maps a subset to user-facing copy.
 
 ## State Management
 
-- **TanStack Query** for server state (queries, mutations, cache invalidation)
-- **Zustand** for client-only state (auth tokens, UI toggles)
-  - Auth tokens stored in `expo-secure-store` (encrypted keychain/keystore)
-  - `accessToken` and `refreshToken` persisted via `expo-secure-store`; `user` is in-memory only
-  - Store accessed both inside React (via hook `useAuthStore(s => s.token)`) and outside React (via `useAuthStore.getState()` in interceptors/services)
-- Query key factory pattern used consistently across all domains
-- `QueryClient` defaults: `retry: 1`, `gcTime: 5 minutes`
+- **TanStack Query** for server state. Client defaults (`RootProvider`): `retry: 1`,
+  `gcTime: 5 min`. Per-hook options override these.
+- **Zustand** for client-only state, read inside React via `useAuthStore(s => s.token)` and
+  outside it via `useAuthStore.getState()`.
+- Query key factories everywhere.
+
+## Testing
+
+Jest with the `jest-expo` preset. Tests sit beside the code as `<name>.test.ts`.
+
+**Write the test first** for hooks, utils, validation schemas, services, and the API layer.
+Screens and layouts are exempt.
+
+Prefer a fake Axios adapter over mocking modules — it exercises the real instance and its
+interceptors without a network:
+
+```typescript
+axiosInstance.defaults.adapter = async (config) => ({
+  data: { success: true, statusCode: 200, data: payload, message: 'Success' },
+  status: 200, statusText: 'OK', headers: {}, config,
+});
+```
+
+`api-layer.test.ts` uses this to pin both the `/api/v1` URL shape and envelope unwrapping.
 
 ---
 
 ## Architecture Decisions
 
-### Cookie-only auth on web, token-in-secure-store on mobile
-- Mobile stores tokens in `expo-secure-store` (encrypted device keychain/keystore) — not `httpOnly` cookies, because React Native has no cookie concept
-- Axios request interceptor reads token from Zustand store and attaches as `Authorization: Bearer` header
-- Hybrid auto-refresh: preemptive + reactive 401 queue
-- Error interceptor catches 401 responses (after refresh fails) and calls `clearAuth()` to force logout
-- Root layout reads token to conditionally render auth vs app navigation
+### Token-in-secure-store on mobile, cookies on web
+React Native has no cookie concept, so mobile stores tokens in the encrypted keychain/keystore
+and attaches them as a bearer header. See `../ganapps-web/docs/adr/0001-cookie-only-auth.md`.
+
+### Central envelope unwrapping
+The server wraps every response identically, so unwrapping belongs in one interceptor rather
+than in every endpoint. Endpoints and hooks stay free of envelope boilerplate, and their
+generics name the payload the caller actually receives.
 
 ### Expo Router file-based navigation
-- Auth group (`(auth)`) vs App group (`(app)`) determined by token presence in root layout
-- Tab navigator with 4 tabs, each with nested Stack for drill-down screens
-- Dynamic routes use `[param].tsx` convention
-- Splash screen stays hidden until auth decision is made
+Auth vs app group chosen by token presence in the root layout; tabs with nested stacks;
+splash held until the auth decision is made.
 
 ### Three-tier feature flags
-- Env override (`EXPO_PUBLIC_FEATURE_FLAG_<KEY>`) → Firebase Remote Config → `config/feature-flags/default.json` → hook default parameter
-- Singleton `remoteConfigService` initialized in root layout
-- Three hooks: `useFeatureFlag` (boolean), `useFeatureFlagString`, `useFeatureFlagNumber`
-- Dev mode: minimum fetch interval 0; prod: 5 minutes
+Env override (`EXPO_PUBLIC_FEATURE_FLAG_<KEY>`) → Firebase Remote Config →
+`config/feature-flags/default.json` → hook default. Singleton service initialized in the root
+layout. Dev fetch interval 0; prod 5 minutes.
 
-### Custom CVA primitives (independent from web)
-- Mobile uses custom `components/common/` primitives with `class-variance-authority`
-- Independent from web's shadcn/ui component system
-- Both use Tailwind, but web uses CSS variables (`globals.css`) while mobile uses `tailwind.config.js` tokens
+### Custom primitives, independent from web
+Mobile uses CVA primitives with `lynx-*` tokens; web uses shadcn/ui with CSS variables. This
+divergence is deliberate — see `../ganapps-web/docs/adr/0002-shadcn-ui.md`.
 
-### Offline-first with outbox pattern
-- SQLite via expo-sqlite + Drizzle ORM for local persistence
-- Outbox pattern for offline writes: enqueued in `outbox` table, processed by `sync.service.ts`
-- Retry limit: 3 attempts per item, then marked as `failed`
-- Local cache tables (`feature_cache`, `user_cache`) for offline reads
+### Offline-first outbox
+Writes go to the `outbox` table and are drained by `sync.service.ts`, 3 retries then `failed`.
+`feature_cache` and `user_cache` back offline reads.
 
-### NativeWind v4 for styling
-- All styling via Tailwind `className` — no inline `StyleSheet.create()`
-- Metro config wraps default config with `withNativeWind`
-- Color tokens via design system (prefix `lynx-*`)
-- Components accept optional `className` prop for Tailwind overrides
+---
+
+## Known Drift — do not imitate
+
+Scaffolding from the template that survives in the tree. It compiles, so it looks real.
+
+| Item | Reality |
+|---|---|
+| `api/endpoints/features.ts`, `hooks/useFeatures.ts`, `components/lists/FeatureList.tsx`, `app/(app)/(features)/`, `db.featureCache`, `sync.service` `'feature'` case | The `Feature` entity (`id`/`name`/`description`) exists nowhere on the server. Every call 404s. |
+| `api/endpoints/users.ts` | There is no `/users` controller. `getMe` and `updateProfile` live on `authAPI`. |
+| `constants/routes.ts` | Declares `/(auth)/verify-email`, `/(auth)/onboarding`, and a `forgot-password` screen that does not exist; the real screens are at the root. `homeDetail(id)` points at a route with no `[id]` file. Screens currently use string literals instead of `Routes`. |
+| `types/firebase-remote-config.d.ts` | Hand-written stub masking an uninstalled package — `@react-native-firebase/*` is in `app.json` but not in `package.json`. Do not extend it; delete it once the package is installed properly. |
+| `Empty`'s `icon?: string` prop | Renders a string at `text-4xl`, i.e. an emoji slot, which contradicts the no-emoji rule. Use `lucide-react-native` instead. |
+
+`app.json` is also missing `android.package` and `ios.bundleIdentifier`; `npx expo prebuild`
+cannot run without them.
 
 ---
 
 ## Pre-Implementation Checklist
 
-Before writing code, validate:
-
-- [ ] New API call? → define endpoint in `api/endpoints/`
-- [ ] Read operation? → create query hook in `hooks/queries/` + query key factory
-- [ ] Write operation? → create mutation hook in `hooks/mutations/` + query invalidation
-- [ ] Multiple related queries+mutations? → create aggregated hook in `hooks/use<Domain>.ts`
-- [ ] Paginated list? → use `useInfiniteQuery` in the aggregator hook
-- [ ] Form needed? → zod schema in `utils/validation.ts`, form component in `components/forms/`
-- [ ] New screen? → Expo Router file in `app/` with appropriate `_layout.tsx`
-- [ ] Protected screen? → must be inside `(app)` group (token-based conditional routing)
-- [ ] New component? → place in `components/common/` (shared) or feature-specific directory
-- [ ] Offline write? → use outbox pattern via `db/schema.ts` + `sync.service.ts`
-- [ ] Local read? → check `db/schema.ts` for existing cache tables
-- [ ] Feature flag needed? → add default in `config/feature-flags/default.json`, use `useFeatureFlag` hook
-- [ ] Error state? → `ErrorView` component with retry; loading state via `Loading` component
-- [ ] Empty state? → `Empty` component with descriptive message
-- [ ] Typed error path? → `parseApiError()` + typed error codes
-- [ ] Function doing too much? → split
+- [ ] New API call? → confirm the route exists in `../ganapps-server/docs/flags.md` first
+- [ ] Endpoint wrapper in `api/endpoints/`, importing `axiosInstance`
+- [ ] Read? → query hook in `hooks/queries/` + query key factory
+- [ ] Write? → mutation hook in `hooks/mutations/` + invalidation
+- [ ] Several related? → aggregated hook in `hooks/use<Domain>.ts`
+- [ ] Paginated? → `useInfiniteQuery`; remember `data.items` / `data.pagination`
+- [ ] Form? → Zod schema in `utils/validation.ts`, component in `components/forms/`
+- [ ] New screen? → Expo Router file with the right `_layout.tsx`; protected screens go in `(app)`
+- [ ] New component? → `components/common/` if shared; decide `className` per the rule above
+- [ ] Offline write? → outbox via `db/schema.ts` + `sync.service.ts`
+- [ ] Error/loading/empty states covered? → `ErrorView` with retry, `Loading`, `Empty`
+- [ ] TSDoc and an explicit return type on every new or touched export?
+- [ ] Test written first (hooks, utils, services, API layer)?
 
 ## Git Workflow
 
-- Conventional Commits enforced via commitlint (100 char header limit)
-- `pre-commit`: lint-staged (Biome check + format on staged files)
-- `pre-push`: lint + test (no build)
+- Branch: `dev`. `master` is not a working branch.
+- Conventional Commits, enforced by commitlint (100 char header limit)
+- `pre-commit`: lint-staged; `pre-push`: lint + test. Do not bypass with `--no-verify`
+- Do not commit or push unless asked
 
 ---
 
 ## Code Review Process
 
-Every feature implementation **must** conclude with a structured code review:
+Every feature implementation **must** conclude with a structured review.
 
-1. **Run** `npm run check` (Biome lint + format), `npm run type-check` (TypeScript), and `npm run test` (Jest)
-2. **Audit** the diff against these categories:
+1. **Run** `npm run check`, `npm run type-check`, and `npm run test`, and report the real output.
+2. **Audit** the diff:
 
 | Category | Checks |
 |---|---|
-| Best practices | TSDoc on all exports? `@param`/`@returns`/`@throws` correct? No `any`? Explicit return types? |
+| Best practices | TSDoc on new/touched exports? `@param`/`@returns`/`@throws` correct? No `any`? Explicit return types? |
+| API layer | Imports `axiosInstance`, not bare `axios`? Version-free path? No second unwrap of the envelope? Route confirmed against the server? |
 | Hook conventions | Endpoint in `api/endpoints/`? Query/mutation in `hooks/queries|mutations/`? Aggregated hook? Query key factory exported? |
-| Navigation | Screen in correct route group? Layout updated? Dynamic route params correct? Route path in `constants/routes.ts`? |
-| Components | CVA variants correct? `className` prop accepted? Named export? Tailwind-only styling (no StyleSheet)? |
-| Forms & validation | Zod schema in `utils/validation.ts`? `zodResolver` in `useForm`? `FormProvider` wrapping fields? |
-| Auth & security | Token access via store (not hardcoded)? 401 handling correct? Conditional routing working? |
-| Offline & sync | Outbox insert for offline writes? Sync service handles new entity type? Cache tables updated? |
-| Errors & state | Loading/error/empty states covered? ErrorView with retry? parseApiError used? |
-| State management | Server state in TanStack Query? Client state in Zustand? Token persistence via partialize? |
-| Tech debt | Dead/commented code? Overly large components? Missing error paths? Duplicate logic? |
-| Performance | N+1 queries? FlatList with proper keys? Unbounded lists? Missing pagination? |
+| Navigation | Correct route group? Layout updated? Dynamic params right? |
+| Components | CVA variants over one-off styles? Named export? Tailwind only, no StyleSheet? `className` decision deliberate? |
+| Forms & validation | Zod schema in `utils/validation.ts`? `zodResolver`? `FormProvider` wrapping fields? |
+| Auth & security | Token read via the store? 401 path intact? No secrets in source? |
+| Offline & sync | Outbox insert for offline writes? Sync service handles the entity type? Cache tables updated? |
+| Errors & state | Loading/error/empty covered? `parseApiError` used? |
+| State management | Server state in TanStack Query, client state in Zustand? Store hydration still gated on `isHydrated`? |
+| Tests | Written before the code? Cover the failure path, not just the happy one? |
+| Tech debt | Dead or commented code? Oversized components? Duplicate logic? |
+| Performance | N+1 queries? FlatList keys? Unbounded lists? Missing pagination? |
