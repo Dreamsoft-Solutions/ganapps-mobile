@@ -11,7 +11,7 @@ Use the default labels `needs-triage`, `needs-info`, `ready-for-agent`, `ready-f
 
 ### Domain docs
 
-This is a single-context repository using root `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.
+Domain vocabulary lives in a single glossary at root `CONTEXT.md`; architecture decisions live in `docs/adr/`. Use the glossary's terms when naming things. See `docs/agents/domain.md`.
 
 # Working in this repo with Claude Code
 
@@ -20,7 +20,7 @@ the three-layer hook pattern, component and form patterns, Lynx tokens, TSDoc, T
 standards, error handling, state management, and architecture decisions. Follow it. This
 section covers only what it does not: how to work here, and where things go.
 
-## Repo context
+## The three repos
 
 Ganapps has three repos, siblings under the parent `ganapps/` folder:
 
@@ -58,6 +58,7 @@ app's own three-tier flag resolution.
 
 | Kind of document | Location | Committed? |
 |---|---|---|
+| Domain glossary — the words this repo uses for its concepts | `CONTEXT.md` (repo root) | Yes — shared with the team |
 | Architecture decision records | `docs/adr/NNNN-slug.md` | Yes — shared with the team |
 | Feature documentation | `docs/features/` | Yes — shared with the team |
 | Design specs, implementation plans, handoffs, scratch notes | `../.claude/` | No — personal |
