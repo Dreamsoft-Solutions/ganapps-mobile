@@ -22,7 +22,7 @@ section covers only what it does not: how to work here, and where things go.
 
 ## Repo context
 
-GanApps has three repos, siblings under the parent `ganapps/` folder:
+Ganapps has three repos, siblings under the parent `ganapps/` folder:
 
 - **`ganapps-mobile/`** (this one) — Mark's. Expo SDK 57, npm.
 - **`ganapps-server/`** — NestJS 11 + Prisma 7 + PostgreSQL, pnpm. Source of truth for the

@@ -12,7 +12,7 @@ export default function HomeScreen() {
         Hello, {user?.firstName || user?.username || 'there'}
       </Text>
       <Text className="text-lynx-on-surface-variant text-body-lg mb-lg">
-        You're signed in to GanApps
+        You're signed in to Ganapps
       </Text>
       <Button variant="secondary" onPress={() => logout()}>
         Sign Out

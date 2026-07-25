@@ -1,10 +1,10 @@
-# GanApps Mobile — Agent Instructions
+# Ganapps Mobile — Agent Instructions
 
 Always read this file before taking any action in this repository.
 
 ## Overview
 
-**GanApps Mobile** is the React Native mobile app for the GanApps event platform, built with Expo SDK 57. It provides the native mobile experience for event discovery, feature management, and user interactions.
+**Ganapps Mobile** is the React Native mobile app for the Ganapps event platform, built with Expo SDK 57. It provides the native mobile experience for event discovery, feature management, and user interactions.
 
 **Tech stack:** Expo SDK 57 · Expo Router (file-based) · React Native · TypeScript 6 · NativeWind v4 (Tailwind) · TanStack Query v5 · Zustand v5 · react-hook-form · Zod v4 · Axios · Drizzle ORM (SQLite) · Biome · Jest · EAS Build
 
