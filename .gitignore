@@ -37,6 +37,10 @@ yarn-error.*
 .env
 .env*.local
 
+# Firebase app config — obtain from the Firebase console, never commit
+google-services.json
+GoogleService-Info.plist
+
 # typescript
 *.tsbuildinfo
 
