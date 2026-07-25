@@ -37,6 +37,13 @@ jobs:
       - name: Check formatting and lint
         run: npm run check
 
+      # Expo Router's route union lives in .expo/types/, which is gitignored and so
+      # never checked out. Without this step `Href` widens to `string | HrefObject`
+      # and src/constants/routes.ts is validated against nothing. Expo documents this
+      # command for type-checking on CI; it leaves tsconfig.json unchanged.
+      - name: Generate router types
+        run: npx expo customize tsconfig.json
+
       - name: Type-check
         run: npm run type-check
 
