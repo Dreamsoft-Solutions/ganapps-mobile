@@ -32,6 +32,11 @@ Expo packages must be added with `npx expo install` so SDK-compatible versions a
 npx expo start                # Start Expo dev server
 npx expo start --clear        # Clear metro cache then start
 
+# Generate .expo/types (the Expo Router route union) without starting Metro.
+# Gitignored, so run this after a fresh clone or route tree changes — otherwise
+# `Href` widens and constants/routes.ts is validated against nothing.
+npx expo customize tsconfig.json
+
 # Build (EAS)
 eas build --profile preview     # Preview build (Android APK / iOS sim)
 eas build --profile production  # Production build
@@ -116,7 +121,7 @@ src/
 │   └── lists/                        # FeatureList.tsx
 ├── constants/
 │   ├── errors.ts                     # ErrorCodes + ErrorMessages, mirrors server AppError
-│   ├── routes.ts                     # STALE — see Known Drift
+│   ├── routes.ts                     # Href-typed route table — see Navigation Convention
 │   └── theme.ts                      # Dark mode palette
 ├── db/                               # SQLite via Drizzle
 │   ├── index.ts
@@ -132,7 +137,7 @@ src/
 │   ├── remote-config.service.ts      # Firebase Remote Config singleton
 │   └── sync.service.ts               # Offline outbox processor
 ├── store/auth.store.ts               # Zustand; tokens in expo-secure-store
-├── types/                            # auth.types, user.types, feature.types, firebase-remote-config.d.ts
+├── types/                            # auth.types, user.types, feature.types
 ├── utils/
 │   ├── error-handling.ts             # parseApiError
 │   ├── formatting.ts  formatting.test.ts
@@ -304,6 +309,41 @@ logout   → /(auth)/login
 
 Nested layouts use Stack navigators with `headerBackTitle: 'Back'`. Dynamic routes use the
 `[param].tsx` convention.
+
+### Never write a route as a string literal
+
+Navigate through `constants/routes.ts` — `router.replace(Routes.app.home)`,
+`<Link href={Routes.auth.login}>` — never `router.replace('/(app)/(home)')`. Nothing in the
+codebase should contain a route string outside that one file.
+
+This is a correctness rule, not tidiness. `Routes` entries use Expo Router's **object form**
+(`{ pathname: '/(app)/(home)' }`) and are typed `Href`, so they are checked against the route
+union generated from the `src/app/` tree. Rename or move a screen and `npm run type-check`
+fails at the exact stale entry.
+
+**The string form is never validated in this app**, with or without generated types.
+`expo-router` takes a bare `Href` in `router.push`/`replace` and `Link`'s `href`, never
+instantiating its type parameter, so `SingleRoutePart<string>` collapses to `string` and the
+dynamic `(app)/(features)/[feature-id]` route contributes a `/${string}` member that matches
+any absolute path. `router.replace('/nonsense')` compiles. The object form has no such member.
+
+Adding a screen means adding its entry to `Routes`; deleting one means deleting the entry.
+
+### Generated route types
+
+The route union lives in `.expo/types/router.d.ts`, which is **gitignored and not in a fresh
+checkout**. Without it `Href` widens to `string | HrefObject` and every entry in `Routes`
+silently passes.
+
+Generate it with `npx expo customize tsconfig.json` (any `npx expo start` also does).
+CI runs that command before `npm run type-check` — see *CI*. Do not commit the generated
+types: a stale committed union would validate routes against an out-of-date tree, which is
+worse than no checking because it looks like it is working.
+
+Route groups in parentheses do not affect the URL, so include a group segment only where the
+framework needs it to disambiguate. `(home)`, `(features)`, `(profile)` and `(more)` each hold
+an `index.tsx` and would all otherwise resolve to `/`, so naming a specific tab requires its
+group. `verify-email` and `onboarding` are at the root of `src/app/` and take no group.
 
 ---
 
@@ -581,12 +621,23 @@ Scaffolding from the template that survives in the tree. It compiles, so it look
 |---|---|
 | `api/endpoints/features.ts`, `hooks/useFeatures.ts`, `components/lists/FeatureList.tsx`, `app/(app)/(features)/`, `db.featureCache`, `sync.service` `'feature'` case | The `Feature` entity (`id`/`name`/`description`) exists nowhere on the server. Every call 404s. |
 | `api/endpoints/users.ts` | There is no `/users` controller. `getMe` and `updateProfile` live on `authAPI`. |
-| `constants/routes.ts` | Declares `/(auth)/verify-email`, `/(auth)/onboarding`, and a `forgot-password` screen that does not exist; the real screens are at the root. `homeDetail(id)` points at a route with no `[id]` file. Screens currently use string literals instead of `Routes`. |
-| `types/firebase-remote-config.d.ts` | Hand-written stub masking an uninstalled package — `@react-native-firebase/*` is in `app.json` but not in `package.json`. Do not extend it; delete it once the package is installed properly. |
 | `Empty`'s `icon?: string` prop | Renders a string at `text-4xl`, i.e. an emoji slot, which contradicts the no-emoji rule. Use `lucide-react-native` instead. |
 
-`app.json` is also missing `android.package` and `ios.bundleIdentifier`; `npx expo prebuild`
-cannot run without them.
+`npx expo prebuild` is blocked on one missing artifact: **`google-services.json`**, owed by AJ
+from the Firebase console. `app.json` points at it via `android.googleServicesFile` (and
+`ios.googleServicesFile` for `GoogleService-Info.plist`); both files are gitignored, so each
+developer supplies their own in the project root. Everything else prebuild needs is in place.
+
+`android.package` and `ios.bundleIdentifier` are both `com.dreamsoft.ganapps`. This is
+**provisional** — it must match the package name of the app AJ registered in the Firebase
+console, or Firebase fails at runtime. Changing it is cheap until the first Play Store or App
+Store upload and effectively impossible afterwards, so confirm it with him before submitting.
+
+A config-plugin entry in `app.json` must be a package that actually ships an `app.plugin.js`.
+`@react-native-firebase/app` does; `@react-native-firebase/remote-config` does not, and listing
+it made Expo load the package's runtime entry as a plugin, which threw and broke **all** config
+resolution — `expo start`, `expo config`, `expo prebuild` and `expo customize` alike. Check for
+`app.plugin.js` in the package root before adding a plugin here.
 
 ---
 
@@ -600,6 +651,7 @@ cannot run without them.
 - [ ] Paginated? → `useInfiniteQuery`; remember `data.items` / `data.pagination`
 - [ ] Form? → Zod schema in `utils/validation.ts`, component in `components/forms/`
 - [ ] New screen? → Expo Router file with the right `_layout.tsx`; protected screens go in `(app)`
+- [ ] Navigating anywhere? → add/use an entry in `constants/routes.ts`; never a route string literal
 - [ ] New component? → `components/common/` if shared; decide `className` per the rule above
 - [ ] Offline write? → outbox via `db/schema.ts` + `sync.service.ts`
 - [ ] Error/loading/empty states covered? → `ErrorView` with retry, `Loading`, `Empty`
@@ -617,10 +669,16 @@ cannot run without them.
 
 ### CI
 
-`.github/workflows/ci.yml` runs `npm ci`, `npm run check`, `npm run type-check`, and
-`npm run test` on every push and pull request to `dev` or `master`. It is the same sequence
-`pre-push` runs locally, minus the shortcuts — `npm ci` installs strictly from
-`package-lock.json` and fails on drift between it and `package.json`.
+`.github/workflows/ci.yml` runs `npm ci`, `npm run check`, **`npx expo customize tsconfig.json`**,
+`npm run type-check`, and `npm run test` on every push and pull request to `dev` or `master`.
+It is the same sequence `pre-push` runs locally, minus the shortcuts — `npm ci` installs
+strictly from `package-lock.json` and fails on drift between it and `package.json`.
+
+The `expo customize` step generates `.expo/types/`, which is gitignored and therefore absent
+from a fresh checkout. Without it `Href` widens and the route table in `constants/routes.ts` is
+checked against nothing — so that step is what makes CI's `type-check` catch route drift. It is
+non-interactive and leaves `tsconfig.json` byte-identical; if that ever stops being true, the
+generated `tsconfig.json` is the thing to inspect first.
 
 Node comes from `.nvmrc` in both CI and local `nvm` shells, so bump the two together rather
 than letting CI test a version nobody develops on.
@@ -639,7 +697,7 @@ Every feature implementation **must** conclude with a structured review.
 | Best practices | TSDoc on new/touched exports? `@param`/`@returns`/`@throws` correct? No `any`? (Explicit types are gated by `npm run lint`, so step 1 already covers them.) |
 | API layer | Imports `axiosInstance`, not bare `axios`? Version-free path? No second unwrap of the envelope? Route confirmed against the server? |
 | Hook conventions | Endpoint in `api/endpoints/`? Query/mutation in `hooks/queries|mutations/`? Aggregated hook? Query key factory exported? |
-| Navigation | Correct route group? Layout updated? Dynamic params right? |
+| Navigation | Correct route group? Layout updated? Dynamic params right? Routed via `Routes`, with no route string literal anywhere? |
 | Components | CVA variants over one-off styles? Named export? Tailwind only, no StyleSheet? `className` decision deliberate? |
 | Forms & validation | Zod schema in `utils/validation.ts`? `zodResolver`? `FormProvider` wrapping fields? |
 | Auth & security | Token read via the store? 401 path intact? No secrets in source? |
