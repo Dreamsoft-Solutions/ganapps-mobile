@@ -1,6 +1,7 @@
 import type { UseMutationResult } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback } from 'react';
+import { Routes } from '@/constants/routes';
 import { useAuthStore } from '@/store/auth.store';
 import type {
   LoginDto,
@@ -58,7 +59,7 @@ export function useAuth(): UseAuthResult {
   const login = useCallback(
     async (dto: LoginDto) => {
       await loginMutation.mutateAsync(dto);
-      router.replace('/(app)/(home)');
+      router.replace(Routes.app.home);
     },
     [loginMutation, router],
   );
@@ -66,20 +67,20 @@ export function useAuth(): UseAuthResult {
   const register = useCallback(
     async (dto: RegisterDto) => {
       await registerMutation.mutateAsync(dto);
-      router.replace('/verify-email');
+      router.replace(Routes.verifyEmail);
     },
     [registerMutation, router],
   );
 
   const logout = useCallback(async () => {
     await logoutMutation.mutateAsync();
-    router.replace('/(auth)/login');
+    router.replace(Routes.auth.login);
   }, [logoutMutation, router]);
 
   const verifyEmailAction = useCallback(
     async (dto: VerifyEmailRequest) => {
       await verifyEmailMutation.mutateAsync(dto);
-      router.replace('/onboarding');
+      router.replace(Routes.onboarding);
     },
     [verifyEmailMutation, router],
   );
@@ -92,7 +93,7 @@ export function useAuth(): UseAuthResult {
     async (dto: UpdateProfileRequest) => {
       await updateProfileMutation.mutateAsync(dto);
       await useAuthStore.getState().completeOnboarding();
-      router.replace('/(app)/(home)');
+      router.replace(Routes.app.home);
     },
     [updateProfileMutation, router],
   );

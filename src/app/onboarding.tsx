@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { Text } from '@/components/common/Text';
 import { OnboardingForm } from '@/components/forms/OnboardingForm';
+import { Routes } from '@/constants/routes';
 import { useAuthStore } from '@/store/auth.store';
 
 export default function OnboardingScreen(): ReactElement {
@@ -25,7 +26,7 @@ export default function OnboardingScreen(): ReactElement {
               size="sm"
               onPress={async (): Promise<void> => {
                 await useAuthStore.getState().completeOnboarding();
-                router.replace('/(app)/(home)');
+                router.replace(Routes.app.home);
               }}
             >
               Skip for Now

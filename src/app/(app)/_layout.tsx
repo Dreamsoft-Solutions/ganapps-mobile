@@ -1,6 +1,7 @@
 import { Tabs, useRouter } from 'expo-router';
 import { type ReactElement, useEffect } from 'react';
 import { Loading } from '@/components/common/Loading';
+import { Routes } from '@/constants/routes';
 import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
 import { useAuthStore } from '@/store/auth.store';
 
@@ -14,9 +15,9 @@ export default function AppLayout(): ReactElement {
     if (user) {
       setUser(user);
       if (!user.isVerified) {
-        router.replace('/verify-email');
+        router.replace(Routes.verifyEmail);
       } else if (!hasCompletedOnboarding) {
-        router.replace('/onboarding');
+        router.replace(Routes.onboarding);
       }
     }
   }, [user, hasCompletedOnboarding, router, setUser]);

@@ -4,6 +4,7 @@ import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/common/Text';
 import { RegisterForm } from '@/components/forms/RegisterForm';
+import { Routes } from '@/constants/routes';
 
 export default function RegisterScreen(): ReactElement {
   return (
@@ -17,7 +18,7 @@ export default function RegisterScreen(): ReactElement {
 
           <View className="mt-6 flex-row justify-center gap-2">
             <Text className="text-lynx-on-surface-variant">Already have an account? </Text>
-            <Link href="/(auth)/login" className="text-lynx-primary-container font-semibold">
+            <Link href={Routes.auth.login} className="text-lynx-primary-container font-semibold">
               Sign In
             </Link>
           </View>
