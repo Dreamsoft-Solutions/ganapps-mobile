@@ -1,7 +1,7 @@
-import { db } from '@/db';
-import { outbox } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import axiosInstance from '@/api/axios-instance';
+import { db } from '@/db';
+import { outbox } from '@/db/schema';
 import { useAuthStore } from '@/store/auth.store';
 
 export async function enqueueOutbox(
@@ -20,11 +20,7 @@ export async function enqueueOutbox(
 }
 
 export async function syncOutbox(): Promise<void> {
-  const pendingItems = await db
-    .select()
-    .from(outbox)
-    .where(eq(outbox.status, 'pending'))
-    .limit(10);
+  const pendingItems = await db.select().from(outbox).where(eq(outbox.status, 'pending')).limit(10);
 
   for (const item of pendingItems) {
     const retries = (item.retries ?? 0) + 1;
@@ -32,29 +28,18 @@ export async function syncOutbox(): Promise<void> {
     try {
       await processOutboxItem(item);
 
-      await db
-        .update(outbox)
-        .set({ status: 'success', updatedAt: new Date() })
-        .where(eq(outbox.id, item.id));
+      await db.update(outbox).set({ status: 'success', updatedAt: new Date() }).where(eq(outbox.id, item.id));
     } catch (_error) {
       if (retries >= 3) {
-        await db
-          .update(outbox)
-          .set({ status: 'failed', retries, updatedAt: new Date() })
-          .where(eq(outbox.id, item.id));
+        await db.update(outbox).set({ status: 'failed', retries, updatedAt: new Date() }).where(eq(outbox.id, item.id));
       } else {
-        await db
-          .update(outbox)
-          .set({ retries, updatedAt: new Date() })
-          .where(eq(outbox.id, item.id));
+        await db.update(outbox).set({ retries, updatedAt: new Date() }).where(eq(outbox.id, item.id));
       }
     }
   }
 }
 
-async function processOutboxItem(
-  item: typeof outbox.$inferSelect,
-): Promise<void> {
+async function processOutboxItem(item: typeof outbox.$inferSelect): Promise<void> {
   const token = useAuthStore.getState().token;
   if (!token) throw new Error('Not authenticated');
 
@@ -69,10 +54,7 @@ async function processOutboxItem(
   }
 }
 
-async function syncFeature(
-  action: string,
-  payload: Record<string, unknown>,
-): Promise<void> {
+async function syncFeature(action: string, payload: Record<string, unknown>): Promise<void> {
   switch (action) {
     case 'create':
       await axiosInstance.post('/features', payload);

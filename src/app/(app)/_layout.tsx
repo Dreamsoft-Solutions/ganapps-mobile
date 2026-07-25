@@ -1,8 +1,8 @@
 import { Tabs, useRouter } from 'expo-router';
 import { useEffect } from 'react';
+import { Loading } from '@/components/common/Loading';
 import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
 import { useAuthStore } from '@/store/auth.store';
-import { Loading } from '@/components/common/Loading';
 
 export default function AppLayout() {
   const router = useRouter();

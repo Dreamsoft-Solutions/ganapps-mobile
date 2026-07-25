@@ -1,15 +1,6 @@
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { featuresAPI } from '@/api/endpoints/features';
-import type {
-  Feature,
-  CreateFeatureDto,
-  UpdateFeatureDto,
-} from '@/types/feature.types';
+import type { CreateFeatureDto, Feature, UpdateFeatureDto } from '@/types/feature.types';
 
 export const featureQueryKeys = {
   all: ['features'] as const,
@@ -28,14 +19,7 @@ export function useFeatureDetail(id: string) {
 export function useFeatures() {
   const queryClient = useQueryClient();
 
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    error,
-  } = useInfiniteQuery({
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } = useInfiniteQuery({
     queryKey: featureQueryKeys.list(),
     queryFn: ({ pageParam = 0 }) =>
       featuresAPI.getAll({
@@ -44,8 +28,7 @@ export function useFeatures() {
       }),
     getNextPageParam: (lastPage) => {
       if (!lastPage.meta) return undefined;
-      const nextSkip =
-        lastPage.meta.skip + lastPage.meta.take;
+      const nextSkip = lastPage.meta.skip + lastPage.meta.take;
       return nextSkip < lastPage.meta.total ? nextSkip : undefined;
     },
     initialPageParam: 0,
@@ -60,11 +43,7 @@ export function useFeatures() {
     },
   });
 
-  const updateMutation = useMutation<
-    Feature,
-    Error,
-    { id: string; dto: UpdateFeatureDto }
-  >({
+  const updateMutation = useMutation<Feature, Error, { id: string; dto: UpdateFeatureDto }>({
     mutationFn: ({ id, dto }) => featuresAPI.update(id, dto),
     onSuccess: () => {
       queryClient.invalidateQueries({

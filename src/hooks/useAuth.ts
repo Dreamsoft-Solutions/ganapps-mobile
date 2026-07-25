@@ -1,16 +1,16 @@
-import { useCallback } from 'react';
 import { useRouter } from 'expo-router';
+import { useCallback } from 'react';
+import { useAuthStore } from '@/store/auth.store';
+import type { LoginDto, RegisterDto, UpdateProfileRequest, VerifyEmailRequest } from '@/types/auth.types';
 import {
   useLoginMutation,
-  useRegisterMutation,
   useLogoutMutation,
-  useVerifyEmailMutation,
+  useRegisterMutation,
   useResendVerificationMutation,
   useUpdateProfileMutation,
+  useVerifyEmailMutation,
 } from './mutations/useAuthMutation';
 import { useAuthQuery } from './queries/useAuthQuery';
-import { useAuthStore } from '@/store/auth.store';
-import type { LoginDto, RegisterDto, VerifyEmailRequest, UpdateProfileRequest } from '@/types/auth.types';
 
 export function useAuth() {
   const router = useRouter();
@@ -70,10 +70,7 @@ export function useAuth() {
   return {
     user,
     token,
-    isLoading:
-      userLoading ||
-      loginMutation.isPending ||
-      registerMutation.isPending,
+    isLoading: userLoading || loginMutation.isPending || registerMutation.isPending,
     error: userError,
     login,
     register,

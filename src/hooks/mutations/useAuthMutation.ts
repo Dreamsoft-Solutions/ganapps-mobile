@@ -1,16 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { authAPI } from '@/api/endpoints/auth';
-import { authQueryKeys } from '../queries/useAuthQuery';
 import { useAuthStore } from '@/store/auth.store';
 import type {
   LoginDto,
   RegisterDto,
-  TokenResponse,
   RegisterResponse,
-  VerifyEmailRequest,
+  TokenResponse,
   UpdateProfileRequest,
+  VerifyEmailRequest,
 } from '@/types/auth.types';
 import type { User } from '@/types/user.types';
+import { authQueryKeys } from '../queries/useAuthQuery';
 
 export function useLoginMutation() {
   const queryClient = useQueryClient();

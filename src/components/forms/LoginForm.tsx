@@ -1,12 +1,12 @@
-import { View } from 'react-native';
-import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { loginSchema } from '@/utils/validation';
-import { Input } from '@/components/common/Input';
+import { FormProvider, useForm } from 'react-hook-form';
+import { View } from 'react-native';
 import { Button } from '@/components/common/Button';
+import { Input } from '@/components/common/Input';
 import { Text } from '@/components/common/Text';
 import { useAuth } from '@/hooks/useAuth';
 import type { LoginDto } from '@/types/auth.types';
+import { loginSchema } from '@/utils/validation';
 
 export function LoginForm() {
   const { login, isLoading } = useAuth();
@@ -22,29 +22,14 @@ export function LoginForm() {
   return (
     <FormProvider {...methods}>
       <View className="gap-4">
-        <Input
-          name="email"
-          label="Email"
-          placeholder="you@example.com"
-          keyboardType="email-address"
-        />
-        <Input
-          name="password"
-          label="Password"
-          placeholder=".........."
-          secureTextEntry
-        />
-        <Button
-          onPress={methods.handleSubmit(onSubmit)}
-          loading={isLoading}
-        >
+        <Input name="email" label="Email" placeholder="you@example.com" keyboardType="email-address" />
+        <Input name="password" label="Password" placeholder=".........." secureTextEntry />
+        <Button onPress={methods.handleSubmit(onSubmit)} loading={isLoading}>
           Login
         </Button>
 
         <View className="flex-row justify-end mt-2">
-          <Text className="text-lynx-primary-container font-semibold text-sm">
-            Forgot Password?
-          </Text>
+          <Text className="text-lynx-primary-container font-semibold text-sm">Forgot Password?</Text>
         </View>
 
         <View className="flex-row items-center gap-3 mt-4">

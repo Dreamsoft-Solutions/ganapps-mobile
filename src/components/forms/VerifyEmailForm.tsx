@@ -1,11 +1,11 @@
-import { View } from 'react-native';
-import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { verifyEmailSchema } from '@/utils/validation';
-import { Input } from '@/components/common/Input';
+import { FormProvider, useForm } from 'react-hook-form';
+import { View } from 'react-native';
 import { Button } from '@/components/common/Button';
+import { Input } from '@/components/common/Input';
 import { useAuth } from '@/hooks/useAuth';
 import type { VerifyEmailFormData } from '@/utils/validation';
+import { verifyEmailSchema } from '@/utils/validation';
 
 export function VerifyEmailForm() {
   const { verifyEmail, verifyEmailMutation } = useAuth();
@@ -21,16 +21,8 @@ export function VerifyEmailForm() {
   return (
     <FormProvider {...methods}>
       <View className="gap-4">
-        <Input
-          name="code"
-          label="Verification Code"
-          placeholder="000000"
-          keyboardType="number-pad"
-        />
-        <Button
-          onPress={methods.handleSubmit(onSubmit)}
-          loading={verifyEmailMutation.isPending}
-        >
+        <Input name="code" label="Verification Code" placeholder="000000" keyboardType="number-pad" />
+        <Button onPress={methods.handleSubmit(onSubmit)} loading={verifyEmailMutation.isPending}>
           Verify Email
         </Button>
       </View>

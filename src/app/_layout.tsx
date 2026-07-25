@@ -1,10 +1,10 @@
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
-import { RootProvider } from '@/providers/RootProvider';
-import { useAuthStore } from '@/store/auth.store';
-import { remoteConfigService } from '@/services/remote-config.service';
 import { Loading } from '@/components/common/Loading';
+import { RootProvider } from '@/providers/RootProvider';
+import { remoteConfigService } from '@/services/remote-config.service';
+import { useAuthStore } from '@/store/auth.store';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -33,14 +33,8 @@ function RootLayoutNav() {
     return (
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(app)" />
-        <Stack.Screen
-          name="verify-email"
-          options={{ headerShown: false, presentation: 'fullScreenModal' }}
-        />
-        <Stack.Screen
-          name="onboarding"
-          options={{ headerShown: false, presentation: 'fullScreenModal' }}
-        />
+        <Stack.Screen name="verify-email" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
       </Stack>
     );
   }

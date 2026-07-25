@@ -18,16 +18,10 @@ class RemoteConfigService {
     if (DEFAULT_CONFIG.features) {
       for (const [key, raw] of Object.entries(DEFAULT_CONFIG.features)) {
         const value = raw as Record<string, unknown>;
-        if (
-          typeof value === 'object' &&
-          value !== null &&
-          'enabled' in value
-        ) {
-          this.defaults[key] = (value as { enabled: boolean })
-            .enabled as FeatureFlagStore[string];
+        if (typeof value === 'object' && value !== null && 'enabled' in value) {
+          this.defaults[key] = (value as { enabled: boolean }).enabled as FeatureFlagStore[string];
         } else {
-          this.defaults[key] =
-            value as unknown as FeatureFlagStore[string];
+          this.defaults[key] = value as unknown as FeatureFlagStore[string];
         }
       }
     }
@@ -46,17 +40,13 @@ class RemoteConfigService {
 
       this.initialized = true;
     } catch (_error) {
-      console.warn(
-        'Firebase Remote Config fetch failed, using defaults and env overrides',
-      );
+      console.warn('Firebase Remote Config fetch failed, using defaults and env overrides');
       this.initialized = true;
     }
   }
 
   private getEnvOverride(key: string): string | undefined {
-    const envKey = `EXPO_PUBLIC_FEATURE_FLAG_${key
-      .toUpperCase()
-      .replace(/-/g, '_')}`;
+    const envKey = `EXPO_PUBLIC_FEATURE_FLAG_${key.toUpperCase().replace(/-/g, '_')}`;
     return process.env[envKey];
   }
 
@@ -67,9 +57,7 @@ class RemoteConfigService {
     }
 
     if (!this.initialized) {
-      return typeof this.defaults[key] === 'boolean'
-        ? (this.defaults[key] as boolean)
-        : defaultValue;
+      return typeof this.defaults[key] === 'boolean' ? (this.defaults[key] as boolean) : defaultValue;
     }
 
     const value = remoteConfig().getValue(key);
@@ -85,9 +73,7 @@ class RemoteConfigService {
     if (envOverride !== undefined) return envOverride;
 
     if (!this.initialized) {
-      return typeof this.defaults[key] === 'string'
-        ? (this.defaults[key] as string)
-        : defaultValue;
+      return typeof this.defaults[key] === 'string' ? (this.defaults[key] as string) : defaultValue;
     }
 
     const value = remoteConfig().getValue(key);
@@ -106,9 +92,7 @@ class RemoteConfigService {
     }
 
     if (!this.initialized) {
-      return typeof this.defaults[key] === 'number'
-        ? (this.defaults[key] as number)
-        : defaultValue;
+      return typeof this.defaults[key] === 'number' ? (this.defaults[key] as number) : defaultValue;
     }
 
     const value = remoteConfig().getValue(key);
