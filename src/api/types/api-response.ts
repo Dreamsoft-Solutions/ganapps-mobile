@@ -23,18 +23,6 @@ export function isApiResponse<T>(body: unknown): body is ApiResponse<T> {
   return typeof body === 'object' && body !== null && 'success' in body && 'data' in body;
 }
 
-export interface PaginatedResponse<T> {
-  success: boolean;
-  statusCode: number;
-  data: T[];
-  message: string;
-  meta: {
-    skip: number;
-    take: number;
-    total: number;
-  };
-}
-
 /**
  * A cursor-paginated payload as returned inside the response envelope.
  *
