@@ -623,10 +623,12 @@ Scaffolding from the template that survives in the tree. It compiles, so it look
 | `api/endpoints/users.ts` | There is no `/users` controller. `getMe` and `updateProfile` live on `authAPI`. |
 | `Empty`'s `icon?: string` prop | Renders a string at `text-4xl`, i.e. an emoji slot, which contradicts the no-emoji rule. Use `lucide-react-native` instead. |
 
-`npx expo prebuild` is blocked on one missing artifact: **`google-services.json`**, owed by AJ
-from the Firebase console. `app.json` points at it via `android.googleServicesFile` (and
-`ios.googleServicesFile` for `GoogleService-Info.plist`); both files are gitignored, so each
-developer supplies their own in the project root. Everything else prebuild needs is in place.
+`npx expo prebuild` needs one artifact that is not in the repo: **`google-services.json`**,
+downloaded from the Firebase console for the `com.ganapps.app` Android app and placed in the
+project root. `app.json` points at it via `android.googleServicesFile`, and at
+`GoogleService-Info.plist` via `ios.googleServicesFile` — the iOS app is not registered yet.
+Both files are gitignored and hold project credentials, so each developer downloads their own
+rather than sharing copies. Everything else prebuild needs is in place.
 
 `android.package` and `ios.bundleIdentifier` are both **`com.ganapps.app`**, matching the
 Android app AJ registered in the production Firebase project (confirmed with him — it is not a
