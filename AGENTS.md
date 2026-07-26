@@ -56,9 +56,22 @@ npm run test:coverage         # With coverage
 npm run type-check            # tsc --noEmit
 
 # Database (Drizzle)
-npm run db:generate           # Generate Drizzle migrations
-npm run db:migrate            # Apply migrations
+npm run db:generate           # Generate Drizzle migrations   — HUMAN ONLY, see below
+npm run db:migrate            # Apply migrations              — HUMAN ONLY, see below
 ```
+
+**Migrations are run by a human, never by an AI agent or tool.** This covers both scripts above,
+and their underlying `drizzle-kit generate` / `drizzle-kit migrate` commands.
+
+Migrations change persistent state that lives outside the working tree, so a mistake is not
+recoverable with `git checkout` — applying one against the wrong database, or generating one from a
+half-finished schema edit, leaves artifacts that then get committed and shared. Editing
+`src/db/schema.ts` is ordinary work; turning that edit into a migration is not.
+
+An agent that needs a migration **stops and prints the exact command**, the same way it hands over
+`git commit` and `git push`. A plan step reading "run `npm run db:generate`" is a hand-off point,
+not an action. The same applies to the runtime migration runner: writing the code that calls
+`useMigrations` is fine, launching the app so it applies is not.
 
 **`npm run format` alone cannot make `npm run check` pass.** `check` also runs assists
 (`assist/source/organizeImports`), which `format` never applies. To clear everything:
