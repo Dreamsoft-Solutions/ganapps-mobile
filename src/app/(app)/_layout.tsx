@@ -50,10 +50,10 @@ export default function AppLayout(): ReactElement {
         }}
       />
       <Tabs.Screen
-        name="(features)"
+        name="(ganaps)"
         options={{
-          title: 'Features',
-          headerTitle: 'Features',
+          title: 'Events',
+          headerTitle: 'Events',
         }}
       />
       <Tabs.Screen
