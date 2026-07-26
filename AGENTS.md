@@ -628,10 +628,15 @@ from the Firebase console. `app.json` points at it via `android.googleServicesFi
 `ios.googleServicesFile` for `GoogleService-Info.plist`); both files are gitignored, so each
 developer supplies their own in the project root. Everything else prebuild needs is in place.
 
-`android.package` and `ios.bundleIdentifier` are both `com.dreamsoft.ganapps`. This is
-**provisional** — it must match the package name of the app AJ registered in the Firebase
-console, or Firebase fails at runtime. Changing it is cheap until the first Play Store or App
-Store upload and effectively impossible afterwards, so confirm it with him before submitting.
+`android.package` and `ios.bundleIdentifier` are both **`com.ganapps.app`**, matching the
+Android app AJ registered in the production Firebase project (confirmed with him — it is not a
+scratch project). `google-services.json` embeds this string,
+so the two must stay identical character-for-character or Firebase fails at runtime with an
+error that does not name the mismatch. Do not "correct" it to a `com.<company>.<app>` shape.
+
+Changing it is cheap until the first Play Store or App Store upload — nothing is published yet,
+`/android` and `/ios` are regenerated from `app.json` — and effectively impossible afterwards,
+since the identifier is permanent on both stores and tied to the signing key.
 
 A config-plugin entry in `app.json` must be a package that actually ships an `app.plugin.js`.
 `@react-native-firebase/app` does; `@react-native-firebase/remote-config` does not, and listing

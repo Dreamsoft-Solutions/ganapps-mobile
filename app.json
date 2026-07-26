@@ -9,11 +9,11 @@
     "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.dreamsoft.ganapps",
+      "bundleIdentifier": "com.ganapps.app",
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
-      "package": "com.dreamsoft.ganapps",
+      "package": "com.ganapps.app",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#00c853",
