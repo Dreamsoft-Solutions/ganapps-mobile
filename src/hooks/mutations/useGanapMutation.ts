@@ -1,5 +1,6 @@
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
+import { enqueueOutbox } from '@/services/sync.service';
 import type { JoinGanapResult } from '@/types/ganap.types';
 import { ganapQueryKeys } from '../queries/useGanapsQuery';
 
@@ -13,6 +14,22 @@ export interface ToggleLikeVariables {
 export interface ToggleSaveVariables {
   ganapId: string;
   isSaved: boolean;
+}
+
+/**
+ * Decides whether a failed toggle should be queued for replay.
+ *
+ * `parseApiError` sets `status` from the server's response, so its absence means
+ * the request never arrived — no signal, DNS failure, timeout — which is exactly
+ * what the outbox exists for. A rejection that carries a status is a real answer
+ * from the server (403 when not registered, for one) and must surface as an
+ * error rather than be queued for a replay the server will refuse again.
+ *
+ * @param error - The error the mutation rejected with
+ * @returns True when the request never reached the server
+ */
+function shouldQueueForReplay(error: Error): boolean {
+  return (error as { status?: number }).status === undefined;
 }
 
 /**
@@ -67,6 +84,11 @@ export function useLikeGanapMutation(): UseMutationResult<void, Error, ToggleLik
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.list() });
     },
+    onError: (error: Error, { ganapId, isLiked }: ToggleLikeVariables): void => {
+      if (shouldQueueForReplay(error)) {
+        void enqueueOutbox('ganap', isLiked ? 'unlike' : 'like', { ganapId });
+      }
+    },
   });
 }
 
@@ -84,6 +106,11 @@ export function useSaveGanapMutation(): UseMutationResult<void, Error, ToggleSav
     onSuccess: (_result: unknown, { ganapId }: ToggleSaveVariables): void => {
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.list() });
+    },
+    onError: (error: Error, { ganapId, isSaved }: ToggleSaveVariables): void => {
+      if (shouldQueueForReplay(error)) {
+        void enqueueOutbox('ganap', isSaved ? 'unsave' : 'save', { ganapId });
+      }
     },
   });
 }
