@@ -45,4 +45,4 @@ and leave it in place.
 
 ## Index
 
-_No ADRs yet._
+- [ADR 0001: Type-Checked Route Table Using Object-Form Hrefs](0001-type-checked-route-table.md)
