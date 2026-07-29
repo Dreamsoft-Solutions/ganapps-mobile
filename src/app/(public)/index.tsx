@@ -20,7 +20,9 @@ export default function WelcomeScreen(): ReactElement {
     <SafeAreaView className="flex-1 bg-background">
       <View className="flex-1 items-center justify-center px-8">
         <View className="items-center">
-          <Image source={logo} className="w-24 h-24 mb-6" resizeMode="contain" accessibilityLabel="Ganapps logo" />
+          <View style={{ width: 96, height: 96, marginBottom: 24 }}>
+            <Image source={logo} className="w-24 h-24" resizeMode="contain" accessibilityLabel="Ganapps logo" />
+          </View>
           <Text className="text-headline-lg text-foreground text-center mb-3">Ganapps</Text>
           <Text className="text-body-lg text-muted-foreground text-center max-w-[280px]">
             Find what is happening across Iloilo, make the plan with your people, and keep every event detail close.
