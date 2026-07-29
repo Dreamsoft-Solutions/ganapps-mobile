@@ -2,11 +2,13 @@ import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/r
 import { authAPI } from '@/api/endpoints/auth';
 import { useAuthStore } from '@/store/auth.store';
 import type {
+  GoogleAuthRequestDto,
   LoginDto,
   RegisterDto,
   RegisterResponse,
   TokenResponse,
   UpdateProfileRequest,
+  UploadAvatarResponse,
   VerifyEmailRequest,
 } from '@/types/auth.types';
 import type { User } from '@/types/user.types';
@@ -33,6 +35,25 @@ export function useRegisterMutation(): UseMutationResult<RegisterResponse, Error
     onSuccess: (data: RegisterResponse): void => {
       setAuth(data.accessToken, data.refreshToken, data.expiresIn);
     },
+  });
+}
+
+export function useGoogleLoginMutation(): UseMutationResult<TokenResponse, Error, GoogleAuthRequestDto> {
+  const queryClient = useQueryClient();
+  const setAuth = useAuthStore((s) => s.setAuth);
+
+  return useMutation<TokenResponse, Error, GoogleAuthRequestDto>({
+    mutationFn: (dto: GoogleAuthRequestDto): Promise<TokenResponse> => authAPI.googleLogin(dto),
+    onSuccess: (data: TokenResponse): void => {
+      setAuth(data.accessToken, data.refreshToken, data.expiresIn);
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
+    },
+  });
+}
+
+export function useUploadAvatarMutation(): UseMutationResult<UploadAvatarResponse, Error, FormData> {
+  return useMutation<UploadAvatarResponse, Error, FormData>({
+    mutationFn: (formData: FormData): Promise<UploadAvatarResponse> => authAPI.uploadAvatar(formData),
   });
 }
 

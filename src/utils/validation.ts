@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
 export const registerSchema = z
@@ -33,6 +33,7 @@ export const verifyEmailSchema = z.object({
 export const onboardingSchema = z.object({
   firstName: z.string().max(64, 'First name must be at most 64 characters').optional(),
   lastName: z.string().max(64, 'Last name must be at most 64 characters').optional(),
+  displayPicture: z.string().url('Invalid image URL').optional().or(z.literal('')),
   interests: z.array(z.string()).optional(),
 });
 

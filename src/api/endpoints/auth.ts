@@ -1,10 +1,12 @@
 import type {
+  GoogleAuthRequestDto,
   LoginDto,
   RefreshRequest,
   RegisterDto,
   RegisterResponse,
   TokenResponse,
   UpdateProfileRequest,
+  UploadAvatarResponse,
   VerifyEmailRequest,
 } from '@/types/auth.types';
 import type { User } from '@/types/user.types';
@@ -33,4 +35,14 @@ export const authAPI = {
 
   updateProfile: (dto: UpdateProfileRequest): Promise<User> =>
     axiosInstance.patch<User>('/auth/me', dto).then((res) => res.data),
+
+  googleLogin: (dto: GoogleAuthRequestDto): Promise<TokenResponse> =>
+    axiosInstance.post<TokenResponse>('/auth/google', dto).then((res) => res.data),
+
+  uploadAvatar: (file: FormData): Promise<UploadAvatarResponse> =>
+    axiosInstance
+      .post<UploadAvatarResponse>('/auth/avatar', file, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((res) => res.data),
 };

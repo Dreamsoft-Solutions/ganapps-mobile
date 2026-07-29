@@ -71,6 +71,13 @@ Number sequentially; see `docs/adr/README.md`.
 Session working material goes to the parent `../.claude/` folder, never into this repo.
 See `../.claude/README.md` for naming.
 
+## Design system
+
+The mobile app uses the semantic token system documented in `docs/DESIGN.md`.
+New UI must use those tokens (`primary`, `secondary`, `muted`, etc.) rather than
+hardcoded colors, and must account for both light and dark themes. Read
+`docs/DESIGN.md` before building any screen or component.
+
 ## Session workflow
 
 - **Building something new** → brainstorm the design first, get it agreed, then plan, then

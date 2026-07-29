@@ -8,10 +8,13 @@ import type { Href } from 'expo-router';
  * `src/app/` tree fails `npm run type-check`.
  */
 export interface RouteTable {
+  /** Public screens reachable without a token. */
+  public: {
+    welcome: Href;
+  };
   /** Screens reachable without a token. */
   auth: {
     login: Href;
-    register: Href;
   };
   /** Root-level, deliberately outside `(auth)`. */
   verifyEmail: Href;
@@ -57,12 +60,16 @@ export interface RouteTable {
  * `expo-router` takes a bare `Href` in `router.push`/`replace` and `Link`'s `href`, never
  * instantiating its type parameter. `SingleRoutePart<string>` then collapses to `string`,
  * so the dynamic `(app)/(features)/[feature-id]` route contributes a `/${string}` member
- * that swallows any absolute path. The object form has no such member.
+ * that swallows any absolute path. `router.replace('/nonsense')` compiles. The object form
+ * has no such member.
  */
 export const Routes: RouteTable = {
+  public: {
+    welcome: { pathname: '/(public)' },
+  },
+
   auth: {
     login: { pathname: '/(auth)/login' },
-    register: { pathname: '/(auth)/register' },
   },
 
   verifyEmail: { pathname: '/verify-email' },

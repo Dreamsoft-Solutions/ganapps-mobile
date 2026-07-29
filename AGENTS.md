@@ -441,6 +441,18 @@ export function LoginForm(): ReactElement {
 - **Icons** — `lucide-react-native` for all iconography.
 - **Spacing** — use the Tailwind scale below (`p-md`, `gap-lg`), not raw pixel values.
 
+## Design System
+
+The full design token reference, typography, spacing, and component patterns live
+in `docs/DESIGN.md`. Read it before adding new UI. Key rules:
+
+- **No hardcoded colors** — use semantic Tailwind tokens (`primary`,
+  `secondary`, `muted`, `foreground`, etc.).
+- **Light and dark themes are first-class** — colors are CSS variables that swap
+  under the `.dark` class.
+- **Compose with primitives** — screens are built from `components/common/`;
+  one-off styles are avoided in favor of new variants.
+
 ---
 
 ## TSDoc Requirements

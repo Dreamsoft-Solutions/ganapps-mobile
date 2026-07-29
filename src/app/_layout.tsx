@@ -3,6 +3,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { type ReactElement, useEffect, useState } from 'react';
 import { Loading } from '@/components/common/Loading';
 import { RootProvider } from '@/providers/RootProvider';
+import { ThemeProvider } from '@/providers/ThemeProvider';
 import { remoteConfigService } from '@/services/remote-config.service';
 import { useAuthStore } from '@/store/auth.store';
 
@@ -41,15 +42,23 @@ function RootLayoutNav(): ReactElement {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(public)" />
       <Stack.Screen name="(auth)" />
     </Stack>
   );
 }
 
+/**
+ * Root layout that hydrates auth state and branches between public, auth, and app stacks.
+ *
+ * @returns The root application layout.
+ */
 export default function RootLayout(): ReactElement {
   return (
     <RootProvider>
-      <RootLayoutNav />
+      <ThemeProvider>
+        <RootLayoutNav />
+      </ThemeProvider>
     </RootProvider>
   );
 }

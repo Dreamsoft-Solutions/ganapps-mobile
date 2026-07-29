@@ -1,15 +1,19 @@
 import { cva, type VariantProps } from 'class-variance-authority';
-import { type ReactElement, useCallback } from 'react';
-import { ActivityIndicator, Pressable } from 'react-native';
+import type { ReactElement, ReactNode } from 'react';
+import { useCallback } from 'react';
+import { ActivityIndicator, Pressable, useColorScheme, View } from 'react-native';
+import { Colors } from '@/constants/theme';
 import { Text } from './Text';
 
-const buttonVariants = cva('rounded-lg flex items-center justify-center active:opacity-70', {
+const buttonVariants = cva('flex flex-row items-center justify-center rounded-lg active:opacity-70', {
   variants: {
     variant: {
-      primary: 'bg-lynx-primary-container',
-      secondary: 'bg-white border border-black',
-      danger: 'bg-lynx-error',
+      default: 'bg-primary shadow',
+      secondary: 'bg-secondary',
+      outline: 'border border-input bg-background',
       ghost: 'bg-transparent',
+      destructive: 'bg-destructive',
+      link: 'bg-transparent underline-offset-4',
     },
     size: {
       sm: 'px-3 py-2',
@@ -21,7 +25,7 @@ const buttonVariants = cva('rounded-lg flex items-center justify-center active:o
     },
   },
   defaultVariants: {
-    variant: 'primary',
+    variant: 'default',
     size: 'md',
   },
 });
@@ -29,10 +33,12 @@ const buttonVariants = cva('rounded-lg flex items-center justify-center active:o
 const textVariants = cva('font-sans font-semibold text-center', {
   variants: {
     variant: {
-      primary: 'text-lynx-on-primary-container',
-      secondary: 'text-black',
-      danger: 'text-lynx-on-error',
-      ghost: 'text-lynx-primary-container',
+      default: 'text-primary-foreground',
+      secondary: 'text-secondary-foreground',
+      outline: 'text-foreground',
+      ghost: 'text-primary',
+      destructive: 'text-destructive-foreground',
+      link: 'text-primary underline',
     },
     size: {
       sm: 'text-sm',
@@ -41,7 +47,7 @@ const textVariants = cva('font-sans font-semibold text-center', {
     },
   },
   defaultVariants: {
-    variant: 'primary',
+    variant: 'default',
     size: 'md',
   },
 });
@@ -51,9 +57,26 @@ interface ButtonProps extends VariantProps<typeof buttonVariants> {
   disabled?: boolean;
   loading?: boolean;
   children: string;
+  leftIcon?: ReactNode;
+  rightIcon?: ReactNode;
 }
 
-export function Button({ variant, size, onPress, disabled, loading, children }: ButtonProps): ReactElement {
+/**
+ * Primary button primitive.
+ *
+ * @param props - Variant, size, press handler, label, and optional icons.
+ * @returns A themed pressable button.
+ */
+export function Button({
+  variant,
+  size,
+  onPress,
+  disabled,
+  loading,
+  children,
+  leftIcon,
+  rightIcon,
+}: ButtonProps): ReactElement {
   const handlePress = useCallback(async () => {
     try {
       await onPress();
@@ -62,16 +85,26 @@ export function Button({ variant, size, onPress, disabled, loading, children }: 
     }
   }, [onPress]);
 
+  const isOutlinedOrGhost = variant === 'outline' || variant === 'ghost' || variant === 'link';
+  const colorScheme = useColorScheme();
+  const spinnerColor = isOutlinedOrGhost
+    ? Colors[colorScheme === 'dark' ? 'dark' : 'light'].foreground
+    : Colors.light['primary-foreground'];
+
   return (
     <Pressable
       onPress={handlePress}
       disabled={disabled || loading}
-      className={buttonVariants({ variant, size, disabled })}
+      className={buttonVariants({ variant, size, disabled: disabled || loading })}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'secondary' || variant === 'ghost' ? '#1a1c1c' : '#ffffff'} />
+        <ActivityIndicator color={spinnerColor} />
       ) : (
-        <Text className={textVariants({ variant, size })}>{children}</Text>
+        <>
+          {leftIcon && <View className="mr-2">{leftIcon}</View>}
+          <Text className={textVariants({ variant, size })}>{children}</Text>
+          {rightIcon && <View className="ml-2">{rightIcon}</View>}
+        </>
       )}
     </Pressable>
   );
