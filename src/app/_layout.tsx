@@ -1,3 +1,5 @@
+import '../global.css';
+
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { type ReactElement, useEffect, useState } from 'react';
