@@ -1,6 +1,7 @@
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { Text } from '@/components/common/Text';
@@ -23,8 +24,8 @@ export default function WelcomeScreen(): ReactElement {
           <View style={{ width: 96, height: 96, marginBottom: 24 }}>
             <Image
               source={logo}
-              className="w-24 h-24 rounded-full"
-              resizeMode="contain"
+              style={{ width: 96, height: 96, borderRadius: 9999 }}
+              contentFit="contain"
               accessibilityLabel="Ganapps logo"
             />
           </View>

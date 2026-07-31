@@ -1,5 +1,6 @@
 import '../global.css';
 
+import { NavigationBar } from 'expo-navigation-bar';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { cssInterop } from 'nativewind';
@@ -38,6 +39,7 @@ function RootLayoutNav(): ReactElement {
     useAuthStore.getState().hydrate();
     useThemeStore.getState().hydrate();
     remoteConfigService.initialize();
+    NavigationBar.setHidden(true);
   }, []);
 
   useEffect(() => {
