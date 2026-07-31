@@ -30,7 +30,7 @@ central question was whether they actually validate anything.
   instantiated anywhere in the package.
 - `Href<T = ExpoRouter.__routes>` therefore falls back to the generated interface's own default,
   `T = string`, so `SingleRoutePart<string>` collapses to `string`.
-- A dynamic route such as `(app)/(features)/[feature-id]` then contributes a `` /${string} `` member
+- A dynamic route such as a top-level-elidable `[param].tsx` contributes a `` /${string} `` member
   to the union, which matches **any** absolute path. `router.replace('/nonsense')` compiles clean.
 - The object form `{ pathname: '...' }` **is** strictly validated: the union lists object pathnames
   as exact string literals, with no catch-all member.
@@ -56,12 +56,10 @@ Every entry uses Expo Router's **object form**:
 ```typescript
 app: {
   home: { pathname: '/(app)/(home)' },
+  events: { pathname: '/(app)/(events)' },
+  chat: { pathname: '/(app)/(chat)' },
+  profile: { pathname: '/(app)/(profile)' },
 },
-
-featureDetail: (featureId: string): Href => ({
-  pathname: '/(app)/(features)/[feature-id]',
-  params: { 'feature-id': featureId },
-}),
 ```
 
 Call sites read `router.replace(Routes.app.home)` and `<Link href={Routes.auth.login}>`.
@@ -107,9 +105,10 @@ the exact stale entry; restoring the filename went green. Pointing `onboarding` 
 - Renaming or moving a route group requires regenerating types afterwards, or the reported error
   refers to the previous tree.
 - Route groups in parentheses do not affect the URL, so a group segment belongs in an entry only
-  where the framework needs it to disambiguate. The four tab groups each hold an `index.tsx` and
-  would all otherwise resolve to `/`, so naming a specific tab requires its group. Root-level
-  screens such as `verify-email` and `onboarding` take no group.
+  where the framework needs it to disambiguate. The four tab groups — `(home)`, `(events)`,
+  `(chat)`, `(profile)` — each hold an `index.tsx` and would all otherwise resolve to `/`, so
+  naming a specific tab requires its group. Root-level screens such as `verify-email` and
+  `onboarding` take no group.
 - **One drift scenario deliberately does not error:** moving `onboarding.tsx` into `(auth)/` keeps
   `/onboarding` valid, because a route inside a group also generates its group-elided URL. That is
   correct — the URL genuinely still resolves.

@@ -100,7 +100,7 @@ src/
 │   │   └── refresh-token.ts          # POST /auth/refresh, deduped via shared promise
 │   ├── endpoints/
 │   │   ├── auth.ts                   # 8 auth calls (see API Layer below)
-│   │   ├── features.ts               # DEAD — no such endpoint on the server
+│   │   ├── ganaps.ts                 # Public Ganap discovery + detail
 │   │   └── users.ts                  # DEAD — no such endpoint on the server
 │   ├── types/
 │   │   ├── api-response.ts           # ApiResponse<T>, PaginatedResponse<T>, isApiResponse
@@ -116,11 +116,11 @@ src/
 │   │   ├── login.tsx
 │   │   └── register.tsx
 │   └── (app)/                        # Authenticated group (tab navigator)
-│       ├── _layout.tsx               # Tabs: Home, Features, Profile, More
-│       ├── (home)/{_layout,index}.tsx
-│       ├── (features)/{_layout,index,[feature-id]}.tsx   # DEAD — see Known Drift
-│       ├── (profile)/{_layout,index,edit,settings}.tsx
-│       └── (more)/{_layout,index}.tsx
+│       ├── _layout.tsx               # Tabs: Map, My Events, Chat, Profile
+│       ├── (home)/{_layout,index}.tsx                   # Map discovery
+│       ├── (events)/{_layout,index}.tsx                # My Events placeholder
+│       ├── (chat)/{_layout,index}.tsx                  # Chat placeholder
+│       └── (profile)/{_layout,index,edit,settings}.tsx
 ├── components/
 │   ├── common/                       # UI primitives
 │   │   ├── Button.tsx                # CVA variants; takes `children: string`
@@ -131,7 +131,9 @@ src/
 │   │   ├── Loading.tsx               # Centered ActivityIndicator
 │   │   └── Text.tsx                  # Accepts className (TextProps spread)
 │   ├── forms/                        # LoginForm, RegisterForm, VerifyEmailForm, OnboardingForm
-│   └── lists/                        # FeatureList.tsx
+│   ├── lists/                        # FeatureList.tsx
+│   ├── map/                          # GanapMapPin, MapSearchBar, TagChips, SelectedGanapCard
+│   └── navigation/                   # AppTabBar (custom bottom tabs)
 ├── constants/
 │   ├── errors.ts                     # ErrorCodes + ErrorMessages, mirrors server AppError
 │   ├── routes.ts                     # Href-typed route table — see Navigation Convention
@@ -150,7 +152,7 @@ src/
 │   ├── remote-config.service.ts      # Firebase Remote Config singleton
 │   └── sync.service.ts               # Offline outbox processor
 ├── store/auth.store.ts               # Zustand; tokens in expo-secure-store
-├── types/                            # auth.types, user.types, feature.types
+├── types/                            # auth.types, ganap.types, user.types, feature.types
 ├── utils/
 │   ├── error-handling.ts             # parseApiError
 │   ├── formatting.ts  formatting.test.ts
@@ -337,8 +339,8 @@ fails at the exact stale entry.
 **The string form is never validated in this app**, with or without generated types.
 `expo-router` takes a bare `Href` in `router.push`/`replace` and `Link`'s `href`, never
 instantiating its type parameter, so `SingleRoutePart<string>` collapses to `string` and the
-dynamic `(app)/(features)/[feature-id]` route contributes a `/${string}` member that matches
-any absolute path. `router.replace('/nonsense')` compiles. The object form has no such member.
+string-form route groups collapse to `string` and swallow any absolute path.
+`router.replace('/nonsense')` compiles. The object form has no such member.
 
 Adding a screen means adding its entry to `Routes`; deleting one means deleting the entry.
 
@@ -354,7 +356,7 @@ types: a stale committed union would validate routes against an out-of-date tree
 worse than no checking because it looks like it is working.
 
 Route groups in parentheses do not affect the URL, so include a group segment only where the
-framework needs it to disambiguate. `(home)`, `(features)`, `(profile)` and `(more)` each hold
+framework needs it to disambiguate. `(home)`, `(events)`, `(chat)` and `(profile)` each hold
 an `index.tsx` and would all otherwise resolve to `/`, so naming a specific tab requires its
 group. `verify-email` and `onboarding` are at the root of `src/app/` and take no group.
 
@@ -644,7 +646,6 @@ Scaffolding from the template that survives in the tree. It compiles, so it look
 
 | Item | Reality |
 |---|---|
-| `api/endpoints/features.ts`, `hooks/useFeatures.ts`, `components/lists/FeatureList.tsx`, `app/(app)/(features)/`, `db.featureCache`, `sync.service` `'feature'` case | The `Feature` entity (`id`/`name`/`description`) exists nowhere on the server. Every call 404s. |
 | `api/endpoints/users.ts` | There is no `/users` controller. `getMe` and `updateProfile` live on `authAPI`. |
 | `Empty`'s `icon?: string` prop | Renders a string at `text-4xl`, i.e. an emoji slot, which contradicts the no-emoji rule. Use `lucide-react-native` instead. |
 

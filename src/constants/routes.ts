@@ -23,13 +23,12 @@ export interface RouteTable {
   /** The four tab roots. */
   app: {
     home: Href;
-    features: Href;
+    events: Href;
+    chat: Href;
     profile: Href;
-    more: Href;
   };
   profileEdit: Href;
   profileSettings: Href;
-  featureDetail: (featureId: string) => Href;
 }
 
 /**
@@ -45,8 +44,8 @@ export interface RouteTable {
  * validates nothing — see the note below.
  *
  * Route groups in parentheses do not affect the URL, so a group segment appears here only
- * where the framework needs it to disambiguate. `(home)`, `(features)`, `(profile)` and
- * `(more)` each hold an `index.tsx` and would all otherwise resolve to `/`, so naming a
+ * where the framework needs it to disambiguate. `(home)`, `(events)`, `(chat)` and
+ * `(profile)` each hold an `index.tsx` and would all otherwise resolve to `/`, so naming a
  * specific tab requires its group. `verify-email` and `onboarding` sit at the root of
  * `src/app/`, in no group at all — they are reachable only once a token exists, because
  * registration returns tokens immediately.
@@ -77,23 +76,11 @@ export const Routes: RouteTable = {
 
   app: {
     home: { pathname: '/(app)/(home)' },
-    features: { pathname: '/(app)/(features)' },
+    events: { pathname: '/(app)/(events)' },
+    chat: { pathname: '/(app)/(chat)' },
     profile: { pathname: '/(app)/(profile)' },
-    more: { pathname: '/(app)/(more)' },
   },
 
   profileEdit: { pathname: '/(app)/(profile)/edit' },
   profileSettings: { pathname: '/(app)/(profile)/settings' },
-
-  /**
-   * Builds the href for a single feature's detail screen.
-   *
-   * @param featureId - Value for the `[feature-id]` segment of
-   * `src/app/(app)/(features)/[feature-id].tsx`.
-   * @returns An href targeting that feature's detail screen.
-   */
-  featureDetail: (featureId: string): Href => ({
-    pathname: '/(app)/(features)/[feature-id]',
-    params: { 'feature-id': featureId },
-  }),
 };
