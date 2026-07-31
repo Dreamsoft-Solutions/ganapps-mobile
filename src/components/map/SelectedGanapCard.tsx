@@ -3,11 +3,11 @@ import { Calendar, MapPin, Users, X } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { Pressable, View } from 'react-native';
 import { Text } from '@/components/common/Text';
-import type { Ganap } from '@/types/ganap.types';
+import type { GanapListItem } from '@/types/ganap.types';
 import { formatEventDate } from '@/utils/formatting';
 
 interface SelectedGanapCardProps {
-  ganap: Ganap;
+  ganap: GanapListItem;
   onClose: () => void;
 }
 

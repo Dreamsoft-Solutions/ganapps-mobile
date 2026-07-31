@@ -1,4 +1,4 @@
-import { createFeatureSchema, loginSchema, onboardingSchema, registerSchema, verifyEmailSchema } from './validation';
+import { loginSchema, onboardingSchema, registerSchema, verifyEmailSchema } from './validation';
 
 describe('loginSchema', () => {
   it('accepts a valid email and password', () => {
@@ -86,18 +86,6 @@ describe('onboardingSchema', () => {
       firstName: 'Maria',
       displayPicture: 'not-a-url',
     });
-    expect(result.success).toBe(false);
-  });
-});
-
-describe('createFeatureSchema', () => {
-  it('accepts a feature with a name', () => {
-    const result = createFeatureSchema.safeParse({ name: 'Test Feature' });
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects a name that is too short', () => {
-    const result = createFeatureSchema.safeParse({ name: 'ab' });
     expect(result.success).toBe(false);
   });
 });

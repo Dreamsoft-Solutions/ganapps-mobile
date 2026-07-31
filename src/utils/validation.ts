@@ -37,13 +37,7 @@ export const onboardingSchema = z.object({
   interests: z.array(z.string()).optional(),
 });
 
-export const createFeatureSchema = z.object({
-  name: z.string().min(3, 'Name must be at least 3 characters'),
-  description: z.string().optional(),
-});
-
 export type LoginFormData = z.infer<typeof loginSchema>;
 export type RegisterFormData = z.infer<typeof registerSchema>;
 export type VerifyEmailFormData = z.infer<typeof verifyEmailSchema>;
 export type OnboardingFormData = z.infer<typeof onboardingSchema>;
-export type CreateFeatureFormData = z.infer<typeof createFeatureSchema>;

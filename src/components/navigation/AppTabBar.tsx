@@ -15,7 +15,7 @@ interface TabRoute {
 
 const TAB_ROUTES: TabRoute[] = [
   { key: 'map', name: '(home)', label: 'Map', icon: MapIcon },
-  { key: 'events', name: '(events)', label: 'My Events', icon: Calendar },
+  { key: 'events', name: '(ganaps)', label: 'Events', icon: Calendar },
   { key: 'chat', name: '(chat)', label: 'Chat', icon: MessageCircle },
   { key: 'profile', name: '(profile)', label: 'Profile', icon: User },
 ];

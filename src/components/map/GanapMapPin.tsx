@@ -2,14 +2,14 @@ import { Image } from 'expo-image';
 import { MapPin } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { View } from 'react-native';
-import type { Ganap } from '@/types/ganap.types';
+import type { GanapListItem } from '@/types/ganap.types';
 
 const PIN_SIZE: number = 56;
 const PIN_RADIUS: number = PIN_SIZE / 2;
 const LOGO_INSET: number = 9;
 
 interface GanapMapPinProps {
-  ganap: Ganap;
+  ganap: GanapListItem;
 }
 
 /**

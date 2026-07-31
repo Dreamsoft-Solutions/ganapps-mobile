@@ -52,7 +52,7 @@ export default function AppLayout(): ReactElement {
       }}
     >
       <Tabs.Screen name="(home)" />
-      <Tabs.Screen name="(events)" />
+      <Tabs.Screen name="(ganaps)" />
       <Tabs.Screen name="(chat)" />
       <Tabs.Screen name="(profile)" />
     </Tabs>

@@ -10,8 +10,8 @@ import { GanapMapPin } from '@/components/map/GanapMapPin';
 import { MapSearchBar } from '@/components/map/MapSearchBar';
 import { SelectedGanapCard } from '@/components/map/SelectedGanapCard';
 import { TagChips } from '@/components/map/TagChips';
-import { useGanaps } from '@/hooks/useGanaps';
-import type { Ganap } from '@/types/ganap.types';
+import { useGanapsMap } from '@/hooks/useGanapsMap';
+import type { GanapListItem } from '@/types/ganap.types';
 
 const MAPBOX_TOKEN: string = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
 
@@ -28,9 +28,9 @@ const INITIAL_ZOOM = 15.5;
  */
 export default function HomeScreen(): ReactElement {
   const insets = useSafeAreaInsets();
-  const { items, tags, search, setSearch, tag, setTag, isLoading, isError, error, refetch } = useGanaps();
+  const { items, tags, search, setSearch, tag, setTag, isLoading, isError, error, refetch } = useGanapsMap();
 
-  const [selectedGanap, setSelectedGanap] = useState<Ganap | null>(null);
+  const [selectedGanap, setSelectedGanap] = useState<GanapListItem | null>(null);
 
   useEffect(() => {
     if (MAPBOX_TOKEN) {
