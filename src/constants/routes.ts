@@ -20,13 +20,13 @@ export interface RouteTable {
   /** The four tab roots. */
   app: {
     home: Href;
-    features: Href;
+    ganaps: Href;
     profile: Href;
     more: Href;
   };
   profileEdit: Href;
   profileSettings: Href;
-  featureDetail: (featureId: string) => Href;
+  ganapDetail: (ganapId: string) => Href;
 }
 
 /**
@@ -42,7 +42,7 @@ export interface RouteTable {
  * validates nothing — see the note below.
  *
  * Route groups in parentheses do not affect the URL, so a group segment appears here only
- * where the framework needs it to disambiguate. `(home)`, `(features)`, `(profile)` and
+ * where the framework needs it to disambiguate. `(home)`, `(ganaps)`, `(profile)` and
  * `(more)` each hold an `index.tsx` and would all otherwise resolve to `/`, so naming a
  * specific tab requires its group. `verify-email` and `onboarding` sit at the root of
  * `src/app/`, in no group at all — they are reachable only once a token exists, because
@@ -56,7 +56,7 @@ export interface RouteTable {
  * String-form hrefs are never validated in this app, whether or not those types exist:
  * `expo-router` takes a bare `Href` in `router.push`/`replace` and `Link`'s `href`, never
  * instantiating its type parameter. `SingleRoutePart<string>` then collapses to `string`,
- * so the dynamic `(app)/(features)/[feature-id]` route contributes a `/${string}` member
+ * so the dynamic `(app)/(ganaps)/[ganap-id]` route contributes a `/${string}` member
  * that swallows any absolute path. The object form has no such member.
  */
 export const Routes: RouteTable = {
@@ -70,7 +70,7 @@ export const Routes: RouteTable = {
 
   app: {
     home: { pathname: '/(app)/(home)' },
-    features: { pathname: '/(app)/(features)' },
+    ganaps: { pathname: '/(app)/(ganaps)' },
     profile: { pathname: '/(app)/(profile)' },
     more: { pathname: '/(app)/(more)' },
   },
@@ -79,14 +79,14 @@ export const Routes: RouteTable = {
   profileSettings: { pathname: '/(app)/(profile)/settings' },
 
   /**
-   * Builds the href for a single feature's detail screen.
+   * Builds the href for a single event's detail screen.
    *
-   * @param featureId - Value for the `[feature-id]` segment of
-   * `src/app/(app)/(features)/[feature-id].tsx`.
-   * @returns An href targeting that feature's detail screen.
+   * @param ganapId - Value for the `[ganap-id]` segment of
+   * `src/app/(app)/(ganaps)/[ganap-id].tsx`.
+   * @returns An href targeting that event's detail screen.
    */
-  featureDetail: (featureId: string): Href => ({
-    pathname: '/(app)/(features)/[feature-id]',
-    params: { 'feature-id': featureId },
+  ganapDetail: (ganapId: string): Href => ({
+    pathname: '/(app)/(ganaps)/[ganap-id]',
+    params: { 'ganap-id': ganapId },
   }),
 };

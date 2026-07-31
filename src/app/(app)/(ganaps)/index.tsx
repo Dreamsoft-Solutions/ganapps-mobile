@@ -1,11 +1,11 @@
 import type { ReactElement } from 'react';
 import { View } from 'react-native';
-import { FeatureList } from '@/components/lists/FeatureList';
+import { GanapList } from '@/components/lists/GanapList';
 
-export default function FeaturesScreen(): ReactElement {
+export default function GanapsScreen(): ReactElement {
   return (
     <View className="flex-1 bg-lynx-background px-md">
-      <FeatureList />
+      <GanapList />
     </View>
   );
 }

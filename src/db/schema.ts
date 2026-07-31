@@ -15,12 +15,18 @@ export const outbox = sqliteTable('outbox', {
     .$defaultFn(() => new Date()),
 });
 
-export const featureCache = sqliteTable('feature_cache', {
+/**
+ * Offline copy of the Ganap browse list.
+ *
+ * The list item is stored serialised rather than as mirrored columns, so a new
+ * field on the server's response does not require a migration here.
+ */
+export const ganapCache = sqliteTable('ganap_cache', {
   id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  description: text('description'),
-  createdAt: integer('created_at', { mode: 'timestamp' }),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }),
+  payload: text('payload').notNull(),
+  cachedAt: integer('cached_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
 });
 
 export const userCache = sqliteTable('user_cache', {
