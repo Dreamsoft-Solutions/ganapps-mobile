@@ -6,7 +6,6 @@ import type {
   RegisterResponse,
   TokenResponse,
   UpdateProfileRequest,
-  UploadAvatarResponse,
   VerifyEmailRequest,
 } from '@/types/auth.types';
 import type { User } from '@/types/user.types';
@@ -33,16 +32,17 @@ export const authAPI = {
   resendVerification: (): Promise<{ message: string }> =>
     axiosInstance.post<{ message: string }>('/auth/resend-verification').then((res) => res.data),
 
-  updateProfile: (dto: UpdateProfileRequest): Promise<User> =>
-    axiosInstance.patch<User>('/auth/me', dto).then((res) => res.data),
+  updateProfile: (dto: UpdateProfileRequest | FormData): Promise<User> => {
+    if (dto instanceof FormData) {
+      return axiosInstance
+        .patch<User>('/auth/me', dto, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        .then((res) => res.data);
+    }
+    return axiosInstance.patch<User>('/auth/me', dto).then((res) => res.data);
+  },
 
   googleLogin: (dto: GoogleAuthRequestDto): Promise<TokenResponse> =>
     axiosInstance.post<TokenResponse>('/auth/google', dto).then((res) => res.data),
-
-  uploadAvatar: (file: FormData): Promise<UploadAvatarResponse> =>
-    axiosInstance
-      .post<UploadAvatarResponse>('/auth/avatar', file, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      .then((res) => res.data),
 };

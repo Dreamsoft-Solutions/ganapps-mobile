@@ -4,15 +4,13 @@ import { Camera } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useCallback, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { Chip } from '@/components/common/Chip';
 import { Input } from '@/components/common/Input';
 import { Text } from '@/components/common/Text';
-import { useUploadAvatarMutation } from '@/hooks/mutations/useAuthMutation';
 import { useAuth } from '@/hooks/useAuth';
-import type { UpdateProfileRequest } from '@/types/auth.types';
 import { type OnboardingFormData, onboardingSchema } from '@/utils/validation';
 
 const INTERESTS = [
@@ -33,7 +31,6 @@ const INTERESTS = [
  */
 export function OnboardingForm(): ReactElement {
   const { updateProfile, updateProfileMutation } = useAuth();
-  const uploadAvatarMutation = useUploadAvatarMutation();
   const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
 
   const methods = useForm<OnboardingFormData>({
@@ -82,10 +79,19 @@ export function OnboardingForm(): ReactElement {
 
   const onSubmit = useCallback(
     async (data: OnboardingFormData): Promise<void> => {
-      let displayPicture: string | undefined;
+      const formData = new FormData();
+
+      if (data.firstName) {
+        formData.append('firstName', data.firstName);
+      }
+      if (data.lastName) {
+        formData.append('lastName', data.lastName);
+      }
+      if (data.interests && data.interests.length > 0) {
+        formData.append('interests', JSON.stringify(data.interests));
+      }
 
       if (localAvatarUri) {
-        const formData = new FormData();
         const filename = localAvatarUri.split('/').pop() ?? 'avatar.jpg';
         const match = /\.(\w+)$/.exec(filename);
         const type = match ? `image/${match[1]}` : 'image/jpeg';
@@ -95,28 +101,18 @@ export function OnboardingForm(): ReactElement {
           name: filename,
           type,
         } as unknown as Blob);
-
-        const uploadResult = await uploadAvatarMutation.mutateAsync(formData);
-        displayPicture = uploadResult.url;
       }
 
-      const dto: UpdateProfileRequest = {
-        firstName: data.firstName || undefined,
-        lastName: data.lastName || undefined,
-        displayPicture,
-        interests: data.interests,
-      };
-
-      await updateProfile(dto);
+      await updateProfile(formData);
     },
-    [localAvatarUri, uploadAvatarMutation, updateProfile],
+    [localAvatarUri, updateProfile],
   );
 
   const fullName = `${methods.watch('firstName') ?? ''} ${methods.watch('lastName') ?? ''}`.trim();
 
   return (
     <FormProvider {...methods}>
-      <ScrollView className="flex-1" contentContainerClassName="pb-8">
+      <View className="gap-4">
         <View className="items-center mb-8">
           <Pressable onPress={pickAvatar} className="relative">
             <Avatar src={localAvatarUri} name={fullName} size="lg" />
@@ -149,14 +145,10 @@ export function OnboardingForm(): ReactElement {
           )}
         </View>
 
-        <Button
-          onPress={methods.handleSubmit(onSubmit)}
-          loading={updateProfileMutation.isPending || uploadAvatarMutation.isPending}
-          size="lg"
-        >
+        <Button onPress={methods.handleSubmit(onSubmit)} loading={updateProfileMutation.isPending} size="lg">
           Continue
         </Button>
-      </ScrollView>
+      </View>
     </FormProvider>
   );
 }

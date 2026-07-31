@@ -164,7 +164,7 @@ export function LoginForm(): ReactElement {
           Continue with Google
         </Button>
 
-        <View className="flex-row justify-center mt-2">
+        <View className="flex-row justify-center items-center mt-2">
           <Text className="text-muted-foreground text-body-md">
             {isLogin ? "Don't have an account? " : 'Already have an account? '}
           </Text>

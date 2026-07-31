@@ -47,7 +47,3 @@ export interface UpdateProfileRequest {
 export interface GoogleAuthRequestDto {
   idToken: string;
 }
-
-export interface UploadAvatarResponse {
-  url: string;
-}

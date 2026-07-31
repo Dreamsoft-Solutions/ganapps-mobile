@@ -1,10 +1,8 @@
 import { Image } from 'expo-image';
 import type { ReactElement } from 'react';
 import { useColorScheme, View } from 'react-native';
+import { Assets } from '@/constants/assets';
 import { useThemeStore } from '@/store/theme.store';
-
-const lightLogo = require('../../assets/brand/ganap-logo-green-text.png');
-const darkLogo = require('../../assets/brand/ganap-logo-white-text.png');
 
 interface LogoWithTextProps {
   width?: number;
@@ -29,7 +27,7 @@ export function LogoWithText({ width = 192, height = 64 }: LogoWithTextProps): R
   return (
     <View style={{ width, height }}>
       <Image
-        source={isDark ? darkLogo : lightLogo}
+        source={isDark ? Assets.logoDarkText : Assets.logoLightText}
         style={{ width, height }}
         contentFit="contain"
         accessibilityLabel="Ganapps"

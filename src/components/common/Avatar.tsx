@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import type { ReactElement } from 'react';
 import { View } from 'react-native';
+import { Assets } from '@/constants/assets';
 import { Text } from './Text';
 
 type AvatarSize = 'sm' | 'md' | 'lg';
@@ -36,8 +37,6 @@ function getInitials(name: string): string {
   return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase();
 }
 
-const defaultAvatar = require('../../../assets/images/default-avatar.jpg');
-
 /**
  * User avatar with image fallback to initials or the default avatar asset.
  *
@@ -56,7 +55,7 @@ export function Avatar({ src, name = '', size = 'md' }: AvatarProps): ReactEleme
       ) : initials ? (
         <Text className={`${textSizeClasses[size]} font-inter-bold text-primary`}>{initials}</Text>
       ) : (
-        <Image source={defaultAvatar} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+        <Image source={Assets.defaultAvatar} style={{ width: '100%', height: '100%' }} contentFit="cover" />
       )}
     </View>
   );

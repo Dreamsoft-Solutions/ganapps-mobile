@@ -5,9 +5,8 @@ import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { Text } from '@/components/common/Text';
+import { Assets } from '@/constants/assets';
 import { Routes } from '@/constants/routes';
-
-const logo = require('../../../assets/brand/ganap-logo-1.png');
 
 /**
  * Public welcome screen shown to unauthenticated users.
@@ -23,7 +22,7 @@ export default function WelcomeScreen(): ReactElement {
         <View className="items-center">
           <View style={{ width: 96, height: 96, marginBottom: 24 }}>
             <Image
-              source={logo}
+              source={Assets.logoIcon}
               style={{ width: 96, height: 96, borderRadius: 9999 }}
               contentFit="contain"
               accessibilityLabel="Ganapps logo"

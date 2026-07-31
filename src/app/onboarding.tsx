@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { Text } from '@/components/common/Text';
@@ -18,7 +18,7 @@ export default function OnboardingScreen(): ReactElement {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <View className="flex-1 px-6 pt-6">
+      <ScrollView className="flex-1" contentContainerClassName="px-6 pt-6 pb-8" keyboardShouldPersistTaps="handled">
         <View className="mb-6">
           <Text className="text-headline-lg text-foreground mb-2">Set Up Your Profile</Text>
           <Text className="text-muted-foreground text-body-md">
@@ -28,7 +28,7 @@ export default function OnboardingScreen(): ReactElement {
 
         <OnboardingForm />
 
-        <View className="items-center mt-4">
+        <View className="items-center mt-6">
           <Button
             variant="ghost"
             size="sm"
@@ -40,7 +40,7 @@ export default function OnboardingScreen(): ReactElement {
             Skip for Now
           </Button>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

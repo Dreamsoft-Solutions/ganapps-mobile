@@ -35,7 +35,7 @@ export interface UseAuthResult {
   logout: () => Promise<void>;
   verifyEmail: (dto: VerifyEmailRequest) => Promise<void>;
   resendVerification: () => Promise<void>;
-  updateProfile: (dto: UpdateProfileRequest) => Promise<void>;
+  updateProfile: (dto: UpdateProfileRequest | FormData) => Promise<void>;
   isAuthenticated: boolean;
   isVerified: boolean;
   loginMutation: UseMutationResult<TokenResponse, Error, LoginDto>;
@@ -44,7 +44,7 @@ export interface UseAuthResult {
   logoutMutation: UseMutationResult<void, Error, void>;
   verifyEmailMutation: UseMutationResult<User, Error, VerifyEmailRequest>;
   resendVerificationMutation: UseMutationResult<{ message: string }, Error, void>;
-  updateProfileMutation: UseMutationResult<User, Error, UpdateProfileRequest>;
+  updateProfileMutation: UseMutationResult<User, Error, UpdateProfileRequest | FormData>;
 }
 
 export function useAuth(): UseAuthResult {
@@ -103,7 +103,7 @@ export function useAuth(): UseAuthResult {
   }, [resendVerificationMutation]);
 
   const updateProfileAction = useCallback(
-    async (dto: UpdateProfileRequest) => {
+    async (dto: UpdateProfileRequest | FormData) => {
       await updateProfileMutation.mutateAsync(dto);
       await useAuthStore.getState().completeOnboarding();
       router.replace(Routes.app.home);

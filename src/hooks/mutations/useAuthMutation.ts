@@ -8,7 +8,6 @@ import type {
   RegisterResponse,
   TokenResponse,
   UpdateProfileRequest,
-  UploadAvatarResponse,
   VerifyEmailRequest,
 } from '@/types/auth.types';
 import type { User } from '@/types/user.types';
@@ -51,12 +50,6 @@ export function useGoogleLoginMutation(): UseMutationResult<TokenResponse, Error
   });
 }
 
-export function useUploadAvatarMutation(): UseMutationResult<UploadAvatarResponse, Error, FormData> {
-  return useMutation<UploadAvatarResponse, Error, FormData>({
-    mutationFn: (formData: FormData): Promise<UploadAvatarResponse> => authAPI.uploadAvatar(formData),
-  });
-}
-
 export function useLogoutMutation(): UseMutationResult<void, Error, void> {
   const queryClient = useQueryClient();
   const clearAuth = useAuthStore((s) => s.clearAuth);
@@ -89,12 +82,12 @@ export function useResendVerificationMutation(): UseMutationResult<{ message: st
   });
 }
 
-export function useUpdateProfileMutation(): UseMutationResult<User, Error, UpdateProfileRequest> {
+export function useUpdateProfileMutation(): UseMutationResult<User, Error, UpdateProfileRequest | FormData> {
   const queryClient = useQueryClient();
   const setUser = useAuthStore((s) => s.setUser);
 
-  return useMutation<User, Error, UpdateProfileRequest>({
-    mutationFn: (dto: UpdateProfileRequest): Promise<User> => authAPI.updateProfile(dto),
+  return useMutation<User, Error, UpdateProfileRequest | FormData>({
+    mutationFn: (dto: UpdateProfileRequest | FormData): Promise<User> => authAPI.updateProfile(dto),
     onSuccess: (user: User): void => {
       setUser(user);
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
