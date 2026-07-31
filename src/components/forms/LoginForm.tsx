@@ -26,7 +26,7 @@ function GoogleIcon(): ReactElement {
       accessibilityLabel="Google logo"
       accessibilityRole="image"
     >
-      <Text className="text-base font-bold text-primary">G</Text>
+      <Text className="text-base font-inter-bold text-primary">G</Text>
     </View>
   );
 }
@@ -150,7 +150,7 @@ export function LoginForm(): ReactElement {
 
         {isLogin && (
           <View className="flex-row justify-end -mt-2 mb-2">
-            <Text className="text-primary font-semibold text-body-md">Forgot Password?</Text>
+            <Text className="text-primary font-inter-semibold text-body-md">Forgot Password?</Text>
           </View>
         )}
 

@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ganappsmobile",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.ganapps.app",
@@ -35,6 +35,17 @@
           "backgroundColor": "#22C55E",
           "image": "./assets/brand/ganap-logo-1.png",
           "imageWidth": 200
+        }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Inter-Regular.otf",
+            "./assets/fonts/Inter-Medium.otf",
+            "./assets/fonts/Inter-SemiBold.otf",
+            "./assets/fonts/Inter-Bold.otf"
+          ]
         }
       ],
       "@react-native-firebase/app"

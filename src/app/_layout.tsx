@@ -2,13 +2,18 @@ import '../global.css';
 
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { cssInterop } from 'nativewind';
 import { type ReactElement, useEffect, useState } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Loading } from '@/components/common/Loading';
 import { Routes } from '@/constants/routes';
 import { RootProvider } from '@/providers/RootProvider';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import { remoteConfigService } from '@/services/remote-config.service';
 import { useAuthStore } from '@/store/auth.store';
+import { useThemeStore } from '@/store/theme.store';
+
+cssInterop(SafeAreaView, { className: 'style' });
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,6 +36,7 @@ function RootLayoutNav(): ReactElement {
 
   useEffect(() => {
     useAuthStore.getState().hydrate();
+    useThemeStore.getState().hydrate();
     remoteConfigService.initialize();
   }, []);
 

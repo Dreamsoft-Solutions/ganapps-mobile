@@ -52,7 +52,7 @@ export function Avatar({ src, name = '', size = 'md' }: AvatarProps): ReactEleme
       {src ? (
         <Image source={{ uri: src }} className="w-full h-full" resizeMode="cover" />
       ) : initials ? (
-        <Text className={`${textSizeClasses[size]} font-bold text-primary`}>{initials}</Text>
+        <Text className={`${textSizeClasses[size]} font-inter-bold text-primary`}>{initials}</Text>
       ) : (
         <Image source={defaultAvatar} className="w-full h-full" resizeMode="cover" />
       )}

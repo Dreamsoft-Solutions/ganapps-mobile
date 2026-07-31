@@ -12,7 +12,7 @@ export default function ProfileScreen(): ReactElement {
       <Text className="text-headline-md mb-md">Profile</Text>
       {user && (
         <View className="mb-lg">
-          <Text className="text-body-lg font-semibold">
+          <Text className="text-body-lg font-inter-semibold">
             {user.firstName ? `${user.firstName} ${user.lastName ?? ''}` : user.username}
           </Text>
           <Text className="text-lynx-on-surface-variant">{user.email}</Text>

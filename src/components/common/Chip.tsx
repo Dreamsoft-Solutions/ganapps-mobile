@@ -15,7 +15,7 @@ const chipVariants = cva('rounded-full border px-4 py-2 active:opacity-70', {
   },
 });
 
-const textVariants = cva('text-body-md font-semibold', {
+const textVariants = cva('text-body-md font-inter-semibold', {
   variants: {
     selected: {
       true: 'text-primary-foreground',

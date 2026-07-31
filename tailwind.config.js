@@ -100,7 +100,10 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Inter-Regular'],
+        'inter-medium': ['Inter-Medium'],
+        'inter-semibold': ['Inter-SemiBold'],
+        'inter-bold': ['Inter-Bold'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
       fontSize: {
