@@ -9,7 +9,6 @@ import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
 import { useAuthStore } from '@/store/auth.store';
 
 const TAB_BAR_HEIGHT = 64;
-const LOGO_SIZE = 56;
 
 /**
  * Authenticated app shell with a custom bottom tab navigator.
@@ -43,7 +42,7 @@ export default function AppLayout(): ReactElement {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          height: TAB_BAR_HEIGHT + LOGO_SIZE / 2,
+          height: TAB_BAR_HEIGHT,
           backgroundColor: 'transparent',
           borderTopWidth: 0,
           elevation: 0,
