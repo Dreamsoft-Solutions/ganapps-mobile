@@ -160,7 +160,7 @@ export function LoginForm(): ReactElement {
 
         <Divider label="or" />
 
-        <Button variant="outline" onPress={handleGoogleLogin} size="lg" leftIcon={<GoogleIcon />}>
+        <Button variant="outline" onPress={handleGoogleLogin} size="lg" leftIcon={<GoogleIcon />} disabled>
           Continue with Google
         </Button>
 
