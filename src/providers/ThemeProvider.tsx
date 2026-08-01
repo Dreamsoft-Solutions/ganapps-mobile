@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import type { ReactElement, ReactNode } from 'react';
+import { type ReactElement, type ReactNode, useEffect } from 'react';
 import { useColorScheme, View } from 'react-native';
 import { useThemeStore } from '@/store/theme.store';
 
@@ -22,6 +22,13 @@ export function ThemeProvider({ children }: ThemeProviderProps): ReactElement | 
   const isHydrated = useThemeStore((s) => s.isHydrated);
   const systemColorScheme = useColorScheme();
   const isDark = mode === 'dark' || (mode === 'system' && systemColorScheme === 'dark');
+
+  // Hydration must be triggered here rather than by a descendant: the `isHydrated`
+  // gate below unmounts the whole tree, so a `hydrate()` call living under it would
+  // never run and the app would hang on the splash screen forever.
+  useEffect(() => {
+    useThemeStore.getState().hydrate();
+  }, []);
 
   if (!isHydrated) return null;
 
