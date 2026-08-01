@@ -26,8 +26,7 @@ export function MapSearchBar({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#6c7b6a"
-        className="flex-1 text-body-md text-lynx-on-surface"
+        className="flex-1 text-body-md text-lynx-on-surface placeholder:text-muted-foreground"
         accessibilityLabel="Search events"
       />
       {value.length > 0 && (

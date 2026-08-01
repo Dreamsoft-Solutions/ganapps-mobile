@@ -20,8 +20,6 @@ const TAB_ROUTES: TabRoute[] = [
   { key: 'profile', name: '(profile)', label: 'Profile', icon: User },
 ];
 
-const ACTIVE_TINT: string = '#00c853';
-const INACTIVE_TINT: string = '#6c7b6a';
 const BAR_HEIGHT: number = 64;
 
 /**
@@ -39,7 +37,6 @@ export function AppTabBar({ state, navigation }: BottomTabBarProps): ReactElemen
         {TAB_ROUTES.map((tab, index): ReactNode => {
           const Icon = tab.icon;
           const isActive = state.index === index;
-          const color = isActive ? ACTIVE_TINT : INACTIVE_TINT;
 
           return (
             <Pressable
@@ -49,7 +46,7 @@ export function AppTabBar({ state, navigation }: BottomTabBarProps): ReactElemen
               accessibilityLabel={tab.label}
               accessibilityState={{ selected: isActive }}
             >
-              <Icon size={24} color={color} />
+              <Icon size={24} className={isActive ? 'text-primary' : 'text-muted-foreground'} />
               <Text className={`text-label-sm mt-1 ${isActive ? 'text-lynx-primary-container' : 'text-lynx-outline'}`}>
                 {tab.label}
               </Text>
