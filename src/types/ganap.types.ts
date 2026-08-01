@@ -35,6 +35,7 @@ export interface GanapListItem {
   endDate?: string | null;
   tags: string[];
   coverImage?: string | null;
+  mapPinImage?: string | null;
   registrationCount: number;
   likesCount?: number;
   createdAt: string;
@@ -69,6 +70,7 @@ export interface GanapDetail {
   tags: string[];
   coverImage?: string | null;
   bannerImage?: string | null;
+  mapPinImage?: string | null;
   registrationCount: number;
   likesCount?: number;
   averageRating?: number | null;

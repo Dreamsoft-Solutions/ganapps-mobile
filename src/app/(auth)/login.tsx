@@ -1,28 +1,31 @@
-import { Link } from 'expo-router';
 import type { ReactElement } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LogoWithText } from '@/components/common/LogoWithText';
 import { Text } from '@/components/common/Text';
 import { LoginForm } from '@/components/forms/LoginForm';
-import { Routes } from '@/constants/routes';
 
+/**
+ * Login screen with email/password and sign-up toggle.
+ *
+ * @returns The authentication screen.
+ */
 export default function LoginScreen(): ReactElement {
   return (
-    <SafeAreaView className="flex-1 bg-lynx-background">
-      <ScrollView className="flex-1 px-6">
-        <View className="justify-center pt-12">
-          <Text className="text-3xl font-bold mb-2 text-center">Welcome Back</Text>
-          <Text className="text-lynx-on-surface-variant text-center mb-8">Sign in to your account</Text>
-
-          <LoginForm />
-
-          <View className="mt-6 flex-row justify-center gap-2">
-            <Text className="text-lynx-on-surface-variant">Don't have an account? </Text>
-            <Link href={Routes.auth.register} className="text-lynx-primary-container font-semibold">
-              Register
-            </Link>
-          </View>
+    <SafeAreaView className="flex-1 bg-background">
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="grow justify-center px-6 py-8"
+        keyboardShouldPersistTaps="handled"
+      >
+        <View className="items-center mb-6">
+          <LogoWithText />
+          <Text className="text-muted-foreground text-body-md text-center mt-3">
+            Verified accounts help keep meetups real.
+          </Text>
         </View>
+
+        <LoginForm />
       </ScrollView>
     </SafeAreaView>
   );

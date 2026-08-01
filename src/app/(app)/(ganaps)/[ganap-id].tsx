@@ -71,7 +71,7 @@ export default function GanapDetailScreen(): ReactElement {
           }}
           disabled={!canAct}
           loading={isJoining || isLeaving}
-          variant={isRegistered ? 'secondary' : 'primary'}
+          variant={isRegistered ? 'secondary' : 'default'}
         >
           {joinLabel(status)}
         </Button>

@@ -43,3 +43,7 @@ export interface UpdateProfileRequest {
   displayPicture?: string;
   interests?: string[];
 }
+
+export interface GoogleAuthRequestDto {
+  idToken: string;
+}

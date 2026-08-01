@@ -8,11 +8,17 @@ import { useAuth } from '@/hooks/useAuth';
 import type { VerifyEmailFormData } from '@/utils/validation';
 import { verifyEmailSchema } from '@/utils/validation';
 
+/**
+ * Form for submitting the email verification code.
+ *
+ * @returns The verification code form.
+ */
 export function VerifyEmailForm(): ReactElement {
   const { verifyEmail, verifyEmailMutation } = useAuth();
 
   const methods = useForm<VerifyEmailFormData>({
     resolver: zodResolver(verifyEmailSchema),
+    defaultValues: { code: '' },
   });
 
   const onSubmit = async (data: VerifyEmailFormData): Promise<void> => {
@@ -23,7 +29,7 @@ export function VerifyEmailForm(): ReactElement {
     <FormProvider {...methods}>
       <View className="gap-4">
         <Input name="code" label="Verification Code" placeholder="000000" keyboardType="number-pad" />
-        <Button onPress={methods.handleSubmit(onSubmit)} loading={verifyEmailMutation.isPending}>
+        <Button onPress={methods.handleSubmit(onSubmit)} loading={verifyEmailMutation.isPending} size="lg">
           Verify Email
         </Button>
       </View>

@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { Routes } from '@/constants/routes';
 import { useAuthStore } from '@/store/auth.store';
 import type {
+  GoogleAuthRequestDto,
   LoginDto,
   RegisterDto,
   RegisterResponse,
@@ -13,6 +14,7 @@ import type {
 } from '@/types/auth.types';
 import type { User } from '@/types/user.types';
 import {
+  useGoogleLoginMutation,
   useLoginMutation,
   useLogoutMutation,
   useRegisterMutation,
@@ -29,18 +31,20 @@ export interface UseAuthResult {
   error: Error | null;
   login: (dto: LoginDto) => Promise<void>;
   register: (dto: RegisterDto) => Promise<void>;
+  googleLogin: (dto: GoogleAuthRequestDto) => Promise<void>;
   logout: () => Promise<void>;
   verifyEmail: (dto: VerifyEmailRequest) => Promise<void>;
   resendVerification: () => Promise<void>;
-  updateProfile: (dto: UpdateProfileRequest) => Promise<void>;
+  updateProfile: (dto: UpdateProfileRequest | FormData) => Promise<void>;
   isAuthenticated: boolean;
   isVerified: boolean;
   loginMutation: UseMutationResult<TokenResponse, Error, LoginDto>;
   registerMutation: UseMutationResult<RegisterResponse, Error, RegisterDto>;
+  googleLoginMutation: UseMutationResult<TokenResponse, Error, GoogleAuthRequestDto>;
   logoutMutation: UseMutationResult<void, Error, void>;
   verifyEmailMutation: UseMutationResult<User, Error, VerifyEmailRequest>;
   resendVerificationMutation: UseMutationResult<{ message: string }, Error, void>;
-  updateProfileMutation: UseMutationResult<User, Error, UpdateProfileRequest>;
+  updateProfileMutation: UseMutationResult<User, Error, UpdateProfileRequest | FormData>;
 }
 
 export function useAuth(): UseAuthResult {
@@ -51,6 +55,7 @@ export function useAuth(): UseAuthResult {
 
   const loginMutation = useLoginMutation();
   const registerMutation = useRegisterMutation();
+  const googleLoginMutation = useGoogleLoginMutation();
   const logoutMutation = useLogoutMutation();
   const verifyEmailMutation = useVerifyEmailMutation();
   const resendVerificationMutation = useResendVerificationMutation();
@@ -72,6 +77,14 @@ export function useAuth(): UseAuthResult {
     [registerMutation, router],
   );
 
+  const googleLogin = useCallback(
+    async (dto: GoogleAuthRequestDto) => {
+      await googleLoginMutation.mutateAsync(dto);
+      router.replace(Routes.app.home);
+    },
+    [googleLoginMutation, router],
+  );
+
   const logout = useCallback(async () => {
     await logoutMutation.mutateAsync();
     router.replace(Routes.auth.login);
@@ -90,7 +103,7 @@ export function useAuth(): UseAuthResult {
   }, [resendVerificationMutation]);
 
   const updateProfileAction = useCallback(
-    async (dto: UpdateProfileRequest) => {
+    async (dto: UpdateProfileRequest | FormData) => {
       await updateProfileMutation.mutateAsync(dto);
       await useAuthStore.getState().completeOnboarding();
       router.replace(Routes.app.home);
@@ -101,10 +114,11 @@ export function useAuth(): UseAuthResult {
   return {
     user,
     token,
-    isLoading: userLoading || loginMutation.isPending || registerMutation.isPending,
+    isLoading: userLoading || loginMutation.isPending || registerMutation.isPending || googleLoginMutation.isPending,
     error: userError,
     login,
     register,
+    googleLogin,
     logout,
     verifyEmail: verifyEmailAction,
     resendVerification,
@@ -113,6 +127,7 @@ export function useAuth(): UseAuthResult {
     isVerified: user?.isVerified ?? false,
     loginMutation,
     registerMutation,
+    googleLoginMutation,
     logoutMutation,
     verifyEmailMutation,
     resendVerificationMutation,

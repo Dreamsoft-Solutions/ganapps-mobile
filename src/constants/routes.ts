@@ -8,10 +8,13 @@ import type { Href } from 'expo-router';
  * `src/app/` tree fails `npm run type-check`.
  */
 export interface RouteTable {
+  /** Public screens reachable without a token. */
+  public: {
+    welcome: Href;
+  };
   /** Screens reachable without a token. */
   auth: {
     login: Href;
-    register: Href;
   };
   /** Root-level, deliberately outside `(auth)`. */
   verifyEmail: Href;
@@ -21,8 +24,8 @@ export interface RouteTable {
   app: {
     home: Href;
     ganaps: Href;
+    chat: Href;
     profile: Href;
-    more: Href;
   };
   profileEdit: Href;
   profileSettings: Href;
@@ -42,8 +45,8 @@ export interface RouteTable {
  * validates nothing — see the note below.
  *
  * Route groups in parentheses do not affect the URL, so a group segment appears here only
- * where the framework needs it to disambiguate. `(home)`, `(ganaps)`, `(profile)` and
- * `(more)` each hold an `index.tsx` and would all otherwise resolve to `/`, so naming a
+ * where the framework needs it to disambiguate. `(home)`, `(ganaps)`, `(chat)` and
+ * `(profile)` each hold an `index.tsx` and would all otherwise resolve to `/`, so naming a
  * specific tab requires its group. `verify-email` and `onboarding` sit at the root of
  * `src/app/`, in no group at all — they are reachable only once a token exists, because
  * registration returns tokens immediately.
@@ -60,9 +63,12 @@ export interface RouteTable {
  * that swallows any absolute path. The object form has no such member.
  */
 export const Routes: RouteTable = {
+  public: {
+    welcome: { pathname: '/(public)' },
+  },
+
   auth: {
     login: { pathname: '/(auth)/login' },
-    register: { pathname: '/(auth)/register' },
   },
 
   verifyEmail: { pathname: '/verify-email' },
@@ -71,8 +77,8 @@ export const Routes: RouteTable = {
   app: {
     home: { pathname: '/(app)/(home)' },
     ganaps: { pathname: '/(app)/(ganaps)' },
+    chat: { pathname: '/(app)/(chat)' },
     profile: { pathname: '/(app)/(profile)' },
-    more: { pathname: '/(app)/(more)' },
   },
 
   profileEdit: { pathname: '/(app)/(profile)/edit' },

@@ -2,6 +2,11 @@ import type { GanapDetail, GanapListItem, GanapListParams, JoinGanapResult } fro
 import axiosInstance from '../axios-instance';
 import type { CursorPage } from '../types/api-response';
 
+/**
+ * Public Ganap discovery and action endpoints.
+ *
+ * All paths are version-free; the axios instance already prefixes `/api/v1`.
+ */
 export const ganapsAPI = {
   /**
    * Fetches a page of published Ganaps.

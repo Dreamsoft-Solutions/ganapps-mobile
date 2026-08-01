@@ -1,10 +1,20 @@
 import { Tabs, useRouter } from 'expo-router';
-import { type ReactElement, useEffect } from 'react';
+import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
+import type { ReactElement } from 'react';
+import { useEffect } from 'react';
 import { Loading } from '@/components/common/Loading';
+import { AppTabBar } from '@/components/navigation/AppTabBar';
 import { Routes } from '@/constants/routes';
 import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
 import { useAuthStore } from '@/store/auth.store';
 
+const TAB_BAR_HEIGHT = 64;
+
+/**
+ * Authenticated app shell with a custom bottom tab navigator.
+ *
+ * @returns The tab navigator or a loading state.
+ */
 export default function AppLayout(): ReactElement {
   const router = useRouter();
   const { data: user, isLoading } = useAuthQuery();
@@ -28,48 +38,23 @@ export default function AppLayout(): ReactElement {
 
   return (
     <Tabs
+      tabBar={(props: BottomTabBarProps): ReactElement => <AppTabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: '#00c853',
-        tabBarInactiveTintColor: '#6c7b6a',
-        headerShown: true,
-        tabBarLabelStyle: {
-          fontSize: 12,
-          marginBottom: 4,
+        headerShown: false,
+        tabBarStyle: {
+          height: TAB_BAR_HEIGHT,
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+          elevation: 0,
+          shadowOpacity: 0,
+          position: 'absolute',
         },
-        headerStyle: {
-          backgroundColor: '#f9f9f9',
-        },
-        headerTintColor: '#1a1c1c',
       }}
     >
-      <Tabs.Screen
-        name="(home)"
-        options={{
-          title: 'Home',
-          headerTitle: 'Home',
-        }}
-      />
-      <Tabs.Screen
-        name="(ganaps)"
-        options={{
-          title: 'Events',
-          headerTitle: 'Events',
-        }}
-      />
-      <Tabs.Screen
-        name="(profile)"
-        options={{
-          title: 'Profile',
-          headerTitle: 'Profile',
-        }}
-      />
-      <Tabs.Screen
-        name="(more)"
-        options={{
-          title: 'More',
-          headerTitle: 'More',
-        }}
-      />
+      <Tabs.Screen name="(home)" />
+      <Tabs.Screen name="(ganaps)" />
+      <Tabs.Screen name="(chat)" />
+      <Tabs.Screen name="(profile)" />
     </Tabs>
   );
 }

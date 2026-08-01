@@ -2,6 +2,7 @@ import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/r
 import { authAPI } from '@/api/endpoints/auth';
 import { useAuthStore } from '@/store/auth.store';
 import type {
+  GoogleAuthRequestDto,
   LoginDto,
   RegisterDto,
   RegisterResponse,
@@ -32,6 +33,19 @@ export function useRegisterMutation(): UseMutationResult<RegisterResponse, Error
     mutationFn: (dto: RegisterDto): Promise<RegisterResponse> => authAPI.register(dto),
     onSuccess: (data: RegisterResponse): void => {
       setAuth(data.accessToken, data.refreshToken, data.expiresIn);
+    },
+  });
+}
+
+export function useGoogleLoginMutation(): UseMutationResult<TokenResponse, Error, GoogleAuthRequestDto> {
+  const queryClient = useQueryClient();
+  const setAuth = useAuthStore((s) => s.setAuth);
+
+  return useMutation<TokenResponse, Error, GoogleAuthRequestDto>({
+    mutationFn: (dto: GoogleAuthRequestDto): Promise<TokenResponse> => authAPI.googleLogin(dto),
+    onSuccess: (data: TokenResponse): void => {
+      setAuth(data.accessToken, data.refreshToken, data.expiresIn);
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
     },
   });
 }
@@ -68,12 +82,12 @@ export function useResendVerificationMutation(): UseMutationResult<{ message: st
   });
 }
 
-export function useUpdateProfileMutation(): UseMutationResult<User, Error, UpdateProfileRequest> {
+export function useUpdateProfileMutation(): UseMutationResult<User, Error, UpdateProfileRequest | FormData> {
   const queryClient = useQueryClient();
   const setUser = useAuthStore((s) => s.setUser);
 
-  return useMutation<User, Error, UpdateProfileRequest>({
-    mutationFn: (dto: UpdateProfileRequest): Promise<User> => authAPI.updateProfile(dto),
+  return useMutation<User, Error, UpdateProfileRequest | FormData>({
+    mutationFn: (dto: UpdateProfileRequest | FormData): Promise<User> => authAPI.updateProfile(dto),
     onSuccess: (user: User): void => {
       setUser(user);
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all });

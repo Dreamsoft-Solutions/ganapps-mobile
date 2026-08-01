@@ -1,4 +1,5 @@
 import type {
+  GoogleAuthRequestDto,
   LoginDto,
   RefreshRequest,
   RegisterDto,
@@ -31,6 +32,9 @@ export const authAPI = {
   resendVerification: (): Promise<{ message: string }> =>
     axiosInstance.post<{ message: string }>('/auth/resend-verification').then((res) => res.data),
 
-  updateProfile: (dto: UpdateProfileRequest): Promise<User> =>
+  updateProfile: (dto: UpdateProfileRequest | FormData): Promise<User> =>
     axiosInstance.patch<User>('/auth/me', dto).then((res) => res.data),
+
+  googleLogin: (dto: GoogleAuthRequestDto): Promise<TokenResponse> =>
+    axiosInstance.post<TokenResponse>('/auth/google', dto).then((res) => res.data),
 };

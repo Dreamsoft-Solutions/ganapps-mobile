@@ -23,7 +23,7 @@ type GanapPage = CursorPage<GanapListItem>;
 type GanapsInfiniteResult = UseInfiniteQueryResult<InfiniteData<GanapPage, string | undefined>, Error>;
 
 /** How many Ganaps to request per page. The server caps `limit` at 100. */
-const PAGE_SIZE = 20;
+export const PAGE_SIZE = 20;
 
 /**
  * Derives the next page's cursor from the page just fetched.

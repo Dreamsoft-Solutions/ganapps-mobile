@@ -1,7 +1,7 @@
 const { getDefaultConfig } = require('expo/metro-config');
 const { withNativeWind } = require('nativewind/metro');
 
-const config = getDefaultConfig(__dirname);
+const config = getDefaultConfig(__dirname, { isCSSEnabled: true });
 
 // Drizzle's generated `drizzle/migrations.js` imports the raw `.sql` migration
 // files. Metro does not resolve that extension by default, so bundling fails with

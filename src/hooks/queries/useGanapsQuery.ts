@@ -5,7 +5,7 @@ import type { GanapDetail } from '@/types/ganap.types';
 
 export const ganapQueryKeys = {
   all: ['ganaps'] as const,
-  list: () => [...ganapQueryKeys.all, 'list'] as const,
+  list: (filters?: { search?: string; tag?: string }) => [...ganapQueryKeys.all, 'list', filters ?? {}] as const,
   detail: (ganapId: string) => [...ganapQueryKeys.all, 'detail', ganapId] as const,
 };
 

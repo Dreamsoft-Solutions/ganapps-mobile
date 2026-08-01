@@ -69,6 +69,14 @@ describe('ganapsAPI.list', () => {
 
     expect(captured[0].params).toEqual({ cursor: 'g1', limit: 5 });
   });
+
+  it('forwards search and tag filters as query params', async () => {
+    axiosInstance.defaults.adapter = envelopeAdapter(page);
+
+    await ganapsAPI.list({ search: 'music', tag: 'concert' });
+
+    expect(captured[0].params).toEqual({ search: 'music', tag: 'concert' });
+  });
 });
 
 describe('ganapsAPI.getById', () => {
