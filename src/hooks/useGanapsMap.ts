@@ -1,5 +1,5 @@
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { CursorPage } from '@/api/types/api-response';
 import type { GanapListItem } from '@/types/ganap.types';
@@ -29,7 +29,9 @@ const MAP_LIMIT = 100;
  * Aggregated hook for discovering Ganaps on the map.
  *
  * Manages search/tag filters and exposes the public Ganap list as a single page
- * large enough for the map viewport.
+ * large enough for the map viewport. The available tags are captured from the
+ * unfiltered (no tag filter) response and held stable, so selecting a tag does
+ * not collapse the chip row to the filtered set.
  *
  * @returns Filter state, query state, and the list of visible Ganaps.
  */
@@ -55,15 +57,18 @@ export function useGanapsMap(): UseGanapsMapResult {
 
   const items = useMemo(() => query.data?.items ?? [], [query.data]);
 
-  const tags = useMemo(() => {
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (tag !== null) return;
     const uniqueTags = new Set<string>();
-    for (const ganap of items) {
+    for (const ganap of query.data?.items ?? []) {
       for (const t of ganap.tags) {
         uniqueTags.add(t);
       }
     }
-    return Array.from(uniqueTags).sort();
-  }, [items]);
+    setAvailableTags(Array.from(uniqueTags).sort());
+  }, [query.data, tag]);
 
   const handleSetTag = useCallback((value: string | null): void => {
     setTag(value);
@@ -75,7 +80,7 @@ export function useGanapsMap(): UseGanapsMapResult {
 
   return {
     items,
-    tags,
+    tags: availableTags,
     search,
     setSearch: handleSetSearch,
     tag,
