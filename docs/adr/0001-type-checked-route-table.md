@@ -56,7 +56,7 @@ Every entry uses Expo Router's **object form**:
 ```typescript
 app: {
   home: { pathname: '/(app)/(home)' },
-  events: { pathname: '/(app)/(events)' },
+  ganaps: { pathname: '/(app)/(ganaps)' },
   chat: { pathname: '/(app)/(chat)' },
   profile: { pathname: '/(app)/(profile)' },
 },
@@ -105,7 +105,7 @@ the exact stale entry; restoring the filename went green. Pointing `onboarding` 
 - Renaming or moving a route group requires regenerating types afterwards, or the reported error
   refers to the previous tree.
 - Route groups in parentheses do not affect the URL, so a group segment belongs in an entry only
-  where the framework needs it to disambiguate. The four tab groups — `(home)`, `(events)`,
+  where the framework needs it to disambiguate. The four tab groups — `(home)`, `(ganaps)`,
   `(chat)`, `(profile)` — each hold an `index.tsx` and would all otherwise resolve to `/`, so
   naming a specific tab requires its group. Root-level screens such as `verify-email` and
   `onboarding` take no group.
