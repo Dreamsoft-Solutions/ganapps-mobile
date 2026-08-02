@@ -41,10 +41,24 @@ Tokens are exposed as Tailwind utilities and backed by CSS variables in
 | `input` | `#D1D5DB` | `#27272A` | Input borders |
 | `ring` | `#22C55E` | `#22C55E` | Focus rings |
 
-### Legacy tokens
+### Category accents
 
-The older `lynx-*` palette still exists in `tailwind.config.js` for backward
-compatibility during the migration. New work must use the semantic tokens above.
+Event-category tags are the one sanctioned exception to "no hardcoded colors".
+They use Tailwind primitives directly — `bg-red-500`, `bg-blue-500`,
+`bg-amber-500`, `bg-purple-500`, `bg-orange-500`, `bg-teal-500` — rather than
+semantic roles.
+
+Semantic roles name a *function* in the interface. A category color names a
+category, and the category list is data that grows as organizers add event
+types. Minting `category-social`, `category-sports`, and so on would freeze that
+list into the design system and require a token change to add a category. Tags
+are also decorative rather than structural: they carry no meaning a color-blind
+user loses, because the label is always shown.
+
+Google's brand colors on the login screen are the same kind of exception, for
+the same reason — they are someone else's brand, not ours to re-role. That is
+why `components/forms/LoginForm.tsx` keeps a literal `bg-white` on the Google
+badge; it is the only one left in `src/`.
 
 ## Typography
 
@@ -55,12 +69,29 @@ Font family: **Inter**.
 | `headline-lg` | 32px | 40px | 700 | -0.02em |
 | `headline-md` | 20px | 28px | 600 | — |
 | `headline-sm` | 16px | 24px | 600 | — |
+| `body-xl` | 18px | 28px | 400 | — |
 | `body-lg` | 16px | 24px | 400 | — |
 | `body-md` | 14px | 20px | 400 | — |
 | `label-md` | 12px | 16px | 600 | 0.05em |
 | `label-sm` | 11px | 14px | 500 | — |
 
 Use `font-sans` for all text. Default body color is `text-foreground`.
+
+React Native does not synthesize numeric weights — the font family *is* the
+weight, and each one is a separate file registered by the `expo-font` config
+plugin in `app.json`:
+
+| Utility | File | Weight |
+|---|---|---|
+| `font-sans` | `Inter-Regular.otf` | 400 |
+| `font-inter-medium` | `Inter-Medium.otf` | 500 |
+| `font-inter-semibold` | `Inter-SemiBold.otf` | 600 |
+| `font-inter-bold` | `Inter-Bold.otf` | 700 |
+| `font-inter-black` | `Inter-Black.otf` | 900 |
+
+All five are Inter v4.1. Adding a weight means adding the file, listing it in
+`app.json`, adding the token, **and** running `npx expo prebuild --clean` plus a
+native rebuild — a config plugin does not take effect on a Metro reload.
 
 ## Spacing
 

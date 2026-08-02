@@ -48,13 +48,11 @@ export default function GanapDetailScreen(): ReactElement {
   const canAct = status === null || isRegistered;
 
   return (
-    <ScrollView className="flex-1 bg-lynx-background p-md">
+    <ScrollView className="flex-1 bg-background p-md">
       <Text className="text-headline-lg">{ganap.title}</Text>
-      <Text className="text-lynx-on-surface-variant text-label-md mt-1">{ganap.businessName}</Text>
-      <Text className="text-lynx-on-surface-variant text-body-md mt-sm">
-        {new Date(ganap.startDate).toLocaleString()}
-      </Text>
-      {ganap.address && <Text className="text-lynx-on-surface-variant text-body-md mt-1">{ganap.address}</Text>}
+      <Text className="text-muted-foreground text-label-md mt-1">{ganap.businessName}</Text>
+      <Text className="text-muted-foreground text-body-md mt-sm">{new Date(ganap.startDate).toLocaleString()}</Text>
+      {ganap.address && <Text className="text-muted-foreground text-body-md mt-1">{ganap.address}</Text>}
       <Text className="text-body-lg mt-md">{ganap.description}</Text>
 
       <View className="mt-lg gap-sm">

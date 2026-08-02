@@ -3,6 +3,7 @@ import { MapPin } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { View } from 'react-native';
 import { Colors } from '@/constants/theme';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { GanapListItem } from '@/types/ganap.types';
 
 const PIN_SIZE: number = 56;
@@ -25,6 +26,7 @@ interface GanapMapPinProps {
  */
 export function GanapMapPin({ ganap }: GanapMapPinProps): ReactElement {
   const imageUrl = ganap.mapPinImage ?? ganap.coverImage ?? null;
+  const theme = useResolvedTheme();
 
   return (
     <View className="items-center justify-start" style={{ width: PIN_SIZE, height: PIN_SIZE + 8 }}>
@@ -38,7 +40,7 @@ export function GanapMapPin({ ganap }: GanapMapPinProps): ReactElement {
           borderBottomRightRadius: PIN_RADIUS,
           borderBottomLeftRadius: 0,
           transform: [{ rotate: '-45deg' }],
-          shadowColor: Colors.light.secondary,
+          shadowColor: Colors[theme].secondary,
           shadowOffset: { width: 0, height: 10 },
           shadowOpacity: 0.28,
           shadowRadius: 24,
@@ -46,7 +48,7 @@ export function GanapMapPin({ ganap }: GanapMapPinProps): ReactElement {
         }}
       >
         <View
-          className="items-center justify-center overflow-hidden bg-white"
+          className="items-center justify-center overflow-hidden bg-secondary-foreground"
           style={{
             position: 'absolute',
             top: LOGO_INSET,
