@@ -3,6 +3,7 @@ import {
   onboardingExtrasSchema,
   onboardingNamesSchema,
   onboardingSchema,
+  profileSchema,
   registerSchema,
   verifyEmailSchema,
 } from './validation';
@@ -148,6 +149,28 @@ describe('onboardingSchema', () => {
 
   it('rejects a payload with no names, since the names half is required', () => {
     const result = onboardingSchema.safeParse({ interests: ['food'] });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('profileSchema', () => {
+  it('accepts editable profile fields', () => {
+    const result = profileSchema.safeParse({
+      firstName: 'Maria',
+      lastName: 'Santos',
+      bio: 'Always looking for the next good event.',
+      interests: ['food'],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects bios longer than the server limit', () => {
+    const result = profileSchema.safeParse({
+      firstName: '',
+      lastName: '',
+      bio: 'a'.repeat(281),
+      interests: [],
+    });
     expect(result.success).toBe(false);
   });
 });

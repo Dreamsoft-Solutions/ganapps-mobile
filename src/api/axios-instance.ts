@@ -7,9 +7,7 @@ import { responseInterceptor } from './interceptors/response.interceptor';
 export const axiosInstance: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  // Let Axios infer JSON or multipart headers from the request body.
 });
 
 axiosInstance.interceptors.request.use((config) => {

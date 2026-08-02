@@ -11,20 +11,10 @@ import { Button } from '@/components/common/Button';
 import { Chip } from '@/components/common/Chip';
 import { Input } from '@/components/common/Input';
 import { Text } from '@/components/common/Text';
+import { INTEREST_OPTIONS } from '@/constants/interests';
 import { Routes } from '@/constants/routes';
 import { useAuth } from '@/hooks/useAuth';
 import { type OnboardingFormData, onboardingNamesSchema, onboardingSchema } from '@/utils/validation';
-
-const INTERESTS = [
-  { id: 'food', label: 'Food' },
-  { id: 'coffee', label: 'Coffee' },
-  { id: 'study', label: 'Study' },
-  { id: 'coworking', label: 'Coworking' },
-  { id: 'sports', label: 'Sports' },
-  { id: 'nightlife', label: 'Nightlife' },
-  { id: 'travel', label: 'Travel' },
-  { id: 'casual', label: 'Casual Hangout' },
-] as const;
 
 type Step = 'names' | 'extras';
 
@@ -197,7 +187,7 @@ export function OnboardingForm(): ReactElement {
             <View className="mb-4">
               <Text className="text-label-md text-foreground mb-3">Your Interests</Text>
               <View className="flex-row flex-wrap gap-2">
-                {INTERESTS.map(
+                {INTEREST_OPTIONS.map(
                   (item): ReactElement => (
                     <Chip
                       key={item.id}
