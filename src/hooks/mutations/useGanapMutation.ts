@@ -48,7 +48,7 @@ export function useJoinGanapMutation(): UseMutationResult<JoinGanapResult, Error
     mutationFn: (ganapId: string): Promise<JoinGanapResult> => ganapsAPI.join(ganapId),
     onSuccess: (_result: JoinGanapResult, ganapId: string): void => {
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
-      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.list() });
+      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });
     },
   });
@@ -66,7 +66,7 @@ export function useLeaveGanapMutation(): UseMutationResult<void, Error, string> 
     mutationFn: (ganapId: string): Promise<void> => ganapsAPI.leave(ganapId),
     onSuccess: (_result: unknown, ganapId: string): void => {
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
-      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.list() });
+      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });
     },
   });
@@ -85,7 +85,7 @@ export function useLikeGanapMutation(): UseMutationResult<void, Error, ToggleLik
       isLiked ? ganapsAPI.unlike(ganapId) : ganapsAPI.like(ganapId),
     onSuccess: (_result: unknown, { ganapId }: ToggleLikeVariables): void => {
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
-      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.list() });
+      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
     },
     onError: (error: Error, { ganapId, isLiked }: ToggleLikeVariables): void => {
       if (shouldQueueForReplay(error)) {
@@ -108,7 +108,7 @@ export function useSaveGanapMutation(): UseMutationResult<void, Error, ToggleSav
       isSaved ? ganapsAPI.unsave(ganapId) : ganapsAPI.save(ganapId),
     onSuccess: (_result: unknown, { ganapId }: ToggleSaveVariables): void => {
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
-      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.list() });
+      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
     },
     onError: (error: Error, { ganapId, isSaved }: ToggleSaveVariables): void => {
       if (shouldQueueForReplay(error)) {

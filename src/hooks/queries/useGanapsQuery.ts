@@ -5,7 +5,10 @@ import type { GanapDetail } from '@/types/ganap.types';
 
 export const ganapQueryKeys = {
   all: ['ganaps'] as const,
-  list: (filters?: { search?: string; tag?: string }) => [...ganapQueryKeys.all, 'list', filters ?? {}] as const,
+  lists: () => [...ganapQueryKeys.all, 'list'] as const,
+  list: (filters?: { search?: string; tag?: string }) => [...ganapQueryKeys.lists(), filters ?? {}] as const,
+  infiniteList: (filters?: { search?: string; tag?: string }) =>
+    [...ganapQueryKeys.lists(), 'infinite', filters ?? {}] as const,
   detail: (ganapId: string) => [...ganapQueryKeys.all, 'detail', ganapId] as const,
 };
 

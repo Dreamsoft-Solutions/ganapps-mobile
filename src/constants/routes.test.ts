@@ -3,6 +3,10 @@ import { join, relative } from 'node:path';
 import { getStateFromPath } from 'expo-router/build/fork/getStateFromPath';
 import { getReactNavigationConfig } from 'expo-router/build/getReactNavigationConfig';
 import { getRoutes } from 'expo-router/build/getRoutes';
+import { Children, isValidElement, type ReactElement, type ReactNode } from 'react';
+import ChatLayout from '@/app/(app)/(chat)/_layout';
+import GanapsLayout from '@/app/(app)/(ganaps)/_layout';
+import ProfileLayout from '@/app/(app)/(profile)/_layout';
 import { Routes } from './routes';
 
 const APP_DIR: string = join(__dirname, '..', 'app');
@@ -25,7 +29,8 @@ function listRouteFiles(dir: string): string[] {
     if (entry.isDirectory()) {
       out.push(...listRouteFiles(full));
     } else if (/\.tsx?$/.test(entry.name)) {
-      out.push(`./${relative(APP_DIR, full)}`);
+      // Metro context keys use POSIX separators even when tests run on Windows.
+      out.push(`./${relative(APP_DIR, full).replaceAll('\\', '/')}`);
     }
   }
   return out.sort();
@@ -76,6 +81,24 @@ function pathnameOf(href: any): string {
   return href.pathname;
 }
 
+/**
+ * Reads the first explicitly configured screen from a stack layout.
+ *
+ * Expo Router preserves explicitly configured screens ahead of routes it
+ * discovers automatically. A stale first screen can therefore make a detail
+ * route the stack default even when the generated route tree has another
+ * initial route.
+ *
+ * @param layout - Rendered stack layout element
+ * @returns The first configured screen name, or undefined when absent
+ */
+function firstConfiguredScreenName(layout: ReactElement): string | undefined {
+  if (!isValidElement<{ children?: ReactNode }>(layout)) return undefined;
+
+  const firstScreen: ReactNode = Children.toArray(layout.props.children)[0];
+  return isValidElement<{ name?: string }>(firstScreen) ? firstScreen.props.name : undefined;
+}
+
 describe('cold-start route resolution (DS-34)', () => {
   it('resolves the launch URL to the Map tab', () => {
     expect(resolve('/')).toEqual(['(app)', '(home)', 'index']);
@@ -109,5 +132,13 @@ describe('route table entries resolve to their screens', () => {
 
   it('opens the login screen', () => {
     expect(resolve(pathnameOf(Routes.auth.login))).toEqual(['(auth)', 'login']);
+  });
+});
+
+describe('tab stack roots', () => {
+  it('declares each tab root as the first configured stack screen', (): void => {
+    expect(firstConfiguredScreenName(GanapsLayout())).toBe('ganaps');
+    expect(firstConfiguredScreenName(ChatLayout())).toBe('chat');
+    expect(firstConfiguredScreenName(ProfileLayout())).toBe('profile');
   });
 });
