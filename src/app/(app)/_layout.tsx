@@ -1,4 +1,4 @@
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs, useRouter, useSegments } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import type { ReactElement } from 'react';
 import { useEffect } from 'react';
@@ -7,6 +7,7 @@ import { AppTabBar } from '@/components/navigation/AppTabBar';
 import { Routes } from '@/constants/routes';
 import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
 import { useAuthStore } from '@/store/auth.store';
+import { needsOnboarding } from '@/utils/onboarding';
 
 const TAB_BAR_HEIGHT = 64;
 
@@ -17,20 +18,28 @@ const TAB_BAR_HEIGHT = 64;
  */
 export default function AppLayout(): ReactElement {
   const router = useRouter();
+  const segments = useSegments();
   const { data: user, isLoading } = useAuthQuery();
-  const hasCompletedOnboarding = useAuthStore((s) => s.hasCompletedOnboarding);
   const setUser = useAuthStore((s) => s.setUser);
 
   useEffect(() => {
-    if (user) {
-      setUser(user);
-      if (!user.isVerified) {
-        router.replace(Routes.verifyEmail);
-      } else if (!hasCompletedOnboarding) {
-        router.replace(Routes.onboarding);
-      }
+    if (!user) return;
+
+    setUser(user);
+
+    // This layout stays mounted underneath the full-screen onboarding and verify-email
+    // modals, so its effect re-runs whenever the user object changes — including right
+    // after step 1 saves. Re-issuing `replace` for the screen already on top would remount
+    // the onboarding form and throw away its step state, so bail when we are already there.
+    const isOnModal = segments.some((s: string): boolean => s === 'verify-email' || s === 'onboarding');
+    if (isOnModal) return;
+
+    if (!user.isVerified) {
+      router.replace(Routes.verifyEmail);
+    } else if (needsOnboarding(user)) {
+      router.replace(Routes.onboarding);
     }
-  }, [user, hasCompletedOnboarding, router, setUser]);
+  }, [user, segments, router, setUser]);
 
   if (isLoading) {
     return <Loading message="Loading..." />;
