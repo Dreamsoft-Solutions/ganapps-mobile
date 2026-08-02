@@ -40,3 +40,18 @@ export interface CursorPage<T> {
     limit: number;
   };
 }
+
+/**
+ * An offset-paginated payload returned inside the response envelope.
+ *
+ * @typeParam T - Item type in the page.
+ */
+export interface PaginatedResponse<T> {
+  items: T[];
+  pagination: {
+    total: number;
+    skip: number;
+    take: number;
+    pages: number;
+  };
+}

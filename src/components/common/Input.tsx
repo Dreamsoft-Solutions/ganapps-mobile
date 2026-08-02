@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
 import { Controller, type ControllerRenderProps, useFormContext } from 'react-hook-form';
-import { TextInput, View } from 'react-native';
+import { TextInput, useColorScheme, View } from 'react-native';
+import { Colors } from '@/constants/theme';
 import { Text } from './Text';
 
 interface InputProps {
@@ -12,6 +13,9 @@ interface InputProps {
   iconRight?: ReactNode;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   autoCorrect?: boolean;
+  multiline?: boolean;
+  numberOfLines?: number;
+  maxLength?: number;
 }
 
 /**
@@ -29,9 +33,14 @@ export function Input({
   iconRight,
   autoCapitalize,
   autoCorrect,
+  multiline,
+  numberOfLines,
+  maxLength,
 }: InputProps): ReactElement {
   const { control, formState } = useFormContext();
+  const colorScheme = useColorScheme();
   const error = formState.errors[name]?.message as string | undefined;
+  const placeholderTextColor: string = Colors[colorScheme === 'dark' ? 'dark' : 'light']['muted-foreground'];
 
   return (
     <Controller
@@ -53,8 +62,12 @@ export function Input({
               keyboardType={keyboardType}
               autoCapitalize={autoCapitalize}
               autoCorrect={autoCorrect}
-              className="flex-1 text-body-md text-foreground"
-              placeholderTextColor="#9ca3af"
+              multiline={multiline}
+              numberOfLines={numberOfLines}
+              maxLength={maxLength}
+              textAlignVertical={multiline ? 'top' : 'center'}
+              className={`flex-1 text-body-md text-foreground ${multiline ? 'min-h-24' : ''}`}
+              placeholderTextColor={placeholderTextColor}
             />
             {iconRight && <View className="ml-2">{iconRight}</View>}
           </View>

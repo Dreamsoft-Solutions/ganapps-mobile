@@ -15,7 +15,7 @@ interface TabRoute {
 
 const TAB_ROUTES: TabRoute[] = [
   { key: 'map', name: '(home)', label: 'Map', icon: MapIcon },
-  { key: 'events', name: '(ganaps)', label: 'Events', icon: Calendar },
+  { key: 'events', name: '(ganaps)', label: 'My Events', icon: Calendar },
   { key: 'chat', name: '(chat)', label: 'Chat', icon: MessageCircle },
   { key: 'profile', name: '(profile)', label: 'Profile', icon: User },
 ];
@@ -33,7 +33,7 @@ export function AppTabBar({ state, navigation }: BottomTabBarProps): ReactElemen
 
   return (
     <View style={{ paddingBottom: insets.bottom }}>
-      <View className="flex-row items-end bg-white" style={{ height: BAR_HEIGHT }}>
+      <View className="flex-row items-end border-t border-border bg-background" style={{ height: BAR_HEIGHT }}>
         {TAB_ROUTES.map((tab, index): ReactNode => {
           const Icon = tab.icon;
           const isActive = state.index === index;
@@ -47,7 +47,7 @@ export function AppTabBar({ state, navigation }: BottomTabBarProps): ReactElemen
               accessibilityState={{ selected: isActive }}
             >
               <Icon size={24} className={isActive ? 'text-primary' : 'text-muted-foreground'} />
-              <Text className={`text-label-sm mt-1 ${isActive ? 'text-lynx-primary-container' : 'text-lynx-outline'}`}>
+              <Text className={`text-label-sm mt-1 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
                 {tab.label}
               </Text>
             </Pressable>

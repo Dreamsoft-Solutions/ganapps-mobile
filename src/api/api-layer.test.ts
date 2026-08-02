@@ -135,4 +135,15 @@ describe('authAPI', () => {
 
     expect(result.accessToken).toBe('new-access');
   });
+
+  it('patches the current profile through the versioned auth path', async () => {
+    const user = { id: 'user-1', bio: 'Finding good events.' };
+    axiosInstance.defaults.adapter = envelopeAdapter(user);
+
+    const result = await authAPI.updateProfile({ bio: user.bio });
+
+    expect(captured[0].method).toBe('patch');
+    expect(requestedUrl(captured[0])).toContain('/api/v1/auth/me');
+    expect(result).toEqual(user);
+  });
 });

@@ -3,6 +3,7 @@ import { ganapsAPI } from '@/api/endpoints/ganaps';
 import { enqueueOutbox } from '@/services/sync.service';
 import type { JoinGanapResult } from '@/types/ganap.types';
 import { ganapQueryKeys } from '../queries/useGanapsQuery';
+import { profileQueryKeys } from '../queries/useProfileQuery';
 
 /** Arguments for the like toggle: the Ganap and whether it is already liked. */
 export interface ToggleLikeVariables {
@@ -48,6 +49,7 @@ export function useJoinGanapMutation(): UseMutationResult<JoinGanapResult, Error
     onSuccess: (_result: JoinGanapResult, ganapId: string): void => {
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.list() });
+      queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });
     },
   });
 }
@@ -65,6 +67,7 @@ export function useLeaveGanapMutation(): UseMutationResult<void, Error, string> 
     onSuccess: (_result: unknown, ganapId: string): void => {
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.list() });
+      queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });
     },
   });
 }

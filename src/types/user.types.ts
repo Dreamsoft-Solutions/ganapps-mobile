@@ -5,6 +5,7 @@ export interface User {
   firstName?: string | null;
   lastName?: string | null;
   displayPicture?: string | null;
+  bio?: string | null;
   interests: string[];
   isVerified: boolean;
   createdAt: string;
