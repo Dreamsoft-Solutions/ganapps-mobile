@@ -146,4 +146,26 @@ describe('authAPI', () => {
     expect(requestedUrl(captured[0])).toContain('/api/v1/auth/me');
     expect(result).toEqual(user);
   });
+
+  it('preserves multipart profile uploads instead of serializing them as JSON', async () => {
+    const formData = new FormData();
+    formData.append('file', 'avatar');
+    axiosInstance.defaults.adapter = envelopeAdapter({ id: 'user-1' });
+
+    await authAPI.updateProfile(formData);
+
+    expect(captured[0].data).toBe(formData);
+    expect(captured[0].headers?.['Content-Type']).not.toBe('application/json');
+  });
+
+  it('preserves React Native FormData identified by getParts', async () => {
+    const nativeFormData = {
+      getParts: (): never[] => [],
+    } as unknown as FormData;
+    axiosInstance.defaults.adapter = envelopeAdapter({ id: 'user-1' });
+
+    await authAPI.updateProfile(nativeFormData);
+
+    expect(captured[0].data).toEqual(expect.objectContaining({ getParts: expect.any(Function) }));
+  });
 });

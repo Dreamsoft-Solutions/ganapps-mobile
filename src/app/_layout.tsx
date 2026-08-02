@@ -16,7 +16,6 @@ import { ThemeProvider } from '@/providers/ThemeProvider';
 import { remoteConfigService } from '@/services/remote-config.service';
 import { startOutboxDrain } from '@/services/sync.service';
 import { useAuthStore } from '@/store/auth.store';
-import { useThemeStore } from '@/store/theme.store';
 import migrations from '../../drizzle/migrations';
 
 cssInterop(SafeAreaView, { className: 'style' });
@@ -43,7 +42,6 @@ function RootLayoutNav(): ReactElement {
 
   useEffect(() => {
     useAuthStore.getState().hydrate();
-    useThemeStore.getState().hydrate();
     remoteConfigService.initialize();
     NavigationBar.setHidden(true);
   }, []);

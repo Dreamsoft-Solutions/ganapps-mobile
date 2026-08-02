@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import type { ReactElement, ReactNode } from 'react';
+import { type ReactElement, type ReactNode, useEffect } from 'react';
 import { useColorScheme, View } from 'react-native';
 import { useThemeStore } from '@/store/theme.store';
 
@@ -20,8 +20,13 @@ interface ThemeProviderProps {
 export function ThemeProvider({ children }: ThemeProviderProps): ReactElement | null {
   const mode = useThemeStore((s) => s.mode);
   const isHydrated = useThemeStore((s) => s.isHydrated);
+  const hydrate = useThemeStore((s) => s.hydrate);
   const systemColorScheme = useColorScheme();
   const isDark = mode === 'dark' || (mode === 'system' && systemColorScheme === 'dark');
+
+  useEffect(() => {
+    void hydrate();
+  }, [hydrate]);
 
   if (!isHydrated) return null;
 
