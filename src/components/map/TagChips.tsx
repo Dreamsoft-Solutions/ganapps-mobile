@@ -30,13 +30,11 @@ export function TagChips({ tags, selectedTag, onSelectTag }: TagChipsProps): Rea
           <Pressable
             key={tag}
             onPress={(): void => onSelectTag(tag === 'All' ? null : tag)}
-            className={`rounded-full px-4 py-2 ${
-              isActive ? 'bg-lynx-primary' : 'bg-white border border-lynx-outline-variant'
-            }`}
+            className={`rounded-full px-4 py-2 ${isActive ? 'bg-primary' : 'bg-card border border-border'}`}
             accessibilityLabel={`Filter by ${tag}`}
             accessibilityState={{ selected: isActive }}
           >
-            <Text className={`text-label-md ${isActive ? 'text-white' : 'text-lynx-on-surface'}`}>{tag}</Text>
+            <Text className={`text-label-md ${isActive ? 'text-primary-foreground' : 'text-foreground'}`}>{tag}</Text>
           </Pressable>
         );
       })}

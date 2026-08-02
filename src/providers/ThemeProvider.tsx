@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { type ReactElement, type ReactNode, useEffect } from 'react';
-import { useColorScheme, View } from 'react-native';
+import { View } from 'react-native';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { useThemeStore } from '@/store/theme.store';
 
 interface ThemeProviderProps {
@@ -18,10 +19,8 @@ interface ThemeProviderProps {
  * @returns The children wrapped in a view with the resolved theme class.
  */
 export function ThemeProvider({ children }: ThemeProviderProps): ReactElement | null {
-  const mode = useThemeStore((s) => s.mode);
   const isHydrated = useThemeStore((s) => s.isHydrated);
-  const systemColorScheme = useColorScheme();
-  const isDark = mode === 'dark' || (mode === 'system' && systemColorScheme === 'dark');
+  const isDark = useResolvedTheme() === 'dark';
 
   // Hydration must be triggered here rather than by a descendant: the `isHydrated`
   // gate below unmounts the whole tree, so a `hydrate()` call living under it would

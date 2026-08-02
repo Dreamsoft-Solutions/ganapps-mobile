@@ -20,18 +20,18 @@ export function MapSearchBar({
   placeholder = 'Search events...',
 }: MapSearchBarProps): ReactElement {
   return (
-    <View className="flex-row items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-md">
-      <Search size={20} className="text-lynx-on-surface-variant" />
+    <View className="flex-row items-center gap-3 rounded-xl bg-card px-4 py-3 shadow-md">
+      <Search size={20} className="text-muted-foreground" />
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        className="flex-1 text-body-md text-lynx-on-surface placeholder:text-muted-foreground"
+        className="flex-1 text-body-md text-foreground placeholder:text-muted-foreground"
         accessibilityLabel="Search events"
       />
       {value.length > 0 && (
         <Pressable onPress={(): void => onChangeText('')} accessibilityLabel="Clear search">
-          <X size={18} className="text-lynx-on-surface-variant" />
+          <X size={18} className="text-muted-foreground" />
         </Pressable>
       )}
     </View>

@@ -33,7 +33,7 @@ export function AppTabBar({ state, navigation }: BottomTabBarProps): ReactElemen
 
   return (
     <View style={{ paddingBottom: insets.bottom }}>
-      <View className="flex-row items-end bg-white" style={{ height: BAR_HEIGHT }}>
+      <View className="flex-row items-end bg-card" style={{ height: BAR_HEIGHT }}>
         {TAB_ROUTES.map((tab, index): ReactNode => {
           const Icon = tab.icon;
           const isActive = state.index === index;
@@ -47,7 +47,7 @@ export function AppTabBar({ state, navigation }: BottomTabBarProps): ReactElemen
               accessibilityState={{ selected: isActive }}
             >
               <Icon size={24} className={isActive ? 'text-primary' : 'text-muted-foreground'} />
-              <Text className={`text-label-sm mt-1 ${isActive ? 'text-lynx-primary-container' : 'text-lynx-outline'}`}>
+              <Text className={`text-label-sm mt-1 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
                 {tab.label}
               </Text>
             </Pressable>

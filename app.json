@@ -44,7 +44,8 @@
             "./assets/fonts/Inter-Regular.otf",
             "./assets/fonts/Inter-Medium.otf",
             "./assets/fonts/Inter-SemiBold.otf",
-            "./assets/fonts/Inter-Bold.otf"
+            "./assets/fonts/Inter-Bold.otf",
+            "./assets/fonts/Inter-Black.otf"
           ]
         }
       ],

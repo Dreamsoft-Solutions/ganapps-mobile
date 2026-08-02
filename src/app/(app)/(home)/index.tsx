@@ -52,9 +52,9 @@ export default function HomeScreen(): ReactElement {
 
   if (!MAPBOX_TOKEN) {
     return (
-      <View className="flex-1 items-center justify-center bg-lynx-background p-md">
-        <Text className="text-headline-md text-lynx-on-surface mb-sm">Mapbox token missing</Text>
-        <Text className="text-body-md text-lynx-on-surface-variant text-center">
+      <View className="flex-1 items-center justify-center bg-background p-md">
+        <Text className="text-headline-md text-foreground mb-sm">Mapbox token missing</Text>
+        <Text className="text-body-md text-muted-foreground text-center">
           Add EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN to your .env file to load the map.
         </Text>
       </View>

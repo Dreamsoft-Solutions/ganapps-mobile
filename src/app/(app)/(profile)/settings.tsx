@@ -22,9 +22,9 @@ export default function SettingsScreen(): ReactElement {
   const setMode = useThemeStore((s) => s.setMode);
 
   return (
-    <View className="flex-1 bg-lynx-background p-md">
+    <View className="flex-1 bg-background p-md">
       <Text className="text-headline-md mb-md">Settings</Text>
-      <Text className="text-label-md text-lynx-on-surface-variant mb-xs">Theme</Text>
+      <Text className="text-label-md text-muted-foreground mb-xs">Theme</Text>
       <View className="gap-sm">
         {THEME_OPTIONS.map((option: ThemeOption): ReactElement => {
           const isActive = option.mode === mode;
@@ -36,14 +36,12 @@ export default function SettingsScreen(): ReactElement {
                 void setMode(option.mode);
               }}
               className={`flex-row items-center rounded-md border p-md ${
-                isActive
-                  ? 'border-lynx-primary bg-lynx-surface-container-low'
-                  : 'border-lynx-outline-variant bg-lynx-surface'
+                isActive ? 'border-primary bg-muted' : 'border-border bg-card'
               }`}
             >
-              <Icon size={20} className={isActive ? 'text-lynx-primary' : 'text-lynx-on-surface-variant'} />
+              <Icon size={20} className={isActive ? 'text-primary' : 'text-muted-foreground'} />
               <Text className="text-body-md ml-sm flex-1">{option.label}</Text>
-              {isActive && <Check size={20} className="text-lynx-primary" />}
+              {isActive && <Check size={20} className="text-primary" />}
             </Pressable>
           );
         })}

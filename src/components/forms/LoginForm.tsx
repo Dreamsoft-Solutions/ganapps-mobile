@@ -3,7 +3,7 @@ import { Eye, EyeOff } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useCallback, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { useColorScheme, View } from 'react-native';
+import { View } from 'react-native';
 import { Button } from '@/components/common/Button';
 import { Divider } from '@/components/common/Divider';
 import { IconButton } from '@/components/common/IconButton';
@@ -11,6 +11,7 @@ import { Input } from '@/components/common/Input';
 import { Text } from '@/components/common/Text';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { LoginDto, RegisterDto } from '@/types/auth.types';
 import { type LoginFormData, loginSchema, type RegisterFormData, registerSchema } from '@/utils/validation';
 
@@ -44,8 +45,7 @@ export function LoginForm(): ReactElement {
 
   const isLogin = mode === 'login';
   const schema = isLogin ? loginSchema : registerSchema;
-  const colorScheme = useColorScheme();
-  const mutedColor = Colors[colorScheme === 'dark' ? 'dark' : 'light']['muted-foreground'];
+  const mutedColor = Colors[useResolvedTheme()]['muted-foreground'];
 
   const methods = useForm<LoginFormData | RegisterFormData>({
     resolver: zodResolver(schema),
