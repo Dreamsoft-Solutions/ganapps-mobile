@@ -6,7 +6,12 @@ import { createElement } from 'react';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { CursorPage } from '@/api/types/api-response';
 import type { GanapListItem, GanapListParams } from '@/types/ganap.types';
+import { useGanaps } from './useGanaps';
 import { useGanapsMap } from './useGanapsMap';
+
+jest.mock('expo-sqlite', () => ({
+  openDatabaseSync: (): Record<string, unknown> => ({}),
+}));
 
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(async (): Promise<string | null> => null),
@@ -55,10 +60,9 @@ function pageWith(items: GanapListItem[]): CursorPage<GanapListItem> {
 /** Tracks the per-test client so `afterEach` can release its gc timers. */
 let testClient: QueryClient | null = null;
 
-function createWrapper(): (props: { children: ReactNode }) => ReactElement {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
+function createWrapper(
+  client: QueryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+): (props: { children: ReactNode }) => ReactElement {
   testClient = client;
   return ({ children }: { children: ReactNode }): ReactElement =>
     createElement(QueryClientProvider, { client }, children);
@@ -157,5 +161,22 @@ describe('useGanapsMap', () => {
     expect(mockedList.mock.calls.length - callsAfterMount).toBe(1);
     expect(mockedList).toHaveBeenLastCalledWith({ search: 'sportsfest', limit: 100 });
     await unmount();
+  });
+
+  it('keeps the map page separate from the infinite browse query', async (): Promise<void> => {
+    respondByFilter();
+
+    const wrapper = createWrapper();
+    const map = await renderHook(() => useGanapsMap(), { wrapper });
+
+    await waitFor((): void => expect(map.result.current.tags).toEqual(ALL_TAGS));
+
+    const events = await renderHook(() => useGanaps(), { wrapper });
+
+    await waitFor((): void => expect(events.result.current.items).toHaveLength(UNFILTERED.length));
+    expect(events.result.current.hasNextPage).toBe(false);
+
+    await map.unmount();
+    await events.unmount();
   });
 });

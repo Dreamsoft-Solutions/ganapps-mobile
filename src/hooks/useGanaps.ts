@@ -70,7 +70,7 @@ export function useGanaps(): UseGanapsResult {
     readonly unknown[],
     string | undefined
   >({
-    queryKey: ganapQueryKeys.list(),
+    queryKey: ganapQueryKeys.infiniteList(),
     queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
       ganapsAPI.list({ cursor: pageParam, limit: PAGE_SIZE }),
     getNextPageParam: getNextGanapPageParam,
