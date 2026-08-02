@@ -156,7 +156,7 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
           onPress={methods.handleSubmit(onSubmit)}
           loading={updateProfileMutation.isPending}
           size="lg"
-          leftIcon={<Save size={18} className="text-primary-foreground" />}
+          leftIcon={<Save size={18} />}
         >
           Save Changes
         </Button>

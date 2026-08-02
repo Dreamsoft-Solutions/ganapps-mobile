@@ -14,6 +14,7 @@ import { Text } from '@/components/common/Text';
 import { INTEREST_OPTIONS } from '@/constants/interests';
 import { Routes } from '@/constants/routes';
 import { useAuth } from '@/hooks/useAuth';
+import { recordPromptDismissal } from '@/hooks/useProfilePrompt';
 import { type OnboardingFormData, onboardingNamesSchema, onboardingSchema } from '@/utils/validation';
 
 type Step = 'names' | 'extras';
@@ -24,7 +25,9 @@ type Step = 'names' | 'extras';
  * Step one collects first and last name, is required, and has no skip control: it saves to
  * the server before advancing, so a user who quits on step two keeps their names and is not
  * sent back here on the next launch. Step two collects an avatar and interests, is skippable,
- * and never blocks entry to the app.
+ * and never blocks entry to the app. Leaving step two by any route records a profile-prompt
+ * dismissal, so the card inviting the user back to these fields does not appear on their next
+ * visit to the Profile tab.
  *
  * @returns The onboarding form for whichever step is active.
  */
@@ -102,11 +105,20 @@ export function OnboardingForm(): ReactElement {
     }
   }, [methods, updateProfile]);
 
+  const seedPromptCooldown = useCallback((): void => {
+    // Starts the profile-card cooldown as the user leaves step two, whichever button they
+    // pressed. Without it the card would greet them on their next visit to Profile, seconds
+    // after they chose to skip. Seeding after a successful save is harmless: interests are
+    // set, so the card is suppressed permanently anyway.
+    if (user) void recordPromptDismissal(user.id);
+  }, [user]);
+
   const submitExtras = useCallback(async (): Promise<void> => {
     const { interests } = methods.getValues();
     const hasInterests = !!interests && interests.length > 0;
 
     if (!hasInterests && !localAvatarUri) {
+      seedPromptCooldown();
       router.replace(Routes.app.home);
       return;
     }
@@ -131,16 +143,18 @@ export function OnboardingForm(): ReactElement {
 
     try {
       await updateProfile(formData);
+      seedPromptCooldown();
       router.replace(Routes.app.home);
     } catch (_error) {
       // Rendered below. Step two is optional, so the user can still skip past a failure.
     }
-  }, [methods, localAvatarUri, updateProfile, router]);
+  }, [methods, localAvatarUri, seedPromptCooldown, updateProfile, router]);
 
   const skipExtras = useCallback((): void => {
     // Names were already saved in step one, so skipping needs no request and cannot fail.
+    seedPromptCooldown();
     router.replace(Routes.app.home);
-  }, [router]);
+  }, [seedPromptCooldown, router]);
 
   const fullName = `${methods.watch('firstName') ?? ''} ${methods.watch('lastName') ?? ''}`.trim();
 

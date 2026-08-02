@@ -10,11 +10,13 @@ import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { JoinedGanapCard } from '@/components/profile/JoinedGanapCard';
+import { ProfilePromptCard } from '@/components/profile/ProfilePromptCard';
 import { formatInterestLabel } from '@/constants/interests';
 import { Routes } from '@/constants/routes';
 import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
 import { useAuth } from '@/hooks/useAuth';
 import { useJoinedGanaps } from '@/hooks/useJoinedGanaps';
+import { useProfilePrompt } from '@/hooks/useProfilePrompt';
 import type { JoinedGanap } from '@/types/profile.types';
 
 const PROFILE_JOINED_PAGE_SIZE: number = 3;
@@ -30,6 +32,7 @@ export default function ProfileScreen(): ReactElement {
   const { logout, logoutMutation } = useAuth();
   const profileQuery = useAuthQuery();
   const joinedGanaps = useJoinedGanaps(PROFILE_JOINED_PAGE_SIZE);
+  const profilePrompt = useProfilePrompt();
   const user = profileQuery.data;
 
   if (profileQuery.isLoading) return <Loading message="Loading your profile..." />;
@@ -60,6 +63,12 @@ export default function ProfileScreen(): ReactElement {
             <Settings size={20} className="text-muted-foreground" />
           </IconButton>
         </View>
+
+        {profilePrompt.isVisible && (
+          <View className="px-md pt-md">
+            <ProfilePromptCard onDismiss={profilePrompt.dismiss} />
+          </View>
+        )}
 
         <View className="items-center px-md pb-lg pt-lg">
           <Avatar src={user.displayPicture} name={displayName} size="lg" />
@@ -142,7 +151,7 @@ export default function ProfileScreen(): ReactElement {
             onPress={(): void => {
               router.push(Routes.profileEdit);
             }}
-            leftIcon={<Edit3 size={17} className="text-primary-foreground" />}
+            leftIcon={<Edit3 size={17} />}
             size="lg"
           >
             Edit Profile
@@ -152,7 +161,7 @@ export default function ProfileScreen(): ReactElement {
             onPress={(): void => {
               router.push(Routes.profileSettings);
             }}
-            leftIcon={<Settings size={17} className="text-foreground" />}
+            leftIcon={<Settings size={17} />}
             size="lg"
           >
             Settings
@@ -161,7 +170,7 @@ export default function ProfileScreen(): ReactElement {
             variant="secondary"
             onPress={(): Promise<void> => logout()}
             loading={logoutMutation.isPending}
-            leftIcon={<LogOut size={17} className="text-secondary-foreground" />}
+            leftIcon={<LogOut size={17} />}
             size="lg"
           >
             Sign Out

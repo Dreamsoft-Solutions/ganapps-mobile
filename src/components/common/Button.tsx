@@ -1,4 +1,5 @@
 import { cva, type VariantProps } from 'class-variance-authority';
+import { LucideProvider } from 'lucide-react-native';
 import type { ReactElement, ReactNode } from 'react';
 import { useCallback } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
@@ -88,7 +89,13 @@ export function Button({
 
   const isOutlinedOrGhost = variant === 'outline' || variant === 'ghost' || variant === 'link';
   const theme = useResolvedTheme();
-  const spinnerColor = isOutlinedOrGhost ? Colors[theme].foreground : Colors[theme]['primary-foreground'];
+  const contentColor: string = isOutlinedOrGhost
+    ? Colors[theme].foreground
+    : variant === 'secondary'
+      ? Colors[theme]['secondary-foreground']
+      : variant === 'destructive'
+        ? Colors[theme]['destructive-foreground']
+        : Colors[theme]['primary-foreground'];
 
   return (
     <Pressable
@@ -97,12 +104,20 @@ export function Button({
       className={buttonVariants({ variant, size, disabled: disabled || loading })}
     >
       {loading ? (
-        <ActivityIndicator color={spinnerColor} />
+        <ActivityIndicator color={contentColor} />
       ) : (
         <>
-          {leftIcon && <View className="mr-2">{leftIcon}</View>}
+          {leftIcon && (
+            <View className="mr-2">
+              <LucideProvider color={contentColor}>{leftIcon}</LucideProvider>
+            </View>
+          )}
           <Text className={textVariants({ variant, size })}>{children}</Text>
-          {rightIcon && <View className="ml-2">{rightIcon}</View>}
+          {rightIcon && (
+            <View className="ml-2">
+              <LucideProvider color={contentColor}>{rightIcon}</LucideProvider>
+            </View>
+          )}
         </>
       )}
     </Pressable>
