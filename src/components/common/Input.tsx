@@ -1,7 +1,8 @@
 import type { ReactElement, ReactNode } from 'react';
 import { Controller, type ControllerRenderProps, useFormContext } from 'react-hook-form';
-import { TextInput, useColorScheme, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 import { Colors } from '@/constants/theme';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { Text } from './Text';
 
 interface InputProps {
@@ -38,9 +39,9 @@ export function Input({
   maxLength,
 }: InputProps): ReactElement {
   const { control, formState } = useFormContext();
-  const colorScheme = useColorScheme();
+  const theme = useResolvedTheme();
   const error = formState.errors[name]?.message as string | undefined;
-  const placeholderTextColor: string = Colors[colorScheme === 'dark' ? 'dark' : 'light']['muted-foreground'];
+  const placeholderTextColor: string = Colors[theme]['muted-foreground'];
 
   return (
     <Controller

@@ -1,11 +1,6 @@
 import type { ReactElement } from 'react';
-import { View } from 'react-native';
-import { GanapList } from '@/components/lists/GanapList';
+import { JoinedGanapsList } from '@/components/profile/JoinedGanapsList';
 
 export default function GanapsScreen(): ReactElement {
-  return (
-    <View className="flex-1 bg-background px-md">
-      <GanapList />
-    </View>
-  );
+  return <JoinedGanapsList />;
 }
