@@ -320,7 +320,10 @@ login    → /(app)/(home)
 logout   → /(auth)/login
 ```
 
-`updateProfile` also calls `completeOnboarding()` before redirecting home.
+Onboarding is now two steps, owned by `OnboardingForm`: step one persists names via
+`updateProfile` before advancing; step two is optional and skippable. The redirect into
+onboarding is derived from `needsOnboarding(user)` (`src/utils/onboarding.ts`), not a
+device-local flag.
 
 Nested layouts use Stack navigators with `headerBackTitle: 'Back'`. Dynamic routes use the
 `[param].tsx` convention.

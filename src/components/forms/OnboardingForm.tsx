@@ -13,7 +13,7 @@ import { Input } from '@/components/common/Input';
 import { Text } from '@/components/common/Text';
 import { Routes } from '@/constants/routes';
 import { useAuth } from '@/hooks/useAuth';
-import { type OnboardingFormData, onboardingSchema } from '@/utils/validation';
+import { type OnboardingFormData, onboardingNamesSchema, onboardingSchema } from '@/utils/validation';
 
 const INTERESTS = [
   { id: 'food', label: 'Food' },
@@ -92,15 +92,18 @@ export function OnboardingForm(): ReactElement {
   );
 
   const submitNames = useCallback(async (): Promise<void> => {
-    // Validate only this step's fields. `handleSubmit` would run the whole schema, coupling
-    // step one to fields that are not on screen yet.
-    const valid = await methods.trigger(['firstName', 'lastName']);
-    if (!valid) return;
-
-    const { firstName, lastName } = methods.getValues();
+    // Parse (rather than just `trigger`) so the trimmed, validated data is what actually gets
+    // sent — `trigger` only populates field errors and doesn't write transforms back into
+    // form state, so `getValues()` alone would still return untrimmed input.
+    const parsed = onboardingNamesSchema.safeParse(methods.getValues());
+    if (!parsed.success) {
+      // Still show inline field errors for a blank/invalid submission.
+      await methods.trigger(['firstName', 'lastName']);
+      return;
+    }
 
     try {
-      await updateProfile({ firstName, lastName });
+      await updateProfile(parsed.data);
       setStep('extras');
     } catch (_error) {
       // Rendered from `updateProfileMutation.error` below. The user stays on this step and
