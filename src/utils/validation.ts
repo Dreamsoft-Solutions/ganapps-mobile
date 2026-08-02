@@ -30,12 +30,17 @@ export const verifyEmailSchema = z.object({
     .regex(/^\d{6}$/, 'Code must be 6 digits'),
 });
 
-export const onboardingSchema = z.object({
-  firstName: z.string().max(64, 'First name must be at most 64 characters').optional(),
-  lastName: z.string().max(64, 'Last name must be at most 64 characters').optional(),
+export const onboardingNamesSchema = z.object({
+  firstName: z.string().trim().min(1, 'First name is required').max(64, 'First name must be at most 64 characters'),
+  lastName: z.string().trim().min(1, 'Last name is required').max(64, 'Last name must be at most 64 characters'),
+});
+
+export const onboardingExtrasSchema = z.object({
   displayPicture: z.string().url('Invalid image URL').optional().or(z.literal('')),
   interests: z.array(z.string()).optional(),
 });
+
+export const onboardingSchema = onboardingNamesSchema.extend(onboardingExtrasSchema.shape);
 
 export const profileSchema = z.object({
   firstName: z.string().max(64, 'First name must be at most 64 characters'),
@@ -47,5 +52,7 @@ export const profileSchema = z.object({
 export type LoginFormData = z.infer<typeof loginSchema>;
 export type RegisterFormData = z.infer<typeof registerSchema>;
 export type VerifyEmailFormData = z.infer<typeof verifyEmailSchema>;
+export type OnboardingNamesData = z.infer<typeof onboardingNamesSchema>;
+export type OnboardingExtrasData = z.infer<typeof onboardingExtrasSchema>;
 export type OnboardingFormData = z.infer<typeof onboardingSchema>;
 export type ProfileFormData = z.infer<typeof profileSchema>;

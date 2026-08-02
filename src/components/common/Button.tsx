@@ -1,8 +1,9 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 import type { ReactElement, ReactNode } from 'react';
 import { useCallback } from 'react';
-import { ActivityIndicator, Pressable, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { Colors } from '@/constants/theme';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { Text } from './Text';
 
 const buttonVariants = cva('flex flex-row items-center justify-center rounded-lg active:opacity-70', {
@@ -86,10 +87,8 @@ export function Button({
   }, [onPress]);
 
   const isOutlinedOrGhost = variant === 'outline' || variant === 'ghost' || variant === 'link';
-  const colorScheme = useColorScheme();
-  const spinnerColor = isOutlinedOrGhost
-    ? Colors[colorScheme === 'dark' ? 'dark' : 'light'].foreground
-    : Colors.light['primary-foreground'];
+  const theme = useResolvedTheme();
+  const spinnerColor = isOutlinedOrGhost ? Colors[theme].foreground : Colors[theme]['primary-foreground'];
 
   return (
     <Pressable

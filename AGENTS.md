@@ -320,7 +320,10 @@ login    → /(app)/(home)
 logout   → /(auth)/login
 ```
 
-`updateProfile` also calls `completeOnboarding()` before redirecting home.
+Onboarding is now two steps, owned by `OnboardingForm`: step one persists names via
+`updateProfile` before advancing; step two is optional and skippable. The redirect into
+onboarding is derived from `needsOnboarding(user)` (`src/utils/onboarding.ts`), not a
+device-local flag.
 
 Nested layouts use Stack navigators with `headerBackTitle: 'Back'`. Dynamic routes use the
 `[param].tsx` convention.
@@ -477,29 +480,36 @@ does depend on review. Explicit types are a hard gate — see *TypeScript Standa
 Styling is NativeWind v4 utility classes via `className`. Global styles in `src/global.css`;
 Metro wraps the config with `withNativeWind(config, { input: './src/global.css' })`.
 
-### Lynx colors
+### Colors
 
-Material Design 3-style palette in `tailwind.config.js`. Frequently used tokens:
+Semantic roles in `tailwind.config.js`, each mapped to a CSS variable defined light and dark
+in `src/global.css`. `docs/DESIGN.md` holds the full table with both values.
 
-| Token | Value | Usage |
-|---|---|---|
-| `lynx-primary` | `#006e2a` | Primary actions, active states |
-| `lynx-primary-container` | `#00c853` | Primary buttons, highlights |
-| `lynx-on-primary-container` | `#004c1b` | Text on primary containers |
-| `lynx-secondary` | `#5e5e5e` | Secondary text |
-| `lynx-tertiary` | `#9d4139` | Tertiary accents |
-| `lynx-error` | `#ba1a1a` | Error states, validation |
-| `lynx-background` | `#f9f9f9` | Screen backgrounds |
-| `lynx-surface` | `#f9f9f9` | Surfaces — same value as background |
-| `lynx-surface-container` | `#eeeeee` | Raised container backgrounds |
-| `lynx-surface-container-low` | `#f3f3f3` | Input backgrounds |
-| `lynx-on-background` / `lynx-on-surface` | `#1a1c1c` | Body text |
-| `lynx-on-surface-variant` | `#3c4a3c` | Muted text |
-| `lynx-outline` | `#6c7b6a` | Borders |
-| `lynx-outline-variant` | `#bbcbb8` | Subtle borders, card edges |
+| Token | Usage |
+|---|---|
+| `background` / `foreground` | Screen background, primary text |
+| `card` / `card-foreground` | Card and sheet surfaces |
+| `popover` / `popover-foreground` | Overlays |
+| `primary` / `primary-foreground` | Primary actions, active states, links |
+| `secondary` / `secondary-foreground` | Secondary actions, emphasis surfaces |
+| `muted` / `muted-foreground` | Subtle fills; placeholder, disabled, secondary text |
+| `accent` / `accent-foreground` | Subtle emphasis |
+| `destructive` / `destructive-foreground` | Errors, destructive actions |
+| `border`, `input`, `ring` | Borders, input borders, focus rings |
 
-The full set includes `-fixed`, `-dim`, and `inverse-` variants — read `tailwind.config.js`
-rather than guessing a token name. The dark palette is separate, in `src/constants/theme.ts`.
+Because they are CSS variables, these swap under `.dark` automatically — never hardcode a
+color. The one sanctioned exception is category-tag and third-party brand colors, which use
+Tailwind primitives; `docs/DESIGN.md` explains why.
+
+Outside a `className` — RN props like `ActivityIndicator`'s `color` or `shadowColor` — read
+`Colors[theme]` from `src/constants/theme.ts`, where `theme` comes from
+`useResolvedTheme()`. **Never call `useColorScheme()` directly**: it reports the device
+scheme and ignores an explicit light/dark preference, desynchronising the component from the
+`.dark` class `ThemeProvider` applies.
+
+The `lynx-*` Material Design 3 palette was removed in DS-16. It was pre-Ganapps branding,
+36 of its 47 tokens were dead, and its values were static hex, so nothing using it could
+follow dark mode.
 
 ### Typography
 
@@ -508,6 +518,7 @@ rather than guessing a token name. The dark palette is separate, in `src/constan
 | `headline-lg` | 32px / 700 |
 | `headline-md` | 20px / 600 |
 | `headline-sm` | 16px / 600 |
+| `body-xl` | 18px / 400 |
 | `body-lg` | 16px / 400 |
 | `body-md` | 14px / 400 |
 | `label-md` | 12px / 600 |
@@ -631,8 +642,10 @@ Env override (`EXPO_PUBLIC_FEATURE_FLAG_<KEY>`) → Firebase Remote Config →
 layout. Dev fetch interval 0; prod 5 minutes.
 
 ### Custom primitives, independent from web
-Mobile uses CVA primitives with `lynx-*` tokens; web uses shadcn/ui with CSS variables. This
-divergence is deliberate — see `../ganapps-web/docs/adr/0002-shadcn-ui.md`.
+Mobile uses CVA primitives; web uses shadcn/ui. Both now name the same semantic roles
+(`primary`, `card`, `muted-foreground`), so the repos share a *vocabulary* without sharing a
+component system. That divergence is deliberate — see
+`../ganapps-web/docs/adr/0002-shadcn-ui.md`.
 
 ### Offline-first outbox
 Writes go to the `outbox` table and are drained by `sync.service.ts`, 3 retries then `failed`.

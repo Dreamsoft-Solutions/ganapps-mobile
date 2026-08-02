@@ -49,8 +49,8 @@ export function GanapList(): ReactElement {
         <Pressable onPress={(): void => router.push(Routes.ganapDetail(item.id))}>
           <Card className="mb-sm">
             <Text className="text-headline-sm">{item.title}</Text>
-            <Text className="text-lynx-on-surface-variant text-label-md mt-1">{item.businessName}</Text>
-            <Text className="text-lynx-on-surface-variant text-body-md mt-1">{formatStart(item.startDate)}</Text>
+            <Text className="text-muted-foreground text-label-md mt-1">{item.businessName}</Text>
+            <Text className="text-muted-foreground text-body-md mt-1">{formatStart(item.startDate)}</Text>
           </Card>
         </Pressable>
       )}

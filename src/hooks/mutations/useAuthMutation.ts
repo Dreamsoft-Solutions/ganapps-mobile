@@ -71,6 +71,7 @@ export function useVerifyEmailMutation(): UseMutationResult<User, Error, VerifyE
     mutationFn: (dto: VerifyEmailRequest): Promise<User> => authAPI.verifyEmail(dto),
     onSuccess: (user: User): void => {
       setUser(user);
+      queryClient.setQueryData(authQueryKeys.me(), user);
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
     },
   });
@@ -90,6 +91,7 @@ export function useUpdateProfileMutation(): UseMutationResult<User, Error, Updat
     mutationFn: (dto: UpdateProfileRequest | FormData): Promise<User> => authAPI.updateProfile(dto),
     onSuccess: (user: User): void => {
       setUser(user);
+      queryClient.setQueryData(authQueryKeys.me(), user);
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
     },
   });

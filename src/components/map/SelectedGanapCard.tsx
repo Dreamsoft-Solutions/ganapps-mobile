@@ -19,53 +19,49 @@ interface SelectedGanapCardProps {
  */
 export function SelectedGanapCard({ ganap, onClose }: SelectedGanapCardProps): ReactElement {
   return (
-    <View className="mx-4 mb-4 rounded-2xl bg-white p-4 shadow-lg">
+    <View className="mx-4 mb-4 rounded-2xl bg-card p-4 shadow-lg">
       <Pressable
         onPress={onClose}
-        className="absolute right-3 top-3 z-10 rounded-full bg-lynx-surface-container p-1"
+        className="absolute right-3 top-3 z-10 rounded-full bg-muted p-1"
         accessibilityLabel="Close event details"
       >
-        <X size={16} className="text-lynx-on-surface-variant" />
+        <X size={16} className="text-muted-foreground" />
       </Pressable>
 
       <View className="flex-row gap-3">
         {ganap.coverImage ? (
-          <Image
-            source={{ uri: ganap.coverImage }}
-            contentFit="cover"
-            className="h-20 w-20 rounded-xl bg-lynx-surface-container"
-          />
+          <Image source={{ uri: ganap.coverImage }} contentFit="cover" className="h-20 w-20 rounded-xl bg-muted" />
         ) : (
-          <View className="h-20 w-20 items-center justify-center rounded-xl bg-lynx-surface-container">
-            <Calendar size={24} className="text-lynx-on-surface-variant" />
+          <View className="h-20 w-20 items-center justify-center rounded-xl bg-muted">
+            <Calendar size={24} className="text-muted-foreground" />
           </View>
         )}
 
         <View className="flex-1">
-          <Text className="text-headline-sm text-lynx-on-surface mb-1" numberOfLines={2}>
+          <Text className="text-headline-sm text-foreground mb-1" numberOfLines={2}>
             {ganap.title}
           </Text>
-          <Text className="text-body-md text-lynx-primary mb-2" numberOfLines={1}>
+          <Text className="text-body-md text-primary mb-2" numberOfLines={1}>
             {ganap.businessName}
           </Text>
 
           <View className="flex-row items-center gap-1">
-            <Calendar size={14} className="text-lynx-on-surface-variant" />
-            <Text className="text-label-md text-lynx-on-surface-variant">{formatEventDate(ganap.startDate)}</Text>
+            <Calendar size={14} className="text-muted-foreground" />
+            <Text className="text-label-md text-muted-foreground">{formatEventDate(ganap.startDate)}</Text>
           </View>
 
           {ganap.address && (
             <View className="mt-1 flex-row items-center gap-1">
-              <MapPin size={14} className="text-lynx-on-surface-variant" />
-              <Text className="text-label-md text-lynx-on-surface-variant flex-1" numberOfLines={1}>
+              <MapPin size={14} className="text-muted-foreground" />
+              <Text className="text-label-md text-muted-foreground flex-1" numberOfLines={1}>
                 {ganap.address}
               </Text>
             </View>
           )}
 
           <View className="mt-2 flex-row items-center gap-1">
-            <Users size={14} className="text-lynx-on-surface-variant" />
-            <Text className="text-label-md text-lynx-on-surface-variant">{ganap.registrationCount} going</Text>
+            <Users size={14} className="text-muted-foreground" />
+            <Text className="text-label-md text-muted-foreground">{ganap.registrationCount} going</Text>
           </View>
         </View>
       </View>

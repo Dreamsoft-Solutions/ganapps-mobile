@@ -33,7 +33,7 @@ export function AppTabBar({ state, navigation }: BottomTabBarProps): ReactElemen
 
   return (
     <View style={{ paddingBottom: insets.bottom }}>
-      <View className="flex-row items-end border-t border-border bg-background" style={{ height: BAR_HEIGHT }}>
+      <View className="flex-row items-end bg-card" style={{ height: BAR_HEIGHT }}>
         {TAB_ROUTES.map((tab, index): ReactNode => {
           const Icon = tab.icon;
           const isActive = state.index === index;

@@ -3,7 +3,7 @@ import { Eye, EyeOff } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useCallback, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { useColorScheme, View } from 'react-native';
+import { View } from 'react-native';
 import { Button } from '@/components/common/Button';
 import { Divider } from '@/components/common/Divider';
 import { IconButton } from '@/components/common/IconButton';
@@ -11,6 +11,7 @@ import { Input } from '@/components/common/Input';
 import { Text } from '@/components/common/Text';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { LoginDto, RegisterDto } from '@/types/auth.types';
 import { type LoginFormData, loginSchema, type RegisterFormData, registerSchema } from '@/utils/validation';
 
@@ -37,15 +38,14 @@ function GoogleIcon(): ReactElement {
  * @returns The login/sign-up form with email/password fields and social sign-in.
  */
 export function LoginForm(): ReactElement {
-  const { login, register, isLoading } = useAuth();
+  const { login, register, isLoading, loginMutation, registerMutation } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const isLogin = mode === 'login';
   const schema = isLogin ? loginSchema : registerSchema;
-  const colorScheme = useColorScheme();
-  const mutedColor = Colors[colorScheme === 'dark' ? 'dark' : 'light']['muted-foreground'];
+  const mutedColor = Colors[useResolvedTheme()]['muted-foreground'];
 
   const methods = useForm<LoginFormData | RegisterFormData>({
     resolver: zodResolver(schema),
@@ -66,27 +66,39 @@ export function LoginForm(): ReactElement {
     });
     setShowPassword(false);
     setShowConfirmPassword(false);
-  }, [methods]);
+    // Otherwise a failed login's message stays on screen under the signup form.
+    loginMutation.reset();
+    registerMutation.reset();
+  }, [methods, loginMutation, registerMutation]);
 
+  // The rejection is swallowed here on purpose: the failure is rendered from the
+  // mutation's own `error` below. Letting it escape leaves an unhandled rejection
+  // and shows the user nothing at all.
   const onSubmit = useCallback(
     async (data: LoginFormData | RegisterFormData): Promise<void> => {
-      if (isLogin) {
-        const loginData = data as LoginFormData;
-        const dto: LoginDto = { email: loginData.email, password: loginData.password };
-        await login(dto);
-        return;
-      }
+      try {
+        if (isLogin) {
+          const loginData = data as LoginFormData;
+          const dto: LoginDto = { email: loginData.email, password: loginData.password };
+          await login(dto);
+          return;
+        }
 
-      const signupData = data as RegisterFormData;
-      const dto: RegisterDto = {
-        email: signupData.email,
-        password: signupData.password,
-        username: signupData.username,
-      };
-      await register(dto);
+        const signupData = data as RegisterFormData;
+        const dto: RegisterDto = {
+          email: signupData.email,
+          password: signupData.password,
+          username: signupData.username,
+        };
+        await register(dto);
+      } catch {
+        // Rendered from loginMutation.error / registerMutation.error.
+      }
     },
     [isLogin, login, register],
   );
+
+  const submitError: string | undefined = isLogin ? loginMutation.error?.message : registerMutation.error?.message;
 
   const handleGoogleLogin = useCallback(async (): Promise<void> => {
     // TODO: integrate Google Sign-In SDK and exchange idToken via useAuth().googleLogin
@@ -152,6 +164,12 @@ export function LoginForm(): ReactElement {
           <View className="flex-row justify-end -mt-2 mb-2">
             <Text className="text-primary font-inter-semibold text-body-md">Forgot Password?</Text>
           </View>
+        )}
+
+        {submitError && (
+          <Text className="text-destructive text-body-md text-center" accessibilityRole="alert">
+            {submitError}
+          </Text>
         )}
 
         <Button onPress={methods.handleSubmit(onSubmit)} loading={isLoading} size="lg">

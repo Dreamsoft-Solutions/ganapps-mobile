@@ -12,10 +12,10 @@ import { Text } from '@/components/common/Text';
  */
 export default function ChatScreen(): ReactElement {
   return (
-    <View className="flex-1 items-center justify-center bg-lynx-background p-md">
-      <MessageCircle size={48} className="text-lynx-primary mb-4" />
-      <Text className="text-headline-md text-lynx-on-surface mb-2">Chat</Text>
-      <Text className="text-body-md text-lynx-on-surface-variant text-center">
+    <View className="flex-1 items-center justify-center bg-background p-md">
+      <MessageCircle size={48} className="text-primary mb-4" />
+      <Text className="text-headline-md text-foreground mb-2">Chat</Text>
+      <Text className="text-body-md text-muted-foreground text-center">
         Event and organization chats will appear here.
       </Text>
     </View>

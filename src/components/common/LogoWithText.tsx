@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
 import type { ReactElement } from 'react';
-import { useColorScheme, View } from 'react-native';
+import { View } from 'react-native';
 import { Assets } from '@/constants/assets';
-import { useThemeStore } from '@/store/theme.store';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 
 interface LogoWithTextProps {
   width?: number;
@@ -20,9 +20,7 @@ interface LogoWithTextProps {
  * @returns An image sized to the given dimensions.
  */
 export function LogoWithText({ width = 192, height = 64 }: LogoWithTextProps): ReactElement {
-  const mode = useThemeStore((s) => s.mode);
-  const systemColorScheme = useColorScheme();
-  const isDark = mode === 'dark' || (mode === 'system' && systemColorScheme === 'dark');
+  const isDark = useResolvedTheme() === 'dark';
 
   return (
     <View style={{ width, height }}>

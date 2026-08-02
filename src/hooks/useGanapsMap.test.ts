@@ -5,7 +5,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { createElement } from 'react';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { CursorPage } from '@/api/types/api-response';
-import type { GanapListItem } from '@/types/ganap.types';
+import type { GanapListItem, GanapListParams } from '@/types/ganap.types';
 import { useGanapsMap } from './useGanapsMap';
 
 jest.mock('expo-secure-store', () => ({
@@ -52,34 +52,110 @@ function pageWith(items: GanapListItem[]): CursorPage<GanapListItem> {
   };
 }
 
+/** Tracks the per-test client so `afterEach` can release its gc timers. */
+let testClient: QueryClient | null = null;
+
 function createWrapper(): (props: { children: ReactNode }) => ReactElement {
-  const testClient = new QueryClient({
+  const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  testClient = client;
   return ({ children }: { children: ReactNode }): ReactElement =>
-    createElement(QueryClientProvider, { client: testClient }, children);
+    createElement(QueryClientProvider, { client }, children);
+}
+
+const UNFILTERED: GanapListItem[] = [
+  ganapWithTags('sportsfest', ['sports', 'tech']),
+  ganapWithTags('choir-night', ['music']),
+];
+
+const ALL_TAGS: string[] = ['music', 'sports', 'tech'];
+
+/** Makes the mocked endpoint filter like the server, so narrowing is real. */
+function respondByFilter(): void {
+  mockedList.mockImplementation(async (params?: GanapListParams): Promise<CursorPage<GanapListItem>> => {
+    let items = UNFILTERED;
+    if (params?.tag) {
+      const tag: string = params.tag;
+      items = items.filter((g: GanapListItem): boolean => g.tags.includes(tag));
+    }
+    if (params?.search) {
+      const search: string = params.search;
+      items = items.filter((g: GanapListItem): boolean => g.title.includes(search));
+    }
+    return pageWith(items);
+  });
 }
 
 describe('useGanapsMap', () => {
-  beforeEach(() => {
+  beforeEach((): void => {
     mockedList.mockReset();
   });
 
-  it('keeps the full tag set when a tag filter narrows the items', async () => {
-    mockedList.mockResolvedValueOnce(pageWith([ganapWithTags('ganap_1', ['sports', 'tech'])]));
+  // The hook sets gcTime to 10 minutes, so without this the cache keeps a timer
+  // armed past the run and Jest reports it as an open handle instead of exiting.
+  afterEach((): void => {
+    testClient?.clear();
+    testClient = null;
+  });
 
-    const { result } = await renderHook(() => useGanapsMap(), { wrapper: createWrapper() });
+  it('keeps the full tag set when a tag filter narrows the items', async (): Promise<void> => {
+    respondByFilter();
 
-    await waitFor(() => expect(result.current.tags).toEqual(['sports', 'tech']));
+    const { result, unmount } = await renderHook(() => useGanapsMap(), { wrapper: createWrapper() });
 
-    mockedList.mockResolvedValueOnce(pageWith([ganapWithTags('ganap_1', ['sports'])]));
+    await waitFor((): void => expect(result.current.tags).toEqual(ALL_TAGS));
 
-    await act(async () => {
+    await act(async (): Promise<void> => {
       result.current.setTag('sports');
     });
 
-    await waitFor(() => expect(result.current.items.map((g) => g.id)).toEqual(['ganap_1']));
-    await waitFor(() => expect(mockedList).toHaveBeenLastCalledWith({ tag: 'sports', limit: 100 }));
-    expect(result.current.tags).toEqual(['sports', 'tech']);
+    await waitFor((): void =>
+      expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['sportsfest']),
+    );
+    expect(result.current.tags).toEqual(ALL_TAGS);
+    await unmount();
+  });
+
+  it('keeps the full tag set when a search filter narrows the items', async (): Promise<void> => {
+    respondByFilter();
+
+    const { result, unmount } = await renderHook(() => useGanapsMap(), { wrapper: createWrapper() });
+
+    await waitFor((): void => expect(result.current.tags).toEqual(ALL_TAGS));
+
+    await act(async (): Promise<void> => {
+      result.current.setSearch('sportsfest');
+    });
+
+    await waitFor((): void =>
+      expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['sportsfest']),
+    );
+    // The chip row must not collapse to the search-narrowed vocabulary.
+    expect(result.current.tags).toEqual(ALL_TAGS);
+    await unmount();
+  });
+
+  it('issues one request for a burst of keystrokes rather than one per character', async (): Promise<void> => {
+    respondByFilter();
+
+    const { result, unmount } = await renderHook(() => useGanapsMap(), { wrapper: createWrapper() });
+    await waitFor((): void => expect(result.current.tags).toEqual(ALL_TAGS));
+
+    const callsAfterMount: number = mockedList.mock.calls.length;
+
+    for (const value of ['s', 'sp', 'spo', 'sport', 'sportsfest']) {
+      await act(async (): Promise<void> => {
+        result.current.setSearch(value);
+      });
+    }
+
+    await waitFor((): void =>
+      expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['sportsfest']),
+    );
+
+    expect(mockedList.mock.calls.length - callsAfterMount).toBe(1);
+    expect(mockedList).toHaveBeenLastCalledWith({ search: 'sportsfest', limit: 100 });
+    await unmount();
   });
 });
