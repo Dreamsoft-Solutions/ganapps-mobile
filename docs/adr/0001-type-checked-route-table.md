@@ -105,10 +105,19 @@ the exact stale entry; restoring the filename went green. Pointing `onboarding` 
 - Renaming or moving a route group requires regenerating types afterwards, or the reported error
   refers to the previous tree.
 - Route groups in parentheses do not affect the URL, so a group segment belongs in an entry only
-  where the framework needs it to disambiguate. The four tab groups — `(home)`, `(ganaps)`,
-  `(chat)`, `(profile)` — each hold an `index.tsx` and would all otherwise resolve to `/`, so
-  naming a specific tab requires its group. Root-level screens such as `verify-email` and
+  where the framework needs it to disambiguate. Root-level screens such as `verify-email` and
   `onboarding` take no group.
+- **Exactly one screen may own `/`.** It is `(app)/(home)/index.tsx`, the Map tab. The other tab
+  groups name their screen after the group (`(chat)/chat.tsx`), so each owns a distinct URL.
+  Adding a second `index.tsx` under a tab group reintroduces DS-34: several screens match the
+  launch URL, the router picks one, and **no initial-route declaration overrides that choice.**
+  `unstable_settings.anchor` and `<Tabs initialRouteName>` both only prepend the anchor to the
+  navigator's history — the focused route stays whichever screen the URL matched. The fix is
+  always to remove the ambiguity in the file tree, never to declare an anchor.
+  `src/constants/routes.test.ts` fails if this is broken.
+- Naming a tab's screen after its group has a useful side effect: expo-router's `getLayoutNode`
+  sets a layout's anchor to the child whose route name equals the group name, so `(chat)`,
+  `(ganaps)` and `(profile)` get a correct `initialRouteName` with nothing declared.
 - **One drift scenario deliberately does not error:** moving `onboarding.tsx` into `(auth)/` keeps
   `/onboarding` valid, because a route inside a group also generates its group-elided URL. That is
   correct — the URL genuinely still resolves.

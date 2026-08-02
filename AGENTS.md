@@ -117,10 +117,10 @@ src/
 │   │   └── register.tsx
 │   └── (app)/                        # Authenticated group (tab navigator)
 │       ├── _layout.tsx               # Tabs: Map, My Events, Chat, Profile
-│       ├── (home)/{_layout,index}.tsx                   # Map discovery
-│       ├── (events)/{_layout,index}.tsx                # My Events placeholder
-│       ├── (chat)/{_layout,index}.tsx                  # Chat placeholder
-│       └── (profile)/{_layout,index,edit,settings}.tsx
+│       ├── (home)/{_layout,index}.tsx                   # Map discovery — owns `/`
+│       ├── (ganaps)/{_layout,ganaps}.tsx                # My Events placeholder
+│       ├── (chat)/{_layout,chat}.tsx                    # Chat placeholder
+│       └── (profile)/{_layout,profile,edit,settings}.tsx
 ├── components/
 │   ├── common/                       # UI primitives
 │   │   ├── Button.tsx                # CVA variants; takes `children: string`
@@ -359,9 +359,14 @@ types: a stale committed union would validate routes against an out-of-date tree
 worse than no checking because it looks like it is working.
 
 Route groups in parentheses do not affect the URL, so include a group segment only where the
-framework needs it to disambiguate. `(home)`, `(events)`, `(chat)` and `(profile)` each hold
-an `index.tsx` and would all otherwise resolve to `/`, so naming a specific tab requires its
-group. `verify-email` and `onboarding` are at the root of `src/app/` and take no group.
+framework needs it to disambiguate. `verify-email` and `onboarding` are at the root of
+`src/app/` and take no group.
+
+Exactly one screen may own `/` — `(home)/index.tsx`, the Map tab. The other three tab groups
+(`(ganaps)`, `(chat)`, `(profile)`) name their screen after their group (`(chat)/chat.tsx`),
+so each owns a distinct URL. See `docs/adr/0001-type-checked-route-table.md` (DS-34): a second
+`index.tsx` under a tab group reintroduces the ambiguity, and no `unstable_settings.anchor` or
+`initialRouteName` declaration can override which screen the router picks for a matched URL.
 
 ---
 
