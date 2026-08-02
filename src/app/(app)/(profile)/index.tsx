@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { BadgeCheck, Edit3, LogOut, Settings } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
@@ -43,7 +43,7 @@ export default function ProfileScreen(): ReactElement {
   const joinedCount: string = joinedGanaps.isLoading || joinedGanaps.error ? '...' : String(joinedGanaps.total);
 
   return (
-    <View className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
@@ -168,6 +168,6 @@ export default function ProfileScreen(): ReactElement {
           </Button>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
