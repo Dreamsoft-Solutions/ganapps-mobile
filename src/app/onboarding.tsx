@@ -6,7 +6,6 @@ import { Button } from '@/components/common/Button';
 import { Text } from '@/components/common/Text';
 import { OnboardingForm } from '@/components/forms/OnboardingForm';
 import { Routes } from '@/constants/routes';
-import { useAuthStore } from '@/store/auth.store';
 
 /**
  * Profile setup screen shown after email verification.
@@ -33,7 +32,6 @@ export default function OnboardingScreen(): ReactElement {
             variant="ghost"
             size="sm"
             onPress={async (): Promise<void> => {
-              await useAuthStore.getState().completeOnboarding();
               router.replace(Routes.app.home);
             }}
           >

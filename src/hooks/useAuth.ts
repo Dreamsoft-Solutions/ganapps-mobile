@@ -103,12 +103,10 @@ export function useAuth(): UseAuthResult {
   }, [resendVerificationMutation]);
 
   const updateProfileAction = useCallback(
-    async (dto: UpdateProfileRequest | FormData) => {
+    async (dto: UpdateProfileRequest | FormData): Promise<void> => {
       await updateProfileMutation.mutateAsync(dto);
-      await useAuthStore.getState().completeOnboarding();
-      router.replace(Routes.app.home);
     },
-    [updateProfileMutation, router],
+    [updateProfileMutation],
   );
 
   return {
