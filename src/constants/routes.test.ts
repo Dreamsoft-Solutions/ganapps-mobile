@@ -25,7 +25,8 @@ function listRouteFiles(dir: string): string[] {
     if (entry.isDirectory()) {
       out.push(...listRouteFiles(full));
     } else if (/\.tsx?$/.test(entry.name)) {
-      out.push(`./${relative(APP_DIR, full)}`);
+      // Metro context keys use POSIX separators even when tests run on Windows.
+      out.push(`./${relative(APP_DIR, full).replaceAll('\\', '/')}`);
     }
   }
   return out.sort();
