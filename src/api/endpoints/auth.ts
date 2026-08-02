@@ -33,8 +33,33 @@ export const authAPI = {
     axiosInstance.post<{ message: string }>('/auth/resend-verification').then((res) => res.data),
 
   updateProfile: (dto: UpdateProfileRequest | FormData): Promise<User> =>
-    axiosInstance.patch<User>('/auth/me', dto).then((res) => res.data),
+    axiosInstance
+      .patch<User>(
+        '/auth/me',
+        dto,
+        isFormData(dto)
+          ? {
+              headers: { 'Content-Type': undefined },
+              transformRequest: [(data: unknown): unknown => data],
+            }
+          : undefined,
+      )
+      .then((res) => res.data),
 
   googleLogin: (dto: GoogleAuthRequestDto): Promise<TokenResponse> =>
     axiosInstance.post<TokenResponse>('/auth/google', dto).then((res) => res.data),
 };
+
+/**
+ * Detects a native or web FormData payload without assuming a specific runtime constructor.
+ *
+ * @param value - Profile update payload.
+ * @returns True when the payload is FormData.
+ */
+function isFormData(value: UpdateProfileRequest | FormData): value is FormData {
+  if (typeof FormData !== 'undefined' && value instanceof FormData) return true;
+
+  if (typeof value !== 'object' || value === null) return false;
+  const nativeFormData = value as unknown as { getParts?: unknown };
+  return typeof nativeFormData.getParts === 'function';
+}

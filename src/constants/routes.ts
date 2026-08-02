@@ -29,6 +29,7 @@ export interface RouteTable {
   };
   profileEdit: Href;
   profileSettings: Href;
+  profileJoined: Href;
   ganapDetail: (ganapId: string) => Href;
 }
 
@@ -84,6 +85,7 @@ export const Routes: RouteTable = {
 
   profileEdit: { pathname: '/(app)/(profile)/edit' },
   profileSettings: { pathname: '/(app)/(profile)/settings' },
+  profileJoined: { pathname: '/(app)/(profile)/joined' },
 
   /**
    * Builds the href for a single event's detail screen.

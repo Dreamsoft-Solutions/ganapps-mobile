@@ -40,6 +40,7 @@ export interface VerifyEmailRequest {
 export interface UpdateProfileRequest {
   firstName?: string;
   lastName?: string;
+  bio?: string;
   displayPicture?: string;
   interests?: string[];
 }
