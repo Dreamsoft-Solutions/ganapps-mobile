@@ -113,8 +113,7 @@ src/
 │   ├── verify-email.tsx              # Root level, NOT in (auth)
 │   ├── (auth)/                       # Unauthenticated group
 │   │   ├── _layout.tsx
-│   │   ├── login.tsx
-│   │   └── register.tsx
+│   │   └── login.tsx                                    # Login AND register — see below
 │   └── (app)/                        # Authenticated group (tab navigator)
 │       ├── _layout.tsx               # Tabs: Map, My Events, Chat, Profile
 │       ├── (home)/{_layout,index}.tsx                   # Map discovery — owns `/`
@@ -666,6 +665,12 @@ Scaffolding from the template that survives in the tree. It compiles, so it look
 |---|---|
 | `api/endpoints/users.ts` | There is no `/users` controller. `getMe` and `updateProfile` live on `authAPI`. |
 | `Empty`'s `icon?: string` prop | Renders a string at `text-4xl`, i.e. an emoji slot, which contradicts the no-emoji rule. Use `lucide-react-native` instead. |
+
+There is **no `(auth)/register.tsx`**. Registration is a mode toggle inside
+`components/forms/LoginForm.tsx`, which swaps between `loginSchema` and `registerSchema` and
+between `useAuth`'s `login` and `register`. `constants/routes.ts` therefore has no
+`auth.register` entry, and adding one would fail `npm run type-check`. Earlier revisions of
+this file listed the screen; it never existed.
 
 `npx expo prebuild` needs one artifact that is not in the repo: **`google-services.json`**,
 downloaded from the Firebase console for the `com.ganapps.app` Android app and placed in the
