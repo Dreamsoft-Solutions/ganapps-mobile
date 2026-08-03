@@ -1,42 +1,77 @@
+import { Image } from 'expo-image';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import type { LucideIcon } from 'lucide-react-native';
-import { Calendar, Map as MapIcon, MessageCircle, User } from 'lucide-react-native';
+import { Calendar, MessageCircle } from 'lucide-react-native';
 import type { ReactElement, ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Avatar } from '@/components/common/Avatar';
 import { Text } from '@/components/common/Text';
+import { Assets } from '@/constants/assets';
+import { useAuthStore } from '@/store/auth.store';
+import type { User } from '@/types/user.types';
 
 interface TabRoute {
   key: string;
   name: string;
   label: string;
-  icon: LucideIcon;
+  icon?: LucideIcon;
+  renderIcon?: (isActive: boolean, user: User | null) => ReactNode;
 }
 
+const LOGO_SIZE: number = 36;
+const ACTIVE_BORDER: string = 'border-primary';
+const INACTIVE_BORDER: string = 'border-transparent';
+
 const TAB_ROUTES: TabRoute[] = [
-  { key: 'map', name: '(home)', label: 'Map', icon: MapIcon },
+  {
+    key: 'map',
+    name: '(home)',
+    label: 'Map',
+    renderIcon: (isActive: boolean): ReactNode => (
+      <View className={`overflow-hidden rounded-full border-2 ${isActive ? ACTIVE_BORDER : INACTIVE_BORDER}`}>
+        <Image source={Assets.logoIcon} style={{ width: LOGO_SIZE, height: LOGO_SIZE }} contentFit="cover" />
+      </View>
+    ),
+  },
   { key: 'events', name: '(ganaps)', label: 'My Events', icon: Calendar },
   { key: 'chat', name: '(chat)', label: 'Chat', icon: MessageCircle },
-  { key: 'profile', name: '(profile)', label: 'Profile', icon: User },
+  {
+    key: 'profile',
+    name: '(profile)',
+    label: 'Profile',
+    renderIcon: (isActive: boolean, user: User | null): ReactNode => {
+      const displayName: string = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || user?.username || '';
+      return (
+        <View className={`rounded-full border-2 ${isActive ? ACTIVE_BORDER : INACTIVE_BORDER}`}>
+          <Avatar src={user?.displayPicture ?? null} name={displayName} size="sm" />
+        </View>
+      );
+    },
+  },
 ];
 
-const BAR_HEIGHT: number = 64;
+/** Height of the bottom tab bar, shared with the layout's floating tab bar style. */
+export const BAR_HEIGHT: number = 72;
 
 /**
- * Bottom tab bar.
+ * Bottom tab bar with brand elements: the logo anchors the Map tab and the
+ * user's avatar anchors the Profile tab, both framed by a primary border when
+ * active.
  *
  * @param props - React Navigation bottom tab bar props.
  * @returns The tab bar.
  */
 export function AppTabBar({ state, navigation }: BottomTabBarProps): ReactElement {
   const insets = useSafeAreaInsets();
+  const user = useAuthStore((s) => s.user);
 
   return (
     <View style={{ paddingBottom: insets.bottom }}>
       <View className="flex-row items-end bg-card" style={{ height: BAR_HEIGHT }}>
-        {TAB_ROUTES.map((tab, index): ReactNode => {
-          const Icon = tab.icon;
-          const isActive = state.index === index;
+        {TAB_ROUTES.map((tab: TabRoute, index: number): ReactNode => {
+          const Icon: LucideIcon | undefined = tab.icon;
+          const isActive: boolean = state.index === index;
 
           return (
             <Pressable
@@ -46,7 +81,11 @@ export function AppTabBar({ state, navigation }: BottomTabBarProps): ReactElemen
               accessibilityLabel={tab.label}
               accessibilityState={{ selected: isActive }}
             >
-              <Icon size={24} className={isActive ? 'text-primary' : 'text-muted-foreground'} />
+              {tab.renderIcon ? (
+                tab.renderIcon(isActive, user)
+              ) : Icon ? (
+                <Icon size={24} className={isActive ? 'text-primary' : 'text-muted-foreground'} />
+              ) : null}
               <Text className={`text-label-sm mt-1 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
                 {tab.label}
               </Text>
