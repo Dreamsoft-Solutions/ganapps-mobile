@@ -9,15 +9,16 @@ import { formatEventDate } from '@/utils/formatting';
 interface SelectedGanapCardProps {
   ganap: GanapListItem;
   onClose: () => void;
+  onPress: () => void;
 }
 
 /**
  * Bottom card shown when a Ganap marker is selected.
  *
- * @param props - The selected Ganap and close handler.
+ * @param props - The selected Ganap, detail handler, and close handler.
  * @returns The card element.
  */
-export function SelectedGanapCard({ ganap, onClose }: SelectedGanapCardProps): ReactElement {
+export function SelectedGanapCard({ ganap, onClose, onPress }: SelectedGanapCardProps): ReactElement {
   return (
     <View className="mx-4 mb-4 rounded-2xl bg-card p-4 shadow-lg">
       <Pressable
@@ -28,7 +29,13 @@ export function SelectedGanapCard({ ganap, onClose }: SelectedGanapCardProps): R
         <X size={16} className="text-muted-foreground" />
       </Pressable>
 
-      <View className="flex-row gap-3">
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`Open event details for ${ganap.title}`}
+        accessibilityHint="Opens the full event details"
+        className="flex-row gap-3"
+      >
         {ganap.coverImage ? (
           <Image source={{ uri: ganap.coverImage }} contentFit="cover" className="h-20 w-20 rounded-xl bg-muted" />
         ) : (
@@ -64,7 +71,7 @@ export function SelectedGanapCard({ ganap, onClose }: SelectedGanapCardProps): R
             <Text className="text-label-md text-muted-foreground">{ganap.registrationCount} going</Text>
           </View>
         </View>
-      </View>
+      </Pressable>
     </View>
   );
 }

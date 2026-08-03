@@ -1,4 +1,5 @@
 import Mapbox, { Camera, MapView, MarkerView } from '@rnmapbox/maps';
+import { useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -10,6 +11,7 @@ import { GanapMapPin } from '@/components/map/GanapMapPin';
 import { MapSearchBar } from '@/components/map/MapSearchBar';
 import { SelectedGanapCard } from '@/components/map/SelectedGanapCard';
 import { TagChips } from '@/components/map/TagChips';
+import { Routes } from '@/constants/routes';
 import { useGanapsMap } from '@/hooks/useGanapsMap';
 import type { GanapListItem } from '@/types/ganap.types';
 
@@ -27,6 +29,7 @@ const INITIAL_ZOOM = 15.5;
  * @returns The map home screen.
  */
 export default function HomeScreen(): ReactElement {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { items, tags, search, setSearch, tag, setTag, isLoading, isError, error, refetch } = useGanapsMap();
 
@@ -91,7 +94,11 @@ export default function HomeScreen(): ReactElement {
 
       {selectedGanap && (
         <View className="absolute bottom-4 left-0 right-0" pointerEvents="box-none">
-          <SelectedGanapCard ganap={selectedGanap} onClose={(): void => setSelectedGanap(null)} />
+          <SelectedGanapCard
+            ganap={selectedGanap}
+            onClose={(): void => setSelectedGanap(null)}
+            onPress={(): void => router.push(Routes.ganapDetail(selectedGanap.id))}
+          />
         </View>
       )}
     </View>

@@ -58,6 +58,7 @@ interface ButtonProps extends VariantProps<typeof buttonVariants> {
   onPress: () => void | Promise<void>;
   disabled?: boolean;
   loading?: boolean;
+  accessibilityHint?: string;
   children: string;
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
@@ -75,6 +76,7 @@ export function Button({
   onPress,
   disabled,
   loading,
+  accessibilityHint,
   children,
   leftIcon,
   rightIcon,
@@ -101,6 +103,10 @@ export function Button({
     <Pressable
       onPress={handlePress}
       disabled={disabled || loading}
+      accessibilityRole="button"
+      accessibilityLabel={children}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: Boolean(disabled || loading), busy: Boolean(loading) }}
       className={buttonVariants({ variant, size, disabled: disabled || loading })}
     >
       {loading ? (

@@ -123,7 +123,7 @@ describe('route table entries resolve to their screens', () => {
   });
 
   it('opens a Ganap detail screen', () => {
-    expect(resolve('/(app)/(ganaps)/abc123')).toEqual(['(app)', '(ganaps)', '[ganap-id]']);
+    expect(resolve('/(app)/(home)/abc123')).toEqual(['(app)', '(home)', '[ganap-id]']);
   });
 
   it('opens the welcome screen', () => {
