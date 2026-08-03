@@ -32,12 +32,16 @@ function ganapWith(overrides: Partial<GanapDetail>): GanapDetail {
   };
 }
 
-function withRegistration(status: RegistrationStatus): Partial<GanapDetail> {
+function withRegistration(
+  status: RegistrationStatus,
+  registrationFormSubmittedAt: string | null = '2026-08-02T00:00:00.000Z',
+): Partial<GanapDetail> {
   return {
     myRegistration: {
       id: 'registration_1',
       status,
       createdAt: '2026-08-01T00:00:00.000Z',
+      registrationFormSubmittedAt,
     },
   };
 }
@@ -104,6 +108,28 @@ describe('getGanapActionModel', (): void => {
     expect(getGanapActionModel(ganapWith(withRegistration(status)), BEFORE_EVENT)).toMatchObject({
       statusLabel,
       actionLabel,
+    });
+  });
+
+  it('asks an attendee to complete an unsubmitted registration form', (): void => {
+    expect(
+      getGanapActionModel(
+        ganapWith({
+          requiresApproval: true,
+          myRegistration: {
+            id: 'r1',
+            status: 'PENDING',
+            createdAt: '2026-08-01T00:00:00.000Z',
+            registrationFormSubmittedAt: null,
+          },
+        }),
+        new Date('2026-08-03T00:00:00.000Z'),
+      ),
+    ).toEqual({
+      statusLabel: 'Registration incomplete',
+      action: 'complete-registration',
+      actionLabel: 'Complete registration',
+      confirmation: null,
     });
   });
 

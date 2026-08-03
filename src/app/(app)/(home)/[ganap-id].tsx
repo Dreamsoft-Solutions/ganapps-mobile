@@ -4,6 +4,7 @@ import { Alert, Share } from 'react-native';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { EventDetailView } from '@/components/ganaps/EventDetailView';
+import { Routes } from '@/constants/routes';
 import { useBusinessDetailQuery } from '@/hooks/queries/useBusinessesQuery';
 import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { useGanaps } from '@/hooks/useGanaps';
@@ -40,8 +41,16 @@ export default function GanapDetailScreen(): ReactElement {
   };
 
   const handlePrimaryAction = async (): Promise<void> => {
+    if (actionModel.action === 'complete-registration') {
+      router.push(Routes.ganapRegistration(ganap.id));
+      return;
+    }
+
     if (actionModel.action === 'join') {
-      await join(ganap.id);
+      const result = await join(ganap.id);
+      if (result.requiresForm === true) {
+        router.push(Routes.ganapRegistration(ganap.id));
+      }
       return;
     }
 

@@ -14,7 +14,7 @@ export interface GanapScheduleModel {
 }
 
 /** Supported primary actions on the Event Details screen. */
-export type GanapAction = 'join' | 'leave' | null;
+export type GanapAction = 'join' | 'leave' | 'complete-registration' | null;
 
 /** Confirmation copy for a destructive registration action. */
 export interface GanapActionConfirmation {
@@ -121,8 +121,16 @@ export function getGanapCapacityModel(ganap: GanapDetail): GanapCapacityModel {
  * @returns The status and primary action model.
  */
 export function getGanapActionModel(ganap: GanapDetail, now: Date): GanapActionModel {
-  const registrationStatus = ganap.myRegistration?.status;
-  if (registrationStatus) return leaveAction(registrationStatus);
+  const registration = ganap.myRegistration;
+  if (registration?.status === 'PENDING' && registration.registrationFormSubmittedAt === null) {
+    return {
+      statusLabel: 'Registration incomplete',
+      action: 'complete-registration',
+      actionLabel: 'Complete registration',
+      confirmation: null,
+    };
+  }
+  if (registration?.status) return leaveAction(registration.status);
 
   if (ganap.status === 'ONGOING') return statusOnly('Event in progress');
   if (ganap.status === 'COMPLETED') return statusOnly('Event ended');
