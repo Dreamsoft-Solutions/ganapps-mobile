@@ -16,6 +16,11 @@ function getGoogleClientConfiguration() {
     const androidClient = clients.find(
       (client) => client.client_info?.android_client_info?.package_name === androidPackage,
     );
+    const androidOAuthClients =
+      androidClient?.oauth_client?.filter(
+        (client) => Number(client.client_type) === 1 && client.android_info?.package_name === androidPackage,
+      ) ?? [];
+    const androidOAuthClient = androidOAuthClients[0];
     const oauthClients = clients.flatMap((client) => [
       ...(Array.isArray(client.oauth_client) ? client.oauth_client : []),
       ...(Array.isArray(client.services?.appinvite_service?.other_platform_oauth_client)
@@ -25,16 +30,18 @@ function getGoogleClientConfiguration() {
 
     return {
       webClientId: environmentWebClientId ?? oauthClients.find((client) => Number(client.client_type) === 3)?.client_id,
-      androidOAuthClientConfigured: Boolean(
-        androidClient?.oauth_client?.some(
-          (client) => Number(client.client_type) === 1 && client.android_info?.package_name === androidPackage,
-        ),
-      ),
+      androidOAuthClientConfigured: Boolean(androidOAuthClient),
+      androidOAuthCertificateHash: androidOAuthClient?.android_info?.certificate_hash,
+      androidOAuthCertificateHashes: androidOAuthClients
+        .map((client) => client.android_info?.certificate_hash)
+        .filter(Boolean),
     };
   } catch {
     return {
       webClientId: environmentWebClientId,
       androidOAuthClientConfigured: undefined,
+      androidOAuthCertificateHash: undefined,
+      androidOAuthCertificateHashes: undefined,
     };
   }
 }
@@ -113,6 +120,8 @@ module.exports = {
       },
       googleWebClientId: googleClientConfiguration.webClientId,
       googleAndroidOAuthClientConfigured: googleClientConfiguration.androidOAuthClientConfigured,
+      googleAndroidOAuthCertificateHash: googleClientConfiguration.androidOAuthCertificateHash,
+      googleAndroidOAuthCertificateHashes: googleClientConfiguration.androidOAuthCertificateHashes,
     },
     owner: 'dreamsoft-cpu',
   },

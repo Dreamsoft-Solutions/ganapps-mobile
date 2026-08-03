@@ -1,4 +1,5 @@
-import auth, { GoogleAuthProvider } from '@react-native-firebase/auth';
+import { getApp } from '@react-native-firebase/app';
+import { GoogleAuthProvider, getAuth, getIdToken, signInWithCredential, signOut } from '@react-native-firebase/auth';
 import { GoogleSignin, isErrorWithCode, isSuccessResponse } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
@@ -35,8 +36,9 @@ export async function getGoogleFirebaseIdToken(): Promise<string> {
     if (!idToken) throw new Error('Google did not return an ID token');
 
     const credential = GoogleAuthProvider.credential(idToken);
-    const userCredential = await auth().signInWithCredential(credential);
-    return await userCredential.user.getIdToken();
+    const firebaseAuth = getAuth(getApp());
+    const userCredential = await signInWithCredential(firebaseAuth, credential);
+    return await getIdToken(userCredential.user);
   } catch (error: unknown) {
     if (__DEV__) {
       console.warn('[GoogleAuth] native sign-in failed', {
@@ -47,7 +49,7 @@ export async function getGoogleFirebaseIdToken(): Promise<string> {
     throw error;
   } finally {
     try {
-      await auth().signOut();
+      await signOut(getAuth(getApp()));
     } catch {
       // Firebase may not have an active native session after a cancelled flow.
     }
@@ -71,6 +73,8 @@ export function isGoogleSignInCancelled(error: unknown): boolean {
 
 function configureGoogleSignIn(): {
   androidOAuthClientConfigured: boolean | undefined;
+  androidOAuthCertificateHash: string | undefined;
+  androidOAuthCertificateHashes: string[] | undefined;
   hasWebClientId: boolean;
   packageName: string | undefined;
   projectId: string | undefined;
@@ -79,6 +83,8 @@ function configureGoogleSignIn(): {
   const extraRecord = typeof extra === 'object' && extra !== null ? (extra as Record<string, unknown>) : {};
   const configuredExtra = extraRecord.googleWebClientId;
   const configuredAndroidOAuthClient = extraRecord.googleAndroidOAuthClientConfigured;
+  const configuredAndroidCertificateHash = extraRecord.googleAndroidOAuthCertificateHash;
+  const configuredAndroidCertificateHashes = extraRecord.googleAndroidOAuthCertificateHashes;
 
   const webClientId =
     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? (typeof configuredExtra === 'string' ? configuredExtra : undefined);
@@ -92,6 +98,11 @@ function configureGoogleSignIn(): {
   return {
     androidOAuthClientConfigured:
       typeof configuredAndroidOAuthClient === 'boolean' ? configuredAndroidOAuthClient : undefined,
+    androidOAuthCertificateHash:
+      typeof configuredAndroidCertificateHash === 'string' ? configuredAndroidCertificateHash : undefined,
+    androidOAuthCertificateHashes: Array.isArray(configuredAndroidCertificateHashes)
+      ? configuredAndroidCertificateHashes.filter((value): value is string => typeof value === 'string')
+      : undefined,
     hasWebClientId: true,
     packageName: Constants.expoConfig?.android?.package,
     projectId:
