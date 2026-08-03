@@ -1,4 +1,6 @@
+import type { FormBlock, RegistrationFormData } from '@/types/ganap.types';
 import {
+  createRegistrationFormSchema,
   loginSchema,
   onboardingExtrasSchema,
   onboardingNamesSchema,
@@ -7,6 +9,38 @@ import {
   registerSchema,
   verifyEmailSchema,
 } from './validation';
+
+const baseFormBlock: FormBlock = {
+  id: 'block_1',
+  ganapId: 'g1',
+  scope: 'REGISTRATION',
+  type: 'TEXT',
+  label: 'Question',
+  isRequired: false,
+  allowMultiple: false,
+  order: 1,
+  config: null,
+  options: [],
+  createdAt: '2026-08-03T00:00:00.000Z',
+  updatedAt: '2026-08-03T00:00:00.000Z',
+};
+
+function makeFormBlock(overrides: Partial<FormBlock>): FormBlock {
+  return { ...baseFormBlock, ...overrides };
+}
+
+function expectIssue(
+  result: ReturnType<ReturnType<typeof createRegistrationFormSchema>['safeParse']>,
+  blockId: string,
+  message: string,
+): void {
+  expect(result.success).toBe(false);
+  if (!result.success) {
+    expect(result.error.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ message, path: ['answers', blockId] })]),
+    );
+  }
+}
 
 describe('loginSchema', () => {
   it('accepts a valid email and password', () => {
@@ -172,5 +206,101 @@ describe('profileSchema', () => {
       interests: [],
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('createRegistrationFormSchema', () => {
+  it('rejects whitespace-only required text at the field path', () => {
+    const block = makeFormBlock({ id: 'required_text', isRequired: true });
+    const result = createRegistrationFormSchema([block]).safeParse({ answers: { required_text: '   ' } });
+
+    expectIssue(result, 'required_text', 'This question is required');
+  });
+
+  it('accepts an optional blank text answer', () => {
+    const block = makeFormBlock({ id: 'optional_text' });
+
+    expect(createRegistrationFormSchema([block]).safeParse({ answers: { optional_text: '' } }).success).toBe(true);
+  });
+
+  it('rejects text longer than the valid configured maximum', () => {
+    const block = makeFormBlock({ id: 'limited_text', config: { maxLength: 3 } });
+    const result = createRegistrationFormSchema([block]).safeParse({ answers: { limited_text: 'abcd' } });
+
+    expectIssue(result, 'limited_text', 'Answer is too long');
+  });
+
+  it.each(['', 'unknown'])('rejects an invalid required single-choice answer %j', (answer: string) => {
+    const block = makeFormBlock({
+      id: 'single_choice',
+      type: 'MULTIPLE_CHOICE',
+      isRequired: true,
+      options: [{ id: 'option_1', label: 'One', value: 'one', order: 1 }],
+    });
+    const result = createRegistrationFormSchema([block]).safeParse({ answers: { single_choice: answer } });
+
+    expectIssue(result, 'single_choice', answer === '' ? 'This question is required' : 'Choose a valid option');
+  });
+
+  it('rejects empty and unknown required multiple-choice answers', () => {
+    const block = makeFormBlock({
+      id: 'multiple_choice',
+      type: 'MULTIPLE_CHOICE',
+      isRequired: true,
+      allowMultiple: true,
+      options: [{ id: 'option_1', label: 'One', value: 'one', order: 1 }],
+    });
+    const schema = createRegistrationFormSchema([block]);
+
+    expectIssue(schema.safeParse({ answers: { multiple_choice: [] } }), 'multiple_choice', 'This question is required');
+    expectIssue(
+      schema.safeParse({ answers: { multiple_choice: ['unknown'] } }),
+      'multiple_choice',
+      'Choose valid options',
+    );
+  });
+
+  it('rejects null and non-discrete required scale answers', () => {
+    const block = makeFormBlock({ id: 'scale', type: 'SCALE', isRequired: true, config: { min: 1, max: 5, step: 2 } });
+    const schema = createRegistrationFormSchema([block]);
+
+    expectIssue(schema.safeParse({ answers: { scale: null } }), 'scale', 'This question is required');
+    expectIssue(schema.safeParse({ answers: { scale: 2 } }), 'scale', 'Choose a valid scale value');
+  });
+
+  it('accepts optional unanswered fields and rejects an optional wrong value shape', () => {
+    const blocks: FormBlock[] = [
+      makeFormBlock({ id: 'optional_text' }),
+      makeFormBlock({ id: 'optional_choice', type: 'MULTIPLE_CHOICE', options: [] }),
+      makeFormBlock({ id: 'optional_scale', type: 'SCALE' }),
+    ];
+    const schema = createRegistrationFormSchema(blocks);
+
+    expect(schema.safeParse({ answers: {} }).success).toBe(true);
+    expect(schema.safeParse({ answers: { optional_text: [] } }).success).toBe(false);
+  });
+
+  it('parses a valid mixed form', () => {
+    const blocks: FormBlock[] = [
+      makeFormBlock({ id: 'text', isRequired: true, config: { maxLength: 20 } }),
+      makeFormBlock({
+        id: 'single',
+        type: 'MULTIPLE_CHOICE',
+        isRequired: true,
+        options: [{ id: 'option_1', label: 'One', value: 'one', order: 1 }],
+      }),
+      makeFormBlock({
+        id: 'multiple',
+        type: 'MULTIPLE_CHOICE',
+        allowMultiple: true,
+        options: [{ id: 'option_2', label: 'Two', value: 'two', order: 1 }],
+      }),
+      makeFormBlock({ id: 'scale', type: 'SCALE', isRequired: true, config: { min: 0, max: 4, step: 2 } }),
+    ];
+    const data: RegistrationFormData = {
+      answers: { text: 'Hello', single: 'option_1', multiple: ['option_2'], scale: 0 },
+    };
+
+    expect(createRegistrationFormSchema(blocks).safeParse(data)).toEqual({ success: true, data });
   });
 });

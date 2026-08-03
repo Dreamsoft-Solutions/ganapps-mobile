@@ -31,6 +31,7 @@ export interface RouteTable {
   profileSettings: Href;
   profileJoined: Href;
   ganapDetail: (ganapId: string) => Href;
+  ganapRegistration: (ganapId: string) => Href;
 }
 
 /**
@@ -96,6 +97,17 @@ export const Routes: RouteTable = {
    */
   ganapDetail: (ganapId: string): Href => ({
     pathname: '/(app)/(home)/[ganap-id]',
+    params: { 'ganap-id': ganapId },
+  }),
+
+  /**
+   * Builds the href for a Ganap's registration form.
+   *
+   * @param ganapId - Value for the `[ganap-id]` segment of the registration route.
+   * @returns An href targeting the registration form screen.
+   */
+  ganapRegistration: (ganapId: string): Href => ({
+    pathname: '/(app)/(home)/registration/[ganap-id]',
     params: { 'ganap-id': ganapId },
   }),
 };

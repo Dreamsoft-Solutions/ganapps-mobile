@@ -1,7 +1,7 @@
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import { enqueueOutbox } from '@/services/sync.service';
-import type { JoinGanapResult } from '@/types/ganap.types';
+import type { JoinGanapResult, SubmitFormAnswersInput } from '@/types/ganap.types';
 import { ganapQueryKeys } from '../queries/useGanapsQuery';
 import { profileQueryKeys } from '../queries/useProfileQuery';
 
@@ -15,6 +15,12 @@ export interface ToggleLikeVariables {
 export interface ToggleSaveVariables {
   ganapId: string;
   isSaved: boolean;
+}
+
+/** Arguments for submitting a Ganap registration form. */
+export interface SubmitFormAnswersVariables {
+  ganapId: string;
+  input: SubmitFormAnswersInput;
 }
 
 /**
@@ -65,6 +71,25 @@ export function useLeaveGanapMutation(): UseMutationResult<void, Error, string> 
   return useMutation<void, Error, string>({
     mutationFn: (ganapId: string): Promise<void> => ganapsAPI.leave(ganapId),
     onSuccess: (_result: unknown, ganapId: string): void => {
+      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
+      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });
+    },
+  });
+}
+
+/**
+ * Submits registration-form answers online and refreshes related Ganap caches.
+ *
+ * @returns The mutation, resolving to the server-decided registration
+ */
+export function useSubmitFormAnswersMutation(): UseMutationResult<JoinGanapResult, Error, SubmitFormAnswersVariables> {
+  const queryClient = useQueryClient();
+
+  return useMutation<JoinGanapResult, Error, SubmitFormAnswersVariables>({
+    mutationFn: ({ ganapId, input }: SubmitFormAnswersVariables): Promise<JoinGanapResult> =>
+      ganapsAPI.submitFormAnswers(ganapId, input),
+    onSuccess: (_result: JoinGanapResult, { ganapId }: SubmitFormAnswersVariables): void => {
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });

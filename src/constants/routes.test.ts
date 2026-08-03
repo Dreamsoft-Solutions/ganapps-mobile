@@ -126,6 +126,17 @@ describe('route table entries resolve to their screens', () => {
     expect(resolve('/(app)/(home)/abc123')).toEqual(['(app)', '(home)', '[ganap-id]']);
   });
 
+  it('opens a Ganap registration form screen', () => {
+    expect(resolve('/(app)/(home)/registration/abc123')).toEqual(['(app)', '(home)', 'registration/[ganap-id]']);
+  });
+
+  it('builds an object-form registration route with the Ganap parameter', () => {
+    expect(Routes.ganapRegistration('abc123')).toEqual({
+      pathname: '/(app)/(home)/registration/[ganap-id]',
+      params: { 'ganap-id': 'abc123' },
+    });
+  });
+
   it('opens the welcome screen', () => {
     expect(resolve(pathnameOf(Routes.public.welcome))).toEqual(['(public)', 'index']);
   });

@@ -16,6 +16,58 @@ export type RegistrationStatus =
 /** Lifecycle of a Ganap, matching the server's `GanapStatus` enum. */
 export type GanapStatus = 'DRAFT' | 'PUBLISHED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED';
 
+/** Scope for an organizer-defined form block. */
+export type FormBlockScope = 'REGISTRATION' | 'POST_ATTENDANCE';
+
+/** Renderer type for an organizer-defined form block. */
+export type FormBlockType = 'TEXT' | 'MULTIPLE_CHOICE' | 'SCALE';
+
+/** A selectable option belonging to a form block. */
+export interface FormOption {
+  id: string;
+  label: string;
+  value: string;
+  order: number;
+}
+
+/** A server-defined question rendered in a Ganap form. */
+export interface FormBlock {
+  id: string;
+  ganapId: string;
+  scope: FormBlockScope;
+  type: FormBlockType;
+  label: string;
+  isRequired: boolean;
+  allowMultiple: boolean;
+  order: number;
+  config: Record<string, unknown> | null;
+  options: FormOption[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One answer item accepted by the form-answer endpoint. */
+export interface FormAnswerItem {
+  formBlockId: string;
+  textValue?: string;
+  numberValue?: number;
+  scaleValue?: number;
+  selectedOptionIds?: string[];
+}
+
+/** Request payload for submitting registration-form answers. */
+export interface SubmitFormAnswersInput {
+  answers: FormAnswerItem[];
+}
+
+/** Runtime value shape used by the registration form before DTO mapping. */
+export type RegistrationFormAnswerValue = string | string[] | number | null;
+
+/** Values keyed by server form-block ID for the registration form. */
+export interface RegistrationFormData {
+  answers: Record<string, RegistrationFormAnswerValue>;
+}
+
 /**
  * A Ganap as it appears in the public browse list.
  *
@@ -84,6 +136,7 @@ export interface GanapDetail {
     id: string;
     status: RegistrationStatus;
     createdAt: string;
+    registrationFormSubmittedAt: string | null;
   } | null;
   createdAt: string;
   updatedAt: string;
