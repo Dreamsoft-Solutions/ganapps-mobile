@@ -1,6 +1,7 @@
 import auth, { GoogleAuthProvider } from '@react-native-firebase/auth';
-import { GoogleSignin, isSuccessResponse } from '@react-native-google-signin/google-signin';
+import { GoogleSignin, isErrorWithCode, isSuccessResponse } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 const GOOGLE_SIGN_IN_CANCELLED = 'GOOGLE_SIGN_IN_CANCELLED';
 let isConfigured = false;
@@ -13,7 +14,15 @@ let isConfigured = false;
  * @throws {Error} When native Google Sign-In or Firebase Auth fails.
  */
 export async function getGoogleFirebaseIdToken(): Promise<string> {
-  configureGoogleSignIn();
+  const diagnostics = configureGoogleSignIn();
+  if (__DEV__) {
+    console.info('[GoogleAuth] configuration', diagnostics);
+  }
+  if (Platform.OS === 'android' && diagnostics.androidOAuthClientConfigured === false) {
+    throw new Error(
+      'Android Google OAuth client is missing. Add the app SHA-1/SHA-256 fingerprints in Firebase, then replace google-services.json.',
+    );
+  }
 
   try {
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
@@ -28,6 +37,14 @@ export async function getGoogleFirebaseIdToken(): Promise<string> {
     const credential = GoogleAuthProvider.credential(idToken);
     const userCredential = await auth().signInWithCredential(credential);
     return await userCredential.user.getIdToken();
+  } catch (error: unknown) {
+    if (__DEV__) {
+      console.warn('[GoogleAuth] native sign-in failed', {
+        code: isErrorWithCode(error) ? error.code : undefined,
+        message: error instanceof Error ? error.message : 'Unknown Google sign-in error',
+      });
+    }
+    throw error;
   } finally {
     try {
       await auth().signOut();
@@ -52,16 +69,34 @@ export function isGoogleSignInCancelled(error: unknown): boolean {
   return error instanceof Error && error.message === GOOGLE_SIGN_IN_CANCELLED;
 }
 
-function configureGoogleSignIn(): void {
-  if (isConfigured) return;
-
+function configureGoogleSignIn(): {
+  androidOAuthClientConfigured: boolean | undefined;
+  hasWebClientId: boolean;
+  packageName: string | undefined;
+  projectId: string | undefined;
+} {
   const extra: unknown = Constants.expoConfig?.extra;
   const extraRecord = typeof extra === 'object' && extra !== null ? (extra as Record<string, unknown>) : {};
   const configuredExtra = extraRecord.googleWebClientId;
+  const configuredAndroidOAuthClient = extraRecord.googleAndroidOAuthClientConfigured;
+
   const webClientId =
     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? (typeof configuredExtra === 'string' ? configuredExtra : undefined);
   if (!webClientId) throw new Error('Google sign-in is not configured');
 
-  GoogleSignin.configure({ webClientId });
-  isConfigured = true;
+  if (!isConfigured) {
+    GoogleSignin.configure({ webClientId });
+    isConfigured = true;
+  }
+
+  return {
+    androidOAuthClientConfigured:
+      typeof configuredAndroidOAuthClient === 'boolean' ? configuredAndroidOAuthClient : undefined,
+    hasWebClientId: true,
+    packageName: Constants.expoConfig?.android?.package,
+    projectId:
+      typeof process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID === 'string'
+        ? process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID
+        : undefined,
+  };
 }

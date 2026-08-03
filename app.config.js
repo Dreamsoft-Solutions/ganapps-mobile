@@ -5,21 +5,41 @@ const fs = require('node:fs');
 // project root as usual.
 const googleServicesFile = process.env.GOOGLE_SERVICES_JSON ?? './google-services.json';
 const googleServiceInfoPlist = process.env.GOOGLE_SERVICE_INFO_PLIST ?? './GoogleService-Info.plist';
+const androidPackage = 'com.ganapps.app';
 
-function getGoogleWebClientId() {
-  if (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID) {
-    return process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-  }
+function getGoogleClientConfiguration() {
+  const environmentWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
   try {
     const firebaseConfig = JSON.parse(fs.readFileSync(googleServicesFile, 'utf8'));
-    return firebaseConfig.client?.[0]?.oauth_client?.find((client) => client.client_type === 3)?.client_id;
+    const clients = Array.isArray(firebaseConfig.client) ? firebaseConfig.client : [];
+    const androidClient = clients.find(
+      (client) => client.client_info?.android_client_info?.package_name === androidPackage,
+    );
+    const oauthClients = clients.flatMap((client) => [
+      ...(Array.isArray(client.oauth_client) ? client.oauth_client : []),
+      ...(Array.isArray(client.services?.appinvite_service?.other_platform_oauth_client)
+        ? client.services.appinvite_service.other_platform_oauth_client
+        : []),
+    ]);
+
+    return {
+      webClientId: environmentWebClientId ?? oauthClients.find((client) => Number(client.client_type) === 3)?.client_id,
+      androidOAuthClientConfigured: Boolean(
+        androidClient?.oauth_client?.some(
+          (client) => Number(client.client_type) === 1 && client.android_info?.package_name === androidPackage,
+        ),
+      ),
+    };
   } catch {
-    return undefined;
+    return {
+      webClientId: environmentWebClientId,
+      androidOAuthClientConfigured: undefined,
+    };
   }
 }
 
-const googleWebClientId = getGoogleWebClientId();
+const googleClientConfiguration = getGoogleClientConfiguration();
 
 module.exports = {
   expo: {
@@ -91,7 +111,8 @@ module.exports = {
       eas: {
         projectId: 'e2daec7d-354d-4c9a-bc92-66e74c75e92e',
       },
-      googleWebClientId,
+      googleWebClientId: googleClientConfiguration.webClientId,
+      googleAndroidOAuthClientConfigured: googleClientConfiguration.androidOAuthClientConfigured,
     },
     owner: 'dreamsoft-cpu',
   },
