@@ -14,14 +14,16 @@ jest.mock('expo-image', () => ({
 
 jest.mock('lucide-react-native', () => ({
   ArrowLeft: (): null => null,
-  Bookmark: (): null => null,
+  Bookmark: ({ className }: { className?: string }): ReactElement => (
+    <MockView testID="action-bookmark" className={className} />
+  ),
   Calendar: (): null => null,
   Check: ({ strokeWidth }: { strokeWidth?: number }): ReactElement => (
     <MockView testID={`verified-check-${strokeWidth ?? 'default'}`} />
   ),
   Clock: (): null => null,
-  Heart: ({ size }: { size?: number }): ReactElement => (
-    <MockView testID={size === 16 ? 'likes-heart' : 'action-heart'} />
+  Heart: ({ className, size }: { className?: string; size?: number }): ReactElement => (
+    <MockView testID={size === 16 ? 'likes-heart' : 'action-heart'} className={className} />
   ),
   Share2: (): null => null,
   Star: (): null => null,
@@ -211,6 +213,31 @@ describe('EventDetailView social actions', (): void => {
 
     expect(onToggleLike).toHaveBeenCalledTimes(1);
     expect(onToggleSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows selected color treatment for liked and saved events', async (): Promise<void> => {
+    const screen = await render(
+      <EventDetailView
+        ganap={{ ...ganap, isLiked: true, isSaved: true }}
+        business={business}
+        capacity={capacity}
+        schedule={schedule}
+        actionModel={actionModel}
+        isPrimaryPending={false}
+        isLikePending={false}
+        isSavePending={false}
+        onBack={(): void => {}}
+        onShare={(): void => {}}
+        onToggleLike={(): void => {}}
+        onToggleSave={(): void => {}}
+        onPrimaryAction={(): void => {}}
+      />,
+    );
+
+    expect(screen.getByTestId('action-heart').props.className).toContain('fill-like');
+    expect(screen.getByTestId('action-heart').props.className).toContain('text-like');
+    expect(screen.getByTestId('action-bookmark').props.className).toContain('fill-save');
+    expect(screen.getByTestId('action-bookmark').props.className).toContain('text-save');
   });
 });
 

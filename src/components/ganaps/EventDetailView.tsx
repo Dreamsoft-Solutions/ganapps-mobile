@@ -150,7 +150,7 @@ export function EventDetailView({
                     void onToggleLike();
                   }}
                 >
-                  <Heart size={22} className={ganap.isLiked ? 'fill-primary text-primary' : 'text-foreground'} />
+                  <Heart size={22} className={ganap.isLiked ? 'fill-like text-like' : 'text-foreground'} />
                 </IconButton>
                 <IconButton
                   size="lg"
@@ -162,7 +162,7 @@ export function EventDetailView({
                     void onToggleSave();
                   }}
                 >
-                  <Bookmark size={22} className={ganap.isSaved ? 'fill-primary text-primary' : 'text-foreground'} />
+                  <Bookmark size={22} className={ganap.isSaved ? 'fill-save text-save' : 'text-foreground'} />
                 </IconButton>
               </View>
             </View>
