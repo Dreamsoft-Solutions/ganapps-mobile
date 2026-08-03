@@ -1,7 +1,25 @@
+const fs = require('node:fs');
+
 // On EAS Build, google-services.json is gitignored and arrives as a file
 // environment variable (GOOGLE_SERVICES_JSON). Locally, the file sits in the
 // project root as usual.
 const googleServicesFile = process.env.GOOGLE_SERVICES_JSON ?? './google-services.json';
+const googleServiceInfoPlist = process.env.GOOGLE_SERVICE_INFO_PLIST ?? './GoogleService-Info.plist';
+
+function getGoogleWebClientId() {
+  if (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID) {
+    return process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  }
+
+  try {
+    const firebaseConfig = JSON.parse(fs.readFileSync(googleServicesFile, 'utf8'));
+    return firebaseConfig.client?.[0]?.oauth_client?.find((client) => client.client_type === 3)?.client_id;
+  } catch {
+    return undefined;
+  }
+}
+
+const googleWebClientId = getGoogleWebClientId();
 
 module.exports = {
   expo: {
@@ -15,7 +33,7 @@ module.exports = {
     ios: {
       icon: './assets/expo.icon',
       bundleIdentifier: 'com.ganapps.app',
-      googleServicesFile: './GoogleService-Info.plist',
+      googleServicesFile: googleServiceInfoPlist,
     },
     android: {
       package: 'com.ganapps.app',
@@ -55,6 +73,8 @@ module.exports = {
         },
       ],
       '@react-native-firebase/app',
+      '@react-native-firebase/auth',
+      '@react-native-google-signin/google-signin',
       [
         '@rnmapbox/maps',
         {
@@ -71,6 +91,7 @@ module.exports = {
       eas: {
         projectId: 'e2daec7d-354d-4c9a-bc92-66e74c75e92e',
       },
+      googleWebClientId,
     },
     owner: 'dreamsoft-cpu',
   },

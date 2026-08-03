@@ -1,3 +1,5 @@
+import type { User } from './user.types';
+
 export interface LoginDto {
   email: string;
   password: string;
@@ -15,6 +17,11 @@ export interface TokenResponse {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+}
+
+export interface GoogleAuthResponse extends TokenResponse {
+  user: User;
+  inviteId?: string;
 }
 
 export interface RegisterResponse extends TokenResponse {

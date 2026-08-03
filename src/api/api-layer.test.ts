@@ -136,6 +136,20 @@ describe('authAPI', () => {
     expect(result.accessToken).toBe('new-access');
   });
 
+  it('exchanges a Firebase Google ID token through the server Google endpoint', async () => {
+    const googleResponse = {
+      ...tokens,
+      user: { id: 'user-1', email: 'google@example.com' },
+    };
+    axiosInstance.defaults.adapter = envelopeAdapter(googleResponse);
+
+    const result = await authAPI.googleLogin({ idToken: 'firebase-id-token' });
+
+    expect(requestedUrl(captured[0])).toContain('/api/v1/auth/google');
+    expect(captured[0].data).toEqual(JSON.stringify({ idToken: 'firebase-id-token' }));
+    expect(result.user.email).toBe('google@example.com');
+  });
+
   it('patches the current profile through the versioned auth path', async () => {
     const user = { id: 'user-1', bio: 'Finding good events.' };
     axiosInstance.defaults.adapter = envelopeAdapter(user);

@@ -3,6 +3,7 @@ import { authAPI } from '@/api/endpoints/auth';
 import { useAuthStore } from '@/store/auth.store';
 import type {
   GoogleAuthRequestDto,
+  GoogleAuthResponse,
   LoginDto,
   RegisterDto,
   RegisterResponse,
@@ -21,8 +22,8 @@ export function useLoginMutation(): UseMutationResult<TokenResponse, Error, Logi
   return useMutation<TokenResponse, Error, LoginDto>({
     mutationFn: (dto: LoginDto): Promise<TokenResponse> => authAPI.login(dto),
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
-    onSuccess: (data: TokenResponse): void => {
-      setAuth(data.accessToken, data.refreshToken, data.expiresIn);
+    onSuccess: async (data: TokenResponse): Promise<void> => {
+      await setAuth(data.accessToken, data.refreshToken, data.expiresIn);
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
     },
   });
@@ -34,20 +35,23 @@ export function useRegisterMutation(): UseMutationResult<RegisterResponse, Error
   return useMutation<RegisterResponse, Error, RegisterDto>({
     mutationFn: (dto: RegisterDto): Promise<RegisterResponse> => authAPI.register(dto),
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
-    onSuccess: (data: RegisterResponse): void => {
-      setAuth(data.accessToken, data.refreshToken, data.expiresIn);
+    onSuccess: async (data: RegisterResponse): Promise<void> => {
+      await setAuth(data.accessToken, data.refreshToken, data.expiresIn);
     },
   });
 }
 
-export function useGoogleLoginMutation(): UseMutationResult<TokenResponse, Error, GoogleAuthRequestDto> {
+export function useGoogleLoginMutation(): UseMutationResult<GoogleAuthResponse, Error, GoogleAuthRequestDto> {
   const queryClient = useQueryClient();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const setUser = useAuthStore((s) => s.setUser);
 
-  return useMutation<TokenResponse, Error, GoogleAuthRequestDto>({
-    mutationFn: (dto: GoogleAuthRequestDto): Promise<TokenResponse> => authAPI.googleLogin(dto),
-    onSuccess: (data: TokenResponse): void => {
-      setAuth(data.accessToken, data.refreshToken, data.expiresIn);
+  return useMutation<GoogleAuthResponse, Error, GoogleAuthRequestDto>({
+    mutationFn: (dto: GoogleAuthRequestDto): Promise<GoogleAuthResponse> => authAPI.googleLogin(dto),
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
+    onSuccess: async (data: GoogleAuthResponse): Promise<void> => {
+      await setAuth(data.accessToken, data.refreshToken, data.expiresIn);
+      setUser(data.user);
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
     },
   });
