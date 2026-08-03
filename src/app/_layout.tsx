@@ -9,6 +9,7 @@ import { type ReactElement, useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
+import { ToastHost } from '@/components/common/ToastHost';
 import { Routes } from '@/constants/routes';
 import { db } from '@/db';
 import { RootProvider } from '@/providers/RootProvider';
@@ -102,6 +103,7 @@ export default function RootLayout(): ReactElement {
     <RootProvider>
       <ThemeProvider>
         <RootLayoutNav />
+        <ToastHost />
       </ThemeProvider>
     </RootProvider>
   );
