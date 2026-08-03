@@ -5,6 +5,7 @@ export default function HomeLayout(): ReactElement {
   return (
     <Stack screenOptions={{ headerBackTitle: 'Back' }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="[ganap-id]" options={{ headerShown: false }} />
     </Stack>
   );
 }

@@ -5,6 +5,9 @@ interface IconButtonProps {
   onPress: () => void;
   children: ReactNode;
   accessibilityLabel: string;
+  accessibilityHint?: string;
+  disabled?: boolean;
+  selected?: boolean;
   size?: 'sm' | 'md' | 'lg';
   variant?: 'default' | 'ghost';
 }
@@ -30,14 +33,23 @@ export function IconButton({
   onPress,
   children,
   accessibilityLabel,
+  accessibilityHint,
+  disabled,
+  selected,
   size = 'md',
   variant = 'ghost',
 }: IconButtonProps): ReactElement {
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      className={`${sizeClasses[size]} ${variantClasses[variant]} items-center justify-center rounded-full active:opacity-70`}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: Boolean(disabled), selected: Boolean(selected) }}
+      className={`${sizeClasses[size]} ${variantClasses[variant]} items-center justify-center rounded-full active:opacity-70 ${
+        disabled ? 'opacity-50' : ''
+      }`}
     >
       {children}
     </Pressable>

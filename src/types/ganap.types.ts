@@ -13,6 +13,9 @@ export type RegistrationStatus =
   | 'ATTENDED'
   | 'EVICTED';
 
+/** Lifecycle of a Ganap, matching the server's `GanapStatus` enum. */
+export type GanapStatus = 'DRAFT' | 'PUBLISHED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED';
+
 /**
  * A Ganap as it appears in the public browse list.
  *
@@ -64,7 +67,7 @@ export interface GanapDetail {
   locationLong: number;
   startDate: string;
   endDate?: string | null;
-  status: string;
+  status: GanapStatus;
   requiresApproval: boolean;
   maxAttendees?: number | null;
   tags: string[];

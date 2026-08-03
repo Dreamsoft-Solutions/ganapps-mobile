@@ -29,6 +29,8 @@ Tokens are exposed as Tailwind utilities and backed by CSS variables in
 | `card-foreground` | `#000000` | `#FAFAFA` | Text on cards |
 | `primary` | `#22C55E` | `#22C55E` | Primary actions, active states, links |
 | `primary-foreground` | `#FFFFFF` | `#FFFFFF` | Text on primary surfaces |
+| `like` | `#DC2626` | `#F87171` | Selected Like icon |
+| `save` | `#A16207` | `#FACC15` | Selected Save icon |
 | `secondary` | `#1F2937` | `#1F2937` | Secondary actions, emphasis surfaces |
 | `secondary-foreground` | `#FFFFFF` | `#FAFAFA` | Text on secondary surfaces |
 | `muted` | `#F4F4F5` | `#27272A` | Subtle backgrounds |

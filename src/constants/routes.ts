@@ -61,7 +61,7 @@ export interface RouteTable {
  * String-form hrefs are never validated in this app, whether or not those types exist:
  * `expo-router` takes a bare `Href` in `router.push`/`replace` and `Link`'s `href`, never
  * instantiating its type parameter. `SingleRoutePart<string>` then collapses to `string`,
- * so the dynamic `(app)/(ganaps)/[ganap-id]` route contributes a `/${string}` member
+ * so the dynamic `(app)/(home)/[ganap-id]` route contributes a `/${string}` member
  * that swallows any absolute path. The object form has no such member.
  */
 export const Routes: RouteTable = {
@@ -91,11 +91,11 @@ export const Routes: RouteTable = {
    * Builds the href for a single event's detail screen.
    *
    * @param ganapId - Value for the `[ganap-id]` segment of
-   * `src/app/(app)/(ganaps)/[ganap-id].tsx`.
+   * `src/app/(app)/(home)/[ganap-id].tsx`.
    * @returns An href targeting that event's detail screen.
    */
   ganapDetail: (ganapId: string): Href => ({
-    pathname: '/(app)/(ganaps)/[ganap-id]',
+    pathname: '/(app)/(home)/[ganap-id]',
     params: { 'ganap-id': ganapId },
   }),
 };
