@@ -1,8 +1,34 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { Query } from '@tanstack/react-query';
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement, ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { showErrorToast } from '@/utils/toast-message';
+
+/**
+ * Decides whether a failed query deserves a toast.
+ *
+ * Suppresses intermediate retry failures (a final `fetchStatus` is only
+ * reached after retries are exhausted) and background refetches of data that
+ * already rendered, so a stale-then-failed refresh does not nag the user.
+ *
+ * @param query - The failed query.
+ * @returns `true` when the failure is a foreground, final one.
+ */
+function isForegroundFinalFailure(query: Query<unknown, unknown, unknown>): boolean {
+  return query.state.fetchStatus === 'idle' && query.state.dataUpdateCount === 0;
+}
 
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error: Error, query: Query<unknown, unknown, unknown>): void => {
+      if (isForegroundFinalFailure(query)) showErrorToast(error);
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error: Error): void => {
+      showErrorToast(error);
+    },
+  }),
   defaultOptions: {
     queries: {
       retry: 1,
@@ -11,6 +37,13 @@ const queryClient = new QueryClient({
   },
 });
 
+/**
+ * App-wide providers: gesture handling, TanStack Query, and the error-to-toast
+ * wiring for every query and mutation.
+ *
+ * @param props - Provider children.
+ * @returns The children wrapped in the app's providers.
+ */
 export function RootProvider({ children }: { children: ReactNode }): ReactElement {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
