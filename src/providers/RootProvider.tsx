@@ -1,8 +1,8 @@
-import type { Query } from '@tanstack/react-query';
+import type { Mutation, Query } from '@tanstack/react-query';
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement, ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { showErrorToast } from '@/utils/toast-message';
+import { SUPPRESS_GLOBAL_ERROR_TOAST_META, showErrorToast } from '@/utils/toast-message';
 
 /**
  * Decides whether a failed query deserves a toast.
@@ -25,7 +25,15 @@ const queryClient = new QueryClient({
     },
   }),
   mutationCache: new MutationCache({
-    onError: (error: Error): void => {
+    onError: (
+      error: Error,
+      _variables: unknown,
+      _onMutateResult: unknown,
+      mutation: Mutation<unknown, unknown, unknown>,
+    ): void => {
+      // Form-handled mutations opt out via `meta`; they render `mutation.error`
+      // inline, and toasting the same failure again would duplicate it.
+      if (mutation.meta?.[SUPPRESS_GLOBAL_ERROR_TOAST_META] === true) return;
       showErrorToast(error);
     },
   }),

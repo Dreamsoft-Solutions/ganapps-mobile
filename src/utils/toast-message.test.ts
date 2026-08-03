@@ -66,8 +66,8 @@ describe('errorToToastMessage', (): void => {
     }
   });
 
-  it('suppresses codes already rendered inline by forms', (): void => {
-    const inlineCodes = [
+  it('toasts form-style codes, whose suppression is per mutation', (): void => {
+    const formCodes = [
       ErrorCodes.INVALID_INPUT,
       ErrorCodes.INVALID_CREDENTIALS,
       ErrorCodes.USER_ALREADY_EXISTS,
@@ -75,9 +75,15 @@ describe('errorToToastMessage', (): void => {
       ErrorCodes.VERIFICATION_CODE_EXPIRED,
     ];
 
-    for (const code of inlineCodes) {
-      expect(errorToToastMessage(apiError(code, 'blocked'))).toBeNull();
+    for (const code of formCodes) {
+      expect(errorToToastMessage(apiError(code, 'blocked'))).not.toBeNull();
     }
+  });
+
+  it('maps form-style codes to their friendly copy', (): void => {
+    const result = errorToToastMessage(apiError(ErrorCodes.INVALID_CREDENTIALS, 'Invalid email or password', 401));
+
+    expect(result?.title).toBe('Invalid email or password');
   });
 
   it('returns null for non-Error values', (): void => {

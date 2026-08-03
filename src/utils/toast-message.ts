@@ -13,9 +13,18 @@ export interface ToastMessage {
 export const DEFAULT_TOAST_TITLE = 'An unexpected error occurred';
 
 /**
- * Error codes that must not toast. Navigation already handles the auth
- * redirects (auto-logout, verify-email), and the auth forms already render the
- * remaining ones inline from `mutation.error`.
+ * Mutation `meta` key that opts a form-handled mutation out of the global
+ * error toast. Forms render `mutation.error` inline, so toasting the same
+ * failure again would duplicate it; suppression lives on the mutation so the
+ * same error code still toasts for mutations with no other feedback.
+ */
+export const SUPPRESS_GLOBAL_ERROR_TOAST_META = 'suppressGlobalErrorToast';
+
+/**
+ * Error codes that must not toast: the auth redirects that navigation already
+ * handles (auto-logout on session expiry, the verify-email gate). Everything
+ * else toasts — including form-style codes like `INVALID_INPUT`, whose inline
+ * handling belongs to the specific mutation, not to a global code list.
  */
 const SUPPRESSED_ERROR_CODES: ReadonlySet<string> = new Set([
   ErrorCodes.UNAUTHORIZED,
@@ -23,11 +32,6 @@ const SUPPRESSED_ERROR_CODES: ReadonlySet<string> = new Set([
   ErrorCodes.REFRESH_TOKEN_REVOKED,
   ErrorCodes.TOKEN_THEFT_DETECTED,
   ErrorCodes.EMAIL_NOT_VERIFIED,
-  ErrorCodes.INVALID_INPUT,
-  ErrorCodes.INVALID_CREDENTIALS,
-  ErrorCodes.USER_ALREADY_EXISTS,
-  ErrorCodes.INVALID_VERIFICATION_CODE,
-  ErrorCodes.VERIFICATION_CODE_EXPIRED,
 ]);
 
 /**

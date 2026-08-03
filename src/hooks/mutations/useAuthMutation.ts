@@ -11,6 +11,7 @@ import type {
   VerifyEmailRequest,
 } from '@/types/auth.types';
 import type { User } from '@/types/user.types';
+import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
 import { authQueryKeys } from '../queries/useAuthQuery';
 
 export function useLoginMutation(): UseMutationResult<TokenResponse, Error, LoginDto> {
@@ -19,6 +20,7 @@ export function useLoginMutation(): UseMutationResult<TokenResponse, Error, Logi
 
   return useMutation<TokenResponse, Error, LoginDto>({
     mutationFn: (dto: LoginDto): Promise<TokenResponse> => authAPI.login(dto),
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
     onSuccess: (data: TokenResponse): void => {
       setAuth(data.accessToken, data.refreshToken, data.expiresIn);
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
@@ -31,6 +33,7 @@ export function useRegisterMutation(): UseMutationResult<RegisterResponse, Error
 
   return useMutation<RegisterResponse, Error, RegisterDto>({
     mutationFn: (dto: RegisterDto): Promise<RegisterResponse> => authAPI.register(dto),
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
     onSuccess: (data: RegisterResponse): void => {
       setAuth(data.accessToken, data.refreshToken, data.expiresIn);
     },
@@ -89,6 +92,7 @@ export function useUpdateProfileMutation(): UseMutationResult<User, Error, Updat
 
   return useMutation<User, Error, UpdateProfileRequest | FormData>({
     mutationFn: (dto: UpdateProfileRequest | FormData): Promise<User> => authAPI.updateProfile(dto),
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
     onSuccess: (user: User): void => {
       setUser(user);
       queryClient.setQueryData(authQueryKeys.me(), user);
