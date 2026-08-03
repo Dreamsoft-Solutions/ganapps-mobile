@@ -32,12 +32,14 @@ describe('ToastHost', (): void => {
     jest.clearAllMocks();
   });
 
-  afterEach((): void => {
-    const { toasts, dismiss } = useToastStore.getState();
-    toasts.forEach((toast) => {
-      dismiss(toast.id);
+  afterEach(async (): Promise<void> => {
+    await act((): void => {
+      const { toasts, dismiss } = useToastStore.getState();
+      toasts.forEach((toast) => {
+        dismiss(toast.id);
+      });
+      useToastStore.setState({ toasts: [] });
     });
-    useToastStore.setState({ toasts: [] });
     jest.restoreAllMocks();
   });
 
