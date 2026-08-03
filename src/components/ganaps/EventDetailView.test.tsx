@@ -2,6 +2,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { render } from '@testing-library/react-native';
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
 import { Text as MockText, View as MockView, type StyleProp, type ViewStyle } from 'react-native';
+import { Colors } from '@/constants/theme';
 import type { BusinessDetail } from '@/types/business.types';
 import type { GanapDetail } from '@/types/ganap.types';
 import type { GanapActionModel, GanapCapacityModel, GanapScheduleModel } from '@/utils/ganap-detail';
@@ -14,16 +15,19 @@ jest.mock('expo-image', () => ({
 
 jest.mock('lucide-react-native', () => ({
   ArrowLeft: (): null => null,
-  Bookmark: ({ className }: { className?: string }): ReactElement => (
-    <MockView testID="action-bookmark" className={className} />
+  Bookmark: ({ color, fill }: { color?: string; fill?: string }): ReactElement => (
+    <MockView testID="action-bookmark" {...({ color, fill } as unknown as ComponentProps<typeof MockView>)} />
   ),
   Calendar: (): null => null,
   Check: ({ strokeWidth }: { strokeWidth?: number }): ReactElement => (
     <MockView testID={`verified-check-${strokeWidth ?? 'default'}`} />
   ),
   Clock: (): null => null,
-  Heart: ({ className, size }: { className?: string; size?: number }): ReactElement => (
-    <MockView testID={size === 16 ? 'likes-heart' : 'action-heart'} className={className} />
+  Heart: ({ color, fill, size }: { color?: string; fill?: string; size?: number }): ReactElement => (
+    <MockView
+      testID={size === 16 ? 'likes-heart' : 'action-heart'}
+      {...({ color, fill } as unknown as ComponentProps<typeof MockView>)}
+    />
   ),
   Share2: (): null => null,
   Star: (): null => null,
@@ -82,6 +86,10 @@ jest.mock('@/components/common/IconButton', () => ({
 
 jest.mock('@/components/common/Text', () => ({
   Text: ({ children }: { children: ReactNode }): ReactElement => <MockText>{children}</MockText>,
+}));
+
+jest.mock('@/hooks/useResolvedTheme', () => ({
+  useResolvedTheme: (): 'light' => 'light',
 }));
 
 jest.mock('./EventActionBar', () => ({
@@ -215,7 +223,7 @@ describe('EventDetailView social actions', (): void => {
     expect(onToggleSave).toHaveBeenCalledTimes(1);
   });
 
-  it('shows selected color treatment for liked and saved events', async (): Promise<void> => {
+  it('passes selected colors to liked and saved icons', async (): Promise<void> => {
     const screen = await render(
       <EventDetailView
         ganap={{ ...ganap, isLiked: true, isSaved: true }}
@@ -234,10 +242,10 @@ describe('EventDetailView social actions', (): void => {
       />,
     );
 
-    expect(screen.getByTestId('action-heart').props.className).toContain('fill-like');
-    expect(screen.getByTestId('action-heart').props.className).toContain('text-like');
-    expect(screen.getByTestId('action-bookmark').props.className).toContain('fill-save');
-    expect(screen.getByTestId('action-bookmark').props.className).toContain('text-save');
+    expect(screen.getByTestId('action-heart').props.color).toBe(Colors.light.like);
+    expect(screen.getByTestId('action-heart').props.fill).toBe(Colors.light.like);
+    expect(screen.getByTestId('action-bookmark').props.color).toBe(Colors.light.save);
+    expect(screen.getByTestId('action-bookmark').props.fill).toBe(Colors.light.save);
   });
 });
 

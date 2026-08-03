@@ -10,6 +10,8 @@ import { Card } from '@/components/common/Card';
 import { IconButton } from '@/components/common/IconButton';
 import { Text } from '@/components/common/Text';
 import { formatInterestLabel } from '@/constants/interests';
+import { Colors } from '@/constants/theme';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { BusinessDetail } from '@/types/business.types';
 import type { GanapDetail } from '@/types/ganap.types';
 import type { GanapActionModel, GanapCapacityModel, GanapScheduleModel } from '@/utils/ganap-detail';
@@ -80,9 +82,14 @@ export function EventDetailView({
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
+  const theme = useResolvedTheme();
   const [imageFailed, setImageFailed] = useState<boolean>(false);
   const sourceUrl: string | null = ganap.bannerImage || ganap.coverImage || null;
   const stackSchedule: boolean = width < 375 || fontScale >= 1.3;
+  const isLiked: boolean = Boolean(ganap.isLiked);
+  const isSaved: boolean = Boolean(ganap.isSaved);
+  const likeColor: string = isLiked ? Colors[theme].like : Colors[theme].foreground;
+  const saveColor: string = isSaved ? Colors[theme].save : Colors[theme].foreground;
   const organizerName: string = business?.name || ganap.businessName;
   const organizerBio: string | null = business?.bio?.trim() || null;
   const hasRating: boolean =
@@ -143,26 +150,26 @@ export function EventDetailView({
                 <IconButton
                   size="lg"
                   variant="default"
-                  selected={Boolean(ganap.isLiked)}
+                  selected={isLiked}
                   disabled={isLikePending}
-                  accessibilityLabel={ganap.isLiked ? 'Unlike event' : 'Like event'}
+                  accessibilityLabel={isLiked ? 'Unlike event' : 'Like event'}
                   onPress={(): void => {
                     void onToggleLike();
                   }}
                 >
-                  <Heart size={22} className={ganap.isLiked ? 'fill-like text-like' : 'text-foreground'} />
+                  <Heart size={22} color={likeColor} fill={isLiked ? likeColor : 'none'} />
                 </IconButton>
                 <IconButton
                   size="lg"
                   variant="default"
-                  selected={Boolean(ganap.isSaved)}
+                  selected={isSaved}
                   disabled={isSavePending}
-                  accessibilityLabel={ganap.isSaved ? 'Unsave event' : 'Save event'}
+                  accessibilityLabel={isSaved ? 'Unsave event' : 'Save event'}
                   onPress={(): void => {
                     void onToggleSave();
                   }}
                 >
-                  <Bookmark size={22} className={ganap.isSaved ? 'fill-save text-save' : 'text-foreground'} />
+                  <Bookmark size={22} color={saveColor} fill={isSaved ? saveColor : 'none'} />
                 </IconButton>
               </View>
             </View>
