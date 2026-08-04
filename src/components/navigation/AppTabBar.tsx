@@ -8,6 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/common/Avatar';
 import { Text } from '@/components/common/Text';
 import { Assets } from '@/constants/assets';
+import { Colors } from '@/constants/theme';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { useAuthStore } from '@/store/auth.store';
 import type { User } from '@/types/user.types';
 
@@ -65,6 +67,7 @@ export const BAR_HEIGHT: number = 72;
 export function AppTabBar({ state, navigation }: BottomTabBarProps): ReactElement {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
+  const theme = useResolvedTheme();
 
   return (
     <View style={{ paddingBottom: insets.bottom }}>
@@ -81,11 +84,13 @@ export function AppTabBar({ state, navigation }: BottomTabBarProps): ReactElemen
               accessibilityLabel={tab.label}
               accessibilityState={{ selected: isActive }}
             >
-              {tab.renderIcon ? (
-                tab.renderIcon(isActive, user)
-              ) : Icon ? (
-                <Icon size={24} className={isActive ? 'text-primary' : 'text-muted-foreground'} />
-              ) : null}
+              <View className="h-11 items-center justify-center">
+                {tab.renderIcon ? (
+                  tab.renderIcon(isActive, user)
+                ) : Icon ? (
+                  <Icon size={24} color={isActive ? Colors[theme].primary : Colors[theme]['muted-foreground']} />
+                ) : null}
+              </View>
               <Text className={`text-label-sm mt-1 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
                 {tab.label}
               </Text>

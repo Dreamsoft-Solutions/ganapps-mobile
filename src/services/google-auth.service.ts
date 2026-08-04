@@ -35,7 +35,8 @@ export async function getGoogleFirebaseIdToken(): Promise<string> {
     const { idToken } = response.data;
     if (!idToken) throw new Error('Google did not return an ID token');
 
-    const credential = GoogleAuthProvider.credential(idToken);
+    const { accessToken } = await GoogleSignin.getTokens();
+    const credential = GoogleAuthProvider.credential(idToken, accessToken);
     const firebaseAuth = getAuth(getApp());
     const userCredential = await signInWithCredential(firebaseAuth, credential);
     return await getIdToken(userCredential.user);
