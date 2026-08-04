@@ -5,6 +5,7 @@ import { Routes } from '@/constants/routes';
 import { useAuthStore } from '@/store/auth.store';
 import type {
   GoogleAuthRequestDto,
+  GoogleAuthResponse,
   LoginDto,
   RegisterDto,
   RegisterResponse,
@@ -40,7 +41,7 @@ export interface UseAuthResult {
   isVerified: boolean;
   loginMutation: UseMutationResult<TokenResponse, Error, LoginDto>;
   registerMutation: UseMutationResult<RegisterResponse, Error, RegisterDto>;
-  googleLoginMutation: UseMutationResult<TokenResponse, Error, GoogleAuthRequestDto>;
+  googleLoginMutation: UseMutationResult<GoogleAuthResponse, Error, GoogleAuthRequestDto>;
   logoutMutation: UseMutationResult<void, Error, void>;
   verifyEmailMutation: UseMutationResult<User, Error, VerifyEmailRequest>;
   resendVerificationMutation: UseMutationResult<{ message: string }, Error, void>;

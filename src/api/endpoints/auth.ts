@@ -1,5 +1,6 @@
 import type {
   GoogleAuthRequestDto,
+  GoogleAuthResponse,
   LoginDto,
   RefreshRequest,
   RegisterDto,
@@ -46,8 +47,8 @@ export const authAPI = {
       )
       .then((res) => res.data),
 
-  googleLogin: (dto: GoogleAuthRequestDto): Promise<TokenResponse> =>
-    axiosInstance.post<TokenResponse>('/auth/google', dto).then((res) => res.data),
+  googleLogin: (dto: GoogleAuthRequestDto): Promise<GoogleAuthResponse> =>
+    axiosInstance.post<GoogleAuthResponse>('/auth/google', dto).then((res) => res.data),
 };
 
 /**

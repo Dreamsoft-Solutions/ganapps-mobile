@@ -11,7 +11,9 @@ import { Input } from '@/components/common/Input';
 import { Text } from '@/components/common/Text';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useFeatureFlag } from '@/hooks/useFeatureFlag';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { getGoogleFirebaseIdToken, isGoogleSignInCancelled } from '@/services/google-auth.service';
 import type { LoginDto, RegisterDto } from '@/types/auth.types';
 import { type LoginFormData, loginSchema, type RegisterFormData, registerSchema } from '@/utils/validation';
 
@@ -38,14 +40,16 @@ function GoogleIcon(): ReactElement {
  * @returns The login/sign-up form with email/password fields and social sign-in.
  */
 export function LoginForm(): ReactElement {
-  const { login, register, isLoading, loginMutation, registerMutation } = useAuth();
+  const { login, register, googleLogin, isLoading, loginMutation, registerMutation, googleLoginMutation } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [googleError, setGoogleError] = useState<string | undefined>();
 
   const isLogin = mode === 'login';
   const schema = isLogin ? loginSchema : registerSchema;
   const mutedColor = Colors[useResolvedTheme()]['muted-foreground'];
+  const googleAuthEnabled = useFeatureFlag('feature_google_auth');
 
   const methods = useForm<LoginFormData | RegisterFormData>({
     resolver: zodResolver(schema),
@@ -66,10 +70,12 @@ export function LoginForm(): ReactElement {
     });
     setShowPassword(false);
     setShowConfirmPassword(false);
+    setGoogleError(undefined);
     // Otherwise a failed login's message stays on screen under the signup form.
     loginMutation.reset();
     registerMutation.reset();
-  }, [methods, loginMutation, registerMutation]);
+    googleLoginMutation.reset();
+  }, [methods, loginMutation, registerMutation, googleLoginMutation]);
 
   // The rejection is swallowed here on purpose: the failure is rendered from the
   // mutation's own `error` below. Letting it escape leaves an unhandled rejection
@@ -98,11 +104,20 @@ export function LoginForm(): ReactElement {
     [isLogin, login, register],
   );
 
-  const submitError: string | undefined = isLogin ? loginMutation.error?.message : registerMutation.error?.message;
+  const submitError: string | undefined = isLogin
+    ? (googleLoginMutation.error?.message ?? googleError ?? loginMutation.error?.message)
+    : registerMutation.error?.message;
 
   const handleGoogleLogin = useCallback(async (): Promise<void> => {
-    // TODO: integrate Google Sign-In SDK and exchange idToken via useAuth().googleLogin
-  }, []);
+    setGoogleError(undefined);
+    try {
+      const idToken = await getGoogleFirebaseIdToken();
+      await googleLogin({ idToken });
+    } catch (error: unknown) {
+      if (isGoogleSignInCancelled(error)) return;
+      setGoogleError(error instanceof Error ? error.message : 'Google sign-in failed');
+    }
+  }, [googleLogin]);
 
   const passwordToggle = (
     <IconButton
@@ -176,11 +191,22 @@ export function LoginForm(): ReactElement {
           {isLogin ? 'Log In' : 'Create Account'}
         </Button>
 
-        <Divider label="or" />
+        {googleAuthEnabled && (
+          <>
+            <Divider label="or" />
 
-        <Button variant="outline" onPress={handleGoogleLogin} size="lg" leftIcon={<GoogleIcon />} disabled>
-          Continue with Google
-        </Button>
+            <Button
+              variant="outline"
+              onPress={handleGoogleLogin}
+              size="lg"
+              leftIcon={<GoogleIcon />}
+              loading={googleLoginMutation.isPending}
+              disabled={googleLoginMutation.isPending}
+            >
+              Continue with Google
+            </Button>
+          </>
+        )}
 
         <View className="flex-row justify-center items-center mt-2">
           <Text className="text-muted-foreground text-body-md">

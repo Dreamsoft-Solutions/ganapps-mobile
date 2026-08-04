@@ -227,9 +227,9 @@ request carries `_retry` to prevent an infinite refresh loop.
 | `updateProfile` | `PATCH /auth/me` |
 | `verifyEmail` | `POST /auth/verify-email` |
 | `resendVerification` | `POST /auth/resend-verification` |
+| `googleLogin` | `POST /auth/google` |
 
-The server also exposes `POST /auth/google` and `POST /auth/link-google`, which mobile does not
-wrap yet.
+The server also exposes `POST /auth/link-google`, which mobile does not wrap yet.
 
 Beyond auth, the server has only `ganaps`, `businesses`, and `health`. Read
 `../ganapps-server/docs/flags.md` for every path — **do not infer endpoints from existing
