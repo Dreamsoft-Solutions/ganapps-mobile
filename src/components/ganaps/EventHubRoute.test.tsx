@@ -11,6 +11,8 @@ import { getGanapScheduleModel } from '@/utils/ganap-detail';
 
 const mockRouter = {
   back: jest.fn<() => void>(),
+  canDismiss: jest.fn<() => boolean>(),
+  dismiss: jest.fn<() => void>(),
   push: jest.fn<(href: unknown) => void>(),
   replace: jest.fn<(href: unknown) => void>(),
 };
@@ -212,6 +214,7 @@ function resetStates(): void {
 
 beforeEach((): void => {
   resetStates();
+  mockRouter.canDismiss.mockReturnValue(false);
 });
 
 afterEach((): void => {
@@ -321,12 +324,24 @@ describe('Event Hub route loaded behavior', (): void => {
   });
 
   it('returns to the same Event Details route rather than an untrusted history entry', async (): Promise<void> => {
+    mockRouter.canDismiss.mockReturnValue(true);
+
+    const screen = await renderRoute();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Hub back' }));
+
+    expect(mockRouter.dismiss).toHaveBeenCalledTimes(1);
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+    expect(mockRouter.back).not.toHaveBeenCalled();
+  });
+
+  it('replaces the route for a direct Hub entry with no dismissible history', async (): Promise<void> => {
     const screen = await renderRoute();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Hub back' }));
 
     expect(mockRouter.replace).toHaveBeenCalledWith(Routes.ganapDetail('g1'));
-    expect(mockRouter.back).not.toHaveBeenCalled();
+    expect(mockRouter.dismiss).not.toHaveBeenCalled();
   });
 
   it('shares real Ganap data through the native share sheet', async (): Promise<void> => {

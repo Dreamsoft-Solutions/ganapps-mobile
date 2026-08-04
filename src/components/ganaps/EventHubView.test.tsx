@@ -453,6 +453,14 @@ describe('EventHubView reminders row', (): void => {
 });
 
 describe('EventHubView responsive layout', (): void => {
+  it('keeps summary and reminders inside the scrolling announcement surface', async (): Promise<void> => {
+    const screen = await render(<EventHubView {...buildProps()} />);
+    const list = screen.getByTestId('announcement-list');
+
+    expect(list.props.ListHeaderComponent).toBeTruthy();
+    expect(list.props.ListFooterComponent).toBeTruthy();
+  });
+
   it('keeps date and time side by side at a comfortable width and text size', async (): Promise<void> => {
     windowDimensions.current = { width: 402, height: 874, scale: 2, fontScale: 1 };
 

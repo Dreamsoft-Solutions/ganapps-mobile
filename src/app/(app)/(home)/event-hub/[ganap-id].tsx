@@ -105,6 +105,11 @@ export default function EventHubScreen(): ReactElement {
   const detail = useGanapDetailQuery(ganapId);
 
   function handleBack(): void {
+    if (router.canDismiss()) {
+      router.dismiss();
+      return;
+    }
+
     router.replace(Routes.ganapDetail(ganapId));
   }
 

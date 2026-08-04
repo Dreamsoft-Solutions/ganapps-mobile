@@ -113,9 +113,10 @@ function EventRemindersRow(): ReactElement {
 /**
  * Renders the MagicPath-derived Event Hub screen for an eligible attendee.
  *
- * Layout keeps the header, event summary, and announcement heading fixed while
- * the announcement list scrolls. All data and callbacks arrive as props; the
- * view performs no fetching, navigation, or sharing itself.
+ * The custom header stays fixed while the event summary and announcement content
+ * share one scroll surface, so large text sizes cannot consume the list's height.
+ * All data and callbacks arrive as props; the view performs no fetching,
+ * navigation, or sharing itself.
  *
  * @param props - Ganap detail, derived schedule, announcement state, and route-owned callbacks.
  * @returns The Event Hub screen.
@@ -143,62 +144,32 @@ export function EventHubView({
   const stackSchedule: boolean = width < 375 || fontScale >= 1.3;
   const address: string | null = ganap.address?.trim() || null;
   const hasInitialError: boolean = Boolean(announcementError) && announcements.length === 0;
-
-  return (
-    <View className="flex-1 bg-background">
-      <View
-        className="border-b border-border bg-background px-md pb-sm"
-        style={{ paddingTop: insets.top + Spacing.md }}
-      >
-        <View className="relative flex-row items-center justify-between">
-          {/*
-           * The title is overlaid rather than laid out between the controls: one
-           * button on the left and two on the right would otherwise push it
-           * off-centre by half their width difference.
-           */}
-          <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
-            <Text className="font-inter-bold text-headline-sm" accessibilityRole="header">
-              Event Hub
-            </Text>
-          </View>
-
-          <IconButton
-            size="lg"
-            variant="default"
-            accessibilityLabel="Go back"
-            accessibilityHint="Returns to Event Details"
-            onPress={onBack}
-          >
-            <ArrowLeft size={20} color={Colors[theme].foreground} />
-          </IconButton>
-
-          <View className="flex-row gap-sm">
-            <IconButton
-              size="lg"
-              variant="default"
-              accessibilityLabel="Share event"
-              accessibilityHint="Opens the device share sheet"
-              onPress={(): void => {
-                void onShare();
-              }}
-            >
-              <Share2 size={18} color={Colors[theme].foreground} />
-            </IconButton>
-            {/* TODO(DS-48): Navigate to the event group chat when the mobile chat screen is implemented. */}
-            <IconButton
-              size="lg"
-              variant="default"
-              disabled
-              accessibilityLabel="Event chat coming soon"
-              accessibilityHint="Event chat will be available in a later release"
-              onPress={(): void => {}}
-            >
-              <MessageCircle size={18} color={Colors[theme]['muted-foreground']} />
-            </IconButton>
-          </View>
-        </View>
-      </View>
-
+  const announcementEmptyState: ReactElement = accessLost ? (
+    <View className="flex-1 items-center justify-center p-xl">
+      <Text className="mb-sm text-center font-inter-semibold text-headline-sm">
+        Event Hub access is no longer available
+      </Text>
+      <Text className="mb-lg text-center text-body-md text-muted-foreground">
+        Your registration for this event has changed. Event Details shows its current status.
+      </Text>
+      <Button variant="outline" size="md" onPress={onBack}>
+        Back to Event Details
+      </Button>
+    </View>
+  ) : isAnnouncementsLoading ? (
+    <Loading message="Loading announcements" />
+  ) : hasInitialError ? (
+    <ErrorView
+      error={announcementError}
+      onRetry={(): void => {
+        void onRetryAnnouncements();
+      }}
+    />
+  ) : (
+    <Empty message="No announcements yet. The organizer will post updates here." />
+  );
+  const announcementHeader: ReactElement = (
+    <>
       <View className="px-md pt-md">
         <Text className="font-inter-bold text-headline-md">{ganap.title}</Text>
 
@@ -261,51 +232,87 @@ export function EventHubView({
         </View>
         <View className="ml-sm rounded-full bg-primary px-sm py-xs">
           <Text testID="announcement-total" className="font-inter-semibold text-label-sm text-primary-foreground">
-            {String(total)}
+            {String(accessLost ? 0 : total)}
           </Text>
+        </View>
+      </View>
+    </>
+  );
+
+  return (
+    <View className="flex-1 bg-background">
+      <View
+        className="border-b border-border bg-background px-md pb-sm"
+        style={{ paddingTop: insets.top + Spacing.md }}
+      >
+        <View className="relative flex-row items-center justify-between">
+          {/*
+           * The title is overlaid rather than laid out between the controls: one
+           * button on the left and two on the right would otherwise push it
+           * off-centre by half their width difference.
+           */}
+          <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
+            <Text className="font-inter-bold text-headline-sm" accessibilityRole="header">
+              Event Hub
+            </Text>
+          </View>
+
+          <IconButton
+            size="lg"
+            variant="default"
+            accessibilityLabel="Go back"
+            accessibilityHint="Returns to Event Details"
+            onPress={onBack}
+          >
+            <ArrowLeft size={20} color={Colors[theme].foreground} />
+          </IconButton>
+
+          <View className="flex-row gap-sm">
+            <IconButton
+              size="lg"
+              variant="default"
+              accessibilityLabel="Share event"
+              accessibilityHint="Opens the device share sheet"
+              onPress={(): void => {
+                void onShare();
+              }}
+            >
+              <Share2 size={18} color={Colors[theme].foreground} />
+            </IconButton>
+            {/* TODO(DS-48): Navigate to the event group chat when the mobile chat screen is implemented. */}
+            <IconButton
+              size="lg"
+              variant="default"
+              disabled
+              accessibilityLabel="Event chat coming soon"
+              accessibilityHint="Event chat will be available in a later release"
+              onPress={(): void => {}}
+            >
+              <MessageCircle size={18} color={Colors[theme]['muted-foreground']} />
+            </IconButton>
+          </View>
         </View>
       </View>
 
       <View className="flex-1">
-        {accessLost ? (
-          <View className="flex-1 items-center justify-center p-xl">
-            <Text className="mb-sm text-center font-inter-semibold text-headline-sm">
-              Event Hub access is no longer available
-            </Text>
-            <Text className="mb-lg text-center text-body-md text-muted-foreground">
-              Your registration for this event has changed. Event Details shows its current status.
-            </Text>
-            <Button variant="outline" size="md" onPress={onBack}>
-              Back to Event Details
-            </Button>
-          </View>
-        ) : isAnnouncementsLoading ? (
-          <Loading message="Loading announcements" />
-        ) : hasInitialError ? (
-          <ErrorView
-            error={announcementError}
-            onRetry={(): void => {
-              void onRetryAnnouncements();
-            }}
-          />
-        ) : announcements.length === 0 ? (
-          <Empty message="No announcements yet. The organizer will post updates here." />
-        ) : (
-          <FlatList
-            testID="announcement-list"
-            data={announcements}
-            keyExtractor={(announcement: GanapAnnouncement): string => announcement.id}
-            renderItem={({ item }: ListRenderItemInfo<GanapAnnouncement>): ReactElement => (
-              <AnnouncementCard announcement={item} />
-            )}
-            contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.md }}
-            onEndReached={(): void => {
-              // A failed page waits for the explicit retry rather than looping on every scroll.
-              if (hasNextPage && !isFetchingNextPage && !isFetchNextPageError) void onLoadMore();
-            }}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={
-              isFetchNextPageError ? (
+        <FlatList
+          testID="announcement-list"
+          data={announcements}
+          keyExtractor={(announcement: GanapAnnouncement): string => announcement.id}
+          renderItem={({ item }: ListRenderItemInfo<GanapAnnouncement>): ReactElement => (
+            <AnnouncementCard announcement={item} />
+          )}
+          contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, flexGrow: 1 }}
+          ListHeaderComponent={announcementHeader}
+          ListEmptyComponent={announcementEmptyState}
+          onEndReached={(): void => {
+            // A failed page waits for the explicit retry rather than looping on every scroll.
+            if (hasNextPage && !isFetchingNextPage && !isFetchNextPageError) void onLoadMore();
+          }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            <>
+              {isFetchNextPageError ? (
                 <View className="items-center py-sm">
                   <Text className="mb-sm text-center text-body-md text-muted-foreground">
                     More announcements could not be loaded.
@@ -324,14 +331,13 @@ export function EventHubView({
                 <View className="py-sm">
                   <Loading message="Loading more announcements" />
                 </View>
-              ) : null
-            }
-          />
-        )}
-      </View>
-
-      <View className="px-md pt-sm" style={{ paddingBottom: insets.bottom + Spacing.sm }}>
-        <EventRemindersRow />
+              ) : null}
+              <View className="px-md pt-sm" style={{ paddingBottom: insets.bottom + Spacing.sm }}>
+                <EventRemindersRow />
+              </View>
+            </>
+          }
+        />
       </View>
     </View>
   );
