@@ -80,6 +80,12 @@ module.exports = {
     plugins: [
       'expo-router',
       [
+        'expo-notifications',
+        {
+          defaultChannel: 'registration-status',
+        },
+      ],
+      [
         'expo-splash-screen',
         {
           backgroundColor: '#22C55E',

@@ -14,6 +14,7 @@ import { Routes } from '@/constants/routes';
 import { db } from '@/db';
 import { RootProvider } from '@/providers/RootProvider';
 import { ThemeProvider } from '@/providers/ThemeProvider';
+import { startNotificationResponseObserver } from '@/services/push-notification.service';
 import { remoteConfigService } from '@/services/remote-config.service';
 import { startOutboxDrain } from '@/services/sync.service';
 import { useAuthStore } from '@/store/auth.store';
@@ -45,6 +46,7 @@ function RootLayoutNav(): ReactElement {
     useAuthStore.getState().hydrate();
     remoteConfigService.initialize();
     NavigationBar.setHidden(true);
+    return startNotificationResponseObserver();
   }, []);
 
   useEffect(() => {
@@ -98,6 +100,11 @@ function RootLayoutNav(): ReactElement {
   );
 }
 
+/**
+ * Root providers, startup services, auth routing, and navigation stack.
+ *
+ * @returns The root application layout.
+ */
 export default function RootLayout(): ReactElement {
   return (
     <RootProvider>

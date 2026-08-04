@@ -1,5 +1,6 @@
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authAPI } from '@/api/endpoints/auth';
+import { revokeRegisteredAndroidPushToken } from '@/services/push-notification.service';
 import { useAuthStore } from '@/store/auth.store';
 import type {
   GoogleAuthRequestDto,
@@ -57,12 +58,20 @@ export function useGoogleLoginMutation(): UseMutationResult<GoogleAuthResponse, 
   });
 }
 
+/**
+ * Creates the logout mutation and starts push-token cleanup without awaiting it.
+ *
+ * @returns A TanStack mutation for the authenticated logout request.
+ */
 export function useLogoutMutation(): UseMutationResult<void, Error, void> {
   const queryClient = useQueryClient();
   const clearAuth = useAuthStore((s) => s.clearAuth);
 
   return useMutation<void, Error, void>({
-    mutationFn: () => authAPI.logout(),
+    mutationFn: (): Promise<void> => {
+      void revokeRegisteredAndroidPushToken();
+      return authAPI.logout();
+    },
     onSuccess: () => {
       clearAuth();
       queryClient.clear();
