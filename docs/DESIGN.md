@@ -39,9 +39,35 @@ Tokens are exposed as Tailwind utilities and backed by CSS variables in
 | `accent-foreground` | `#1F2937` | `#FAFAFA` | Text on accent surfaces |
 | `destructive` | `#EF4444` | `#B91C1C` | Errors, destructive actions |
 | `destructive-foreground` | `#FFFFFF` | `#FAFAFA` | Text on destructive surfaces |
+| `info` | `#DBEAFE` | `#172554` | Informational tonal badge fill |
+| `info-foreground` | `#1E40AF` | `#93C5FD` | Text and icons on `info` |
+| `warning` | `#FEF3C7` | `#451A03` | Time-sensitive tonal badge fill |
+| `warning-foreground` | `#78350F` | `#FCD34D` | Text and icons on `warning` |
+| `notice` | `#EDE9FE` | `#2E1065` | Change/notice tonal badge fill |
+| `notice-foreground` | `#5B21B6` | `#C4B5FD` | Text and icons on `notice` |
 | `border` | `#D1D5DB` | `#27272A` | Borders, dividers |
 | `input` | `#D1D5DB` | `#27272A` | Input borders |
 | `ring` | `#22C55E` | `#22C55E` | Focus rings |
+
+### Tonal status badges
+
+`info`, `warning`, and `notice` are **soft fills paired with a same-hue
+foreground**, unlike `primary`/`destructive`, which are saturated fills with a
+near-white foreground. Use them for low-emphasis status metadata — the
+announcement type chips in Event Hub are the reference implementation.
+
+Two rules keep them coherent:
+
+- **They are not action colors.** `primary` is reserved for brand and actions,
+  so a status badge must never use it; a chip that reads louder than the content
+  it labels inverts the hierarchy.
+- **Fill and foreground always come as a pair.** Every pairing clears WCAG AAA
+  (7:1) in both themes — the lowest is light `info` at 7.15:1. Never mix a
+  fill from one family with a foreground from another, and never apply an
+  opacity modifier (`bg-info/10`): the variables hold hex values, so the
+  modifier resolves to no background at all.
+
+`destructive` stays the only red, so an error is never confused with a reminder.
 
 ### Category accents
 
@@ -77,11 +103,14 @@ Font family: **Inter**.
 | `label-md` | 12px | 16px | 600 | 0.05em |
 | `label-sm` | 11px | 14px | 500 | — |
 
-Use `font-sans` for all text. Default body color is `text-foreground`.
+Default body color is `text-foreground`. Each size token carries its own
+`fontWeight`, which is what gives headings their weight by default — Android
+synthesizes it over `Inter-Regular`. Override it only when you need a weight
+the size token does not provide.
 
-React Native does not synthesize numeric weights — the font family *is* the
+React Native does not synthesize *named* families — the font family *is* the
 weight, and each one is a separate file registered by the `expo-font` config
-plugin in `app.json`:
+plugin in `app.config.js`:
 
 | Utility | File | Weight |
 |---|---|---|
@@ -92,8 +121,21 @@ plugin in `app.json`:
 | `font-inter-black` | `Inter-Black.otf` | 900 |
 
 All five are Inter v4.1. Adding a weight means adding the file, listing it in
-`app.json`, adding the token, **and** running `npx expo prebuild --clean` plus a
-native rebuild — a config plugin does not take effect on a Metro reload.
+`app.config.js`, adding the token, **and** running `npx expo prebuild --clean`
+plus a native rebuild — a config plugin does not take effect on a Metro reload.
+
+`Inter-Black` is registered but is **not** in the current native build, so
+`font-inter-black` falls back until someone rebuilds.
+
+### Why `Text` drops its default family
+
+`components/common/Text.tsx` applies `font-sans` only when the caller has not
+named a family of its own. Tailwind emits `.font-sans` after every
+`.font-inter-*` utility, so a default kept alongside the caller's class wins on
+source order — which silently rendered every `font-inter-bold` and
+`font-inter-semibold` in the app as regular, including inside `Button` and
+`Avatar`. Any new text primitive that hardcodes a family owes callers the same
+escape hatch.
 
 ## Spacing
 

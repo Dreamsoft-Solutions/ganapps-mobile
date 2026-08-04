@@ -13,8 +13,8 @@ export interface GanapScheduleModel {
   timeLabel: string;
 }
 
-/** Supported primary actions on the Event Details screen. */
-export type GanapAction = 'join' | 'leave' | 'complete-registration' | null;
+/** Supported actions on the Event Details screen. */
+export type GanapAction = 'join' | 'leave' | 'complete-registration' | 'enter-hub' | null;
 
 /** Confirmation copy for a destructive registration action. */
 export interface GanapActionConfirmation {
@@ -23,61 +23,94 @@ export interface GanapActionConfirmation {
   confirmLabel: string;
 }
 
-/** Status copy, action, and confirmation model for a Ganap. */
-export interface GanapActionModel {
-  statusLabel: string | null;
+/** One selectable action slot: its kind, label, and optional confirmation copy. */
+export interface GanapActionChoice {
   action: GanapAction;
-  actionLabel: string | null;
+  label: string;
   confirmation: GanapActionConfirmation | null;
 }
 
-function statusOnly(statusLabel: string): GanapActionModel {
-  return { statusLabel, action: null, actionLabel: null, confirmation: null };
+/** Status copy plus the primary and optional secondary action for a Ganap. */
+export interface GanapActionModel {
+  statusLabel: string | null;
+  primary: GanapActionChoice | null;
+  secondary: GanapActionChoice | null;
 }
 
-function leaveAction(status: RegistrationStatus): GanapActionModel {
+function statusOnly(statusLabel: string): GanapActionModel {
+  return { statusLabel, primary: null, secondary: null };
+}
+
+function choice(
+  action: GanapAction,
+  label: string,
+  confirmation: GanapActionConfirmation | null = null,
+): GanapActionChoice {
+  return { action, label, confirmation };
+}
+
+const LEAVE_EVENT_CONFIRMATION: GanapActionConfirmation = {
+  title: 'Leave this event?',
+  message: 'Your registration will be cancelled.',
+  confirmLabel: 'Leave event',
+};
+
+const CANCEL_REQUEST_CONFIRMATION: GanapActionConfirmation = {
+  title: 'Cancel your request?',
+  message: 'Your pending registration request will be removed.',
+  confirmLabel: 'Cancel request',
+};
+
+const LEAVE_WAITLIST_CONFIRMATION: GanapActionConfirmation = {
+  title: 'Leave the waitlist?',
+  message: 'Your place on the waitlist will be removed.',
+  confirmLabel: 'Leave waitlist',
+};
+
+/**
+ * Builds the Event Hub entry model for a joined or attended registration.
+ *
+ * `REGISTERED` keeps Leave event available as a secondary action; `ATTENDED`
+ * has nothing left to leave, so Enter Event Hub is the only action.
+ *
+ * @param status - The caller's `REGISTERED` or `ATTENDED` registration status
+ * @returns The status label with Enter Event Hub as primary
+ */
+function eventHubAction(status: 'REGISTERED' | 'ATTENDED'): GanapActionModel {
+  const primary = choice('enter-hub', 'Enter Event Hub');
+  if (status === 'ATTENDED') {
+    return { statusLabel: 'Attended', primary, secondary: null };
+  }
+  return {
+    statusLabel: 'Joined',
+    primary,
+    secondary: choice('leave', 'Leave event', LEAVE_EVENT_CONFIRMATION),
+  };
+}
+
+function leaveOnlyAction(status: RegistrationStatus): GanapActionModel {
   switch (status) {
-    case 'REGISTERED':
-      return {
-        statusLabel: 'Joined',
-        action: 'leave',
-        actionLabel: 'Leave event',
-        confirmation: {
-          title: 'Leave this event?',
-          message: 'Your registration will be cancelled.',
-          confirmLabel: 'Leave event',
-        },
-      };
     case 'PENDING':
       return {
         statusLabel: 'Awaiting approval',
-        action: 'leave',
-        actionLabel: 'Cancel request',
-        confirmation: {
-          title: 'Cancel your request?',
-          message: 'Your pending registration request will be removed.',
-          confirmLabel: 'Cancel request',
-        },
+        primary: choice('leave', 'Cancel request', CANCEL_REQUEST_CONFIRMATION),
+        secondary: null,
       };
     case 'WAITLISTED':
       return {
         statusLabel: 'On the waitlist',
-        action: 'leave',
-        actionLabel: 'Leave waitlist',
-        confirmation: {
-          title: 'Leave the waitlist?',
-          message: 'Your place on the waitlist will be removed.',
-          confirmLabel: 'Leave waitlist',
-        },
+        primary: choice('leave', 'Leave waitlist', LEAVE_WAITLIST_CONFIRMATION),
+        secondary: null,
       };
-    case 'ATTENDED':
-      return statusOnly('Attended');
     case 'REJECTED':
       return statusOnly('Request declined');
     case 'EVICTED':
       return statusOnly('Removed');
     case 'CANCELLED':
       return statusOnly('Registration cancelled');
+    case 'REGISTERED':
+    case 'ATTENDED':
+      return eventHubAction(status);
   }
 }
 
@@ -125,12 +158,11 @@ export function getGanapActionModel(ganap: GanapDetail, now: Date): GanapActionM
   if (registration?.status === 'PENDING' && registration.registrationFormSubmittedAt === null) {
     return {
       statusLabel: 'Registration incomplete',
-      action: 'complete-registration',
-      actionLabel: 'Complete registration',
-      confirmation: null,
+      primary: choice('complete-registration', 'Complete registration'),
+      secondary: null,
     };
   }
-  if (registration?.status) return leaveAction(registration.status);
+  if (registration?.status) return leaveOnlyAction(registration.status);
 
   if (ganap.status === 'ONGOING') return statusOnly('Event in progress');
   if (ganap.status === 'COMPLETED') return statusOnly('Event ended');
@@ -141,9 +173,11 @@ export function getGanapActionModel(ganap: GanapDetail, now: Date): GanapActionM
   const capacity = getGanapCapacityModel(ganap);
   return {
     statusLabel: null,
-    action: 'join',
-    actionLabel: capacity.isFull ? 'Join waitlist' : ganap.requiresApproval ? 'Request to join' : 'Join event',
-    confirmation: null,
+    primary: choice(
+      'join',
+      capacity.isFull ? 'Join waitlist' : ganap.requiresApproval ? 'Request to join' : 'Join event',
+    ),
+    secondary: null,
   };
 }
 

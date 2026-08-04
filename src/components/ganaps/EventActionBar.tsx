@@ -8,20 +8,23 @@ import type { GanapActionModel } from '@/utils/ganap-detail';
 interface EventActionBarProps {
   model: GanapActionModel;
   isPending: boolean;
-  onAction: () => void | Promise<void>;
+  onPrimaryAction: () => void | Promise<void>;
+  onSecondaryAction: () => void | Promise<void>;
 }
 
 /**
- * Safe-area-aware sticky action surface for registration decisions.
+ * Safe-area-aware sticky action surface for registration and Event Hub entry decisions.
  *
- * @param props - Action model, pending state, and primary action handler.
- * @returns The fixed registration action bar.
+ * @param props - Action model, pending state, and primary/secondary action handlers.
+ * @returns The fixed action bar with an optional secondary action beneath the primary.
  */
-export function EventActionBar({ model, isPending, onAction }: EventActionBarProps): ReactElement {
+export function EventActionBar({
+  model,
+  isPending,
+  onPrimaryAction,
+  onSecondaryAction,
+}: EventActionBarProps): ReactElement {
   const insets = useSafeAreaInsets();
-  const actionLabel: string = model.actionLabel ?? '';
-  const hasAction: boolean = model.action !== null && actionLabel.length > 0;
-  const actionVariant = model.action === 'leave' ? 'outline' : 'default';
 
   return (
     <View
@@ -32,10 +35,23 @@ export function EventActionBar({ model, isPending, onAction }: EventActionBarPro
         {model.statusLabel && (
           <Text className="mb-sm text-center text-body-md text-muted-foreground">{model.statusLabel}</Text>
         )}
-        {hasAction && (
-          <Button size="lg" variant={actionVariant} loading={isPending} disabled={isPending} onPress={onAction}>
-            {actionLabel}
+        {model.primary && (
+          <Button
+            size="lg"
+            variant={model.primary.action === 'leave' ? 'outline' : 'default'}
+            loading={isPending}
+            disabled={isPending}
+            onPress={onPrimaryAction}
+          >
+            {model.primary.label}
           </Button>
+        )}
+        {model.secondary && (
+          <View className="mt-sm">
+            <Button size="lg" variant="outline" loading={isPending} disabled={isPending} onPress={onSecondaryAction}>
+              {model.secondary.label}
+            </Button>
+          </View>
         )}
         <Button
           variant="link"

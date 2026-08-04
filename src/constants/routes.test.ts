@@ -137,6 +137,17 @@ describe('route table entries resolve to their screens', () => {
     });
   });
 
+  it('opens the Event Hub screen', () => {
+    expect(resolve('/(app)/(home)/event-hub/abc123')).toEqual(['(app)', '(home)', 'event-hub/[ganap-id]']);
+  });
+
+  it('builds an object-form Event Hub route with the Ganap parameter', () => {
+    expect(Routes.eventHub('abc123')).toEqual({
+      pathname: '/(app)/(home)/event-hub/[ganap-id]',
+      params: { 'ganap-id': 'abc123' },
+    });
+  });
+
   it('opens the welcome screen', () => {
     expect(resolve(pathnameOf(Routes.public.welcome))).toEqual(['(public)', 'index']);
   });

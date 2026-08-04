@@ -8,6 +8,7 @@ import { Routes } from '@/constants/routes';
 import { useBusinessDetailQuery } from '@/hooks/queries/useBusinessesQuery';
 import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { useGanaps } from '@/hooks/useGanaps';
+import type { GanapAction, GanapActionConfirmation } from '@/utils/ganap-detail';
 import {
   buildGanapShareMessage,
   getGanapActionModel,
@@ -40,13 +41,18 @@ export default function GanapDetailScreen(): ReactElement {
     await Share.share({ message, title: ganap.title });
   };
 
-  const handlePrimaryAction = async (): Promise<void> => {
-    if (actionModel.action === 'complete-registration') {
+  const dispatchAction = async (action: GanapAction, confirmation: GanapActionConfirmation | null): Promise<void> => {
+    if (action === 'enter-hub') {
+      router.push(Routes.eventHub(ganap.id));
+      return;
+    }
+
+    if (action === 'complete-registration') {
       router.push(Routes.ganapRegistration(ganap.id));
       return;
     }
 
-    if (actionModel.action === 'join') {
+    if (action === 'join') {
       const result = await join(ganap.id);
       if (result.requiresForm === true) {
         router.push(Routes.ganapRegistration(ganap.id));
@@ -54,9 +60,8 @@ export default function GanapDetailScreen(): ReactElement {
       return;
     }
 
-    if (actionModel.action !== 'leave' || !actionModel.confirmation) return;
+    if (action !== 'leave' || !confirmation) return;
 
-    const { confirmation } = actionModel;
     Alert.alert(confirmation.title, confirmation.message, [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -68,6 +73,12 @@ export default function GanapDetailScreen(): ReactElement {
       },
     ]);
   };
+
+  const handlePrimaryAction = (): Promise<void> =>
+    dispatchAction(actionModel.primary?.action ?? null, actionModel.primary?.confirmation ?? null);
+
+  const handleSecondaryAction = (): Promise<void> =>
+    dispatchAction(actionModel.secondary?.action ?? null, actionModel.secondary?.confirmation ?? null);
 
   return (
     <EventDetailView
@@ -84,6 +95,7 @@ export default function GanapDetailScreen(): ReactElement {
       onToggleLike={(): Promise<void> => toggleLike({ ganapId: ganap.id, isLiked: ganap.isLiked ?? false })}
       onToggleSave={(): Promise<void> => toggleSave({ ganapId: ganap.id, isSaved: ganap.isSaved ?? false })}
       onPrimaryAction={handlePrimaryAction}
+      onSecondaryAction={handleSecondaryAction}
     />
   );
 }

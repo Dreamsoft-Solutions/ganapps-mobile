@@ -12,6 +12,7 @@ export const ganapQueryKeys = {
   detail: (ganapId: string) => [...ganapQueryKeys.all, 'detail', ganapId] as const,
   formBlocks: (ganapId: string, scope: FormBlockScope) =>
     [...ganapQueryKeys.detail(ganapId), 'form-blocks', scope] as const,
+  announcements: (ganapId: string) => [...ganapQueryKeys.detail(ganapId), 'announcements', 'user'] as const,
 };
 
 /**

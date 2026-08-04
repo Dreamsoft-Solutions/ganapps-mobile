@@ -47,14 +47,27 @@ function withRegistration(
 }
 
 const BEFORE_EVENT = new Date('2026-08-07T00:00:00.000Z');
-const registrationCases: Array<[RegistrationStatus, string, string | null]> = [
-  ['REGISTERED', 'Joined', 'Leave event'],
+const ALL_STATUSES: RegistrationStatus[] = [
+  'PENDING',
+  'REGISTERED',
+  'WAITLISTED',
+  'CANCELLED',
+  'REJECTED',
+  'ATTENDED',
+  'EVICTED',
+];
+
+/** Statuses whose leave/cancel action carries no Event Hub entry. */
+const leaveOnlyCases: Array<[RegistrationStatus, string, string]> = [
   ['PENDING', 'Awaiting approval', 'Cancel request'],
   ['WAITLISTED', 'On the waitlist', 'Leave waitlist'],
-  ['ATTENDED', 'Attended', null],
-  ['REJECTED', 'Request declined', null],
-  ['EVICTED', 'Removed', null],
-  ['CANCELLED', 'Registration cancelled', null],
+];
+
+/** Terminal statuses with no action at all. */
+const terminalCases: Array<[RegistrationStatus, string]> = [
+  ['REJECTED', 'Request declined'],
+  ['EVICTED', 'Removed'],
+  ['CANCELLED', 'Registration cancelled'],
 ];
 
 describe('getGanapCapacityModel', (): void => {
@@ -96,19 +109,50 @@ describe('getGanapActionModel', (): void => {
     [{}, 'Join event'],
     [{ requiresApproval: true }, 'Request to join'],
     [{ maxAttendees: 5, registrationCount: 5, requiresApproval: true }, 'Join waitlist'],
-  ])('chooses the correct pre-join label', (overrides: Partial<GanapDetail>, label: string): void => {
-    expect(getGanapActionModel(ganapWith(overrides), BEFORE_EVENT).actionLabel).toBe(label);
+  ])('chooses the correct pre-join label with no secondary action', (overrides: Partial<GanapDetail>, label: string): void => {
+    const model = getGanapActionModel(ganapWith(overrides), BEFORE_EVENT);
+    expect(model.primary).toMatchObject({ action: 'join', label });
+    expect(model.secondary).toBeNull();
+  });
+
+  it('makes Enter Event Hub primary and Leave event secondary for REGISTERED', (): void => {
+    const model = getGanapActionModel(ganapWith(withRegistration('REGISTERED')), BEFORE_EVENT);
+
+    expect(model.statusLabel).toBe('Joined');
+    expect(model.primary).toMatchObject({ action: 'enter-hub', label: 'Enter Event Hub', confirmation: null });
+    expect(model.secondary).toMatchObject({
+      action: 'leave',
+      label: 'Leave event',
+      confirmation: {
+        title: 'Leave this event?',
+        message: 'Your registration will be cancelled.',
+        confirmLabel: 'Leave event',
+      },
+    });
+  });
+
+  it('makes Enter Event Hub primary with no secondary action for ATTENDED', (): void => {
+    const model = getGanapActionModel(ganapWith(withRegistration('ATTENDED')), BEFORE_EVENT);
+
+    expect(model.statusLabel).toBe('Attended');
+    expect(model.primary).toMatchObject({ action: 'enter-hub', label: 'Enter Event Hub', confirmation: null });
+    expect(model.secondary).toBeNull();
   });
 
   it.each(
-    registrationCases,
-  )('maps %s without inventing an unsupported action', (status: RegistrationStatus, statusLabel: string, actionLabel:
-    | string
-    | null): void => {
-    expect(getGanapActionModel(ganapWith(withRegistration(status)), BEFORE_EVENT)).toMatchObject({
-      statusLabel,
-      actionLabel,
-    });
+    leaveOnlyCases,
+  )('keeps the existing leave/cancel action as primary for %s with no Hub action', (status: RegistrationStatus, statusLabel: string, primaryLabel: string): void => {
+    const model = getGanapActionModel(ganapWith(withRegistration(status)), BEFORE_EVENT);
+
+    expect(model.statusLabel).toBe(statusLabel);
+    expect(model.primary).toMatchObject({ action: 'leave', label: primaryLabel });
+    expect(model.secondary).toBeNull();
+  });
+
+  it.each(terminalCases)('exposes only status copy for %s', (status: RegistrationStatus, statusLabel: string): void => {
+    const model = getGanapActionModel(ganapWith(withRegistration(status)), BEFORE_EVENT);
+
+    expect(model).toEqual({ statusLabel, primary: null, secondary: null });
   });
 
   it('asks an attendee to complete an unsubmitted registration form', (): void => {
@@ -127,19 +171,33 @@ describe('getGanapActionModel', (): void => {
       ),
     ).toEqual({
       statusLabel: 'Registration incomplete',
-      action: 'complete-registration',
-      actionLabel: 'Complete registration',
-      confirmation: null,
+      primary: { action: 'complete-registration', label: 'Complete registration', confirmation: null },
+      secondary: null,
     });
   });
 
   it('disables joining after the start time', (): void => {
     expect(getGanapActionModel(ganapWith({}), new Date('2026-08-09T00:00:00.000Z'))).toEqual({
       statusLabel: 'Event has started',
-      action: null,
-      actionLabel: null,
-      confirmation: null,
+      primary: null,
+      secondary: null,
     });
+  });
+
+  it('never exposes enter-hub outside REGISTERED and ATTENDED', (): void => {
+    const nonHubStatuses = ALL_STATUSES.filter(
+      (status: RegistrationStatus): boolean => status !== 'REGISTERED' && status !== 'ATTENDED',
+    );
+
+    for (const status of nonHubStatuses) {
+      const model = getGanapActionModel(ganapWith(withRegistration(status)), BEFORE_EVENT);
+      expect(model.primary?.action).not.toBe('enter-hub');
+      expect(model.secondary?.action).not.toBe('enter-hub');
+    }
+
+    const unregisteredModel = getGanapActionModel(ganapWith({}), BEFORE_EVENT);
+    expect(unregisteredModel.primary?.action).not.toBe('enter-hub');
+    expect(unregisteredModel.secondary?.action).not.toBe('enter-hub');
   });
 });
 
