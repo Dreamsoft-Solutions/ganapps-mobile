@@ -6,6 +6,7 @@ import { Empty } from '@/components/common/Empty';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { Routes } from '@/constants/routes';
+import { Spacing } from '@/constants/theme';
 import { useJoinedGanaps } from '@/hooks/useJoinedGanaps';
 import type { JoinedGanap } from '@/types/profile.types';
 import { JoinedGanapCard } from './JoinedGanapCard';
@@ -48,7 +49,7 @@ export function JoinedGanapsList(): ReactElement {
         }}
         onEndReachedThreshold={0.5}
         ListFooterComponent={joinedGanaps.isFetchingNextPage ? <Loading /> : <View className="h-8" />}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}
+        contentContainerStyle={{ paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + 80 }}
       />
     </View>
   );

@@ -3,14 +3,12 @@ import type { BottomTabBarProps } from 'expo-router/build/react-navigation/botto
 import type { ReactElement } from 'react';
 import { useEffect } from 'react';
 import { Loading } from '@/components/common/Loading';
-import { AppTabBar } from '@/components/navigation/AppTabBar';
+import { AppTabBar, BAR_HEIGHT } from '@/components/navigation/AppTabBar';
 import { Routes } from '@/constants/routes';
 import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
 import { useAuthStore } from '@/store/auth.store';
 import { shouldHideAppTabBar } from '@/utils/navigation';
 import { needsOnboarding } from '@/utils/onboarding';
-
-const TAB_BAR_HEIGHT = 64;
 
 /**
  * Authenticated app shell with a custom bottom tab navigator.
@@ -53,7 +51,7 @@ export default function AppLayout(): ReactElement {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          height: TAB_BAR_HEIGHT,
+          height: BAR_HEIGHT,
           backgroundColor: 'transparent',
           borderTopWidth: 0,
           elevation: 0,
