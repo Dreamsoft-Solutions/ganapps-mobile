@@ -36,6 +36,23 @@ const page = {
   pagination: { total: 1, cursor: null, nextCursor: null, limit: 20 },
 };
 
+const blocks = [
+  {
+    id: 'block_text',
+    ganapId: 'g1',
+    scope: 'REGISTRATION',
+    type: 'TEXT',
+    label: 'Why do you want to attend?',
+    isRequired: true,
+    allowMultiple: false,
+    order: 1,
+    config: { placeholder: 'Tell us briefly', maxLength: 120 },
+    options: [],
+    createdAt: '2026-08-03T00:00:00.000Z',
+    updatedAt: '2026-08-03T00:00:00.000Z',
+  },
+];
+
 beforeEach(() => {
   captured = [];
 });
@@ -98,6 +115,29 @@ describe('ganapsAPI.join', () => {
     expect(captured[0].method).toBe('post');
     expect(requestedUrl(captured[0])).toContain('/api/v1/ganaps/g1/join');
     expect(result.status).toBe('WAITLISTED');
+  });
+});
+
+describe('ganapsAPI.registration form', () => {
+  it('lists registration form blocks with the required scope filter', async () => {
+    axiosInstance.defaults.adapter = envelopeAdapter(blocks);
+
+    await expect(ganapsAPI.listFormBlocks('g1', 'REGISTRATION')).resolves.toEqual(blocks);
+
+    expect(captured[0].method).toBe('get');
+    expect(requestedUrl(captured[0])).toContain('/api/v1/ganaps/g1/form-blocks');
+    expect(captured[0].params).toEqual({ scope: 'REGISTRATION' });
+  });
+
+  it('submits form answers without wrapping the request body', async () => {
+    const input = { answers: [{ formBlockId: 'block_text', textValue: 'To learn.' }] };
+    axiosInstance.defaults.adapter = envelopeAdapter({ id: 'r1', status: 'REGISTERED' });
+
+    await expect(ganapsAPI.submitFormAnswers('g1', input)).resolves.toMatchObject({ status: 'REGISTERED' });
+
+    expect(captured[0].method).toBe('post');
+    expect(requestedUrl(captured[0])).toContain('/api/v1/ganaps/g1/form-answers');
+    expect(JSON.parse(String(captured[0].data))).toEqual(input);
   });
 });
 

@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import type { FormBlock, FormOption, RegistrationFormData } from '@/types/ganap.types';
+import { getScaleOptions, getTextConfiguration } from './registration-form';
 
 export const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -56,3 +58,103 @@ export type OnboardingNamesData = z.infer<typeof onboardingNamesSchema>;
 export type OnboardingExtrasData = z.infer<typeof onboardingExtrasSchema>;
 export type OnboardingFormData = z.infer<typeof onboardingSchema>;
 export type ProfileFormData = z.infer<typeof profileSchema>;
+
+const registrationAnswerSchema = z.union([z.string(), z.array(z.string()), z.number(), z.null()]);
+const registrationFormBaseSchema = z.object({
+  answers: z.record(z.string(), registrationAnswerSchema),
+});
+
+function addRegistrationIssue(context: z.RefinementCtx, blockId: string, message: string): void {
+  context.addIssue({ code: 'custom', message, path: ['answers', blockId] });
+}
+
+function isEmptyAnswer(block: FormBlock, value: unknown): boolean {
+  if (value === undefined) {
+    return true;
+  }
+
+  if (block.type === 'TEXT') {
+    return typeof value === 'string' && value.trim().length === 0;
+  }
+  if (block.type === 'MULTIPLE_CHOICE') {
+    return block.allowMultiple ? Array.isArray(value) && value.length === 0 : value === '';
+  }
+
+  return value === null;
+}
+
+/**
+ * Creates validation rules from organizer-defined registration blocks.
+ *
+ * @param blocks - Server-defined blocks that determine requiredness and valid values
+ * @returns A Zod schema for the registration form data
+ */
+export function createRegistrationFormSchema(
+  blocks: FormBlock[],
+): z.ZodType<RegistrationFormData, RegistrationFormData> {
+  return registrationFormBaseSchema.superRefine((data: RegistrationFormData, context: z.RefinementCtx): void => {
+    for (const block of blocks) {
+      const value: unknown = data.answers[block.id];
+
+      if (block.isRequired && isEmptyAnswer(block, value)) {
+        addRegistrationIssue(context, block.id, 'This question is required');
+        continue;
+      }
+
+      if (value === undefined) {
+        continue;
+      }
+
+      if (block.type === 'TEXT') {
+        if (typeof value !== 'string') {
+          addRegistrationIssue(context, block.id, 'Enter a valid answer');
+          continue;
+        }
+
+        const maxLength: number | undefined = getTextConfiguration(block).maxLength;
+        if (maxLength !== undefined && value.length > maxLength) {
+          addRegistrationIssue(context, block.id, 'Answer is too long');
+        }
+        continue;
+      }
+
+      if (block.type === 'MULTIPLE_CHOICE') {
+        const optionIds: Set<string> = new Set(block.options.map((option: FormOption): string => option.id));
+
+        if (block.allowMultiple) {
+          if (!Array.isArray(value)) {
+            addRegistrationIssue(context, block.id, 'Choose valid options');
+            continue;
+          }
+
+          if (value.some((optionId: string) => !optionIds.has(optionId))) {
+            addRegistrationIssue(context, block.id, 'Choose valid options');
+          }
+        } else {
+          if (typeof value !== 'string') {
+            addRegistrationIssue(context, block.id, 'Choose a valid option');
+            continue;
+          }
+
+          if (value.length > 0 && !optionIds.has(value)) {
+            addRegistrationIssue(context, block.id, 'Choose a valid option');
+          }
+        }
+        continue;
+      }
+
+      if (value === null) {
+        continue;
+      }
+
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        addRegistrationIssue(context, block.id, 'Choose a valid scale value');
+        continue;
+      }
+
+      if (!getScaleOptions(block).includes(value)) {
+        addRegistrationIssue(context, block.id, 'Choose a valid scale value');
+      }
+    }
+  });
+}

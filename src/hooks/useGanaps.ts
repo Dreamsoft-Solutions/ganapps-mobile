@@ -52,6 +52,8 @@ export interface UseGanapsResult {
   toggleSave: UseMutateAsyncFunction<void, Error, ToggleSaveVariables>;
   isJoining: boolean;
   isLeaving: boolean;
+  isTogglingLike: boolean;
+  isTogglingSave: boolean;
 }
 
 /**
@@ -95,5 +97,7 @@ export function useGanaps(): UseGanapsResult {
     toggleSave: saveMutation.mutateAsync,
     isJoining: joinMutation.isPending,
     isLeaving: leaveMutation.isPending,
+    isTogglingLike: likeMutation.isPending,
+    isTogglingSave: saveMutation.isPending,
   };
 }

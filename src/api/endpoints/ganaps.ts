@@ -1,4 +1,12 @@
-import type { GanapDetail, GanapListItem, GanapListParams, JoinGanapResult } from '@/types/ganap.types';
+import type {
+  FormBlock,
+  FormBlockScope,
+  GanapDetail,
+  GanapListItem,
+  GanapListParams,
+  JoinGanapResult,
+  SubmitFormAnswersInput,
+} from '@/types/ganap.types';
 import axiosInstance from '../axios-instance';
 import type { CursorPage } from '../types/api-response';
 
@@ -25,6 +33,26 @@ export const ganapsAPI = {
    */
   getById: (ganapId: string): Promise<GanapDetail> =>
     axiosInstance.get<GanapDetail>(`/ganaps/${ganapId}`).then((res) => res.data),
+
+  /**
+   * Fetches form blocks for a Ganap and scope.
+   *
+   * @param ganapId - Id of the Ganap
+   * @param scope - Form scope to request
+   * @returns The server-defined form blocks
+   */
+  listFormBlocks: (ganapId: string, scope: FormBlockScope): Promise<FormBlock[]> =>
+    axiosInstance.get<FormBlock[]>(`/ganaps/${ganapId}/form-blocks`, { params: { scope } }).then((res) => res.data),
+
+  /**
+   * Submits the current user's form answers for a Ganap.
+   *
+   * @param ganapId - Id of the Ganap
+   * @param input - Form-answer request body
+   * @returns The updated server-decided registration
+   */
+  submitFormAnswers: (ganapId: string, input: SubmitFormAnswersInput): Promise<JoinGanapResult> =>
+    axiosInstance.post<JoinGanapResult>(`/ganaps/${ganapId}/form-answers`, input).then((res) => res.data),
 
   /**
    * Registers the current user for a Ganap. Sends no body.

@@ -15,6 +15,8 @@
   --popover-foreground: #000000;
   --primary: #22c55e;
   --primary-foreground: #ffffff;
+  --like: #dc2626;
+  --save: #a16207;
   --secondary: #1f2937;
   --secondary-foreground: #ffffff;
   --muted: #f4f4f5;
@@ -37,6 +39,8 @@
   --popover-foreground: #fafafa;
   --primary: #22c55e;
   --primary-foreground: #ffffff;
+  --like: #f87171;
+  --save: #facc15;
   --secondary: #1f2937;
   --secondary-foreground: #fafafa;
   --muted: #27272a;

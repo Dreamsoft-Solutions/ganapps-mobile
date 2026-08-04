@@ -7,6 +7,7 @@ import { AppTabBar, BAR_HEIGHT } from '@/components/navigation/AppTabBar';
 import { Routes } from '@/constants/routes';
 import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
 import { useAuthStore } from '@/store/auth.store';
+import { shouldHideAppTabBar } from '@/utils/navigation';
 import { needsOnboarding } from '@/utils/onboarding';
 
 /**
@@ -19,6 +20,7 @@ export default function AppLayout(): ReactElement {
   const segments = useSegments();
   const { data: user, isLoading } = useAuthQuery();
   const setUser = useAuthStore((s) => s.setUser);
+  const hideTabBar: boolean = shouldHideAppTabBar(segments);
 
   useEffect(() => {
     if (!user) return;
@@ -45,7 +47,7 @@ export default function AppLayout(): ReactElement {
 
   return (
     <Tabs
-      tabBar={(props: BottomTabBarProps): ReactElement => <AppTabBar {...props} />}
+      tabBar={(props: BottomTabBarProps): ReactElement | null => (hideTabBar ? null : <AppTabBar {...props} />)}
       screenOptions={{
         headerShown: false,
         tabBarStyle: {

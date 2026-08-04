@@ -20,6 +20,8 @@ module.exports = {
           DEFAULT: 'var(--primary)',
           foreground: 'var(--primary-foreground)',
         },
+        like: 'var(--like)',
+        save: 'var(--save)',
         secondary: {
           DEFAULT: 'var(--secondary)',
           foreground: 'var(--secondary-foreground)',
