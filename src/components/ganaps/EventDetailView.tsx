@@ -32,7 +32,17 @@ interface EventDetailViewProps {
   onToggleLike: () => void | Promise<void>;
   onToggleSave: () => void | Promise<void>;
   onPrimaryAction: () => void | Promise<void>;
+  onSecondaryAction: () => void | Promise<void>;
 }
+
+/**
+ * Scroll clearance for the absolutely positioned action bar: status label, one
+ * large button, and the Report Event link.
+ */
+const SINGLE_ACTION_CLEARANCE = 152;
+
+/** Extra clearance for the secondary large button and its top margin. */
+const SECONDARY_ACTION_CLEARANCE = 72;
 
 interface ScheduleItemProps {
   icon: ReactElement;
@@ -78,6 +88,7 @@ export function EventDetailView({
   onToggleLike,
   onToggleSave,
   onPrimaryAction,
+  onSecondaryAction,
 }: EventDetailViewProps): ReactElement {
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
@@ -95,6 +106,7 @@ export function EventDetailView({
   const hasRating: boolean =
     (ganap.ratingCount ?? 0) > 0 && ganap.averageRating !== null && ganap.averageRating !== undefined;
   const imageTransition: number = reducedMotion ? 0 : 200;
+  const actionBarClearance: number = SINGLE_ACTION_CLEARANCE + (actionModel.secondary ? SECONDARY_ACTION_CLEARANCE : 0);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset image fallback state when the selected source changes.
   useEffect((): void => {
@@ -103,7 +115,11 @@ export function EventDetailView({
 
   return (
     <View className="flex-1 bg-background">
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: insets.bottom + 152 }}>
+      <ScrollView
+        testID="event-detail-scroll"
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: insets.bottom + actionBarClearance }}
+      >
         <View className="w-full max-w-3xl self-center">
           <View className="relative h-64 overflow-hidden rounded-b-xl bg-muted">
             {sourceUrl && !imageFailed ? (
@@ -254,11 +270,11 @@ export function EventDetailView({
                   <View className="flex-row flex-wrap items-center">
                     <Text className="text-headline-sm">{organizerName}</Text>
                     {business?.verificationStatus === 'ACTIVE' && (
-                      <View className="ml-sm flex-row items-center rounded-full bg-primary/10 px-sm py-xs">
+                      <View className="ml-sm flex-row items-center rounded-full bg-primary px-sm py-xs">
                         <View className="mr-xs">
-                          <Check size={14} strokeWidth={2.5} className="text-primary" />
+                          <Check size={14} strokeWidth={2.5} color={Colors[theme]['primary-foreground']} />
                         </View>
-                        <Text className="text-label-sm text-primary">Verified</Text>
+                        <Text className="text-label-sm text-primary-foreground">Verified</Text>
                       </View>
                     )}
                   </View>
@@ -279,7 +295,12 @@ export function EventDetailView({
         </View>
       </ScrollView>
 
-      <EventActionBar model={actionModel} isPending={isPrimaryPending} onAction={onPrimaryAction} />
+      <EventActionBar
+        model={actionModel}
+        isPending={isPrimaryPending}
+        onPrimaryAction={onPrimaryAction}
+        onSecondaryAction={onSecondaryAction}
+      />
     </View>
   );
 }

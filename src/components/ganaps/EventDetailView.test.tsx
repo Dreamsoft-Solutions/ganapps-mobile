@@ -92,8 +92,13 @@ jest.mock('@/hooks/useResolvedTheme', () => ({
   useResolvedTheme: (): 'light' => 'light',
 }));
 
+const eventActionBarProps: { current: unknown } = { current: null };
+
 jest.mock('./EventActionBar', () => ({
-  EventActionBar: (): null => null,
+  EventActionBar: (props: unknown): null => {
+    eventActionBarProps.current = props;
+    return null;
+  },
 }));
 
 jest.mock('./EventLocationPreview', () => ({
@@ -156,10 +161,108 @@ const schedule: GanapScheduleModel = {
 
 const actionModel: GanapActionModel = {
   statusLabel: null,
-  action: 'join',
-  actionLabel: 'Join event',
-  confirmation: null,
+  primary: { action: 'join', label: 'Join event', confirmation: null },
+  secondary: null,
 };
+
+describe('EventDetailView action bar wiring', (): void => {
+  it('forwards the action model and distinct primary/secondary callbacks unchanged', async (): Promise<void> => {
+    const onPrimaryAction = jest.fn<() => void>();
+    const onSecondaryAction = jest.fn<() => void>();
+    const registeredModel: GanapActionModel = {
+      statusLabel: 'Joined',
+      primary: { action: 'enter-hub', label: 'Enter Event Hub', confirmation: null },
+      secondary: {
+        action: 'leave',
+        label: 'Leave event',
+        confirmation: { title: 'Leave this event?', message: 'Cancelled.', confirmLabel: 'Leave event' },
+      },
+    };
+
+    await render(
+      <EventDetailView
+        ganap={ganap}
+        business={business}
+        capacity={capacity}
+        schedule={schedule}
+        actionModel={registeredModel}
+        isPrimaryPending={false}
+        isLikePending={false}
+        isSavePending={false}
+        onBack={(): void => {}}
+        onShare={(): void => {}}
+        onToggleLike={(): void => {}}
+        onToggleSave={(): void => {}}
+        onPrimaryAction={onPrimaryAction}
+        onSecondaryAction={onSecondaryAction}
+      />,
+    );
+
+    expect(eventActionBarProps.current).toMatchObject({
+      model: registeredModel,
+      isPending: false,
+      onPrimaryAction,
+      onSecondaryAction,
+    });
+  });
+});
+
+describe('EventDetailView action bar clearance', (): void => {
+  it('reserves more scroll clearance when the action bar carries a secondary button', async (): Promise<void> => {
+    const registeredModel: GanapActionModel = {
+      statusLabel: 'Joined',
+      primary: { action: 'enter-hub', label: 'Enter Event Hub', confirmation: null },
+      secondary: {
+        action: 'leave',
+        label: 'Leave event',
+        confirmation: { title: 'Leave this event?', message: 'Cancelled.', confirmLabel: 'Leave event' },
+      },
+    };
+
+    const single = await render(
+      <EventDetailView
+        ganap={ganap}
+        business={business}
+        capacity={capacity}
+        schedule={schedule}
+        actionModel={actionModel}
+        isPrimaryPending={false}
+        isLikePending={false}
+        isSavePending={false}
+        onBack={(): void => {}}
+        onShare={(): void => {}}
+        onToggleLike={(): void => {}}
+        onToggleSave={(): void => {}}
+        onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
+      />,
+    );
+    const singlePadding: number = single.getByTestId('event-detail-scroll').props.contentContainerStyle.paddingBottom;
+    await single.unmount();
+
+    const dual = await render(
+      <EventDetailView
+        ganap={ganap}
+        business={business}
+        capacity={capacity}
+        schedule={schedule}
+        actionModel={registeredModel}
+        isPrimaryPending={false}
+        isLikePending={false}
+        isSavePending={false}
+        onBack={(): void => {}}
+        onShare={(): void => {}}
+        onToggleLike={(): void => {}}
+        onToggleSave={(): void => {}}
+        onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
+      />,
+    );
+    const dualPadding: number = dual.getByTestId('event-detail-scroll').props.contentContainerStyle.paddingBottom;
+
+    expect(dualPadding).toBeGreaterThan(singlePadding);
+  });
+});
 
 describe('EventDetailView media', (): void => {
   it('gives a remote hero image explicit dimensions', async (): Promise<void> => {
@@ -178,6 +281,7 @@ describe('EventDetailView media', (): void => {
         onToggleLike={(): void => {}}
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
       />,
     );
 
@@ -207,6 +311,7 @@ describe('EventDetailView social actions', (): void => {
         onToggleLike={onToggleLike}
         onToggleSave={onToggleSave}
         onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
       />,
     );
 
@@ -239,6 +344,7 @@ describe('EventDetailView social actions', (): void => {
         onToggleLike={(): void => {}}
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
       />,
     );
 
@@ -266,6 +372,7 @@ describe('EventDetailView icon spacing', (): void => {
         onToggleLike={(): void => {}}
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
       />,
     );
 
@@ -288,6 +395,7 @@ describe('EventDetailView icon spacing', (): void => {
         onToggleLike={(): void => {}}
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
       />,
     );
 
@@ -310,6 +418,7 @@ describe('EventDetailView icon spacing', (): void => {
         onToggleLike={(): void => {}}
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
       />,
     );
 

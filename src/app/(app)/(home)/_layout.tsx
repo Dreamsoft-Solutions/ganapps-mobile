@@ -7,6 +7,7 @@ export default function HomeLayout(): ReactElement {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="[ganap-id]" options={{ headerShown: false }} />
       <Stack.Screen name="registration/[ganap-id]" options={{ headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="event-hub/[ganap-id]" options={{ headerShown: false }} />
     </Stack>
   );
 }

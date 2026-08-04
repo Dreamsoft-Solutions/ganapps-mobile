@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import { Assets } from '@/constants/assets';
 import { Text } from './Text';
 
-type AvatarSize = 'sm' | 'md' | 'lg';
+type AvatarSize = 'xs' | 'sm' | 'md' | 'lg';
 
 interface AvatarProps {
   src?: string | null;
@@ -13,12 +13,14 @@ interface AvatarProps {
 }
 
 const sizeClasses: Record<AvatarSize, string> = {
+  xs: 'w-8 h-8',
   sm: 'w-10 h-10',
   md: 'w-20 h-20',
   lg: 'w-28 h-28',
 };
 
 const textSizeClasses: Record<AvatarSize, string> = {
+  xs: 'text-label-md',
   sm: 'text-sm',
   md: 'text-2xl',
   lg: 'text-3xl',

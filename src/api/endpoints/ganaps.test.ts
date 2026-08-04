@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
+import type { GanapAnnouncement } from '@/types/ganap.types';
 import axiosInstance from '../axios-instance';
+import type { PaginatedResponse } from '../types/api-response';
 import { ganapsAPI } from './ganaps';
 
 /** Requests captured by the fake adapter during a test. */
@@ -138,6 +140,41 @@ describe('ganapsAPI.registration form', () => {
     expect(captured[0].method).toBe('post');
     expect(requestedUrl(captured[0])).toContain('/api/v1/ganaps/g1/form-answers');
     expect(JSON.parse(String(captured[0].data))).toEqual(input);
+  });
+});
+
+describe('ganapsAPI.listUserAnnouncements', () => {
+  const announcementPage: PaginatedResponse<GanapAnnouncement> = {
+    items: [
+      {
+        id: 'announcement_1',
+        ganapId: 'g1',
+        createdByUserId: 'user_1',
+        createdByUsername: 'Miguel Santos',
+        type: 'UPDATE',
+        title: 'Venue update',
+        content: 'Meet by the main entrance.',
+        createdAt: '2026-08-04T01:00:00.000Z',
+      },
+    ],
+    pagination: { total: 21, skip: 20, take: 20, pages: 2 },
+  };
+
+  it('targets the attendee announcements path with skip/take params', async () => {
+    axiosInstance.defaults.adapter = envelopeAdapter(announcementPage);
+
+    await ganapsAPI.listUserAnnouncements('g1', { skip: 20, take: 20 });
+
+    expect(requestedUrl(captured[0])).toContain('/api/v1/ganaps/g1/announcements/user');
+    expect(captured[0].params).toEqual({ skip: 20, take: 20 });
+  });
+
+  it('returns the paginated payload itself, not the response envelope', async () => {
+    axiosInstance.defaults.adapter = envelopeAdapter(announcementPage);
+
+    const result = await ganapsAPI.listUserAnnouncements('g1', { skip: 20, take: 20 });
+
+    expect(result).toEqual(announcementPage);
   });
 });
 

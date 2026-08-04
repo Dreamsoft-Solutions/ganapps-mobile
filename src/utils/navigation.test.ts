@@ -10,4 +10,8 @@ describe('app tab bar route policy', (): void => {
     expect(shouldHideAppTabBar(['(app)', '(home)', '[ganap-id]'])).toBe(false);
     expect(shouldHideAppTabBar(['(app)', '(profile)', 'profile'])).toBe(false);
   });
+
+  it('hides the tab bar for the Event Hub route', (): void => {
+    expect(shouldHideAppTabBar(['(app)', '(home)', 'event-hub', '[ganap-id]'])).toBe(true);
+  });
 });

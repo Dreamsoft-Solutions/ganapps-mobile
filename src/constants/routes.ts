@@ -32,6 +32,7 @@ export interface RouteTable {
   profileJoined: Href;
   ganapDetail: (ganapId: string) => Href;
   ganapRegistration: (ganapId: string) => Href;
+  eventHub: (ganapId: string) => Href;
 }
 
 /**
@@ -108,6 +109,17 @@ export const Routes: RouteTable = {
    */
   ganapRegistration: (ganapId: string): Href => ({
     pathname: '/(app)/(home)/registration/[ganap-id]',
+    params: { 'ganap-id': ganapId },
+  }),
+
+  /**
+   * Builds the href for a Ganap's Event Hub screen.
+   *
+   * @param ganapId - Value for the `[ganap-id]` segment of the Event Hub route.
+   * @returns An href targeting that event's Event Hub screen.
+   */
+  eventHub: (ganapId: string): Href => ({
+    pathname: '/(app)/(home)/event-hub/[ganap-id]',
     params: { 'ganap-id': ganapId },
   }),
 };

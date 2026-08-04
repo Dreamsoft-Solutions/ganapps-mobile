@@ -38,6 +38,18 @@ module.exports = {
           DEFAULT: 'var(--destructive)',
           foreground: 'var(--destructive-foreground)',
         },
+        info: {
+          DEFAULT: 'var(--info)',
+          foreground: 'var(--info-foreground)',
+        },
+        warning: {
+          DEFAULT: 'var(--warning)',
+          foreground: 'var(--warning-foreground)',
+        },
+        notice: {
+          DEFAULT: 'var(--notice)',
+          foreground: 'var(--notice-foreground)',
+        },
         border: 'var(--border)',
         input: 'var(--input)',
         ring: 'var(--ring)',

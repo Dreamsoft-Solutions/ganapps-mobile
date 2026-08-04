@@ -165,3 +165,33 @@ export interface GanapListParams {
   search?: string;
   tag?: string;
 }
+
+/**
+ * Category of an organizer-posted announcement.
+ *
+ * Mirrors the server's `AnnouncementType` enum in `prisma/schema.prisma`.
+ */
+export type AnnouncementType = 'GENERAL' | 'REMINDER' | 'UPDATE';
+
+/**
+ * One announcement as returned by the attendee-facing announcement endpoint.
+ *
+ * Mirrors the item shape built by the server's `listPublicAnnouncements`. There
+ * is no author image field; clients derive an avatar from `createdByUsername`.
+ */
+export interface GanapAnnouncement {
+  id: string;
+  ganapId: string;
+  createdByUserId: string;
+  createdByUsername: string;
+  type: AnnouncementType;
+  title?: string | null;
+  content: string;
+  createdAt: string;
+}
+
+/** Offset-pagination query parameters for the attendee announcement list. */
+export interface GanapAnnouncementParams {
+  skip?: number;
+  take?: number;
+}

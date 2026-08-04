@@ -1,6 +1,8 @@
 import type {
   FormBlock,
   FormBlockScope,
+  GanapAnnouncement,
+  GanapAnnouncementParams,
   GanapDetail,
   GanapListItem,
   GanapListParams,
@@ -8,7 +10,7 @@ import type {
   SubmitFormAnswersInput,
 } from '@/types/ganap.types';
 import axiosInstance from '../axios-instance';
-import type { CursorPage } from '../types/api-response';
+import type { CursorPage, PaginatedResponse } from '../types/api-response';
 
 /**
  * Public Ganap discovery and action endpoints.
@@ -105,4 +107,19 @@ export const ganapsAPI = {
    */
   unsave: (ganapId: string): Promise<void> =>
     axiosInstance.delete<void>(`/ganaps/${ganapId}/save`).then((res) => res.data),
+
+  /**
+   * Fetches one offset page of attendee-facing announcements for a Ganap.
+   *
+   * @param ganapId - Id of the Ganap
+   * @param params - Offset-pagination `skip`/`take` query params
+   * @returns The paginated announcement payload, newest first
+   */
+  listUserAnnouncements: (
+    ganapId: string,
+    params: GanapAnnouncementParams,
+  ): Promise<PaginatedResponse<GanapAnnouncement>> =>
+    axiosInstance
+      .get<PaginatedResponse<GanapAnnouncement>>(`/ganaps/${ganapId}/announcements/user`, { params })
+      .then((res) => res.data),
 };
