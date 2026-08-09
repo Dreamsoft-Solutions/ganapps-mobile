@@ -108,6 +108,12 @@ module.exports = {
           RNMapboxMapsImpl: 'mapbox',
         },
       ],
+      [
+        'expo-camera',
+        {
+          cameraPermission: "Ganapps uses the camera to scan the organizer's attendance QR code.",
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,
