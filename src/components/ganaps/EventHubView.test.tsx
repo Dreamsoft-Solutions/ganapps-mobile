@@ -24,11 +24,13 @@ jest.mock('lucide-react-native', () => ({
   ArrowLeft: (): null => null,
   BellRing: (): null => null,
   Calendar: (): null => null,
+  CircleCheck: (): null => null,
   Clock: (): null => null,
   Globe: (): null => null,
   MapPin: (): null => null,
   Megaphone: (): null => null,
   MessageCircle: (): null => null,
+  QrCode: (): null => null,
   RefreshCw: ({ color }: { color?: string }): ReactElement => (
     <MockView testID="icon-update" {...({ color } as unknown as { color?: string })} />
   ),
@@ -147,6 +149,8 @@ function buildProps(overrides: Partial<EventHubViewProps> = {}): EventHubViewPro
     onRetryAnnouncements: (): void => {},
     onRetryNextPage: (): void => {},
     onLoadMore: (): void => {},
+    scanState: 'hidden',
+    onScanAttendance: (): void => {},
     ...overrides,
   };
 }
@@ -449,6 +453,41 @@ describe('EventHubView reminders row', (): void => {
     expect(screen.getByText('Event Reminders')).toBeTruthy();
     expect(screen.getByText('Coming soon')).toBeTruthy();
     expect(row.props.onPress).toBeUndefined();
+  });
+});
+
+describe('attendance scan row', (): void => {
+  it('renders nothing when hidden', async (): Promise<void> => {
+    const screen = await render(<EventHubView {...buildProps({ scanState: 'hidden' })} />);
+
+    expect(screen.queryByTestId('attendance-scan-row')).toBeNull();
+  });
+
+  it('renders disabled locked copy before the event ends', async (): Promise<void> => {
+    const screen = await render(<EventHubView {...buildProps({ scanState: 'locked' })} />);
+
+    expect(screen.getByTestId('attendance-scan-row').props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByText('Attendance scan opens when the event ends')).toBeTruthy();
+  });
+
+  it('is pressable and fires onScanAttendance when available', async (): Promise<void> => {
+    const onScanAttendance = jest.fn<() => void>();
+    const screen = await render(<EventHubView {...buildProps({ scanState: 'available', onScanAttendance })} />);
+
+    await fireEvent.press(screen.getByTestId('attendance-scan-row'));
+
+    expect(onScanAttendance).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders a non-interactive recorded confirmation', async (): Promise<void> => {
+    const onScanAttendance = jest.fn<() => void>();
+    const screen = await render(<EventHubView {...buildProps({ scanState: 'recorded', onScanAttendance })} />);
+
+    expect(screen.getByText('Attendance recorded')).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('attendance-scan-row'));
+
+    expect(onScanAttendance).not.toHaveBeenCalled();
   });
 });
 
