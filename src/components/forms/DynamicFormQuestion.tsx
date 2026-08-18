@@ -10,8 +10,8 @@ import type { ScaleConfiguration } from '@/utils/registration-form';
 import { getScaleConfiguration, getScaleOptions, getTextConfiguration } from '@/utils/registration-form';
 import { Text } from '../common/Text';
 
-/** Props for one dynamic registration question. */
-export interface RegistrationQuestionProps {
+/** Props for one dynamic form question. */
+export interface DynamicFormQuestionProps {
   block: FormBlock;
 }
 
@@ -192,12 +192,12 @@ function renderQuestionControl(
 }
 
 /**
- * Renders one server-defined registration question with native accessibility semantics.
+ * Renders one server-defined form question with native accessibility semantics.
  *
  * @param props - Form block to render
  * @returns A controlled question field with inline validation
  */
-export function RegistrationQuestion({ block }: RegistrationQuestionProps): ReactElement {
+export function DynamicFormQuestion({ block }: DynamicFormQuestionProps): ReactElement {
   const { control } = useFormContext<RegistrationFormData>();
   const theme: 'light' | 'dark' = useResolvedTheme();
   const name: FieldPath<RegistrationFormData> = `answers.${block.id}` as FieldPath<RegistrationFormData>;
