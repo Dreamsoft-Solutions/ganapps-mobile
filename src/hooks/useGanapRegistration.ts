@@ -1,7 +1,7 @@
 import type { UseMutateAsyncFunction, UseQueryResult } from '@tanstack/react-query';
 import type { FormBlock, JoinGanapResult } from '@/types/ganap.types';
 import { type SubmitFormAnswersVariables, useSubmitFormAnswersMutation } from './mutations/useGanapMutation';
-import { useRegistrationFormBlocksQuery } from './queries/useGanapsQuery';
+import { useFormBlocksQuery } from './queries/useGanapsQuery';
 
 /** State and actions needed by the registration-form route. */
 export interface UseGanapRegistrationResult {
@@ -21,7 +21,7 @@ export interface UseGanapRegistrationResult {
  * @returns Registration form data, state, and actions
  */
 export function useGanapRegistration(ganapId: string): UseGanapRegistrationResult {
-  const blocksQuery: UseQueryResult<FormBlock[], Error> = useRegistrationFormBlocksQuery(ganapId);
+  const blocksQuery: UseQueryResult<FormBlock[], Error> = useFormBlocksQuery(ganapId, 'REGISTRATION');
   const submitMutation = useSubmitFormAnswersMutation();
 
   return {

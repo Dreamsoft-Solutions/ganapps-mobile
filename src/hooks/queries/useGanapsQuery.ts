@@ -35,17 +35,21 @@ export function useGanapDetailQuery(ganapId: string): UseQueryResult<GanapDetail
 }
 
 /**
- * Fetches the organizer-defined form blocks for a Ganap's registration form.
+ * Fetches the organizer-defined form blocks for one scope of a Ganap's forms.
+ *
+ * The endpoint carries no membership guard, so an attendee may read either
+ * scope. An empty array means the organizer built no form for that scope.
  *
  * @param ganapId - Id of the Ganap; the query stays idle while this is empty
- * @returns The TanStack query result for registration form blocks
+ * @param scope - Which organizer form to read
+ * @returns The TanStack query result for that scope's form blocks
  */
-export function useRegistrationFormBlocksQuery(ganapId: string): UseQueryResult<FormBlock[], Error> {
+export function useFormBlocksQuery(ganapId: string, scope: FormBlockScope): UseQueryResult<FormBlock[], Error> {
   const token = useAuthStore((s) => s.token);
 
   return useQuery<FormBlock[], Error>({
-    queryKey: ganapQueryKeys.formBlocks(ganapId, 'REGISTRATION'),
-    queryFn: (): Promise<FormBlock[]> => ganapsAPI.listFormBlocks(ganapId, 'REGISTRATION'),
+    queryKey: ganapQueryKeys.formBlocks(ganapId, scope),
+    queryFn: (): Promise<FormBlock[]> => ganapsAPI.listFormBlocks(ganapId, scope),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     retry: 1,
