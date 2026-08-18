@@ -55,9 +55,37 @@ export interface FormAnswerItem {
   selectedOptionIds?: string[];
 }
 
-/** Request payload for submitting registration-form answers. */
+/** Request payload for submitting form answers in either scope. */
 export interface SubmitFormAnswersInput {
   answers: FormAnswerItem[];
+  /**
+   * Which organizer form the answers belong to. Omitted means `REGISTRATION`,
+   * matching the server's default in `SubmitFormAnswersRequestDto`.
+   */
+  scope?: FormBlockScope;
+}
+
+/** Request body for rating a Ganap the student attended. */
+export interface RateGanapInput {
+  /** Whole-star score from 1 to 5. */
+  score: number;
+}
+
+/**
+ * A rating row as the server returns it.
+ *
+ * Note the field asymmetry: the request DTO names the value `score`, but the
+ * persisted row and this response name it `rating`. `comment` exists in the
+ * schema and is never populated through this endpoint.
+ */
+export interface GanapRating {
+  id: string;
+  ganapId: string;
+  userId: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /** Runtime value shape used by the registration form before DTO mapping. */
@@ -130,6 +158,15 @@ export interface GanapDetail {
   likesCount?: number;
   averageRating?: number | null;
   ratingCount?: number;
+  /**
+   * The caller's own rating, or `null` when they have not rated.
+   *
+   * **Absent (`undefined`) when the server has not shipped the field yet** —
+   * `getPendingFeedbackSteps` treats that case as "cannot tell" and hides the
+   * rating step rather than offering one that would be rejected with
+   * `400 Already rated this event`.
+   */
+  myRating?: number | null;
   isLiked?: boolean;
   isSaved?: boolean;
   myRegistration?: {
@@ -137,6 +174,13 @@ export interface GanapDetail {
     status: RegistrationStatus;
     createdAt: string;
     registrationFormSubmittedAt: string | null;
+    /**
+     * When the post-attendance feedback form was first submitted.
+     *
+     * Absent until the server ships it. Unlike `myRating`, "cannot tell" here
+     * means the form step is still offered: re-submission is a harmless upsert.
+     */
+    postAttendanceFormSubmittedAt?: string | null;
   } | null;
   createdAt: string;
   updatedAt: string;

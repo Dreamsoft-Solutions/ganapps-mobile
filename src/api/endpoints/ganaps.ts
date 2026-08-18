@@ -8,7 +8,9 @@ import type {
   GanapDetail,
   GanapListItem,
   GanapListParams,
+  GanapRating,
   JoinGanapResult,
+  RateGanapInput,
   SubmitFormAnswersInput,
 } from '@/types/ganap.types';
 import axiosInstance from '../axios-instance';
@@ -134,4 +136,14 @@ export const ganapsAPI = {
    */
   checkIn: (ganapId: string, input: CheckInInput): Promise<CheckInResult> =>
     axiosInstance.post<CheckInResult>(`/ganaps/${ganapId}/check-in`, input).then((res) => res.data),
+
+  /**
+   * Rates a Ganap the current user attended.
+   *
+   * @param ganapId - Id of the Ganap being rated
+   * @param input - The 1–5 star score
+   * @returns The created rating row
+   */
+  rateGanap: (ganapId: string, input: RateGanapInput): Promise<GanapRating> =>
+    axiosInstance.post<GanapRating>(`/ganaps/${ganapId}/rate`, input).then((res) => res.data),
 };
