@@ -1,10 +1,11 @@
 import { useCameraPermissions } from 'expo-camera';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking } from 'react-native';
 import { Loading } from '@/components/common/Loading';
 import { type AttendanceScanPhase, AttendanceScanView } from '@/components/ganaps/AttendanceScanView';
+import { Routes } from '@/constants/routes';
 import { type CheckInOutcome, useCheckInMutation } from '@/hooks/mutations/useGanapMutation';
 import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { mapCheckInError } from '@/utils/attendance';
@@ -77,6 +78,10 @@ export default function AttendanceScanScreen(): ReactElement {
     setPhase({ name: 'scanning' });
   }
 
+  const handleGiveFeedback = useCallback((): void => {
+    router.replace(Routes.ganapFeedback(ganapId));
+  }, [ganapId, router]);
+
   if (!permission) return <Loading />;
   if (!permission.granted && !permission.canAskAgain) {
     return (
@@ -87,6 +92,7 @@ export default function AttendanceScanScreen(): ReactElement {
         onScanAgain={handleScanAgain}
         onOpenSettings={(): Promise<void> => Linking.openSettings()}
         onBack={handleBack}
+        onGiveFeedback={handleGiveFeedback}
       />
     );
   }
@@ -100,6 +106,7 @@ export default function AttendanceScanScreen(): ReactElement {
       onScanAgain={handleScanAgain}
       onOpenSettings={(): Promise<void> => Linking.openSettings()}
       onBack={handleBack}
+      onGiveFeedback={handleGiveFeedback}
     />
   );
 }

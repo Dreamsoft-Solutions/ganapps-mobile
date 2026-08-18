@@ -12,6 +12,7 @@ import { type UseGanapAnnouncementsResult, useGanapAnnouncements } from '@/hooks
 import type { GanapDetail, RegistrationStatus } from '@/types/ganap.types';
 import { type AttendanceScanState, getAttendanceScanState } from '@/utils/attendance';
 import { canAccessEventHub } from '@/utils/event-hub';
+import { getPendingFeedbackSteps } from '@/utils/feedback';
 import { buildGanapShareMessage, type GanapScheduleModel, getGanapScheduleModel } from '@/utils/ganap-detail';
 
 interface EventHubUnavailableProps {
@@ -23,6 +24,8 @@ interface EligibleEventHubProps {
   onBack: () => void;
   /** Navigates to the attendance scanner; forwarded from the outer screen. */
   onScanAttendance: () => void;
+  /** Navigates to the post-event feedback flow; forwarded from the outer screen. */
+  onGiveFeedback: () => void;
 }
 
 /**
@@ -57,11 +60,15 @@ function EventHubUnavailable({ onBack }: EventHubUnavailableProps): ReactElement
  * @param props - The loaded Ganap, the shared back handler, and the scan navigation callback.
  * @returns The loaded Event Hub screen.
  */
-function EligibleEventHub({ ganap, onBack, onScanAttendance }: EligibleEventHubProps): ReactElement {
+function EligibleEventHub({ ganap, onBack, onScanAttendance, onGiveFeedback }: EligibleEventHubProps): ReactElement {
   const announcements: UseGanapAnnouncementsResult = useGanapAnnouncements(ganap.id, true);
   const schedule: GanapScheduleModel = getGanapScheduleModel(ganap.startDate, ganap.endDate);
   const accessLost: boolean = announcements.hasLostAccess;
   const scanState: AttendanceScanState = getAttendanceScanState(ganap, new Date());
+  // The hub does not fetch POST_ATTENDANCE blocks, so this surfaces the row
+  // for the rating step only; the form step is discovered inside the
+  // feedback route, which does fetch the blocks.
+  const hasPendingFeedback: boolean = getPendingFeedbackSteps(ganap, []).length > 0;
 
   async function handleShare(): Promise<void> {
     await Share.share({ message: buildGanapShareMessage(ganap, schedule), title: ganap.title });
@@ -92,6 +99,8 @@ function EligibleEventHub({ ganap, onBack, onScanAttendance }: EligibleEventHubP
         void announcements.fetchNextPage();
       }}
       onScanAttendance={onScanAttendance}
+      hasPendingFeedback={hasPendingFeedback}
+      onGiveFeedback={onGiveFeedback}
     />
   );
 }
@@ -123,6 +132,10 @@ export default function EventHubScreen(): ReactElement {
     router.push(Routes.attendanceScan(ganapId));
   }
 
+  function handleGiveFeedback(): void {
+    router.push(Routes.ganapFeedback(ganapId));
+  }
+
   if (detail.isLoading) return <Loading />;
   if (detail.error) return <ErrorView error={detail.error} onRetry={(): void => void detail.refetch()} />;
   if (!detail.data) return <ErrorView error={new Error('Event not found')} />;
@@ -130,5 +143,12 @@ export default function EventHubScreen(): ReactElement {
   const registrationStatus: RegistrationStatus | null = detail.data.myRegistration?.status ?? null;
   if (!canAccessEventHub(registrationStatus)) return <EventHubUnavailable onBack={handleBack} />;
 
-  return <EligibleEventHub ganap={detail.data} onBack={handleBack} onScanAttendance={handleScanAttendance} />;
+  return (
+    <EligibleEventHub
+      ganap={detail.data}
+      onBack={handleBack}
+      onScanAttendance={handleScanAttendance}
+      onGiveFeedback={handleGiveFeedback}
+    />
+  );
 }

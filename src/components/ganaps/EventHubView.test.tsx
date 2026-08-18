@@ -30,6 +30,7 @@ jest.mock('lucide-react-native', () => ({
   MapPin: (): null => null,
   Megaphone: (): null => null,
   MessageCircle: (): null => null,
+  MessageSquare: (): null => null,
   QrCode: (): null => null,
   RefreshCw: ({ color }: { color?: string }): ReactElement => (
     <MockView testID="icon-update" {...({ color } as unknown as { color?: string })} />
@@ -151,6 +152,8 @@ function buildProps(overrides: Partial<EventHubViewProps> = {}): EventHubViewPro
     onLoadMore: (): void => {},
     scanState: 'hidden',
     onScanAttendance: (): void => {},
+    hasPendingFeedback: false,
+    onGiveFeedback: (): void => {},
     ...overrides,
   };
 }
@@ -488,6 +491,23 @@ describe('attendance scan row', (): void => {
     await fireEvent.press(screen.getByTestId('attendance-scan-row'));
 
     expect(onScanAttendance).not.toHaveBeenCalled();
+  });
+});
+
+describe('feedback row', (): void => {
+  it('renders nothing when no feedback is pending', async (): Promise<void> => {
+    const screen = await render(<EventHubView {...buildProps({ hasPendingFeedback: false })} />);
+
+    expect(screen.queryByTestId('feedback-row')).toBeNull();
+  });
+
+  it('is pressable and fires onGiveFeedback when feedback is pending', async (): Promise<void> => {
+    const onGiveFeedback = jest.fn<() => void>();
+    const screen = await render(<EventHubView {...buildProps({ hasPendingFeedback: true, onGiveFeedback })} />);
+
+    await fireEvent.press(screen.getByTestId('feedback-row'));
+
+    expect(onGiveFeedback).toHaveBeenCalledTimes(1);
   });
 });
 
