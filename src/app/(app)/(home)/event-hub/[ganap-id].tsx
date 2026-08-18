@@ -10,6 +10,7 @@ import { Routes } from '@/constants/routes';
 import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { type UseGanapAnnouncementsResult, useGanapAnnouncements } from '@/hooks/useGanapAnnouncements';
 import type { GanapDetail, RegistrationStatus } from '@/types/ganap.types';
+import { type AttendanceScanState, getAttendanceScanState } from '@/utils/attendance';
 import { canAccessEventHub } from '@/utils/event-hub';
 import { buildGanapShareMessage, type GanapScheduleModel, getGanapScheduleModel } from '@/utils/ganap-detail';
 
@@ -20,6 +21,8 @@ interface EventHubUnavailableProps {
 interface EligibleEventHubProps {
   ganap: GanapDetail;
   onBack: () => void;
+  /** Navigates to the attendance scanner; forwarded from the outer screen. */
+  onScanAttendance: () => void;
 }
 
 /**
@@ -51,13 +54,14 @@ function EventHubUnavailable({ onBack }: EventHubUnavailableProps): ReactElement
  * for an ineligible caller. When the server later revokes access, the cached
  * announcements are withheld rather than presented as current.
  *
- * @param props - The loaded Ganap and the shared back handler.
+ * @param props - The loaded Ganap, the shared back handler, and the scan navigation callback.
  * @returns The loaded Event Hub screen.
  */
-function EligibleEventHub({ ganap, onBack }: EligibleEventHubProps): ReactElement {
+function EligibleEventHub({ ganap, onBack, onScanAttendance }: EligibleEventHubProps): ReactElement {
   const announcements: UseGanapAnnouncementsResult = useGanapAnnouncements(ganap.id, true);
   const schedule: GanapScheduleModel = getGanapScheduleModel(ganap.startDate, ganap.endDate);
   const accessLost: boolean = announcements.hasLostAccess;
+  const scanState: AttendanceScanState = getAttendanceScanState(ganap, new Date());
 
   async function handleShare(): Promise<void> {
     await Share.share({ message: buildGanapShareMessage(ganap, schedule), title: ganap.title });
@@ -75,6 +79,7 @@ function EligibleEventHub({ ganap, onBack }: EligibleEventHubProps): ReactElemen
       isFetchingNextPage={!accessLost && announcements.isFetchingNextPage}
       isFetchNextPageError={!accessLost && announcements.isFetchNextPageError}
       accessLost={accessLost}
+      scanState={scanState}
       onBack={onBack}
       onShare={handleShare}
       onRetryAnnouncements={(): void => {
@@ -86,6 +91,7 @@ function EligibleEventHub({ ganap, onBack }: EligibleEventHubProps): ReactElemen
       onLoadMore={(): void => {
         void announcements.fetchNextPage();
       }}
+      onScanAttendance={onScanAttendance}
     />
   );
 }
@@ -113,6 +119,10 @@ export default function EventHubScreen(): ReactElement {
     router.replace(Routes.ganapDetail(ganapId));
   }
 
+  function handleScanAttendance(): void {
+    router.push(Routes.attendanceScan(ganapId));
+  }
+
   if (detail.isLoading) return <Loading />;
   if (detail.error) return <ErrorView error={detail.error} onRetry={(): void => void detail.refetch()} />;
   if (!detail.data) return <ErrorView error={new Error('Event not found')} />;
@@ -120,5 +130,5 @@ export default function EventHubScreen(): ReactElement {
   const registrationStatus: RegistrationStatus | null = detail.data.myRegistration?.status ?? null;
   if (!canAccessEventHub(registrationStatus)) return <EventHubUnavailable onBack={handleBack} />;
 
-  return <EligibleEventHub ganap={detail.data} onBack={handleBack} />;
+  return <EligibleEventHub ganap={detail.data} onBack={handleBack} onScanAttendance={handleScanAttendance} />;
 }

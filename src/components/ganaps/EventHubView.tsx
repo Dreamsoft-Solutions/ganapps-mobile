@@ -23,8 +23,13 @@ import { formatInterestLabel } from '@/constants/interests';
 import { Colors, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { GanapAnnouncement, GanapDetail } from '@/types/ganap.types';
+import type { AttendanceScanState } from '@/utils/attendance';
 import type { GanapScheduleModel } from '@/utils/ganap-detail';
 import { AnnouncementCard } from './AnnouncementCard';
+import { AttendanceScanRow } from './AttendanceScanRow';
+
+/** Stable no-op passed to {@link AttendanceScanRow} outside the `available` state. */
+function noop(): void {}
 
 /** Data and callbacks the Event Hub screen needs to render, with no API ownership. */
 export interface EventHubViewProps {
@@ -38,11 +43,15 @@ export interface EventHubViewProps {
   isFetchingNextPage: boolean;
   isFetchNextPageError: boolean;
   accessLost: boolean;
+  /** Attendance scan surface state, driving the row's presentation. */
+  scanState: AttendanceScanState;
   onBack: () => void;
   onShare: () => void | Promise<void>;
   onRetryAnnouncements: () => void | Promise<void>;
   onRetryNextPage: () => void | Promise<void>;
   onLoadMore: () => void | Promise<void>;
+  /** Navigates to the attendance scanner; fired only when `scanState` is `available`. */
+  onScanAttendance: () => void;
 }
 
 interface ScheduleItemProps {
@@ -132,11 +141,13 @@ export function EventHubView({
   isFetchingNextPage,
   isFetchNextPageError,
   accessLost,
+  scanState,
   onBack,
   onShare,
   onRetryAnnouncements,
   onRetryNextPage,
   onLoadMore,
+  onScanAttendance,
 }: EventHubViewProps): ReactElement {
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
@@ -333,6 +344,15 @@ export function EventHubView({
                 </View>
               ) : null}
               <View className="px-md pt-sm" style={{ paddingBottom: insets.bottom + Spacing.sm }}>
+                <View className="mb-sm">
+                  {/*
+                   * Only the `available` state gets the live callback: RNTL's `fireEvent.press`
+                   * walks the fiber tree for any ancestor prop literally named `onPress`, so a
+                   * non-interactive branch would otherwise still "fire" a press that no real
+                   * touch on a plain View could ever produce.
+                   */}
+                  <AttendanceScanRow state={scanState} onPress={scanState === 'available' ? onScanAttendance : noop} />
+                </View>
                 <EventRemindersRow />
               </View>
             </>

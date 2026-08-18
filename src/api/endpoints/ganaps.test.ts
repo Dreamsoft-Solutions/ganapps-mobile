@@ -191,3 +191,29 @@ describe('ganapsAPI toggles', () => {
     expect(requestedUrl(captured[1])).toContain('/api/v1/ganaps/g1/like');
   });
 });
+
+describe('checkIn', () => {
+  it('POSTs the qr hash and scan time to the version-free check-in path', async () => {
+    const payload = {
+      id: 'reg-1',
+      userId: 'u-1',
+      ganapId: 'g-1',
+      status: 'ATTENDED',
+      createdAt: '2026-08-01T00:00:00.000Z',
+    };
+    axiosInstance.defaults.adapter = envelopeAdapter(payload);
+
+    const result = await ganapsAPI.checkIn('g-1', {
+      qrHash: 'hash-abc',
+      scannedAt: '2026-08-08T13:00:00.000Z',
+    });
+
+    expect(captured[0].method).toBe('post');
+    expect(requestedUrl(captured[0])).toContain('/api/v1/ganaps/g-1/check-in');
+    expect(JSON.parse(String(captured[0].data))).toEqual({
+      qrHash: 'hash-abc',
+      scannedAt: '2026-08-08T13:00:00.000Z',
+    });
+    expect(result).toEqual(payload);
+  });
+});

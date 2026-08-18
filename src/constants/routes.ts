@@ -33,6 +33,7 @@ export interface RouteTable {
   ganapDetail: (ganapId: string) => Href;
   ganapRegistration: (ganapId: string) => Href;
   eventHub: (ganapId: string) => Href;
+  attendanceScan: (ganapId: string) => Href;
 }
 
 /**
@@ -120,6 +121,17 @@ export const Routes: RouteTable = {
    */
   eventHub: (ganapId: string): Href => ({
     pathname: '/(app)/(home)/event-hub/[ganap-id]',
+    params: { 'ganap-id': ganapId },
+  }),
+
+  /**
+   * Builds the href for a Ganap's attendance scanner screen.
+   *
+   * @param ganapId - Value for the `[ganap-id]` segment of the scan route.
+   * @returns An href targeting that event's attendance scanner.
+   */
+  attendanceScan: (ganapId: string): Href => ({
+    pathname: '/(app)/(home)/scan/[ganap-id]',
     params: { 'ganap-id': ganapId },
   }),
 };

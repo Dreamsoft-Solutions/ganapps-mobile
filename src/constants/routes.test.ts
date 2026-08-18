@@ -148,6 +148,13 @@ describe('route table entries resolve to their screens', () => {
     });
   });
 
+  it('builds an object-form attendance scanner route with the Ganap parameter', () => {
+    expect(Routes.attendanceScan('abc123')).toEqual({
+      pathname: '/(app)/(home)/scan/[ganap-id]',
+      params: { 'ganap-id': 'abc123' },
+    });
+  });
+
   it('opens the welcome screen', () => {
     expect(resolve(pathnameOf(Routes.public.welcome))).toEqual(['(public)', 'index']);
   });

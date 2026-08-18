@@ -1,7 +1,8 @@
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import { enqueueOutbox } from '@/services/sync.service';
-import type { JoinGanapResult, SubmitFormAnswersInput } from '@/types/ganap.types';
+import type { CheckInResult, JoinGanapResult, SubmitFormAnswersInput } from '@/types/ganap.types';
+import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
 import { ganapQueryKeys } from '../queries/useGanapsQuery';
 import { profileQueryKeys } from '../queries/useProfileQuery';
 
@@ -140,5 +141,56 @@ export function useSaveGanapMutation(): UseMutationResult<void, Error, ToggleSav
         void enqueueOutbox('ganap', isSaved ? 'unsave' : 'save', { ganapId });
       }
     },
+  });
+}
+
+/** Arguments for recording attendance from a scanned QR. */
+export interface CheckInVariables {
+  ganapId: string;
+  qrHash: string;
+  scannedAt: string;
+}
+
+/**
+ * How an attendance scan settled: recorded by the server now, or queued on
+ * this device for replay when connectivity returns.
+ */
+export type CheckInOutcome = { kind: 'recorded'; result: CheckInResult } | { kind: 'queued' };
+
+/**
+ * Records attendance from a scanned organizer QR, queueing offline scans.
+ *
+ * A rejection without a `status` never reached the server, so the scan is
+ * queued through the outbox with its original `scannedAt` and the mutation
+ * resolves as `queued` — the caller renders honest pending copy, not success.
+ * A rejection carrying a `status` is a real server answer: it rejects and is
+ * never queued. The global error toast is suppressed; the scanner screen owns
+ * its own error rendering.
+ *
+ * @returns The mutation, resolving to the scan outcome
+ */
+export function useCheckInMutation(): UseMutationResult<CheckInOutcome, Error, CheckInVariables> {
+  const queryClient = useQueryClient();
+
+  return useMutation<CheckInOutcome, Error, CheckInVariables>({
+    mutationFn: async ({ ganapId, qrHash, scannedAt }: CheckInVariables): Promise<CheckInOutcome> => {
+      try {
+        const result = await ganapsAPI.checkIn(ganapId, { qrHash, scannedAt });
+        return { kind: 'recorded', result };
+      } catch (error) {
+        if (error instanceof Error && shouldQueueForReplay(error)) {
+          await enqueueOutbox('ganap', 'check-in', { ganapId, qrHash, scannedAt });
+          return { kind: 'queued' };
+        }
+        throw error;
+      }
+    },
+    onSuccess: (outcome: CheckInOutcome, { ganapId }: CheckInVariables): void => {
+      if (outcome.kind !== 'recorded') return;
+      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
+      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });
+    },
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }

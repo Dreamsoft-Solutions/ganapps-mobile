@@ -1,4 +1,6 @@
 import type {
+  CheckInInput,
+  CheckInResult,
   FormBlock,
   FormBlockScope,
   GanapAnnouncement,
@@ -122,4 +124,14 @@ export const ganapsAPI = {
     axiosInstance
       .get<PaginatedResponse<GanapAnnouncement>>(`/ganaps/${ganapId}/announcements/user`, { params })
       .then((res) => res.data),
+
+  /**
+   * Records the current user's attendance from a scanned organizer QR.
+   *
+   * @param ganapId - Id of the Ganap being attended
+   * @param input - Scanned QR hash and the client-side scan time
+   * @returns The registration, now `ATTENDED`
+   */
+  checkIn: (ganapId: string, input: CheckInInput): Promise<CheckInResult> =>
+    axiosInstance.post<CheckInResult>(`/ganaps/${ganapId}/check-in`, input).then((res) => res.data),
 };

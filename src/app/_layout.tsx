@@ -1,5 +1,6 @@
 import '../global.css';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { NavigationBar } from 'expo-navigation-bar';
 import { Stack, useRouter, useSegments } from 'expo-router';
@@ -15,8 +16,9 @@ import { db } from '@/db';
 import { RootProvider } from '@/providers/RootProvider';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import { remoteConfigService } from '@/services/remote-config.service';
-import { startOutboxDrain } from '@/services/sync.service';
+import { type CheckInReplayOutcome, startOutboxDrain } from '@/services/sync.service';
 import { useAuthStore } from '@/store/auth.store';
+import { handleCheckInReplayOutcome } from '@/utils/attendance';
 import migrations from '../../drizzle/migrations';
 
 cssInterop(SafeAreaView, { className: 'style' });
@@ -36,6 +38,7 @@ function isUnauthenticatedGroup(segment: string | undefined): boolean {
 function RootLayoutNav(): ReactElement {
   const router = useRouter();
   const segments = useSegments();
+  const queryClient = useQueryClient();
   const token = useAuthStore((s) => s.token);
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const [hasHiddenSplash, setHasHiddenSplash] = useState(false);
@@ -62,8 +65,10 @@ function RootLayoutNav(): ReactElement {
     // The drain reads the outbox table, so it cannot start before migrations have
     // created it. Returns the listener's cleanup so it is torn down on unmount.
     if (!migrationsReady) return;
-    return startOutboxDrain();
-  }, [migrationsReady]);
+    return startOutboxDrain((outcome: CheckInReplayOutcome): void => {
+      handleCheckInReplayOutcome(queryClient, outcome);
+    });
+  }, [migrationsReady, queryClient]);
 
   useEffect(() => {
     if (!isHydrated || !migrationsReady) return;

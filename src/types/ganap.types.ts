@@ -158,6 +158,28 @@ export interface JoinGanapResult {
   createdAt: string;
 }
 
+/** Request body for recording attendance from a scanned organizer QR. */
+export interface CheckInInput {
+  /** QR hash read from the organizer's displayed code. */
+  qrHash: string;
+  /** ISO 8601 time the client performed the scan; preserved for offline replay. */
+  scannedAt: string;
+}
+
+/**
+ * The registration returned by a successful attendance scan.
+ *
+ * The server flips the registration to `ATTENDED` and returns it; the endpoint
+ * is named `check-in` server-side for historical reasons only.
+ */
+export interface CheckInResult {
+  id: string;
+  userId: string;
+  ganapId: string;
+  status: RegistrationStatus;
+  createdAt: string;
+}
+
 /** Query parameters accepted by the public Ganap list. */
 export interface GanapListParams {
   cursor?: string;
