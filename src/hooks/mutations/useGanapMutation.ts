@@ -101,6 +101,10 @@ export function useSubmitFormAnswersMutation(): UseMutationResult<JoinGanapResul
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });
     },
+    // Both callers render the failure inline against the form the student is
+    // still looking at — the registration route via `submissionError`, and the
+    // feedback route via its mapped step error — so a global toast duplicates it.
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }
 
@@ -224,5 +228,10 @@ export function useRateGanapMutation(): UseMutationResult<GanapRating, Error, Ra
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
     },
+    // The feedback route renders every rating failure inline, and treats
+    // `400 Already rated this event` as silent step completion rather than a
+    // failure at all. A global toast would both duplicate the inline message
+    // and surface a reconciliation the student is not meant to see.
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }

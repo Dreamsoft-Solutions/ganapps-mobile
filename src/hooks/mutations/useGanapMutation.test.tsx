@@ -5,9 +5,10 @@ import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import type { ReactElement, ReactNode } from 'react';
 import axiosInstance from '@/api/axios-instance';
 import { enqueueOutbox } from '@/services/sync.service';
+import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
 import { ganapQueryKeys } from '../queries/useGanapsQuery';
 import { profileQueryKeys } from '../queries/useProfileQuery';
-import { useCheckInMutation } from './useGanapMutation';
+import { useCheckInMutation, useRateGanapMutation, useSubmitFormAnswersMutation } from './useGanapMutation';
 
 jest.mock('@/services/sync.service', () => ({
   enqueueOutbox: jest.fn(),
@@ -165,6 +166,74 @@ describe('useCheckInMutation', () => {
     });
 
     expect(mockedEnqueueOutbox).not.toHaveBeenCalled();
+    unmount();
+  });
+});
+
+describe('global error toast suppression', () => {
+  /**
+   * Reads the `meta` recorded on the single mutation in a client's cache.
+   *
+   * `useMutation` does not expose its options on the returned result, so the
+   * cache entry is the only place the flag can be observed after a run.
+   *
+   * @param client - The client the mutation ran against
+   * @returns The cached mutation's `meta`, or undefined when it carries none
+   */
+  function metaOf(client: QueryClient): Record<string, unknown> | undefined {
+    const [mutation] = client.getMutationCache().getAll();
+    return mutation?.meta;
+  }
+
+  it('suppresses the global toast for check-in', async () => {
+    axiosInstance.defaults.adapter = serverErrorAdapter(400, 'Invalid QR code');
+    const client = queryClient();
+    const { result, unmount } = await renderHook(() => useCheckInMutation(), { wrapper: wrapperFor(client) });
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({ ganapId: 'g-1', qrHash: 'hash-abc', scannedAt: '2026-08-08T13:00:00.000Z' }),
+      ).rejects.toThrow('Invalid QR code');
+    });
+
+    expect(metaOf(client)).toEqual({ [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true });
+    unmount();
+  });
+
+  // The feedback route treats `Already rated this event` as silent step
+  // completion. A global toast would surface a reconciliation the student is
+  // never meant to see, so the flag is part of the behaviour, not a detail.
+  it('suppresses the global toast for rating', async () => {
+    axiosInstance.defaults.adapter = serverErrorAdapter(400, 'Already rated this event');
+    const client = queryClient();
+    const { result, unmount } = await renderHook(() => useRateGanapMutation(), { wrapper: wrapperFor(client) });
+
+    await act(async () => {
+      await expect(result.current.mutateAsync({ ganapId: 'g-1', input: { score: 4 } })).rejects.toThrow(
+        'Already rated this event',
+      );
+    });
+
+    expect(metaOf(client)).toEqual({ [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true });
+    unmount();
+  });
+
+  // Shared by the registration and feedback routes; both render the failure
+  // inline against the form still on screen.
+  it('suppresses the global toast for form answers', async () => {
+    axiosInstance.defaults.adapter = serverErrorAdapter(400, 'Required field "Shirt size" is missing');
+    const client = queryClient();
+    const { result, unmount } = await renderHook(() => useSubmitFormAnswersMutation(), {
+      wrapper: wrapperFor(client),
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({ ganapId: 'g-1', input: { answers: [], scope: 'POST_ATTENDANCE' } }),
+      ).rejects.toThrow('Required field "Shirt size" is missing');
+    });
+
+    expect(metaOf(client)).toEqual({ [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true });
     unmount();
   });
 });
