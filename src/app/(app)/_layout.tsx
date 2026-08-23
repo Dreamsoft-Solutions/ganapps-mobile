@@ -1,11 +1,18 @@
-import { Tabs, useRouter, useSegments } from 'expo-router';
+import type { Href } from 'expo-router';
+import { Tabs, useRootNavigationState, useRouter, useSegments } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import type { ReactElement } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Loading } from '@/components/common/Loading';
 import { AppTabBar, BAR_HEIGHT } from '@/components/navigation/AppTabBar';
 import { Routes } from '@/constants/routes';
 import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
+import {
+  completePendingNotification,
+  getPendingNotificationTarget,
+  startAndroidPushTokenSync,
+  subscribeToPendingNotification,
+} from '@/services/push-notification.service';
 import { useAuthStore } from '@/store/auth.store';
 import { shouldHideAppTabBar } from '@/utils/navigation';
 import { needsOnboarding } from '@/utils/onboarding';
@@ -18,9 +25,16 @@ import { needsOnboarding } from '@/utils/onboarding';
 export default function AppLayout(): ReactElement {
   const router = useRouter();
   const segments = useSegments();
+  const rootNavigationState = useRootNavigationState();
   const { data: user, isLoading } = useAuthQuery();
   const setUser = useAuthStore((s) => s.setUser);
   const hideTabBar: boolean = shouldHideAppTabBar(segments);
+  const [pendingNotificationTarget, setPendingNotificationTarget] = useState<Href | null>((): Href | null =>
+    getPendingNotificationTarget(),
+  );
+  const isRouterReady: boolean = Boolean(rootNavigationState?.key);
+  const isVerifiedUserReady: boolean = user?.isVerified === true;
+  const isNotificationReady: boolean = isVerifiedUserReady && !needsOnboarding(user ?? null);
 
   useEffect(() => {
     if (!user) return;
@@ -40,6 +54,31 @@ export default function AppLayout(): ReactElement {
       router.replace(Routes.onboarding);
     }
   }, [user, segments, router, setUser]);
+
+  useEffect((): (() => void) => {
+    return subscribeToPendingNotification((target: Href | null): void => {
+      setPendingNotificationTarget(target);
+    });
+  }, []);
+
+  useEffect((): void => {
+    if (!isNotificationReady || !isRouterReady) return;
+
+    const target = pendingNotificationTarget;
+    if (target === null) return;
+
+    try {
+      router.push(target);
+      completePendingNotification(target);
+    } catch {
+      // Keep the target queued so a later router-ready render can retry it.
+    }
+  }, [isNotificationReady, isRouterReady, pendingNotificationTarget, router]);
+
+  useEffect((): (() => void) | undefined => {
+    if (!isVerifiedUserReady || user?.id === undefined) return undefined;
+    return startAndroidPushTokenSync();
+  }, [isVerifiedUserReady, user?.id]);
 
   if (isLoading) {
     return <Loading message="Loading..." />;
