@@ -35,6 +35,8 @@ export interface AttendanceScanViewProps {
   onOpenSettings: () => void | Promise<void>;
   /** Leaves the scanner screen. */
   onBack: () => void;
+  /** Opens the post-event feedback flow. Fires only from the `recorded` phase. */
+  onGiveFeedback: () => void;
 }
 
 /**
@@ -53,6 +55,7 @@ export function AttendanceScanView({
   onScanAgain,
   onOpenSettings,
   onBack,
+  onGiveFeedback,
 }: AttendanceScanViewProps): ReactElement {
   const insets = useSafeAreaInsets();
   const theme = useResolvedTheme();
@@ -146,9 +149,14 @@ export function AttendanceScanView({
                 ? `${eventTitle} — you're all set. Thanks for coming.`
                 : "You're all set — thanks for coming."}
             </Text>
-            <Button variant="default" size="md" onPress={onBack}>
-              Done
-            </Button>
+            <View className="w-full gap-sm">
+              <Button variant="default" size="md" onPress={onGiveFeedback}>
+                Rate this event
+              </Button>
+              <Button variant="outline" size="md" onPress={onBack}>
+                Done
+              </Button>
+            </View>
           </View>
         )}
 

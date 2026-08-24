@@ -3,7 +3,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
 import { StyleSheet } from 'react-native';
 import type { FormBlock } from '@/types/ganap.types';
-import type { RegistrationFormProps } from './RegistrationForm';
+import type { DynamicFormProps } from './DynamicForm';
 
 jest.mock('lucide-react-native', () => ({
   ArrowLeft: (): null => null,
@@ -25,7 +25,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 jest.mock('@/hooks/useResolvedTheme', () => ({ useResolvedTheme: (): 'light' => 'light' }));
 
-import { RegistrationForm } from './RegistrationForm';
+import { DynamicForm } from './DynamicForm';
 
 const textBlock: FormBlock = {
   id: 'block_text',
@@ -96,13 +96,16 @@ const scaleBlock: FormBlock = {
 const blocks: FormBlock[] = [scaleBlock, multipleChoiceBlock, singleChoiceBlock, textBlock];
 
 async function renderRegistrationForm(
-  overrides: Partial<RegistrationFormProps> = {},
+  overrides: Partial<DynamicFormProps> = {},
 ): Promise<Awaited<ReturnType<typeof render>>> {
-  const onSubmit: RegistrationFormProps['onSubmit'] = jest.fn<RegistrationFormProps['onSubmit']>().mockResolvedValue();
+  const onSubmit: DynamicFormProps['onSubmit'] = jest.fn<DynamicFormProps['onSubmit']>().mockResolvedValue();
   const onDirtyChange = jest.fn<(isDirty: boolean) => void>();
 
   return await render(
-    <RegistrationForm
+    <DynamicForm
+      title="Complete registration"
+      description="Answer a few questions from the organization before you join this event."
+      submitLabel="Submit registration"
       ganapTitle="Coffee & Code"
       blocks={blocks}
       isSubmitting={false}
@@ -228,9 +231,7 @@ describe('RegistrationForm dynamic fields', (): void => {
 
 describe('RegistrationForm submission', (): void => {
   it('submits mapped values from all supported field types', async (): Promise<void> => {
-    const onSubmit: RegistrationFormProps['onSubmit'] = jest
-      .fn<RegistrationFormProps['onSubmit']>()
-      .mockResolvedValue();
+    const onSubmit: DynamicFormProps['onSubmit'] = jest.fn<DynamicFormProps['onSubmit']>().mockResolvedValue();
     const screen = await renderRegistrationForm({ onSubmit });
 
     await fireEvent.changeText(screen.getByPlaceholderText('Tell us briefly'), '  I want to learn. ');
@@ -252,8 +253,8 @@ describe('RegistrationForm submission', (): void => {
   });
 
   it('retains entered values and shows a submission error after retry failure', async (): Promise<void> => {
-    const onSubmit: RegistrationFormProps['onSubmit'] = jest
-      .fn<RegistrationFormProps['onSubmit']>()
+    const onSubmit: DynamicFormProps['onSubmit'] = jest
+      .fn<DynamicFormProps['onSubmit']>()
       .mockRejectedValue(new Error('Server unavailable'));
     const screen = await renderRegistrationForm({ blocks: [textBlock], onSubmit });
     const input = screen.getByPlaceholderText('Tell us briefly');
@@ -263,7 +264,10 @@ describe('RegistrationForm submission', (): void => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
 
     await screen.rerender(
-      <RegistrationForm
+      <DynamicForm
+        title="Complete registration"
+        description="Answer a few questions from the organization before you join this event."
+        submitLabel="Submit registration"
         ganapTitle="Coffee & Code"
         blocks={[textBlock]}
         isSubmitting={false}

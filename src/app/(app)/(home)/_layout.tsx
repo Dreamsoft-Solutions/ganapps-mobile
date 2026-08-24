@@ -9,6 +9,7 @@ export default function HomeLayout(): ReactElement {
       <Stack.Screen name="registration/[ganap-id]" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="event-hub/[ganap-id]" options={{ headerShown: false }} />
       <Stack.Screen name="scan/[ganap-id]" options={{ headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="feedback/[ganap-id]" options={{ headerShown: false, gestureEnabled: false }} />
     </Stack>
   );
 }

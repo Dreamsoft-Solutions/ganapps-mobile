@@ -11,10 +11,16 @@ import { Spacing } from '@/constants/theme';
 import type { FormBlock, RegistrationFormData, SubmitFormAnswersInput } from '@/types/ganap.types';
 import { buildRegistrationFormDefaults, buildSubmitFormAnswersInput } from '@/utils/registration-form';
 import { createRegistrationFormSchema } from '@/utils/validation';
-import { RegistrationQuestion } from './RegistrationQuestion';
+import { DynamicFormQuestion } from './DynamicFormQuestion';
 
-/** Props for the dynamic registration form composition. */
-export interface RegistrationFormProps {
+/** Props for the dynamic organizer-form composition, used by both form scopes. */
+export interface DynamicFormProps {
+  /** Screen heading, e.g. "Complete registration". */
+  title: string;
+  /** Sentence above the questions explaining why they are being asked. */
+  description: string;
+  /** Submit button label, e.g. "Submit registration". */
+  submitLabel: string;
   ganapTitle: string;
   blocks: FormBlock[];
   isSubmitting: boolean;
@@ -25,12 +31,15 @@ export interface RegistrationFormProps {
 }
 
 /**
- * Renders the attendee-facing dynamic registration form.
+ * Renders an attendee-facing dynamic organizer form.
  *
- * @param props - Ganap context, server blocks, submission state, and route callbacks
- * @returns A keyboard-safe, accessible registration form
+ * @param props - Screen copy, Ganap context, server blocks, submission state, and route callbacks
+ * @returns A keyboard-safe, accessible form
  */
-export function RegistrationForm({
+export function DynamicForm({
+  title,
+  description,
+  submitLabel,
   ganapTitle,
   blocks,
   isSubmitting,
@@ -38,7 +47,7 @@ export function RegistrationForm({
   onBack,
   onDirtyChange,
   onSubmit,
-}: RegistrationFormProps): ReactElement {
+}: DynamicFormProps): ReactElement {
   const insets = useSafeAreaInsets();
   const orderedBlocks: FormBlock[] = useMemo(
     (): FormBlock[] => [...blocks].sort((left: FormBlock, right: FormBlock): number => left.order - right.order),
@@ -87,7 +96,7 @@ export function RegistrationForm({
             </Pressable>
             <View className="min-w-0 flex-1">
               <Text className="text-headline-md" accessibilityRole="header">
-                Complete registration
+                {title}
               </Text>
               <Text className="text-body-md text-muted-foreground" numberOfLines={2}>
                 {ganapTitle}
@@ -101,13 +110,11 @@ export function RegistrationForm({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Text className="mb-lg text-body-lg text-muted-foreground">
-              Answer a few questions from the organization before you join this event.
-            </Text>
+            <Text className="mb-lg text-body-lg text-muted-foreground">{description}</Text>
             <View className="gap-xl">
               {orderedBlocks.map(
                 (block: FormBlock): ReactElement => (
-                  <RegistrationQuestion key={block.id} block={block} />
+                  <DynamicFormQuestion key={block.id} block={block} />
                 ),
               )}
             </View>
@@ -128,7 +135,7 @@ export function RegistrationForm({
               onPress={methods.handleSubmit(handleSubmit)}
               size="lg"
             >
-              Submit registration
+              {submitLabel}
             </Button>
           </View>
         </View>

@@ -7,7 +7,7 @@ import { enqueueOutbox } from '@/services/sync.service';
 import { useAuthStore } from '@/store/auth.store';
 import type { FormBlock, JoinGanapResult, SubmitFormAnswersInput } from '@/types/ganap.types';
 import { useSubmitFormAnswersMutation } from './mutations/useGanapMutation';
-import { ganapQueryKeys, useRegistrationFormBlocksQuery } from './queries/useGanapsQuery';
+import { ganapQueryKeys, useFormBlocksQuery } from './queries/useGanapsQuery';
 import { profileQueryKeys } from './queries/useProfileQuery';
 import { useGanapRegistration } from './useGanapRegistration';
 
@@ -89,10 +89,10 @@ afterEach((): void => {
   useAuthStore.setState({ token: null });
 });
 
-describe('useRegistrationFormBlocksQuery', (): void => {
+describe('useFormBlocksQuery', (): void => {
   it('stays idle without a token', async (): Promise<void> => {
     useAuthStore.setState({ token: null });
-    const { result, unmount } = await renderHook(() => useRegistrationFormBlocksQuery('g1'), {
+    const { result, unmount } = await renderHook(() => useFormBlocksQuery('g1', 'REGISTRATION'), {
       wrapper: wrapperFor(queryClient()),
     });
 
@@ -103,7 +103,7 @@ describe('useRegistrationFormBlocksQuery', (): void => {
 
   it('stays idle without a Ganap ID', async (): Promise<void> => {
     useAuthStore.setState({ token: 'access-token' });
-    const { result, unmount } = await renderHook(() => useRegistrationFormBlocksQuery(''), {
+    const { result, unmount } = await renderHook(() => useFormBlocksQuery('', 'REGISTRATION'), {
       wrapper: wrapperFor(queryClient()),
     });
 
@@ -115,7 +115,7 @@ describe('useRegistrationFormBlocksQuery', (): void => {
   it('fetches registration-scoped blocks when authenticated', async (): Promise<void> => {
     useAuthStore.setState({ token: 'access-token' });
     mockedListFormBlocks.mockResolvedValue([block]);
-    const { result, unmount } = await renderHook(() => useRegistrationFormBlocksQuery('g1'), {
+    const { result, unmount } = await renderHook(() => useFormBlocksQuery('g1', 'REGISTRATION'), {
       wrapper: wrapperFor(queryClient()),
     });
 

@@ -1,7 +1,13 @@
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import { enqueueOutbox } from '@/services/sync.service';
-import type { CheckInResult, JoinGanapResult, SubmitFormAnswersInput } from '@/types/ganap.types';
+import type {
+  CheckInResult,
+  GanapRating,
+  JoinGanapResult,
+  RateGanapInput,
+  SubmitFormAnswersInput,
+} from '@/types/ganap.types';
 import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
 import { ganapQueryKeys } from '../queries/useGanapsQuery';
 import { profileQueryKeys } from '../queries/useProfileQuery';
@@ -95,6 +101,10 @@ export function useSubmitFormAnswersMutation(): UseMutationResult<JoinGanapResul
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });
     },
+    // Both callers render the failure inline against the form the student is
+    // still looking at — the registration route via `submissionError`, and the
+    // feedback route via its mapped step error — so a global toast duplicates it.
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }
 
@@ -191,6 +201,37 @@ export function useCheckInMutation(): UseMutationResult<CheckInOutcome, Error, C
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });
     },
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
+  });
+}
+
+/** Variables accepted by the rating mutation. */
+export interface RateGanapVariables {
+  ganapId: string;
+  input: RateGanapInput;
+}
+
+/**
+ * Submits the student's 1–5 star rating and refreshes the Ganap caches.
+ *
+ * Invalidating the detail key is what refreshes `averageRating` and
+ * `ratingCount` on the detail screen without a manual reload.
+ *
+ * @returns The mutation, resolving to the created rating
+ */
+export function useRateGanapMutation(): UseMutationResult<GanapRating, Error, RateGanapVariables> {
+  const queryClient = useQueryClient();
+
+  return useMutation<GanapRating, Error, RateGanapVariables>({
+    mutationFn: ({ ganapId, input }: RateGanapVariables): Promise<GanapRating> => ganapsAPI.rateGanap(ganapId, input),
+    onSuccess: (_result: GanapRating, { ganapId }: RateGanapVariables): void => {
+      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
+      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
+    },
+    // The feedback route renders every rating failure inline, and treats
+    // `400 Already rated this event` as silent step completion rather than a
+    // failure at all. A global toast would both duplicate the inline message
+    // and surface a reconciliation the student is not meant to see.
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }

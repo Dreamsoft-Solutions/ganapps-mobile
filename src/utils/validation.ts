@@ -51,6 +51,11 @@ export const profileSchema = z.object({
   interests: z.array(z.string()),
 });
 
+/** Validates the post-event star rating before submission. */
+export const ratingSchema = z.object({
+  score: z.number().int().min(1).max(5),
+});
+
 export type LoginFormData = z.infer<typeof loginSchema>;
 export type RegisterFormData = z.infer<typeof registerSchema>;
 export type VerifyEmailFormData = z.infer<typeof verifyEmailSchema>;

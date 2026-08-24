@@ -192,6 +192,36 @@ describe('ganapsAPI toggles', () => {
   });
 });
 
+describe('ganapsAPI.rateGanap', () => {
+  it('posts a rating to the versioned rate path', async () => {
+    const rating = {
+      id: 'rating_1',
+      ganapId: 'g1',
+      userId: 'u1',
+      rating: 4,
+      comment: null,
+      createdAt: '2026-08-18T00:00:00.000Z',
+      updatedAt: '2026-08-18T00:00:00.000Z',
+    };
+    axiosInstance.defaults.adapter = envelopeAdapter(rating);
+
+    await expect(ganapsAPI.rateGanap('g1', { score: 4 })).resolves.toEqual(rating);
+    expect(requestedUrl(captured[0])).toContain('/api/v1/ganaps/g1/rate');
+    expect(captured[0].data).toBe(JSON.stringify({ score: 4 }));
+  });
+
+  it('threads the form-block scope through the answer submission body', async () => {
+    axiosInstance.defaults.adapter = envelopeAdapter({ id: 'reg_1', status: 'ATTENDED' });
+
+    await ganapsAPI.submitFormAnswers('g1', {
+      scope: 'POST_ATTENDANCE',
+      answers: [{ formBlockId: 'block_1', textValue: 'Great event' }],
+    });
+
+    expect(JSON.parse(String(captured[0].data)).scope).toBe('POST_ATTENDANCE');
+  });
+});
+
 describe('checkIn', () => {
   it('POSTs the qr hash and scan time to the version-free check-in path', async () => {
     const payload = {

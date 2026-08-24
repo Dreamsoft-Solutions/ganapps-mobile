@@ -34,6 +34,7 @@ export interface RouteTable {
   ganapRegistration: (ganapId: string) => Href;
   eventHub: (ganapId: string) => Href;
   attendanceScan: (ganapId: string) => Href;
+  ganapFeedback: (ganapId: string) => Href;
 }
 
 /**
@@ -132,6 +133,17 @@ export const Routes: RouteTable = {
    */
   attendanceScan: (ganapId: string): Href => ({
     pathname: '/(app)/(home)/scan/[ganap-id]',
+    params: { 'ganap-id': ganapId },
+  }),
+
+  /**
+   * Builds the href for a Ganap's post-event feedback flow.
+   *
+   * @param ganapId - Value for the `[ganap-id]` segment of the feedback route.
+   * @returns An href targeting that event's rating and feedback screen.
+   */
+  ganapFeedback: (ganapId: string): Href => ({
+    pathname: '/(app)/(home)/feedback/[ganap-id]',
     params: { 'ganap-id': ganapId },
   }),
 };

@@ -27,6 +27,7 @@ import type { AttendanceScanState } from '@/utils/attendance';
 import type { GanapScheduleModel } from '@/utils/ganap-detail';
 import { AnnouncementCard } from './AnnouncementCard';
 import { AttendanceScanRow } from './AttendanceScanRow';
+import { FeedbackRow } from './FeedbackRow';
 
 /** Stable no-op passed to {@link AttendanceScanRow} outside the `available` state. */
 function noop(): void {}
@@ -52,6 +53,10 @@ export interface EventHubViewProps {
   onLoadMore: () => void | Promise<void>;
   /** Navigates to the attendance scanner; fired only when `scanState` is `available`. */
   onScanAttendance: () => void;
+  /** Whether any post-event feedback step is still outstanding. */
+  hasPendingFeedback: boolean;
+  /** Navigates to the post-event feedback flow; fired only when `hasPendingFeedback` is true. */
+  onGiveFeedback: () => void;
 }
 
 interface ScheduleItemProps {
@@ -148,6 +153,8 @@ export function EventHubView({
   onRetryNextPage,
   onLoadMore,
   onScanAttendance,
+  hasPendingFeedback,
+  onGiveFeedback,
 }: EventHubViewProps): ReactElement {
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
@@ -352,6 +359,9 @@ export function EventHubView({
                    * touch on a plain View could ever produce.
                    */}
                   <AttendanceScanRow state={scanState} onPress={scanState === 'available' ? onScanAttendance : noop} />
+                </View>
+                <View className="mb-sm">
+                  <FeedbackRow isPending={hasPendingFeedback} onPress={hasPendingFeedback ? onGiveFeedback : noop} />
                 </View>
                 <EventRemindersRow />
               </View>

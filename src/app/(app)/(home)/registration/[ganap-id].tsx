@@ -8,7 +8,7 @@ import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
-import { RegistrationForm } from '@/components/forms/RegistrationForm';
+import { DynamicForm } from '@/components/forms/DynamicForm';
 import { ganapQueryKeys, useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { useGanapRegistration } from '@/hooks/useGanapRegistration';
 import type { GanapDetail, SubmitFormAnswersInput } from '@/types/ganap.types';
@@ -105,7 +105,10 @@ export default function RegistrationFormRoute(): ReactElement {
   }
 
   return (
-    <RegistrationForm
+    <DynamicForm
+      title="Complete registration"
+      description="Answer a few questions from the organization before you join this event."
+      submitLabel="Submit registration"
       ganapTitle={detailQuery.data.title}
       blocks={registration.blocks}
       isSubmitting={isSubmitting}

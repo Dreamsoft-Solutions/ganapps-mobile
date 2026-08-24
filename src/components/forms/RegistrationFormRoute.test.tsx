@@ -7,7 +7,7 @@ import { Alert, BackHandler, Pressable as MockPressable, Text as MockText, View 
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { FormBlock, GanapDetail, SubmitFormAnswersInput } from '@/types/ganap.types';
 
-interface MockRegistrationFormProps {
+interface MockDynamicFormProps {
   ganapTitle: string;
   blocks: FormBlock[];
   isSubmitting: boolean;
@@ -19,8 +19,8 @@ interface MockRegistrationFormProps {
 
 const mockRouter = { back: jest.fn<() => void>() };
 const mockParams: { 'ganap-id': string } = { 'ganap-id': 'g1' };
-const mockRegistrationForm = jest.fn(
-  (props: MockRegistrationFormProps): ReactElement => (
+const mockDynamicForm = jest.fn(
+  (props: MockDynamicFormProps): ReactElement => (
     <MockView>
       <MockText>{props.ganapTitle}</MockText>
       <MockText>{props.blocks[0]?.label}</MockText>
@@ -139,8 +139,8 @@ jest.mock('@/components/common/Loading', () => ({
   Loading: (): ReactElement => <MockText>Loading</MockText>,
 }));
 
-jest.mock('@/components/forms/RegistrationForm', () => ({
-  RegistrationForm: (props: MockRegistrationFormProps): ReactElement => mockRegistrationForm(props),
+jest.mock('@/components/forms/DynamicForm', () => ({
+  DynamicForm: (props: MockDynamicFormProps): ReactElement => mockDynamicForm(props),
 }));
 
 jest.mock('@/hooks/queries/useGanapsQuery', () => ({
@@ -246,7 +246,7 @@ describe('registration form route orchestration', (): void => {
   it('passes the loaded Ganap title and blocks to the form', async (): Promise<void> => {
     await renderRoute();
 
-    expect(mockRegistrationForm).toHaveBeenCalledWith(
+    expect(mockDynamicForm).toHaveBeenCalledWith(
       expect.objectContaining({ ganapTitle: 'Coffee & Code', blocks: [mockBlock] }),
     );
   });
@@ -320,7 +320,7 @@ describe('registration form route orchestration', (): void => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation((): void => {});
     const screen = await renderRoute();
     await fireEvent.press(screen.getByRole('button', { name: 'Mark form dirty' }));
-    await waitFor(() => expect(mockRegistrationForm).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockDynamicForm).toHaveBeenCalledTimes(2));
     await fireEvent.press(screen.getByRole('button', { name: 'Back from form' }));
 
     expect(alert).toHaveBeenCalledWith('Discard your answers?', 'Your answers will not be saved.', expect.any(Array));
@@ -337,7 +337,7 @@ describe('registration form route orchestration', (): void => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation((): void => {});
     const screen = await renderRoute();
     await fireEvent.press(screen.getByRole('button', { name: 'Mark form dirty' }));
-    await waitFor(() => expect(mockRegistrationForm).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockDynamicForm).toHaveBeenCalledTimes(2));
 
     expect(hardwareBackHandler?.()).toBe(true);
     expect(alert).toHaveBeenCalledWith('Discard your answers?', 'Your answers will not be saved.', expect.any(Array));

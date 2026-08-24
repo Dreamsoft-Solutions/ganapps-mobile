@@ -6,6 +6,7 @@ import {
   onboardingNamesSchema,
   onboardingSchema,
   profileSchema,
+  ratingSchema,
   registerSchema,
   verifyEmailSchema,
 } from './validation';
@@ -302,5 +303,23 @@ describe('createRegistrationFormSchema', () => {
     };
 
     expect(createRegistrationFormSchema(blocks).safeParse(data)).toEqual({ success: true, data });
+  });
+});
+
+describe('ratingSchema', () => {
+  it.each([1, 2, 3, 4, 5])('accepts a whole score of %i', (score: number) => {
+    expect(ratingSchema.safeParse({ score }).success).toBe(true);
+  });
+
+  it.each([0, 6, -1])('rejects an out-of-range score of %i', (score: number) => {
+    expect(ratingSchema.safeParse({ score }).success).toBe(false);
+  });
+
+  it('rejects a fractional score', () => {
+    expect(ratingSchema.safeParse({ score: 4.5 }).success).toBe(false);
+  });
+
+  it('rejects a missing score', () => {
+    expect(ratingSchema.safeParse({}).success).toBe(false);
   });
 });
