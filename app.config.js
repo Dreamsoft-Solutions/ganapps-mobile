@@ -120,6 +120,12 @@ module.exports = {
           cameraPermission: "Ganapps uses the camera to scan the organizer's attendance QR code.",
         },
       ],
+      [
+        'expo-image-picker',
+        {
+          microphonePermission: false,
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,
