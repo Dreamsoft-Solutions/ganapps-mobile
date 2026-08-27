@@ -83,6 +83,8 @@ module.exports = {
         'expo-notifications',
         {
           defaultChannel: 'registration-status',
+          icon: './assets/images/notification-icon.png',
+          color: '#22C55E',
         },
       ],
       [
