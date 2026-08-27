@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { Check, Eye, EyeOff } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useCallback, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -15,7 +15,14 @@ import { useFeatureFlag } from '@/hooks/useFeatureFlag';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { getGoogleFirebaseIdToken, isGoogleSignInCancelled } from '@/services/google-auth.service';
 import type { LoginDto, RegisterDto } from '@/types/auth.types';
-import { type LoginFormData, loginSchema, type RegisterFormData, registerSchema } from '@/utils/validation';
+import {
+  getPasswordRequirementStatus,
+  type LoginFormData,
+  loginSchema,
+  PASSWORD_POLICY,
+  type RegisterFormData,
+  registerSchema,
+} from '@/utils/validation';
 
 /**
  * Google brand icon used in the social sign-in button.
@@ -30,6 +37,39 @@ function GoogleIcon(): ReactElement {
       accessibilityRole="image"
     >
       <Text className="text-base font-inter-bold text-primary">G</Text>
+    </View>
+  );
+}
+
+interface PasswordChecklistProps {
+  password: string;
+}
+
+/**
+ * Shows the signup password rules as the user types.
+ *
+ * @param props - Current signup password
+ * @returns The password requirements checklist
+ */
+function PasswordChecklist({ password }: PasswordChecklistProps): ReactElement {
+  const theme = useResolvedTheme();
+  const status = getPasswordRequirementStatus(password);
+
+  return (
+    <View className="-mt-2 mb-2 gap-1" accessibilityLabel="Password requirements">
+      {PASSWORD_POLICY.requirements.map((requirement): ReactElement => {
+        const met: boolean = status[requirement.id];
+        const color: string = met ? Colors[theme].primary : Colors[theme]['muted-foreground'];
+
+        return (
+          <View key={requirement.id} className="flex-row items-center gap-2">
+            <Check size={14} color={color} strokeWidth={met ? 2.5 : 1.5} />
+            <Text className={met ? 'text-label-sm text-primary' : 'text-label-sm text-muted-foreground'}>
+              {requirement.label}
+            </Text>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -59,6 +99,8 @@ export function LoginForm(): ReactElement {
       ...(isLogin ? {} : { username: '', confirmPassword: '' }),
     },
   });
+  const watchedPassword: unknown = methods.watch('password');
+  const passwordValue: string = typeof watchedPassword === 'string' ? watchedPassword : '';
 
   const toggleMode = useCallback(() => {
     setMode((previous) => (previous === 'login' ? 'signup' : 'login'));
@@ -160,10 +202,13 @@ export function LoginForm(): ReactElement {
         <Input
           name="password"
           label="Password"
-          placeholder="Min. 8 characters"
+          placeholder={isLogin ? 'Min. 8 characters' : '8-128 characters'}
           secureTextEntry={!showPassword}
           iconRight={passwordToggle}
+          maxLength={isLogin ? undefined : PASSWORD_POLICY.maxLength}
         />
+
+        {!isLogin && <PasswordChecklist password={passwordValue} />}
 
         {!isLogin && (
           <Input
