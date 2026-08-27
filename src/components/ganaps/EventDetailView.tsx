@@ -1,3 +1,4 @@
+import Markdown, { type MarkdownStyleMap } from '@ronradtke/react-native-markdown-display';
 import { Image } from 'expo-image';
 import { ArrowLeft, Bookmark, Calendar, Check, Clock, Heart, Share2, Star, Users } from 'lucide-react-native';
 import type { ReactElement } from 'react';
@@ -15,6 +16,7 @@ import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { BusinessDetail } from '@/types/business.types';
 import type { GanapDetail } from '@/types/ganap.types';
 import type { GanapActionModel, GanapCapacityModel, GanapScheduleModel } from '@/utils/ganap-detail';
+import { EVENT_DESCRIPTION_MARKDOWN_PARSER, isSafeAbsoluteMarkdownUrl } from '@/utils/markdown';
 import { EventActionBar } from './EventActionBar';
 import { EventLocationPreview } from './EventLocationPreview';
 
@@ -107,6 +109,74 @@ export function EventDetailView({
     (ganap.ratingCount ?? 0) > 0 && ganap.averageRating !== null && ganap.averageRating !== undefined;
   const imageTransition: number = reducedMotion ? 0 : 200;
   const actionBarClearance: number = SINGLE_ACTION_CLEARANCE + (actionModel.secondary ? SECONDARY_ACTION_CLEARANCE : 0);
+  const markdownStyle: MarkdownStyleMap = {
+    body: {
+      color: Colors[theme].foreground,
+      fontSize: 16,
+      lineHeight: 24,
+    },
+    paragraph: {
+      marginTop: 0,
+      marginBottom: 12,
+    },
+    heading1: {
+      color: Colors[theme].foreground,
+      fontSize: 24,
+      lineHeight: 32,
+      marginBottom: 8,
+    },
+    heading2: {
+      color: Colors[theme].foreground,
+      fontSize: 20,
+      lineHeight: 28,
+      marginBottom: 8,
+    },
+    heading3: {
+      color: Colors[theme].foreground,
+      fontSize: 18,
+      lineHeight: 24,
+      marginBottom: 8,
+    },
+    strong: {
+      color: Colors[theme].foreground,
+      fontWeight: '700',
+    },
+    em: {
+      color: Colors[theme].foreground,
+    },
+    ins: {
+      color: Colors[theme].foreground,
+      textDecorationLine: 'underline',
+    },
+    s: {
+      color: Colors[theme]['muted-foreground'],
+      textDecorationLine: 'line-through',
+    },
+    link: {
+      color: Colors[theme].primary,
+      textDecorationLine: 'underline',
+    },
+    bullet_list_icon: {
+      color: Colors[theme].foreground,
+    },
+    ordered_list_icon: {
+      color: Colors[theme].foreground,
+    },
+    blockquote: {
+      backgroundColor: Colors[theme].muted,
+      borderColor: Colors[theme].border,
+    },
+    code_inline: {
+      color: Colors[theme].foreground,
+      backgroundColor: Colors[theme].muted,
+      borderColor: Colors[theme].border,
+    },
+    code_block: {
+      color: Colors[theme].foreground,
+      backgroundColor: Colors[theme].muted,
+      borderColor: Colors[theme].border,
+    },
+  };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset image fallback state when the selected source changes.
   useEffect((): void => {
@@ -285,7 +355,18 @@ export function EventDetailView({
             </Card>
 
             <Text className="mt-xl text-headline-md">About</Text>
-            <Text className="mt-sm text-body-lg">{ganap.description}</Text>
+            <View className="mt-sm">
+              <Markdown
+                allowedImageHandlers={[]}
+                defaultImageHandler={null}
+                markdownit={EVENT_DESCRIPTION_MARKDOWN_PARSER}
+                onLinkPress={isSafeAbsoluteMarkdownUrl}
+                style={markdownStyle}
+                colorScheme={theme}
+              >
+                {ganap.description}
+              </Markdown>
+            </View>
 
             <Text className="mt-xl text-headline-md">Location</Text>
             <View className="mt-sm">
