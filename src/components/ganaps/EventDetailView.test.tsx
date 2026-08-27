@@ -129,6 +129,7 @@ const ganap: GanapDetail = {
   locationLong: 122.5489,
   startDate: '2026-08-08T02:00:00.000Z',
   endDate: '2026-08-08T06:00:00.000Z',
+  attendanceOpenMinutesBefore: 30,
   status: 'PUBLISHED',
   requiresApproval: false,
   maxAttendees: 40,

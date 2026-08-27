@@ -147,6 +147,8 @@ export interface GanapDetail {
   locationLong: number;
   startDate: string;
   endDate?: string | null;
+  /** Number of minutes before the Ganap starts when attendance scanning opens. */
+  attendanceOpenMinutesBefore: number;
   status: GanapStatus;
   requiresApproval: boolean;
   maxAttendees?: number | null;

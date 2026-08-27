@@ -52,6 +52,7 @@ const mockGanap: GanapDetail = {
   locationLat: 10.7313,
   locationLong: 122.5489,
   startDate: '2026-08-08T02:00:00.000Z',
+  attendanceOpenMinutesBefore: 30,
   status: 'COMPLETED',
   requiresApproval: false,
   tags: [],

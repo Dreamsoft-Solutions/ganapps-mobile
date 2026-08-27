@@ -35,6 +35,7 @@ function ganap(overrides: Partial<GanapDetail> & { registration?: GanapDetail['m
     locationLat: 10.7,
     locationLong: 122.5,
     startDate: '2026-08-01T00:00:00.000Z',
+    attendanceOpenMinutesBefore: 30,
     status: 'COMPLETED',
     requiresApproval: false,
     tags: [],

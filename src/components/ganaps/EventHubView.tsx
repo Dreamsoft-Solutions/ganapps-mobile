@@ -358,7 +358,11 @@ export function EventHubView({
                    * non-interactive branch would otherwise still "fire" a press that no real
                    * touch on a plain View could ever produce.
                    */}
-                  <AttendanceScanRow state={scanState} onPress={scanState === 'available' ? onScanAttendance : noop} />
+                  <AttendanceScanRow
+                    state={scanState}
+                    attendanceOpenMinutesBefore={ganap.attendanceOpenMinutesBefore}
+                    onPress={scanState === 'available' ? onScanAttendance : noop}
+                  />
                 </View>
                 <View className="mb-sm">
                   <FeedbackRow isPending={hasPendingFeedback} onPress={hasPendingFeedback ? onGiveFeedback : noop} />
