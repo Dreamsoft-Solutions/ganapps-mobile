@@ -99,6 +99,33 @@ describe('registerSchema', () => {
   });
 
   it.each([
+    ' john',
+    'john ',
+    'john doe',
+    'john\tdoe',
+  ])('rejects a username containing whitespace: %j', (username: string) => {
+    const result = registerSchema.safeParse({
+      username,
+      email: 'user@example.com',
+      password: 'Password123!',
+      confirmPassword: 'Password123!',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts non-whitespace username characters without applying a character whitelist', () => {
+    const result = registerSchema.safeParse({
+      username: 'john.doe+1',
+      email: 'user@example.com',
+      password: 'Password123!',
+      confirmPassword: 'Password123!',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it.each([
     ['missing uppercase', 'password123!'],
     ['missing lowercase', 'PASSWORD123!'],
     ['missing number', 'Password!!!'],

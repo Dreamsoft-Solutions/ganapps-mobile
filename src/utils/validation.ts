@@ -91,7 +91,8 @@ export const registerSchema = z
     username: z
       .string()
       .min(3, 'Username must be at least 3 characters')
-      .max(32, 'Username must be at most 32 characters'),
+      .max(32, 'Username must be at most 32 characters')
+      .regex(/^\S+$/, 'Username must not contain whitespace'),
     email: z.string().email('Invalid email address'),
     password: signupPasswordSchema,
     confirmPassword: z.string(),
