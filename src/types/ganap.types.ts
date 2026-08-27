@@ -116,6 +116,8 @@ export interface GanapListItem {
   locationLong: number;
   startDate: string;
   endDate?: string | null;
+  /** Number of minutes before the Ganap starts when attendance scanning opens. */
+  attendanceOpenMinutesBefore: number;
   tags: string[];
   coverImage?: string | null;
   mapPinImage?: string | null;
