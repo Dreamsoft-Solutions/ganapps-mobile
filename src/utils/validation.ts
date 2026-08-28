@@ -86,12 +86,17 @@ export const loginSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
+export const USERNAME_POLICY = {
+  minLength: 3,
+  maxLength: 32,
+} as const;
+
 export const registerSchema = z
   .object({
     username: z
       .string()
-      .min(3, 'Username must be at least 3 characters')
-      .max(32, 'Username must be at most 32 characters')
+      .min(USERNAME_POLICY.minLength, `Username must be at least ${USERNAME_POLICY.minLength} characters`)
+      .max(USERNAME_POLICY.maxLength, `Username must be at most ${USERNAME_POLICY.maxLength} characters`)
       .regex(/^\S+$/, 'Username must not contain whitespace'),
     email: z.string().email('Invalid email address'),
     password: signupPasswordSchema,

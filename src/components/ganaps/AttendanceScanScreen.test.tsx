@@ -49,7 +49,7 @@ const mockLaunchImageLibraryAsync = jest.mocked(ImagePicker.launchImageLibraryAs
 const mockScanFromURLAsync = jest.mocked(Camera.scanFromURLAsync);
 
 import type { AttendanceScanPhase } from '@/components/ganaps/AttendanceScanView';
-import AttendanceScanScreen from './[ganap-id]';
+import AttendanceScanScreen from '../../app/(app)/(home)/scan/[ganap-id]';
 
 interface MockAttendanceViewProps {
   phase: AttendanceScanPhase;

@@ -22,7 +22,13 @@ import {
   PASSWORD_POLICY,
   type RegisterFormData,
   registerSchema,
+  USERNAME_POLICY,
 } from '@/utils/validation';
+
+const USERNAME_HINT = {
+  title: 'Username requirements',
+  message: `Pick a username that is ${USERNAME_POLICY.minLength}–${USERNAME_POLICY.maxLength} characters long with no spaces or other whitespace. Letters, numbers, and punctuation are welcome.`,
+} as const;
 
 /**
  * Google brand icon used in the social sign-in button.
@@ -187,7 +193,14 @@ export function LoginForm(): ReactElement {
     <FormProvider {...methods}>
       <View className="gap-4">
         {!isLogin && (
-          <Input name="username" label="Username" placeholder="johndoe" autoCapitalize="none" autoCorrect={false} />
+          <Input
+            name="username"
+            label="Username"
+            labelHint={USERNAME_HINT}
+            placeholder="johndoe"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
         )}
 
         <Input
