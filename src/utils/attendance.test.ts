@@ -9,6 +9,7 @@ function ganap(overrides: Partial<GanapDetail>): GanapDetail {
   return {
     startDate: '2026-08-08T10:00:00.000Z',
     endDate: '2026-08-08T12:00:00.000Z',
+    attendanceOpenMinutesBefore: 30,
     status: 'PUBLISHED',
     myRegistration: {
       id: 'reg-1',
@@ -20,7 +21,9 @@ function ganap(overrides: Partial<GanapDetail>): GanapDetail {
   } as GanapDetail;
 }
 
-const BEFORE_END = new Date('2026-08-08T11:59:00.000Z');
+const BEFORE_WINDOW = new Date('2026-08-08T09:29:00.000Z');
+const AT_WINDOW = new Date('2026-08-08T09:30:00.000Z');
+const DURING_EVENT = new Date('2026-08-08T11:59:00.000Z');
 const AT_END = new Date('2026-08-08T12:00:00.000Z');
 const AFTER_END = new Date('2026-08-08T13:00:00.000Z');
 
@@ -34,7 +37,7 @@ describe('getAttendanceScanState', () => {
         registrationFormSubmittedAt: null,
       },
     });
-    expect(getAttendanceScanState(g, BEFORE_END)).toBe('recorded');
+    expect(getAttendanceScanState(g, DURING_EVENT)).toBe('recorded');
   });
 
   it('is hidden without a registration', () => {
@@ -55,26 +58,41 @@ describe('getAttendanceScanState', () => {
     }
   });
 
-  it('is locked before endDate and available from endDate on (inclusive boundary)', () => {
-    expect(getAttendanceScanState(ganap({}), BEFORE_END)).toBe('locked');
+  it('opens at the configured lead time and remains available through the inclusive end', () => {
+    expect(getAttendanceScanState(ganap({}), BEFORE_WINDOW)).toBe('locked');
+    expect(getAttendanceScanState(ganap({}), AT_WINDOW)).toBe('available');
+    expect(getAttendanceScanState(ganap({}), DURING_EVENT)).toBe('available');
     expect(getAttendanceScanState(ganap({}), AT_END)).toBe('available');
-    expect(getAttendanceScanState(ganap({}), AFTER_END)).toBe('available');
+    expect(getAttendanceScanState(ganap({}), AFTER_END)).toBe('closed');
   });
 
-  it('without endDate, is available once the event is ONGOING', () => {
+  it('uses the configured number of minutes rather than a fixed opening window', () => {
+    const g = ganap({ attendanceOpenMinutesBefore: 60 });
+
+    expect(getAttendanceScanState(g, new Date('2026-08-08T08:59:00.000Z'))).toBe('locked');
+    expect(getAttendanceScanState(g, new Date('2026-08-08T09:00:00.000Z'))).toBe('available');
+  });
+
+  it('without endDate, stays open after the event starts', () => {
     const g = ganap({ endDate: null, status: 'ONGOING' });
-    expect(getAttendanceScanState(g, BEFORE_END)).toBe('available');
+    expect(getAttendanceScanState(g, BEFORE_WINDOW)).toBe('locked');
+    expect(getAttendanceScanState(g, AT_WINDOW)).toBe('available');
+    expect(getAttendanceScanState(g, AFTER_END)).toBe('available');
   });
 
-  it('without endDate, falls back to startDate when status has not caught up', () => {
+  it('does not rely on status when the configured window is open', () => {
     const g = ganap({ endDate: null, status: 'PUBLISHED' });
     expect(getAttendanceScanState(g, new Date('2026-08-08T09:00:00.000Z'))).toBe('locked');
+    expect(getAttendanceScanState(g, new Date('2026-08-08T09:30:00.000Z'))).toBe('available');
     expect(getAttendanceScanState(g, new Date('2026-08-08T10:00:00.000Z'))).toBe('available');
   });
 
-  it('treats an invalid endDate string like a missing endDate', () => {
+  it('treats an invalid startDate string as locked', () => {
+    const invalidDate = ganap({ startDate: 'not-a-date', status: 'PUBLISHED' });
+    expect(getAttendanceScanState(invalidDate, DURING_EVENT)).toBe('locked');
+
     const g = ganap({ endDate: 'not-a-date', status: 'ONGOING' });
-    expect(getAttendanceScanState(g, BEFORE_END)).toBe('available');
+    expect(getAttendanceScanState(g, DURING_EVENT)).toBe('available');
   });
 });
 
@@ -91,6 +109,8 @@ describe('mapCheckInError', () => {
     expect(mapCheckInError(serverError('Already checked in', 400)).kind).toBe('already-recorded');
     expect(mapCheckInError(serverError('Only registered attendees can check in', 400)).kind).toBe('not-eligible');
     expect(mapCheckInError(serverError('Event has no active QR code', 400)).kind).toBe('no-active-qr');
+    expect(mapCheckInError(serverError('Attendance check-in is not open yet', 400)).kind).toBe('window-not-open');
+    expect(mapCheckInError(serverError('Attendance check-in is closed', 400)).kind).toBe('window-closed');
     expect(mapCheckInError(serverError('Registration status changed before check-in completed', 400)).kind).toBe(
       'retryable',
     );
@@ -108,6 +128,8 @@ describe('mapCheckInError', () => {
       'Already checked in',
       'Only registered attendees can check in',
       'Event has no active QR code',
+      'Attendance check-in is not open yet',
+      'Attendance check-in is closed',
       'Registration status changed before check-in completed',
       'Not registered for this event',
       'Event not found',

@@ -34,7 +34,7 @@ function requestedUrl(config: AxiosRequestConfig): string {
 }
 
 const page = {
-  items: [{ id: 'g1', title: 'Foundation Week' }],
+  items: [{ id: 'g1', title: 'Foundation Week', attendanceOpenMinutesBefore: 30 }],
   pagination: { total: 1, cursor: null, nextCursor: null, limit: 20 },
 };
 
@@ -78,6 +78,7 @@ describe('ganapsAPI.list', () => {
     const result = await ganapsAPI.list();
 
     expect(result.items).toHaveLength(1);
+    expect(result.items[0].attendanceOpenMinutesBefore).toBe(30);
     expect(result.pagination.limit).toBe(20);
   });
 

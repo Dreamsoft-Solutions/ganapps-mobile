@@ -1,4 +1,5 @@
-import { useCameraPermissions } from 'expo-camera';
+import { type BarcodeScanningResult, Camera, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -8,14 +9,28 @@ import { type AttendanceScanPhase, AttendanceScanView } from '@/components/ganap
 import { Routes } from '@/constants/routes';
 import { type CheckInOutcome, useCheckInMutation } from '@/hooks/mutations/useGanapMutation';
 import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
+import type { CheckInErrorModel } from '@/utils/attendance';
 import { mapCheckInError } from '@/utils/attendance';
 
 /** Error kinds that allow an immediate rescan. */
 const RESCAN_KINDS = new Set(['invalid-qr', 'retryable', 'unknown']);
 
+const IMAGE_NO_QR_ERROR: CheckInErrorModel = {
+  kind: 'unknown',
+  title: 'No attendance QR found',
+  message: "Choose an image that clearly shows the organizer's attendance QR code and try again.",
+};
+
+const IMAGE_SCAN_ERROR: CheckInErrorModel = {
+  kind: 'unknown',
+  title: 'Could not read that image',
+  message: 'We could not read the selected image. Choose another image and try again.',
+};
+
 /**
- * Attendance scanner for one Ganap: camera permission, QR capture, submission,
- * and the recorded/queued/error outcomes as one internal state machine.
+ * Attendance scanner for one Ganap: camera permission, live or image-based QR
+ * capture, submission, and the recorded/queued/error outcomes as one internal
+ * state machine.
  *
  * The confirmation is a phase of this route rather than its own screen so a
  * transient outcome is never deep-linkable.
@@ -73,6 +88,45 @@ export default function AttendanceScanScreen(): ReactElement {
     );
   }
 
+  async function handlePickImage(): Promise<void> {
+    if (hasSubmittedRef.current || phase.name !== 'scanning') return;
+
+    setPhase({ name: 'picking-image' });
+
+    try {
+      const result: ImagePicker.ImagePickerResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: false,
+        quality: 1,
+      });
+
+      if (result.canceled) {
+        setPhase({ name: 'scanning' });
+        return;
+      }
+
+      const asset = result.assets[0];
+      if (!asset) {
+        setPhase({ name: 'error', model: IMAGE_NO_QR_ERROR, canRescan: true });
+        return;
+      }
+
+      const scanResults: BarcodeScanningResult[] = await Camera.scanFromURLAsync(asset.uri, ['qr']);
+      const qrResult: BarcodeScanningResult | undefined = scanResults.find(
+        (result: BarcodeScanningResult): boolean => result.data.trim().length > 0,
+      );
+
+      if (!qrResult) {
+        setPhase({ name: 'error', model: IMAGE_NO_QR_ERROR, canRescan: true });
+        return;
+      }
+
+      handleBarcodeScanned(qrResult.data);
+    } catch {
+      setPhase({ name: 'error', model: IMAGE_SCAN_ERROR, canRescan: true });
+    }
+  }
+
   function handleScanAgain(): void {
     hasSubmittedRef.current = false;
     setPhase({ name: 'scanning' });
@@ -89,6 +143,7 @@ export default function AttendanceScanScreen(): ReactElement {
         phase={{ name: 'permission-denied' }}
         eventTitle={detail.data?.title ?? null}
         onBarcodeScanned={handleBarcodeScanned}
+        onPickImage={handlePickImage}
         onScanAgain={handleScanAgain}
         onOpenSettings={(): Promise<void> => Linking.openSettings()}
         onBack={handleBack}
@@ -103,6 +158,7 @@ export default function AttendanceScanScreen(): ReactElement {
       phase={phase}
       eventTitle={detail.data?.title ?? null}
       onBarcodeScanned={handleBarcodeScanned}
+      onPickImage={handlePickImage}
       onScanAgain={handleScanAgain}
       onOpenSettings={(): Promise<void> => Linking.openSettings()}
       onBack={handleBack}

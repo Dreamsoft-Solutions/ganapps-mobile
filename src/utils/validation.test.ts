@@ -1,10 +1,12 @@
 import type { FormBlock, RegistrationFormData } from '@/types/ganap.types';
 import {
   createRegistrationFormSchema,
+  getPasswordRequirementStatus,
   loginSchema,
   onboardingExtrasSchema,
   onboardingNamesSchema,
   onboardingSchema,
+  PASSWORD_POLICY,
   profileSchema,
   ratingSchema,
   registerSchema,
@@ -58,6 +60,11 @@ describe('loginSchema', () => {
     const result = loginSchema.safeParse({ email: 'user@example.com', password: 'short' });
     expect(result.success).toBe(false);
   });
+
+  it('keeps login validation compatible with an existing eight-character password', () => {
+    const result = loginSchema.safeParse({ email: 'user@example.com', password: 'password' });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe('registerSchema', () => {
@@ -65,8 +72,8 @@ describe('registerSchema', () => {
     const result = registerSchema.safeParse({
       username: 'johndoe',
       email: 'user@example.com',
-      password: 'password123',
-      confirmPassword: 'password123',
+      password: 'Password123!',
+      confirmPassword: 'Password123!',
     });
     expect(result.success).toBe(true);
   });
@@ -75,8 +82,8 @@ describe('registerSchema', () => {
     const result = registerSchema.safeParse({
       username: 'johndoe',
       email: 'user@example.com',
-      password: 'password123',
-      confirmPassword: 'different',
+      password: 'Password123!',
+      confirmPassword: 'Password123?',
     });
     expect(result.success).toBe(false);
   });
@@ -85,10 +92,114 @@ describe('registerSchema', () => {
     const result = registerSchema.safeParse({
       username: 'jd',
       email: 'user@example.com',
-      password: 'password123',
-      confirmPassword: 'password123',
+      password: 'Password123!',
+      confirmPassword: 'Password123!',
     });
     expect(result.success).toBe(false);
+  });
+
+  it.each([
+    ' john',
+    'john ',
+    'john doe',
+    'john\tdoe',
+  ])('rejects a username containing whitespace: %j', (username: string) => {
+    const result = registerSchema.safeParse({
+      username,
+      email: 'user@example.com',
+      password: 'Password123!',
+      confirmPassword: 'Password123!',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts non-whitespace username characters without applying a character whitelist', () => {
+    const result = registerSchema.safeParse({
+      username: 'john.doe+1',
+      email: 'user@example.com',
+      password: 'Password123!',
+      confirmPassword: 'Password123!',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it.each([
+    ['missing uppercase', 'password123!'],
+    ['missing lowercase', 'PASSWORD123!'],
+    ['missing number', 'Password!!!'],
+    ['missing punctuation', 'Password123'],
+  ])('rejects a signup password that is %s', (_reason: string, password: string) => {
+    const result = registerSchema.safeParse({
+      username: 'johndoe',
+      email: 'user@example.com',
+      password,
+      confirmPassword: password,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts Unicode characters when all required ASCII categories are present', () => {
+    const password = 'Password123!é';
+    const result = registerSchema.safeParse({
+      username: 'johndoe',
+      email: 'user@example.com',
+      password,
+      confirmPassword: password,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts the configured password length boundaries', () => {
+    const atMinimum = `${'A'.repeat(PASSWORD_POLICY.minLength - 3)}a1!`;
+    const atMaximum = `${'A'.repeat(PASSWORD_POLICY.maxLength - 3)}a1!`;
+
+    expect(
+      registerSchema.safeParse({
+        username: 'johndoe',
+        email: 'user@example.com',
+        password: atMinimum,
+        confirmPassword: atMinimum,
+      }).success,
+    ).toBe(true);
+    expect(
+      registerSchema.safeParse({
+        username: 'johndoe',
+        email: 'user@example.com',
+        password: atMaximum,
+        confirmPassword: atMaximum,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects a password longer than the configured maximum', () => {
+    const password = `${'A'.repeat(PASSWORD_POLICY.maxLength - 2)}a1!x`;
+
+    expect(
+      registerSchema.safeParse({
+        username: 'johndoe',
+        email: 'user@example.com',
+        password,
+        confirmPassword: password,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('exposes checklist status from the same policy used by signup validation', () => {
+    expect(getPasswordRequirementStatus('Password123!')).toEqual({
+      length: true,
+      uppercase: true,
+      lowercase: true,
+      digit: true,
+      punctuation: true,
+    });
+    expect(getPasswordRequirementStatus('password123')).toMatchObject({
+      uppercase: false,
+      punctuation: false,
+    });
   });
 });
 

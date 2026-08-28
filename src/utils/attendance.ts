@@ -9,11 +9,12 @@ import type { GanapDetail } from '@/types/ganap.types';
  * Whether and how the attendance scan is offered for a Ganap.
  *
  * - `hidden` — no scan surface at all (not a `REGISTERED`/`ATTENDED` registration)
- * - `locked` — visible but disabled; the event has not ended yet
+ * - `locked` — visible but disabled; the attendance window has not opened yet
  * - `available` — the student may scan now
+ * - `closed` — visible but disabled; the attendance window has ended
  * - `recorded` — attendance already captured; show confirmation instead
  */
-export type AttendanceScanState = 'hidden' | 'locked' | 'available' | 'recorded';
+export type AttendanceScanState = 'hidden' | 'locked' | 'available' | 'closed' | 'recorded';
 
 /** Discriminated category of a rejected attendance scan. */
 export type CheckInErrorKind =
@@ -21,6 +22,8 @@ export type CheckInErrorKind =
   | 'already-recorded'
   | 'not-eligible'
   | 'no-active-qr'
+  | 'window-not-open'
+  | 'window-closed'
   | 'retryable'
   | 'not-registered'
   | 'unknown';
@@ -35,11 +38,11 @@ export interface CheckInErrorModel {
 /**
  * Decides how the attendance scan surface should present for a Ganap.
  *
- * The gate is deliberately client-side and advisory: the server never checks
- * event dates for check-in (the organizer's displayed QR is the real control),
- * so this only shapes UX. With an `endDate` the scan unlocks at that instant;
- * without one — a known server lifecycle gap where such Ganaps never reach
- * `COMPLETED` — it unlocks once the event has started.
+ * The gate is deliberately client-side and advisory: the server remains the
+ * authority for attendance (the organizer's displayed QR is the real control),
+ * so this only shapes UX. The configured lead time opens the window before the
+ * Ganap starts; an `endDate` closes it after the event ends. Without an
+ * `endDate`, the window remains open indefinitely after it starts.
  *
  * @param ganap - Ganap detail including the caller's registration
  * @param now - Current time, injected for deterministic tests
@@ -50,19 +53,27 @@ export function getAttendanceScanState(ganap: GanapDetail, now: Date): Attendanc
   if (status === 'ATTENDED') return 'recorded';
   if (status !== 'REGISTERED') return 'hidden';
 
+  const startTime: number = new Date(ganap.startDate).getTime();
+  const nowTime: number = now.getTime();
+  if (Number.isNaN(startTime) || Number.isNaN(nowTime)) return 'locked';
+
+  const configuredMinutes: number = ganap.attendanceOpenMinutesBefore;
+  const minutesBefore: number = Number.isFinite(configuredMinutes) ? Math.max(0, configuredMinutes) : 0;
+  const attendanceWindowStart: number = startTime - minutesBefore * 60 * 1000;
+  if (nowTime < attendanceWindowStart) return 'locked';
+
   if (ganap.endDate) {
-    const end = new Date(ganap.endDate);
-    if (!Number.isNaN(end.getTime())) return now >= end ? 'available' : 'locked';
+    const endTime: number = new Date(ganap.endDate).getTime();
+    if (!Number.isNaN(endTime) && nowTime > endTime) return 'closed';
   }
 
-  if (ganap.status === 'ONGOING') return 'available';
-  return now >= new Date(ganap.startDate) ? 'available' : 'locked';
+  return 'available';
 }
 
 /**
  * Server rejection messages for the check-in endpoint, keyed verbatim.
  *
- * All five 400s share one generic `errorCode` (plain `BadRequestException`
+ * All seven 400s share one generic `errorCode` (plain `BadRequestException`
  * through the global exception filter), so the message string is the only
  * discriminator. Coupled to `GanapService.checkIn` in `ganapps-server` —
  * if a string there changes, the mapping falls back to `unknown`.
@@ -88,6 +99,16 @@ const CHECK_IN_ERROR_MODELS: Record<string, CheckInErrorModel> = {
     kind: 'no-active-qr',
     title: 'Attendance is not open',
     message: 'This event has no active attendance code right now. Ask the organizer for help.',
+  },
+  'Attendance check-in is not open yet': {
+    kind: 'window-not-open',
+    title: 'Attendance is not open yet',
+    message: 'Attendance opens shortly before the event starts. Return when the attendance window begins.',
+  },
+  'Attendance check-in is closed': {
+    kind: 'window-closed',
+    title: 'Attendance is closed',
+    message: 'The attendance window for this event has ended.',
   },
   'Registration status changed before check-in completed': {
     kind: 'retryable',

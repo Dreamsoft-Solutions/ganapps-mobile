@@ -66,6 +66,7 @@ const ganap: GanapDetail = {
   locationLong: 122.5489,
   startDate: '2026-08-08T02:00:00.000Z',
   endDate: '2026-08-08T05:00:00.000Z',
+  attendanceOpenMinutesBefore: 30,
   status: 'PUBLISHED',
   requiresApproval: false,
   maxAttendees: 40,
@@ -466,11 +467,11 @@ describe('attendance scan row', (): void => {
     expect(screen.queryByTestId('attendance-scan-row')).toBeNull();
   });
 
-  it('renders disabled locked copy before the event ends', async (): Promise<void> => {
+  it('renders disabled locked copy before the attendance window opens', async (): Promise<void> => {
     const screen = await render(<EventHubView {...buildProps({ scanState: 'locked' })} />);
 
     expect(screen.getByTestId('attendance-scan-row').props.accessibilityState.disabled).toBe(true);
-    expect(screen.getByText('Attendance scan opens when the event ends')).toBeTruthy();
+    expect(screen.getByText('Attendance scan opens 30 minutes before the event starts')).toBeTruthy();
   });
 
   it('is pressable and fires onScanAttendance when available', async (): Promise<void> => {
@@ -487,6 +488,18 @@ describe('attendance scan row', (): void => {
     const screen = await render(<EventHubView {...buildProps({ scanState: 'recorded', onScanAttendance })} />);
 
     expect(screen.getByText('Attendance recorded')).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('attendance-scan-row'));
+
+    expect(onScanAttendance).not.toHaveBeenCalled();
+  });
+
+  it('renders a non-interactive closed state after the attendance window ends', async (): Promise<void> => {
+    const onScanAttendance = jest.fn<() => void>();
+    const screen = await render(<EventHubView {...buildProps({ scanState: 'closed', onScanAttendance })} />);
+
+    expect(screen.getByText('Attendance scan is closed')).toBeTruthy();
+    expect(screen.getByText('The attendance window has ended.')).toBeTruthy();
 
     await fireEvent.press(screen.getByTestId('attendance-scan-row'));
 

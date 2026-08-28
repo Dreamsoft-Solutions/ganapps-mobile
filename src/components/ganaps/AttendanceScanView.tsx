@@ -1,6 +1,6 @@
 import type { BarcodeScanningResult } from 'expo-camera';
 import { CameraView } from 'expo-camera';
-import { ArrowLeft, CircleAlert, CircleCheck, CloudUpload, Settings } from 'lucide-react-native';
+import { ArrowLeft, CircleAlert, CircleCheck, CloudUpload, ImageUp, Settings } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ import type { CheckInErrorModel } from '@/utils/attendance';
 export type AttendanceScanPhase =
   | { name: 'permission-denied' }
   | { name: 'scanning' }
+  | { name: 'picking-image' }
   | { name: 'submitting' }
   | { name: 'recorded' }
   | { name: 'queued' }
@@ -29,6 +30,8 @@ export interface AttendanceScanViewProps {
   eventTitle: string | null;
   /** Fired with the raw QR content on each camera read. */
   onBarcodeScanned: (data: string) => void;
+  /** Opens the photo picker and scans the selected image for an attendance QR. */
+  onPickImage: () => void | Promise<void>;
   /** Returns to the `scanning` phase for another attempt. */
   onScanAgain: () => void;
   /** Opens the device Settings app so the student can grant camera access. */
@@ -52,6 +55,7 @@ export function AttendanceScanView({
   phase,
   eventTitle,
   onBarcodeScanned,
+  onPickImage,
   onScanAgain,
   onOpenSettings,
   onBack,
@@ -122,12 +126,15 @@ export function AttendanceScanView({
               }
             />
             {phase.name === 'scanning' && (
-              <View className="absolute inset-x-0 bottom-0 items-center px-xl pb-xl">
+              <View className="absolute inset-x-0 bottom-0 items-center gap-sm px-xl pb-xl">
                 <View className="rounded-lg bg-background px-md py-sm">
                   <Text className="text-center text-body-md">
                     Point your camera at the organizer's attendance QR code.
                   </Text>
                 </View>
+                <Button variant="outline" size="md" onPress={onPickImage} leftIcon={<ImageUp size={18} />}>
+                  Choose from Photos
+                </Button>
               </View>
             )}
             {phase.name === 'submitting' && (
@@ -135,6 +142,15 @@ export function AttendanceScanView({
                 <Loading message="Recording attendance" />
               </View>
             )}
+          </View>
+        )}
+
+        {phase.name === 'picking-image' && (
+          <View className="flex-1 items-center justify-center p-xl">
+            <Loading message="Reading QR code from image" />
+            <Text className="mt-md text-center text-body-md text-muted-foreground">
+              Looking for the organizer's attendance QR code.
+            </Text>
           </View>
         )}
 

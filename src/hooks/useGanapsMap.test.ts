@@ -39,6 +39,7 @@ function ganapWithTags(id: string, tags: string[]): GanapListItem {
     locationLong: 120.9,
     startDate: new Date().toISOString(),
     endDate: null,
+    attendanceOpenMinutesBefore: 30,
     tags,
     coverImage: null,
     mapPinImage: null,

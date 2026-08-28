@@ -2,22 +2,104 @@ import { z } from 'zod';
 import type { FormBlock, FormOption, RegistrationFormData } from '@/types/ganap.types';
 import { getScaleOptions, getTextConfiguration } from './registration-form';
 
+/** Identifier for one password checklist rule. */
+export type PasswordRequirementId = 'length' | 'uppercase' | 'lowercase' | 'digit' | 'punctuation';
+
+/** A password rule shared by signup validation and its visible checklist. */
+export interface PasswordRequirement {
+  id: PasswordRequirementId;
+  label: string;
+  test: (password: string) => boolean;
+}
+
+/** The result of evaluating every password checklist rule. */
+export type PasswordRequirementStatus = Record<PasswordRequirementId, boolean>;
+
+const UPPERCASE_PASSWORD_PATTERN: RegExp = /[A-Z]/;
+const LOWERCASE_PASSWORD_PATTERN: RegExp = /[a-z]/;
+const DIGIT_PASSWORD_PATTERN: RegExp = /\d/;
+const PUNCTUATION_PASSWORD_PATTERN: RegExp = /[\x21-\x2F\x3A-\x40\x5B-\x60\x7B-\x7E]/;
+const PASSWORD_MIN_LENGTH: number = 8;
+const PASSWORD_MAX_LENGTH: number = 128;
+
+/** Shared signup password policy used by Zod and the LoginForm checklist. */
+export const PASSWORD_POLICY = {
+  minLength: PASSWORD_MIN_LENGTH,
+  maxLength: PASSWORD_MAX_LENGTH,
+  requirements: [
+    {
+      id: 'length',
+      label: `${PASSWORD_MIN_LENGTH}–${PASSWORD_MAX_LENGTH} characters`,
+      test: (password: string): boolean =>
+        password.length >= PASSWORD_MIN_LENGTH && password.length <= PASSWORD_MAX_LENGTH,
+    },
+    {
+      id: 'uppercase',
+      label: 'At least one uppercase letter',
+      test: (password: string): boolean => UPPERCASE_PASSWORD_PATTERN.test(password),
+    },
+    {
+      id: 'lowercase',
+      label: 'At least one lowercase letter',
+      test: (password: string): boolean => LOWERCASE_PASSWORD_PATTERN.test(password),
+    },
+    {
+      id: 'digit',
+      label: 'At least one number',
+      test: (password: string): boolean => DIGIT_PASSWORD_PATTERN.test(password),
+    },
+    {
+      id: 'punctuation',
+      label: 'At least one punctuation mark',
+      test: (password: string): boolean => PUNCTUATION_PASSWORD_PATTERN.test(password),
+    },
+  ] as const satisfies readonly PasswordRequirement[],
+} as const;
+
+/**
+ * Evaluates the shared password checklist for signup feedback.
+ *
+ * @param password - Current signup password
+ * @returns One boolean result for each password requirement
+ */
+export function getPasswordRequirementStatus(password: string): PasswordRequirementStatus {
+  return {
+    length: PASSWORD_POLICY.requirements[0].test(password),
+    uppercase: PASSWORD_POLICY.requirements[1].test(password),
+    lowercase: PASSWORD_POLICY.requirements[2].test(password),
+    digit: PASSWORD_POLICY.requirements[3].test(password),
+    punctuation: PASSWORD_POLICY.requirements[4].test(password),
+  };
+}
+
+const signupPasswordSchema = z
+  .string()
+  .min(PASSWORD_POLICY.minLength, `Password must be at least ${PASSWORD_POLICY.minLength} characters`)
+  .max(PASSWORD_POLICY.maxLength, `Password must be at most ${PASSWORD_POLICY.maxLength} characters`)
+  .regex(UPPERCASE_PASSWORD_PATTERN, 'Password must include an uppercase letter')
+  .regex(LOWERCASE_PASSWORD_PATTERN, 'Password must include a lowercase letter')
+  .regex(DIGIT_PASSWORD_PATTERN, 'Password must include a number')
+  .regex(PUNCTUATION_PASSWORD_PATTERN, 'Password must include a punctuation mark');
+
 export const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
+export const USERNAME_POLICY = {
+  minLength: 3,
+  maxLength: 32,
+} as const;
+
 export const registerSchema = z
   .object({
     username: z
       .string()
-      .min(3, 'Username must be at least 3 characters')
-      .max(32, 'Username must be at most 32 characters'),
+      .min(USERNAME_POLICY.minLength, `Username must be at least ${USERNAME_POLICY.minLength} characters`)
+      .max(USERNAME_POLICY.maxLength, `Username must be at most ${USERNAME_POLICY.maxLength} characters`)
+      .regex(/^\S+$/, 'Username must not contain whitespace'),
     email: z.string().email('Invalid email address'),
-    password: z
-      .string()
-      .min(8, 'Password must be at least 8 characters')
-      .max(128, 'Password must be at most 128 characters'),
+    password: signupPasswordSchema,
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {

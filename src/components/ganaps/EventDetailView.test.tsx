@@ -13,6 +13,16 @@ jest.mock('expo-image', () => ({
   ),
 }));
 
+const mockMarkdownProps: { current: Record<string, unknown> | null } = { current: null };
+
+jest.mock('@ronradtke/react-native-markdown-display', () => ({
+  __esModule: true,
+  default: (props: { children: string }): ReactElement => {
+    mockMarkdownProps.current = props as unknown as Record<string, unknown>;
+    return <MockText testID="event-description-markdown">{props.children}</MockText>;
+  },
+}));
+
 jest.mock('lucide-react-native', () => ({
   ArrowLeft: (): null => null,
   Bookmark: ({ color, fill }: { color?: string; fill?: string }): ReactElement => (
@@ -119,6 +129,7 @@ const ganap: GanapDetail = {
   locationLong: 122.5489,
   startDate: '2026-08-08T02:00:00.000Z',
   endDate: '2026-08-08T06:00:00.000Z',
+  attendanceOpenMinutesBefore: 30,
   status: 'PUBLISHED',
   requiresApproval: false,
   maxAttendees: 40,
@@ -289,6 +300,66 @@ describe('EventDetailView media', (): void => {
       width: '100%',
       height: '100%',
     });
+  });
+});
+
+describe('EventDetailView description', (): void => {
+  it('passes the original description to the markdown renderer', async (): Promise<void> => {
+    const description = '# About this event\n\n**Bring your ID.**';
+
+    const screen = await render(
+      <EventDetailView
+        ganap={{ ...ganap, description }}
+        business={business}
+        capacity={capacity}
+        schedule={schedule}
+        actionModel={actionModel}
+        isPrimaryPending={false}
+        isLikePending={false}
+        isSavePending={false}
+        onBack={(): void => {}}
+        onShare={(): void => {}}
+        onToggleLike={(): void => {}}
+        onToggleSave={(): void => {}}
+        onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
+      />,
+    );
+
+    expect(screen.getByTestId('event-description-markdown').props.children).toBe(description);
+    expect(mockMarkdownProps.current).toMatchObject({
+      children: description,
+      allowedImageHandlers: [],
+      defaultImageHandler: null,
+    });
+  });
+
+  it('configures the description renderer with safe links', async (): Promise<void> => {
+    await render(
+      <EventDetailView
+        ganap={ganap}
+        business={business}
+        capacity={capacity}
+        schedule={schedule}
+        actionModel={actionModel}
+        isPrimaryPending={false}
+        isLikePending={false}
+        isSavePending={false}
+        onBack={(): void => {}}
+        onShare={(): void => {}}
+        onToggleLike={(): void => {}}
+        onToggleSave={(): void => {}}
+        onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
+      />,
+    );
+
+    const linkHandler = mockMarkdownProps.current?.onLinkPress as ((url: string) => boolean) | undefined;
+
+    expect(linkHandler?.('https://example.com/event')).toBe(true);
+    expect(linkHandler?.('http://example.com/event')).toBe(true);
+    expect(linkHandler?.('/relative/path')).toBe(false);
+    expect(linkHandler?.('javascript:alert(1)')).toBe(false);
   });
 });
 

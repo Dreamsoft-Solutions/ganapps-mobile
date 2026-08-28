@@ -3,11 +3,18 @@ import { Controller, type ControllerRenderProps, useFormContext } from 'react-ho
 import { TextInput, View } from 'react-native';
 import { Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { FieldHint } from './FieldHint';
 import { Text } from './Text';
+
+interface InputHint {
+  message: string;
+  title: string;
+}
 
 interface InputProps {
   name: string;
   label?: string;
+  labelHint?: InputHint;
   placeholder?: string;
   secureTextEntry?: boolean;
   keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'number-pad';
@@ -22,12 +29,13 @@ interface InputProps {
 /**
  * Form input primitive integrated with react-hook-form.
  *
- * @param props - Input configuration, including an optional right icon slot.
+ * @param props - Input configuration, including optional right icon and label hint slots.
  * @returns A labeled input field with inline validation errors.
  */
 export function Input({
   name,
   label,
+  labelHint,
   placeholder,
   secureTextEntry,
   keyboardType,
@@ -49,7 +57,20 @@ export function Input({
       name={name}
       render={({ field: { value, onChange } }: { field: ControllerRenderProps }): ReactElement => (
         <View className="mb-4">
-          {label && <Text className="text-label-md text-foreground mb-2">{label}</Text>}
+          {label && (
+            <View className="relative mb-2 flex-row items-center">
+              <Text className="text-label-md text-foreground">{label}</Text>
+              {labelHint && (
+                <View className="absolute right-0 top-0">
+                  <FieldHint
+                    accessibilityLabel={`${label} requirements`}
+                    message={labelHint.message}
+                    title={labelHint.title}
+                  />
+                </View>
+              )}
+            </View>
+          )}
           <View
             className={`flex-row items-center rounded-lg border bg-background px-4 py-3 ${
               error ? 'border-destructive' : 'border-input'

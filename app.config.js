@@ -54,11 +54,11 @@ module.exports = {
     slug: 'dreamsoft-cpu',
     version: '1.0.0',
     orientation: 'portrait',
-    icon: './assets/images/icon.png',
+    icon: './assets/brand/ganap-logo-1.png',
     scheme: 'ganappsmobile',
     userInterfaceStyle: 'light',
     ios: {
-      icon: './assets/expo.icon',
+      icon: './assets/brand/ganap-logo-1.png',
       bundleIdentifier: 'com.ganapps.app',
       googleServicesFile: googleServiceInfoPlist,
     },
@@ -67,9 +67,7 @@ module.exports = {
       googleServicesFile,
       adaptiveIcon: {
         backgroundColor: '#22C55E',
-        foregroundImage: './assets/images/android-icon-foreground.png',
-        backgroundImage: './assets/images/android-icon-background.png',
-        monochromeImage: './assets/images/android-icon-monochrome.png',
+        foregroundImage: './assets/brand/ganap-logo-1.png',
       },
       predictiveBackGestureEnabled: false,
     },
@@ -83,6 +81,8 @@ module.exports = {
         'expo-notifications',
         {
           defaultChannel: 'registration-status',
+          icon: './assets/images/notification-icon.png',
+          color: '#22C55E',
         },
       ],
       [
@@ -118,6 +118,12 @@ module.exports = {
         'expo-camera',
         {
           cameraPermission: "Ganapps uses the camera to scan the organizer's attendance QR code.",
+        },
+      ],
+      [
+        'expo-image-picker',
+        {
+          microphonePermission: false,
         },
       ],
     ],
