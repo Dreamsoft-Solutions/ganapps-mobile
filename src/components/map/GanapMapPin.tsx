@@ -7,6 +7,9 @@ import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { GanapListItem } from '@/types/ganap.types';
 
 const PIN_SIZE: number = 56;
+const PIN_BOUNDS: number = Math.ceil(PIN_SIZE * Math.SQRT2);
+const PIN_HORIZONTAL_OFFSET: number = (PIN_BOUNDS - PIN_SIZE) / 2;
+const PIN_VERTICAL_OFFSET: number = PIN_BOUNDS - (PIN_SIZE / 2 + PIN_SIZE / Math.SQRT2);
 const PIN_RADIUS: number = PIN_SIZE / 2;
 const LOGO_INSET: number = 9;
 
@@ -29,12 +32,19 @@ export function GanapMapPin({ ganap }: GanapMapPinProps): ReactElement {
   const theme = useResolvedTheme();
 
   return (
-    <View className="items-center justify-start" style={{ width: PIN_SIZE, height: PIN_SIZE + 8 }}>
+    <View
+      className="items-center justify-start"
+      style={{ width: PIN_BOUNDS, height: PIN_BOUNDS }}
+      testID="ganap-map-pin"
+    >
       <View
         className="items-center justify-center bg-secondary"
         style={{
+          position: 'absolute',
           width: PIN_SIZE,
           height: PIN_SIZE,
+          left: PIN_HORIZONTAL_OFFSET,
+          top: PIN_VERTICAL_OFFSET,
           borderTopLeftRadius: PIN_RADIUS,
           borderTopRightRadius: PIN_RADIUS,
           borderBottomRightRadius: PIN_RADIUS,
@@ -46,6 +56,7 @@ export function GanapMapPin({ ganap }: GanapMapPinProps): ReactElement {
           shadowRadius: 24,
           elevation: 8,
         }}
+        testID="ganap-map-pin-shape"
       >
         <View
           className="items-center justify-center overflow-hidden bg-secondary-foreground"
