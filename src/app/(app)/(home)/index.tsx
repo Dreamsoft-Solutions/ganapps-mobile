@@ -44,7 +44,7 @@ export default function HomeScreen(): ReactElement {
   const markers = useMemo(
     () =>
       items.map((ganap) => (
-        <MarkerView key={ganap.id} coordinate={[ganap.locationLong, ganap.locationLat]} anchor={{ x: 0.5, y: 0.5 }}>
+        <MarkerView key={ganap.id} coordinate={[ganap.locationLong, ganap.locationLat]} anchor={{ x: 0.5, y: 1 }}>
           <Pressable onPress={(): void => setSelectedGanap(ganap)}>
             <GanapMapPin ganap={ganap} />
           </Pressable>
