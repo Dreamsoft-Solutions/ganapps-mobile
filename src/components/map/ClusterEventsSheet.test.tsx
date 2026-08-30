@@ -1,5 +1,8 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render } from '@testing-library/react-native';
+import type { ViewStyle } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { Colors } from '@/constants/theme';
 import type { GanapListItem } from '@/types/ganap.types';
 import {
   createGanapClusterIndex,
@@ -12,7 +15,17 @@ import {
 import { ClusterEventsSheet, type ClusterZoomTarget } from './ClusterEventsSheet';
 
 jest.mock('lucide-react-native', () => ({
-  X: (): null => null,
+  X: (props: { className?: string; color?: string; size?: number }): null => {
+    mockXProps.push(props);
+    return null;
+  },
+}));
+
+const mockUseResolvedTheme = jest.fn<() => 'light' | 'dark'>(() => 'light');
+const mockXProps: Array<{ className?: string; color?: string; size?: number }> = [];
+
+jest.mock('@/hooks/useResolvedTheme', () => ({
+  useResolvedTheme: (): 'light' | 'dark' => mockUseResolvedTheme(),
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -60,6 +73,11 @@ function clusterFor(items: readonly GanapListItem[]): {
 }
 
 describe('ClusterEventsSheet', (): void => {
+  beforeEach((): void => {
+    mockUseResolvedTheme.mockReturnValue('light');
+    mockXProps.length = 0;
+  });
+
   it('renders nothing when no cluster is selected', async (): Promise<void> => {
     const { index } = clusterFor([ganap('a', 122.5489, 10.7313), ganap('b', 122.5489, 10.7313)]);
     const screen = await render(
@@ -101,7 +119,7 @@ describe('ClusterEventsSheet', (): void => {
     expect(screen.getByRole('button', { name: 'Open event Event two' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Open event Event three' })).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Open event Event two' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Open event Event two' }));
     expect(onSelectGanap).toHaveBeenCalledWith(items[1]);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -120,7 +138,7 @@ describe('ClusterEventsSheet', (): void => {
       />,
     );
 
-    fireEvent.press(screen.getByRole('button', { name: 'Zoom in' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Zoom in' }));
 
     expect(onZoomIn).toHaveBeenCalledWith({
       coordinate: getFeatureCoordinate(cluster),
@@ -142,7 +160,35 @@ describe('ClusterEventsSheet', (): void => {
       />,
     );
 
-    fireEvent.press(screen.getByRole('button', { name: 'Close event group' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Close event group' }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    'light',
+    'dark',
+  ] as const)('uses the resolved %s theme for the scrim and close icon', async (theme): Promise<void> => {
+    mockUseResolvedTheme.mockReturnValue(theme);
+    const { index, cluster } = clusterFor([ganap('one', 122.5489, 10.7313), ganap('two', 122.5489, 10.7313)]);
+    const screen = await render(
+      <ClusterEventsSheet
+        cluster={cluster}
+        index={index}
+        onClose={jest.fn()}
+        onSelectGanap={jest.fn()}
+        onZoomIn={jest.fn()}
+      />,
+    );
+
+    const scrimStyle = StyleSheet.flatten(
+      screen.getByTestId('cluster-events-scrim', { includeHiddenElements: true }).props.style,
+    ) as ViewStyle;
+    const sheetStyle = StyleSheet.flatten(screen.getByTestId('cluster-events-sheet').props.style) as ViewStyle;
+
+    expect(scrimStyle.backgroundColor).toBe(Colors[theme].foreground);
+    expect(scrimStyle.opacity).toBe(0.4);
+    expect(sheetStyle.opacity).toBeUndefined();
+    expect(mockXProps.at(-1)).toMatchObject({ color: Colors[theme]['muted-foreground'] });
+    expect(mockXProps.at(-1)?.className).toBeUndefined();
   });
 });

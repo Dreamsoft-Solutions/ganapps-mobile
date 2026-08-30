@@ -5,6 +5,8 @@ import { FlatList, type ListRenderItemInfo, Modal, Pressable, View } from 'react
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { Text } from '@/components/common/Text';
+import { Colors } from '@/constants/theme';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { GanapListItem } from '@/types/ganap.types';
 import {
   type GanapClusterFeature,
@@ -42,6 +44,7 @@ export function ClusterEventsSheet({
   onZoomIn,
 }: ClusterEventsSheetProps): ReactElement | null {
   const insets = useSafeAreaInsets();
+  const theme = useResolvedTheme();
 
   const leaves: GanapListItem[] = useMemo(
     (): GanapListItem[] => (cluster === null ? [] : getClusterLeaves(index, cluster)),
@@ -73,7 +76,12 @@ export function ClusterEventsSheet({
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end bg-black/40">
+      <View className="flex-1 justify-end">
+        <View
+          testID="cluster-events-scrim"
+          className="absolute inset-0"
+          style={{ backgroundColor: Colors[theme].foreground, opacity: 0.4 }}
+        />
         <View
           testID="cluster-events-sheet"
           className="max-h-[80%] rounded-t-3xl bg-background px-md pt-md"
@@ -91,7 +99,7 @@ export function ClusterEventsSheet({
               onPress={onClose}
               className="rounded-full bg-muted p-2"
             >
-              <X size={18} className="text-muted-foreground" />
+              <X size={18} color={Colors[theme]['muted-foreground']} />
             </Pressable>
           </View>
 
