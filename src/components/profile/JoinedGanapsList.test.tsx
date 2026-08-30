@@ -1,7 +1,7 @@
-import { describe, expect, it, jest } from '@jest/globals';
-import { render } from '@testing-library/react-native';
+import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { fireEvent, render } from '@testing-library/react-native';
 import type { UseJoinedGanapsResult } from '@/hooks/useJoinedGanaps';
-import type { JoinedGanap } from '@/types/profile.types';
+import type { JoinedGanap, JoinedGanapFilters } from '@/types/profile.types';
 import { JoinedGanapsList } from './JoinedGanapsList';
 
 const mockRouter = {
@@ -35,7 +35,27 @@ const mockJoinedGanapsResult: UseJoinedGanapsResult = {
   refetch: jest.fn<UseJoinedGanapsResult['refetch']>(),
 };
 
-const mockUseJoinedGanaps = jest.fn<(take: number) => UseJoinedGanapsResult>(() => mockJoinedGanapsResult);
+const mockUseJoinedGanaps = jest.fn<(take: number, filters?: JoinedGanapFilters) => UseJoinedGanapsResult>(
+  () => mockJoinedGanapsResult,
+);
+
+const emptyStateCases: Array<[JoinedGanapFilters, string]> = [
+  [{}, 'You have not joined any events yet.'],
+  [{ time: 'UPCOMING' }, 'No upcoming events.'],
+  [{ time: 'PAST' }, 'No events match your filters.'],
+  [{ search: 'missing', time: 'UPCOMING' }, 'No events match your filters.'],
+];
+
+const paginationCases: Array<[boolean, boolean, number]> = [
+  [true, false, 1],
+  [false, false, 0],
+  [true, true, 0],
+];
+
+afterEach((): void => {
+  mockUseJoinedGanaps.mockImplementation(() => mockJoinedGanapsResult);
+  jest.clearAllMocks();
+});
 
 jest.mock('expo-router', () => ({
   useRouter: (): typeof mockRouter => mockRouter,
@@ -51,7 +71,8 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 jest.mock('@/hooks/useJoinedGanaps', () => ({
-  useJoinedGanaps: (take: number): UseJoinedGanapsResult => mockUseJoinedGanaps(take),
+  useJoinedGanaps: (take: number, filters?: JoinedGanapFilters): UseJoinedGanapsResult =>
+    mockUseJoinedGanaps(take, filters),
 }));
 
 jest.mock('lucide-react-native', () => ({
@@ -69,6 +90,92 @@ describe('JoinedGanapsList layout contract', (): void => {
     expect(list.props.contentContainerStyle).toEqual({
       paddingTop: 16,
       paddingBottom: 96,
+      flexGrow: 1,
     });
+  });
+});
+
+describe('JoinedGanapsList states', (): void => {
+  it.each(emptyStateCases)('uses the correct empty copy for filters %j', async (filters, message): Promise<void> => {
+    mockUseJoinedGanaps.mockReturnValue({
+      ...mockJoinedGanapsResult,
+      items: [],
+      total: 0,
+    });
+
+    const screen = await render(<JoinedGanapsList contentTopPadding={8} contentBottomPadding={90} filters={filters} />);
+
+    expect(screen.getByText(message)).toBeTruthy();
+  });
+
+  it('renders the initial loading state with its message', async (): Promise<void> => {
+    mockUseJoinedGanaps.mockReturnValue({
+      ...mockJoinedGanapsResult,
+      items: [],
+      isLoading: true,
+    });
+
+    const screen = await render(<JoinedGanapsList contentTopPadding={8} contentBottomPadding={90} />);
+
+    expect(screen.getByText('Loading joined events...')).toBeTruthy();
+    expect(screen.queryByTestId('joined-ganaps-list')).toBeNull();
+  });
+
+  it('renders an error state whose retry action refetches joined Ganaps', async (): Promise<void> => {
+    const refetch = jest.fn<UseJoinedGanapsResult['refetch']>();
+    mockUseJoinedGanaps.mockReturnValue({
+      ...mockJoinedGanapsResult,
+      error: new Error('Request failed'),
+      refetch,
+    });
+
+    const screen = await render(<JoinedGanapsList contentTopPadding={8} contentBottomPadding={90} />);
+
+    expect(screen.getByText('Request failed')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Try Again' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps pull-to-refresh and incremental page loading separate', async (): Promise<void> => {
+    const refetch = jest.fn<UseJoinedGanapsResult['refetch']>();
+    const fetchNextPage = jest.fn<UseJoinedGanapsResult['fetchNextPage']>();
+    mockUseJoinedGanaps.mockReturnValue({
+      ...mockJoinedGanapsResult,
+      total: 2,
+      hasNextPage: true,
+      fetchNextPage,
+      isFetchingNextPage: true,
+      isRefetching: true,
+      refetch,
+    });
+
+    const screen = await render(
+      <JoinedGanapsList contentTopPadding={8} contentBottomPadding={90} filters={{ time: 'UPCOMING' }} />,
+    );
+    const list = screen.getByTestId('joined-ganaps-list');
+
+    expect(list.props.refreshControl.props.refreshing).toBe(true);
+    await fireEvent(list, 'onRefresh');
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('joined-ganaps-incremental-loading')).toBeTruthy();
+    await fireEvent(list, 'onEndReached');
+    expect(fetchNextPage).not.toHaveBeenCalled();
+  });
+
+  it.each(
+    paginationCases,
+  )('fetches another page only when hasNextPage=%s and isFetchingNextPage=%s', async (hasNextPage, isFetchingNextPage, callCount): Promise<void> => {
+    const fetchNextPage = jest.fn<UseJoinedGanapsResult['fetchNextPage']>();
+    mockUseJoinedGanaps.mockReturnValue({
+      ...mockJoinedGanapsResult,
+      hasNextPage,
+      fetchNextPage,
+      isFetchingNextPage,
+    });
+
+    const screen = await render(<JoinedGanapsList contentTopPadding={8} contentBottomPadding={90} />);
+    await fireEvent(screen.getByTestId('joined-ganaps-list'), 'onEndReached');
+
+    expect(fetchNextPage).toHaveBeenCalledTimes(callCount);
   });
 });
