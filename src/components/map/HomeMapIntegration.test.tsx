@@ -11,6 +11,7 @@ import {
   getFeatureCoordinate,
   getVisibleMapFeatures,
   isClusterFeature,
+  normalizeClusterZoom,
 } from '@/utils/map-clustering';
 
 const mockMapProps: Array<{ onMapIdle?: (state: MapState) => void }> = [];
@@ -65,10 +66,14 @@ jest.mock('@rnmapbox/maps', () => {
   };
 });
 
-jest.mock('lucide-react-native', () => ({
-  LucideProvider: ({ children }: { children?: ReactNode }): ReactElement => <>{children}</>,
-  X: (): null => null,
-}));
+jest.mock('lucide-react-native', () => {
+  const React = require('react') as typeof import('react');
+  return {
+    LucideProvider: ({ children }: { children?: ReactNode }): ReactElement =>
+      React.createElement(React.Fragment, null, children),
+    X: (): null => null,
+  };
+});
 
 jest.mock('expo-router', () => ({
   useRouter: (): { push: typeof mockRouterPush } => ({ push: mockRouterPush }),
@@ -216,11 +221,13 @@ describe('home map clustering integration', (): void => {
   });
 
   it('uses onMapIdle bounds and floored zoom to expose a cluster, list leaves, and zoom to expansion', async (): Promise<void> => {
-    const items: GanapListItem[] = [ganap('one', 122.5489, 10.7313), ganap('two', 122.5489, 10.7313)];
+    const items: GanapListItem[] = [ganap('one', 0, 0), ganap('two', 30, 0)];
     const expectedIndex = createGanapClusterIndex(items);
+    const normalizedZoom = normalizeClusterZoom(0.9);
+    expect(normalizedZoom).toBe(0);
     const expectedCluster: GanapClusterFeature | undefined = getVisibleMapFeatures(expectedIndex, {
       bounds: [-180, -85.051129, 180, 85.051129],
-      zoom: 0,
+      zoom: normalizedZoom,
     }).find(isClusterFeature);
     if (expectedCluster === undefined) throw new Error('Expected cluster fixture');
 
@@ -251,5 +258,21 @@ describe('home map clustering integration', (): void => {
 
     expect(screen.getByTestId('selected-ganap-card')).toBeTruthy();
     expect(screen.getByText('Event two')).toBeTruthy();
+  });
+
+  it('closes a selected cluster safely when the map dataset replaces its index', async (): Promise<void> => {
+    const initialItems: GanapListItem[] = [
+      ganap('initial-one', 122.5489, 10.7313),
+      ganap('initial-two', 122.5489, 10.7313),
+    ];
+    const screen = await renderHome(initialItems);
+    await triggerIdle(idleState(0));
+    await fireEvent.press(screen.getByRole('button', { name: 'Open group of 2 events' }));
+    expect(screen.getByTestId('cluster-events-sheet')).toBeTruthy();
+
+    mockUseGanapsMap.mockReturnValue(mapHookResult([ganap('replacement', 122.5489, 10.7313)]));
+    await screen.rerender(<HomeScreen />);
+
+    expect(screen.queryByTestId('cluster-events-sheet')).toBeNull();
   });
 });

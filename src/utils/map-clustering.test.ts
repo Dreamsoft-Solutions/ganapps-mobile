@@ -91,9 +91,10 @@ describe('map clustering utility', (): void => {
     const features: GanapMapFeature[] = visibleAt(index, 0);
 
     expect(features).toHaveLength(1);
-    expect(features[0] && isGanapPointFeature(features[0])).toBe(true);
-    expect(features[0]?.properties.ganap.id).toBe('single');
-    expect(features[0] && getFeatureCoordinate(features[0])).toEqual([122.5489, 10.7313]);
+    const feature: GanapMapFeature | undefined = features[0];
+    if (feature === undefined || !isGanapPointFeature(feature)) throw new Error('Expected a Ganap point feature');
+    expect(feature.properties.ganap.id).toBe('single');
+    expect(getFeatureCoordinate(feature)).toEqual([122.5489, 10.7313]);
   });
 
   it('clusters same and nearby coordinates while exposing every leaf and an expansion zoom', (): void => {

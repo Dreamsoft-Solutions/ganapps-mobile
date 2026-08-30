@@ -19,6 +19,7 @@ import {
   createGanapClusterIndex,
   DEFAULT_MAP_VIEWPORT,
   type GanapClusterFeature,
+  type GanapClusterIndex,
   getVisibleMapFeatures,
   type MapViewport,
   mapStateToViewport,
@@ -46,13 +47,17 @@ export default function HomeScreen(): ReactElement {
   const [viewport, setViewport] = useState<MapViewport>(DEFAULT_MAP_VIEWPORT);
   const [selectedGanap, setSelectedGanap] = useState<GanapListItem | null>(null);
   const [selectedCluster, setSelectedCluster] = useState<GanapClusterFeature | null>(null);
+  const [selectedClusterIndex, setSelectedClusterIndex] = useState<GanapClusterIndex | null>(null);
 
   const clusterIndex = useMemo(() => createGanapClusterIndex(items), [items]);
   const visibleFeatures = useMemo(() => getVisibleMapFeatures(clusterIndex, viewport), [clusterIndex, viewport]);
 
   useEffect((): void => {
     setSelectedCluster(null);
+    setSelectedClusterIndex(null);
   }, [clusterIndex]);
+
+  const activeCluster: GanapClusterFeature | null = selectedClusterIndex === clusterIndex ? selectedCluster : null;
 
   useEffect(() => {
     if (MAPBOX_TOKEN) {
@@ -71,11 +76,21 @@ export default function HomeScreen(): ReactElement {
 
   const handleGanapPress = useCallback((ganap: GanapListItem): void => {
     setSelectedCluster(null);
+    setSelectedClusterIndex(null);
     setSelectedGanap(ganap);
   }, []);
 
-  const handleClusterPress = useCallback((cluster: GanapClusterFeature): void => {
-    setSelectedCluster(cluster);
+  const handleClusterPress = useCallback(
+    (cluster: GanapClusterFeature): void => {
+      setSelectedCluster(cluster);
+      setSelectedClusterIndex(clusterIndex);
+    },
+    [clusterIndex],
+  );
+
+  const handleClusterClose = useCallback((): void => {
+    setSelectedCluster(null);
+    setSelectedClusterIndex(null);
   }, []);
 
   const handleClusterZoomIn = useCallback((target: ClusterZoomTarget): void => {
@@ -131,9 +146,9 @@ export default function HomeScreen(): ReactElement {
       </View>
 
       <ClusterEventsSheet
-        cluster={selectedCluster}
+        cluster={activeCluster}
         index={clusterIndex}
-        onClose={(): void => setSelectedCluster(null)}
+        onClose={handleClusterClose}
         onSelectGanap={handleGanapPress}
         onZoomIn={handleClusterZoomIn}
       />
