@@ -6,7 +6,7 @@ import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { Routes } from '@/constants/routes';
 import { useJoinedGanaps } from '@/hooks/useJoinedGanaps';
-import type { JoinedGanap } from '@/types/profile.types';
+import type { JoinedGanap, JoinedGanapFilters } from '@/types/profile.types';
 import { JoinedGanapCard } from './JoinedGanapCard';
 
 const JOINED_PAGE_SIZE: number = 20;
@@ -14,6 +14,7 @@ const JOINED_PAGE_SIZE: number = 20;
 export interface JoinedGanapsListProps {
   contentTopPadding: number;
   contentBottomPadding: number;
+  filters?: JoinedGanapFilters;
 }
 
 /**
@@ -21,9 +22,13 @@ export interface JoinedGanapsListProps {
  *
  * @returns The paginated joined Ganap list.
  */
-export function JoinedGanapsList({ contentTopPadding, contentBottomPadding }: JoinedGanapsListProps): ReactElement {
+export function JoinedGanapsList({
+  contentTopPadding,
+  contentBottomPadding,
+  filters,
+}: JoinedGanapsListProps): ReactElement {
   const router = useRouter();
-  const joinedGanaps = useJoinedGanaps(JOINED_PAGE_SIZE);
+  const joinedGanaps = useJoinedGanaps(JOINED_PAGE_SIZE, filters);
 
   if (joinedGanaps.isLoading) return <Loading message="Loading joined events..." />;
   if (joinedGanaps.error) {

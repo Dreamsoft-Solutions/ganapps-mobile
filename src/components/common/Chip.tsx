@@ -45,7 +45,12 @@ export function Chip({ label, selected, onPress }: ChipProps): ReactElement {
   }, [onPress]);
 
   return (
-    <Pressable onPress={handlePress} className={chipVariants({ selected })} accessibilityState={{ selected }}>
+    <Pressable
+      onPress={handlePress}
+      className={chipVariants({ selected })}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+    >
       <Text className={textVariants({ selected })}>{label}</Text>
     </Pressable>
   );

@@ -1,9 +1,9 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { BAR_HEIGHT } from '@/components/navigation/AppTabBar';
 import { Spacing } from '@/constants/theme';
 import type { UseJoinedGanapsResult } from '@/hooks/useJoinedGanaps';
-import type { JoinedGanap } from '@/types/profile.types';
+import type { JoinedGanap, JoinedGanapFilters } from '@/types/profile.types';
 import GanapsScreen from './ganaps';
 
 const mockRouter = {
@@ -37,7 +37,9 @@ const mockJoinedGanapsResult: UseJoinedGanapsResult = {
   refetch: jest.fn<UseJoinedGanapsResult['refetch']>(),
 };
 
-const mockUseJoinedGanaps = jest.fn<(take: number) => UseJoinedGanapsResult>(() => mockJoinedGanapsResult);
+const mockUseJoinedGanaps = jest.fn<(take: number, filters?: JoinedGanapFilters) => UseJoinedGanapsResult>(
+  () => mockJoinedGanapsResult,
+);
 
 jest.mock('expo-router', () => ({
   useRouter: (): typeof mockRouter => mockRouter,
@@ -53,7 +55,8 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 jest.mock('@/hooks/useJoinedGanaps', () => ({
-  useJoinedGanaps: (take: number): UseJoinedGanapsResult => mockUseJoinedGanaps(take),
+  useJoinedGanaps: (take: number, filters?: JoinedGanapFilters): UseJoinedGanapsResult =>
+    mockUseJoinedGanaps(take, filters),
 }));
 
 jest.mock('lucide-react-native', () => ({
@@ -61,7 +64,14 @@ jest.mock('lucide-react-native', () => ({
   CheckCircle2: (): null => null,
   ChevronRight: (): null => null,
   Clock: (): null => null,
+  Search: (): null => null,
+  X: (): null => null,
 }));
+
+afterEach((): void => {
+  jest.useRealTimers();
+  jest.clearAllMocks();
+});
 
 describe('GanapsScreen layout contract', (): void => {
   it('renders the My Events heading below the status-bar inset', async (): Promise<void> => {
@@ -76,5 +86,37 @@ describe('GanapsScreen layout contract', (): void => {
       paddingTop: Spacing.md,
       paddingBottom: 10 + BAR_HEIGHT + Spacing.xs,
     });
+  });
+
+  it('publishes a trimmed search only after the 300 ms debounce', async (): Promise<void> => {
+    jest.useFakeTimers();
+    const screen = await render(<GanapsScreen />);
+    const search = screen.getByLabelText('Search joined events');
+
+    await fireEvent.changeText(search, '  Design  ');
+    await act(async (): Promise<void> => {
+      jest.advanceTimersByTime(299);
+    });
+    const beforeDebounce = mockUseJoinedGanaps.mock.calls[mockUseJoinedGanaps.mock.calls.length - 1]?.[1];
+    expect(beforeDebounce).toEqual({ time: 'UPCOMING' });
+
+    await act(async (): Promise<void> => {
+      jest.advanceTimersByTime(1);
+    });
+    const afterDebounce = mockUseJoinedGanaps.mock.calls[mockUseJoinedGanaps.mock.calls.length - 1]?.[1];
+    expect(afterDebounce).toEqual({ search: 'Design', time: 'UPCOMING' });
+  });
+
+  it('omits a whitespace-only search after the 300 ms debounce', async (): Promise<void> => {
+    jest.useFakeTimers();
+    const screen = await render(<GanapsScreen />);
+
+    await fireEvent.changeText(screen.getByLabelText('Search joined events'), '   ');
+    await act(async (): Promise<void> => {
+      jest.advanceTimersByTime(300);
+    });
+
+    const filters = mockUseJoinedGanaps.mock.calls[mockUseJoinedGanaps.mock.calls.length - 1]?.[1];
+    expect(filters).toEqual({ time: 'UPCOMING' });
   });
 });
