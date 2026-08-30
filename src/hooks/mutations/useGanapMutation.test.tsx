@@ -4,11 +4,18 @@ import { act, renderHook } from '@testing-library/react-native';
 import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import type { ReactElement, ReactNode } from 'react';
 import axiosInstance from '@/api/axios-instance';
+import { ErrorCodes } from '@/constants/errors';
 import { enqueueOutbox } from '@/services/sync.service';
+import type { SubmitFeedbackResponse } from '@/types/ganap.types';
 import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
 import { ganapQueryKeys } from '../queries/useGanapsQuery';
 import { profileQueryKeys } from '../queries/useProfileQuery';
-import { useCheckInMutation, useRateGanapMutation, useSubmitFormAnswersMutation } from './useGanapMutation';
+import {
+  useCheckInMutation,
+  useRateGanapMutation,
+  useSubmitFeedbackMutation,
+  useSubmitFormAnswersMutation,
+} from './useGanapMutation';
 
 jest.mock('@/services/sync.service', () => ({
   enqueueOutbox: jest.fn(),
@@ -45,14 +52,19 @@ function envelopeAdapter(payload: unknown): (config: AxiosRequestConfig) => Prom
  *
  * @param status - HTTP status the simulated response carries
  * @param message - Error message the server would send
+ * @param errorCode - Error code the server would send
  * @returns An axios adapter that always rejects
  */
-function serverErrorAdapter(status: number, message: string): (config: AxiosRequestConfig) => Promise<never> {
+function serverErrorAdapter(
+  status: number,
+  message: string,
+  errorCode: string,
+): (config: AxiosRequestConfig) => Promise<never> {
   return async (config: AxiosRequestConfig): Promise<never> => {
     captured.push(config);
     const error = new axios.AxiosError(message, 'ERR_BAD_REQUEST', config as AxiosResponse['config']);
     error.response = {
-      data: { success: false, statusCode: status, message, errorCode: 'BAD_REQUEST' },
+      data: { success: false, statusCode: status, message, errorCode },
       status,
       statusText: 'Error',
       headers: {},
@@ -155,7 +167,7 @@ describe('useCheckInMutation', () => {
   });
 
   it('rejects without queueing when the server answered with an error', async () => {
-    axiosInstance.defaults.adapter = serverErrorAdapter(400, 'Invalid QR code');
+    axiosInstance.defaults.adapter = serverErrorAdapter(400, 'Invalid QR code', 'BAD_REQUEST');
     const client = queryClient();
     const { result, unmount } = await renderHook(() => useCheckInMutation(), { wrapper: wrapperFor(client) });
 
@@ -166,6 +178,46 @@ describe('useCheckInMutation', () => {
     });
 
     expect(mockedEnqueueOutbox).not.toHaveBeenCalled();
+    unmount();
+  });
+});
+
+describe('useSubmitFeedbackMutation', () => {
+  it('resolves the combined feedback response and invalidates detail, lists, and profile', async () => {
+    const response: SubmitFeedbackResponse = {
+      myRating: 5,
+      postAttendanceFormSubmittedAt: '2026-08-29T04:00:00.000Z',
+    };
+    axiosInstance.defaults.adapter = envelopeAdapter(response);
+    const client = queryClient();
+    const invalidateQueries = jest.spyOn(client, 'invalidateQueries');
+    const { result, unmount } = await renderHook(() => useSubmitFeedbackMutation(), { wrapper: wrapperFor(client) });
+
+    let returned: Awaited<ReturnType<typeof result.current.mutateAsync>> | undefined;
+    await act(async () => {
+      returned = await result.current.mutateAsync({ ganapId: 'g1', input: { rating: 5 } });
+    });
+
+    expect(returned).toEqual(response);
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ganapQueryKeys.detail('g1') });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ganapQueryKeys.lists() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: profileQueryKeys.all });
+    unmount();
+  });
+
+  it('rejects a conflicting rating with parsed server metadata', async () => {
+    axiosInstance.defaults.adapter = serverErrorAdapter(409, 'This Ganap already has a rating', ErrorCodes.FEEDBACK_RATING_CONFLICT);
+    const client = queryClient();
+    const { result, unmount } = await renderHook(() => useSubmitFeedbackMutation(), { wrapper: wrapperFor(client) });
+
+    await act(async () => {
+      await expect(result.current.mutateAsync({ ganapId: 'g1', input: { rating: 5 } })).rejects.toMatchObject({
+        errorCode: ErrorCodes.FEEDBACK_RATING_CONFLICT,
+        message: 'This Ganap already has a rating',
+        status: 409,
+      });
+    });
+
     unmount();
   });
 });
@@ -186,7 +238,7 @@ describe('global error toast suppression', () => {
   }
 
   it('suppresses the global toast for check-in', async () => {
-    axiosInstance.defaults.adapter = serverErrorAdapter(400, 'Invalid QR code');
+    axiosInstance.defaults.adapter = serverErrorAdapter(400, 'Invalid QR code', 'BAD_REQUEST');
     const client = queryClient();
     const { result, unmount } = await renderHook(() => useCheckInMutation(), { wrapper: wrapperFor(client) });
 
@@ -204,7 +256,7 @@ describe('global error toast suppression', () => {
   // completion. A global toast would surface a reconciliation the student is
   // never meant to see, so the flag is part of the behaviour, not a detail.
   it('suppresses the global toast for rating', async () => {
-    axiosInstance.defaults.adapter = serverErrorAdapter(400, 'Already rated this event');
+    axiosInstance.defaults.adapter = serverErrorAdapter(400, 'Already rated this event', 'BAD_REQUEST');
     const client = queryClient();
     const { result, unmount } = await renderHook(() => useRateGanapMutation(), { wrapper: wrapperFor(client) });
 
@@ -221,7 +273,7 @@ describe('global error toast suppression', () => {
   // Shared by the registration and feedback routes; both render the failure
   // inline against the form still on screen.
   it('suppresses the global toast for form answers', async () => {
-    axiosInstance.defaults.adapter = serverErrorAdapter(400, 'Required field "Shirt size" is missing');
+    axiosInstance.defaults.adapter = serverErrorAdapter(400, 'Required field "Shirt size" is missing', 'BAD_REQUEST');
     const client = queryClient();
     const { result, unmount } = await renderHook(() => useSubmitFormAnswersMutation(), {
       wrapper: wrapperFor(client),
@@ -231,6 +283,21 @@ describe('global error toast suppression', () => {
       await expect(
         result.current.mutateAsync({ ganapId: 'g-1', input: { answers: [], scope: 'POST_ATTENDANCE' } }),
       ).rejects.toThrow('Required field "Shirt size" is missing');
+    });
+
+    expect(metaOf(client)).toEqual({ [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true });
+    unmount();
+  });
+
+  it('suppresses the global toast for combined feedback', async () => {
+    axiosInstance.defaults.adapter = serverErrorAdapter(409, 'This Ganap already has a rating', ErrorCodes.FEEDBACK_RATING_CONFLICT);
+    const client = queryClient();
+    const { result, unmount } = await renderHook(() => useSubmitFeedbackMutation(), { wrapper: wrapperFor(client) });
+
+    await act(async () => {
+      await expect(result.current.mutateAsync({ ganapId: 'g1', input: { rating: 5 } })).rejects.toThrow(
+        'This Ganap already has a rating',
+      );
     });
 
     expect(metaOf(client)).toEqual({ [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true });

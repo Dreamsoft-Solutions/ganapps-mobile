@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
-import type { GanapAnnouncement } from '@/types/ganap.types';
+import type { GanapAnnouncement, SubmitFeedbackInput, SubmitFeedbackResponse } from '@/types/ganap.types';
 import axiosInstance from '../axios-instance';
 import type { PaginatedResponse } from '../types/api-response';
 import { ganapsAPI } from './ganaps';
@@ -140,6 +140,26 @@ describe('ganapsAPI.registration form', () => {
 
     expect(captured[0].method).toBe('post');
     expect(requestedUrl(captured[0])).toContain('/api/v1/ganaps/g1/form-answers');
+    expect(JSON.parse(String(captured[0].data))).toEqual(input);
+  });
+});
+
+describe('ganapsAPI.submitFeedback', () => {
+  it('posts the combined feedback body to the versioned feedback path', async (): Promise<void> => {
+    const response: SubmitFeedbackResponse = {
+      myRating: 5,
+      postAttendanceFormSubmittedAt: '2026-08-29T04:00:00.000Z',
+    };
+    const input: SubmitFeedbackInput = {
+      rating: 5,
+      answers: [{ formBlockId: 'block_1', textValue: 'Great event', scaleValue: 4, selectedOptionIds: ['option_1'] }],
+    };
+    axiosInstance.defaults.adapter = envelopeAdapter(response);
+
+    await expect(ganapsAPI.submitFeedback('g1', input)).resolves.toEqual(response);
+
+    expect(captured[0].method).toBe('post');
+    expect(requestedUrl(captured[0])).toContain('/api/v1/ganaps/g1/feedback');
     expect(JSON.parse(String(captured[0].data))).toEqual(input);
   });
 });
