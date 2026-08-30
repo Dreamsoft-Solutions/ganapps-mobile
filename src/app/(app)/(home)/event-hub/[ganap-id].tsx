@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import type { ReactElement } from 'react';
+import { type ReactElement, useCallback, useState } from 'react';
 import { Share, View } from 'react-native';
 import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
@@ -22,6 +22,8 @@ interface EventHubUnavailableProps {
 interface EligibleEventHubProps {
   ganap: GanapDetail;
   onBack: () => void;
+  /** Refetches the Event Details query shared with the Hub refresh gesture. */
+  onRefreshDetail: () => Promise<void>;
   /** Navigates to the attendance scanner; forwarded from the outer screen. */
   onScanAttendance: () => void;
   /** Navigates to the post-event feedback flow; forwarded from the outer screen. */
@@ -60,8 +62,15 @@ function EventHubUnavailable({ onBack }: EventHubUnavailableProps): ReactElement
  * @param props - The loaded Ganap, the shared back handler, and the scan navigation callback.
  * @returns The loaded Event Hub screen.
  */
-function EligibleEventHub({ ganap, onBack, onScanAttendance, onGiveFeedback }: EligibleEventHubProps): ReactElement {
+function EligibleEventHub({
+  ganap,
+  onBack,
+  onRefreshDetail,
+  onScanAttendance,
+  onGiveFeedback,
+}: EligibleEventHubProps): ReactElement {
   const announcements: UseGanapAnnouncementsResult = useGanapAnnouncements(ganap.id, true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const schedule: GanapScheduleModel = getGanapScheduleModel(ganap.startDate, ganap.endDate);
   const accessLost: boolean = announcements.hasLostAccess;
   const scanState: AttendanceScanState = getAttendanceScanState(ganap, new Date());
@@ -73,6 +82,15 @@ function EligibleEventHub({ ganap, onBack, onScanAttendance, onGiveFeedback }: E
   async function handleShare(): Promise<void> {
     await Share.share({ message: buildGanapShareMessage(ganap, schedule), title: ganap.title });
   }
+
+  const handleRefresh = useCallback(async (): Promise<void> => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([onRefreshDetail(), announcements.refetch()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [announcements.refetch, onRefreshDetail]);
 
   return (
     <EventHubView
@@ -86,9 +104,11 @@ function EligibleEventHub({ ganap, onBack, onScanAttendance, onGiveFeedback }: E
       isFetchingNextPage={!accessLost && announcements.isFetchingNextPage}
       isFetchNextPageError={!accessLost && announcements.isFetchNextPageError}
       accessLost={accessLost}
+      isRefreshing={isRefreshing}
       scanState={scanState}
       onBack={onBack}
       onShare={handleShare}
+      onRefresh={handleRefresh}
       onRetryAnnouncements={(): void => {
         void announcements.refetch();
       }}
@@ -147,6 +167,9 @@ export default function EventHubScreen(): ReactElement {
     <EligibleEventHub
       ganap={detail.data}
       onBack={handleBack}
+      onRefreshDetail={async (): Promise<void> => {
+        await detail.refetch();
+      }}
       onScanAttendance={handleScanAttendance}
       onGiveFeedback={handleGiveFeedback}
     />

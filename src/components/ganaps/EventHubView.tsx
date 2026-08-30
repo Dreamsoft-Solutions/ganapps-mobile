@@ -11,7 +11,7 @@ import {
   Users,
 } from 'lucide-react-native';
 import type { ReactElement, ReactNode } from 'react';
-import { FlatList, type ListRenderItemInfo, useWindowDimensions, View } from 'react-native';
+import { FlatList, type ListRenderItemInfo, RefreshControl, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { Empty } from '@/components/common/Empty';
@@ -44,10 +44,14 @@ export interface EventHubViewProps {
   isFetchingNextPage: boolean;
   isFetchNextPageError: boolean;
   accessLost: boolean;
+  /** Whether the route-owned detail and announcements refresh is active. */
+  isRefreshing: boolean;
   /** Attendance scan surface state, driving the row's presentation. */
   scanState: AttendanceScanState;
   onBack: () => void;
   onShare: () => void | Promise<void>;
+  /** Refetches the Event Hub's detail and announcement data together. */
+  onRefresh: () => Promise<void>;
   onRetryAnnouncements: () => void | Promise<void>;
   onRetryNextPage: () => void | Promise<void>;
   onLoadMore: () => void | Promise<void>;
@@ -146,9 +150,11 @@ export function EventHubView({
   isFetchingNextPage,
   isFetchNextPageError,
   accessLost,
+  isRefreshing,
   scanState,
   onBack,
   onShare,
+  onRefresh,
   onRetryAnnouncements,
   onRetryNextPage,
   onLoadMore,
@@ -315,6 +321,14 @@ export function EventHubView({
       <View className="flex-1">
         <FlatList
           testID="announcement-list"
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={(): void => {
+                void onRefresh();
+              }}
+            />
+          }
           data={announcements}
           keyExtractor={(announcement: GanapAnnouncement): string => announcement.id}
           renderItem={({ item }: ListRenderItemInfo<GanapAnnouncement>): ReactElement => (

@@ -1,7 +1,7 @@
 // Tests for src/app/(app)/(home)/event-hub/[ganap-id].tsx live here rather than
 // beside it: any .test.tsx under src/app/ is picked up by Expo Router as a route.
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 import { Pressable as MockPressable, Text as MockText, View as MockView, Share } from 'react-native';
 import type { EventHubViewProps } from '@/components/ganaps/EventHubView';
@@ -93,6 +93,28 @@ let mockAnnouncementsState: {
 const mockUseGanapAnnouncements = jest.fn(
   (_ganapId: string, _isEligible: boolean): typeof mockAnnouncementsState => mockAnnouncementsState,
 );
+
+interface Deferred {
+  promise: Promise<void>;
+  resolve: () => void;
+}
+
+/**
+ * Creates a manually resolvable promise so a route callback can be observed in flight.
+ *
+ * @returns The promise and its resolver.
+ */
+function createDeferred(): Deferred {
+  let resolvePromise: (() => void) | undefined;
+  const promise = new Promise<void>((resolve: () => void): void => {
+    resolvePromise = resolve;
+  });
+
+  return {
+    promise,
+    resolve: (): void => resolvePromise?.(),
+  };
+}
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: (): typeof mockParams => mockParams,
@@ -367,6 +389,37 @@ describe('Event Hub route loaded behavior', (): void => {
 
     expect(mockAnnouncementsRefetch).toHaveBeenCalledTimes(1);
     expect(mockFetchNextPage).toHaveBeenCalledTimes(2);
+  });
+
+  it('refreshes detail and announcements from one pull gesture', async (): Promise<void> => {
+    const detailRefresh = createDeferred();
+    const announcementsRefresh = createDeferred();
+    const refetchDetail = jest.fn<() => Promise<unknown>>((): Promise<unknown> => detailRefresh.promise);
+    const refetchAnnouncements = jest.fn<() => Promise<unknown>>((): Promise<unknown> => announcementsRefresh.promise);
+    mockDetailState.refetch = refetchDetail;
+    mockAnnouncementsState.refetch = refetchAnnouncements;
+
+    await renderRoute();
+
+    let refresh: Promise<void> | undefined;
+    await act(async (): Promise<void> => {
+      refresh = latestViewProps().onRefresh();
+      await Promise.resolve();
+    });
+
+    await waitFor((): void => {
+      expect(refetchDetail).toHaveBeenCalledTimes(1);
+      expect(refetchAnnouncements).toHaveBeenCalledTimes(1);
+      expect(latestViewProps().isRefreshing).toBe(true);
+    });
+
+    await act(async (): Promise<void> => {
+      detailRefresh.resolve();
+      announcementsRefresh.resolve();
+      await refresh;
+    });
+
+    await waitFor((): void => expect(latestViewProps().isRefreshing).toBe(false));
   });
 });
 

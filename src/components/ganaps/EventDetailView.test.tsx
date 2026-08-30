@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
 import { Text as MockText, View as MockView, type StyleProp, type ViewStyle } from 'react-native';
 import { Colors } from '@/constants/theme';
@@ -175,6 +175,39 @@ const actionModel: GanapActionModel = {
   primary: { action: 'join', label: 'Join event', confirmation: null },
   secondary: null,
 };
+
+describe('EventDetailView refresh', (): void => {
+  it('binds pull-to-refresh to the detail query state and callback', async (): Promise<void> => {
+    const onRefresh = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    const screen = await render(
+      <EventDetailView
+        ganap={ganap}
+        business={business}
+        capacity={capacity}
+        schedule={schedule}
+        actionModel={actionModel}
+        isPrimaryPending={false}
+        isLikePending={false}
+        isSavePending={false}
+        isRefreshing
+        onRefresh={onRefresh}
+        onBack={(): void => {}}
+        onShare={(): void => {}}
+        onToggleLike={(): void => {}}
+        onToggleSave={(): void => {}}
+        onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
+      />,
+    );
+
+    const scroll = screen.getByTestId('event-detail-scroll');
+    expect(scroll.props.refreshControl.props.refreshing).toBe(true);
+
+    await fireEvent(scroll, 'onRefresh');
+
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('EventDetailView action bar wiring', (): void => {
   it('forwards the action model and distinct primary/secondary callbacks unchanged', async (): Promise<void> => {
