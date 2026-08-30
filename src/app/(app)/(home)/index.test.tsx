@@ -66,6 +66,15 @@ const mockMapState: MockMapState = {
 const mockUseGanapsMap = jest.fn<() => MockMapState>(() => mockMapState);
 const mockSelectedGanapCard = jest.fn<(props: SelectedGanapCardProps) => ReactElement>();
 
+jest.mock('lucide-react-native', () => {
+  const React = require('react') as typeof import('react');
+  return {
+    LucideProvider: ({ children }: { children?: ReactNode }): ReactElement =>
+      React.createElement(React.Fragment, null, children),
+    X: (): null => null,
+  };
+});
+
 jest.mock('@rnmapbox/maps', () => {
   const React = require('react') as typeof import('react');
   const { View } = require('react-native') as typeof import('react-native');
