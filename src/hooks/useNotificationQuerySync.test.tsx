@@ -86,9 +86,9 @@ describe('useNotificationQuerySync', (): void => {
     });
 
     await waitFor(() => expect(queryClient.invalidateQueries).toHaveBeenCalledTimes(3));
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ganapQueryKeys.detail('ganap-42') });
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ganapQueryKeys.lists() });
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: profileQueryKeys.all });
+    expect(queryClient.invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ganapQueryKeys.detail('ganap-42') });
+    expect(queryClient.invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ganapQueryKeys.lists() });
+    expect(queryClient.invalidateQueries).toHaveBeenNthCalledWith(3, { queryKey: profileQueryKeys.all });
   });
 
   it('invalidates all Ganap and profile queries on AppState resume and cleans up', async (): Promise<void> => {
@@ -96,8 +96,9 @@ describe('useNotificationQuerySync', (): void => {
     const screen = await renderHook(() => useNotificationQuerySync(), { wrapper: queryClientWrapper(queryClient) });
 
     mockAppStateChange?.('active');
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ganapQueryKeys.all });
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: profileQueryKeys.all });
+    expect(queryClient.invalidateQueries).toHaveBeenCalledTimes(2);
+    expect(queryClient.invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ganapQueryKeys.all });
+    expect(queryClient.invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: profileQueryKeys.all });
 
     await screen.unmount();
     expect(mockNotificationObserverCleanup).toHaveBeenCalledTimes(1);
