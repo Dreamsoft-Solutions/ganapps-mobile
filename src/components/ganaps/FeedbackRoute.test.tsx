@@ -205,6 +205,7 @@ function resetStates(pendingSteps: FeedbackStep[], ratingScore: number = 5): voi
     (props: DynamicFormProps): ReactElement => (
       <MockView>
         <MockText>{props.title}</MockText>
+        <MockText>{formAnswersWithLegacyFields.answers[0]?.textValue ?? ''}</MockText>
         <MockText>{props.submissionError?.message ?? ''}</MockText>
         <MockPressable
           accessibilityRole="button"
@@ -379,6 +380,54 @@ describe('feedback route step resolution', (): void => {
     expect(mockSubmitFeedback.mock.calls[1]).toEqual([
       { ganapId: 'g1', input: { answers: [{ formBlockId: 'block_1', textValue: 'Great event' }] } },
     ]);
+  });
+
+  it('keeps entered answers and the conflict retry surface when refetch fails', async (): Promise<void> => {
+    resetStates(['rating', 'form']);
+    const conflict = codedError('The rating was already submitted', ErrorCodes.FEEDBACK_RATING_CONFLICT);
+    const refetchError = new Error('Unable to refresh feedback');
+    mockSubmitFeedback.mockRejectedValue(conflict);
+    mockRefetch.mockImplementationOnce(async (): Promise<unknown> => {
+      mockFeedbackState.error = refetchError;
+      throw refetchError;
+    });
+    const screen = await renderRoute();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit mocked rating' }));
+    await waitFor(() => expect(mockDynamicForm).toHaveBeenCalled());
+    const validInput: SubmitFormAnswersInput = {
+      scope: 'POST_ATTENDANCE',
+      answers: [{ formBlockId: 'block_1', textValue: 'Great event', numberValue: 9 }],
+    };
+    let formProps: DynamicFormProps = mockDynamicForm.mock.calls.at(-1)?.[0] as DynamicFormProps;
+
+    await act(async (): Promise<void> => {
+      try {
+        await formProps.onSubmit(validInput);
+      } catch {
+        // The pre-fix route leaked a rejected refetch through this callback.
+      }
+    });
+    expect(screen.getByText('Share your feedback')).toBeTruthy();
+    expect(screen.getByText('Great event')).toBeTruthy();
+    expect(screen.getByText('Your rating was already submitted and cannot be changed.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Submit mocked form' })).toBeTruthy();
+
+    mockRefetch.mockImplementationOnce(async (): Promise<unknown> => {
+      mockFeedbackState.error = null;
+      return undefined;
+    });
+    formProps = mockDynamicForm.mock.calls.at(-1)?.[0] as DynamicFormProps;
+    await act(async (): Promise<void> => {
+      await formProps.onSubmit(validInput);
+    });
+
+    expect(mockSubmitFeedback).toHaveBeenCalledTimes(2);
+    expect(mockSubmitFeedback.mock.calls[1]).toEqual([
+      { ganapId: 'g1', input: { answers: [{ formBlockId: 'block_1', textValue: 'Great event' }] } },
+    ]);
+    await waitFor(() => expect(screen.getByText('Your rating was already submitted and cannot be changed.')).toBeTruthy());
+    screen.unmount();
   });
 
   it('refetches and leaves through the fallback for FEEDBACK_NOT_ELIGIBLE', async (): Promise<void> => {

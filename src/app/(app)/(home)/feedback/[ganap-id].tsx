@@ -78,6 +78,7 @@ export default function FeedbackRoute(): ReactElement {
   const [isDirty, setIsDirty] = useState<boolean>(false);
   const [stepError, setStepError] = useState<FeedbackErrorModel | null>(null);
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
+  const [preserveFormAfterConflict, setPreserveFormAfterConflict] = useState<boolean>(false);
   const isSubmitting: boolean = feedback.isSubmitting;
   const hasPostAttendanceForm: boolean = feedback.blocks !== undefined && feedback.blocks.length > 0;
 
@@ -132,7 +133,17 @@ export default function FeedbackRoute(): ReactElement {
         // submission, refresh authoritative state, and keep the form mounted.
         case 'rating-conflict':
           setSelectedRating(null);
-          await feedback.refetch();
+          // Mark this surface as recoverable before refetching: a rejected
+          // query updates `feedback.error` while the request is in flight,
+          // and rendering ErrorView there would unmount DynamicForm.
+          setPreserveFormAfterConflict(true);
+          try {
+            await feedback.refetch();
+            setPreserveFormAfterConflict(false);
+          } catch {
+            // Refetch is authoritative best effort; keep the form and retry
+            // surface mounted when it cannot refresh.
+          }
           setStepError(model);
           return;
 
@@ -238,7 +249,9 @@ export default function FeedbackRoute(): ReactElement {
   );
 
   if (feedback.isLoading) return <Loading />;
-  if (feedback.error) return <ErrorView error={feedback.error} onRetry={(): void => void feedback.refetch()} />;
+  if (feedback.error && !preserveFormAfterConflict) {
+    return <ErrorView error={feedback.error} onRetry={(): void => void feedback.refetch()} />;
+  }
   if (!feedback.ganap) return <FeedbackUnavailable message="This event is no longer available." onLeave={leave} />;
 
   if (currentStep === 'rating') {
