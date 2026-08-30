@@ -1,3 +1,4 @@
+import type { UseQueryResult } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { type ReactElement, useCallback, useState } from 'react';
 import { Share, View } from 'react-native';
@@ -7,12 +8,12 @@ import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { EventHubView } from '@/components/ganaps/EventHubView';
 import { Routes } from '@/constants/routes';
-import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
+import { useFormBlocksQuery, useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { type UseGanapAnnouncementsResult, useGanapAnnouncements } from '@/hooks/useGanapAnnouncements';
-import type { GanapDetail, RegistrationStatus } from '@/types/ganap.types';
+import type { FormBlock, GanapDetail, RegistrationStatus } from '@/types/ganap.types';
 import { type AttendanceScanState, getAttendanceScanState } from '@/utils/attendance';
 import { canAccessEventHub } from '@/utils/event-hub';
-import { getPendingFeedbackSteps } from '@/utils/feedback';
+import { type FeedbackRowState, getFeedbackRowState } from '@/utils/feedback';
 import { buildGanapShareMessage, type GanapScheduleModel, getGanapScheduleModel } from '@/utils/ganap-detail';
 
 interface EventHubUnavailableProps {
@@ -74,10 +75,12 @@ function EligibleEventHub({
   const schedule: GanapScheduleModel = getGanapScheduleModel(ganap.startDate, ganap.endDate);
   const accessLost: boolean = announcements.hasLostAccess;
   const scanState: AttendanceScanState = getAttendanceScanState(ganap, new Date());
-  // The hub does not fetch POST_ATTENDANCE blocks, so this surfaces the row
-  // for the rating step only; the form step is discovered inside the
-  // feedback route, which does fetch the blocks.
-  const hasPendingFeedback: boolean = getPendingFeedbackSteps(ganap, []).length > 0;
+  const formBlocksQuery: UseQueryResult<FormBlock[], Error> = useFormBlocksQuery(ganap.id, 'POST_ATTENDANCE');
+  const feedbackState: FeedbackRowState = getFeedbackRowState(
+    ganap,
+    formBlocksQuery.data,
+    announcements.hasLostAccess || formBlocksQuery.isLoading || formBlocksQuery.error !== null,
+  );
 
   async function handleShare(): Promise<void> {
     await Share.share({ message: buildGanapShareMessage(ganap, schedule), title: ganap.title });
@@ -119,7 +122,7 @@ function EligibleEventHub({
         void announcements.fetchNextPage();
       }}
       onScanAttendance={onScanAttendance}
-      hasPendingFeedback={hasPendingFeedback}
+      feedbackState={feedbackState}
       onGiveFeedback={onGiveFeedback}
     />
   );

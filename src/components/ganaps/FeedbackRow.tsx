@@ -1,31 +1,50 @@
-import { MessageSquare } from 'lucide-react-native';
+import { CircleCheck, MessageSquare } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { Pressable, View } from 'react-native';
 import { Text } from '@/components/common/Text';
 import { Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import type { FeedbackRowState } from '@/utils/feedback';
 
 /** Props for the Event Hub post-event feedback row. */
 export interface FeedbackRowProps {
-  /** Whether anything is still outstanding; `false` renders nothing. */
-  isPending: boolean;
+  /** Authoritative feedback state; `hidden` renders nothing. */
+  state: FeedbackRowState;
+  /** Fired only when the feedback row is actionable. */
   onPress: () => void;
 }
 
 /**
- * Event Hub row surfacing outstanding post-event feedback.
+ * Event Hub row surfacing authoritative post-event feedback state.
  *
- * Unlike {@link AttendanceScanRow}, this row has only two states: it either
- * disappears once nothing is pending, or invites the student in. There is no
- * locked variant, since feedback only ever becomes available after `ATTENDED`.
+ * Unlike {@link AttendanceScanRow}, this row is hidden while the server
+ * metadata is unavailable, confirms a completed submission statically, or
+ * invites the student into the feedback flow when a step remains.
  *
- * @param props - Whether feedback is pending, and the navigate-to-feedback callback.
- * @returns The row when feedback is pending, or null when hidden.
+ * @param props - Authoritative state and the navigate-to-feedback callback.
+ * @returns The row for the current state, or null when hidden.
  */
-export function FeedbackRow({ isPending, onPress }: FeedbackRowProps): ReactElement | null {
+export function FeedbackRow({ state, onPress }: FeedbackRowProps): ReactElement | null {
   const theme = useResolvedTheme();
 
-  if (!isPending) return null;
+  if (state.kind === 'hidden') return null;
+
+  if (state.kind === 'submitted') {
+    return (
+      <View
+        testID="feedback-row"
+        accessible
+        pointerEvents="none"
+        accessibilityLabel="Feedback submitted"
+        className="flex-row items-center rounded-lg border border-border bg-muted px-md py-sm"
+      >
+        <View className="mr-sm">
+          <CircleCheck size={16} color={Colors[theme].primary} />
+        </View>
+        <Text className="min-w-0 flex-1 text-body-md">Feedback submitted</Text>
+      </View>
+    );
+  }
 
   return (
     <Pressable

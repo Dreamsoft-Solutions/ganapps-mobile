@@ -24,6 +24,7 @@ import { Colors, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { GanapAnnouncement, GanapDetail } from '@/types/ganap.types';
 import type { AttendanceScanState } from '@/utils/attendance';
+import type { FeedbackRowState } from '@/utils/feedback';
 import type { GanapScheduleModel } from '@/utils/ganap-detail';
 import { AnnouncementCard } from './AnnouncementCard';
 import { AttendanceScanRow } from './AttendanceScanRow';
@@ -57,9 +58,9 @@ export interface EventHubViewProps {
   onLoadMore: () => void | Promise<void>;
   /** Navigates to the attendance scanner; fired only when `scanState` is `available`. */
   onScanAttendance: () => void;
-  /** Whether any post-event feedback step is still outstanding. */
-  hasPendingFeedback: boolean;
-  /** Navigates to the post-event feedback flow; fired only when `hasPendingFeedback` is true. */
+  /** Authoritative post-event feedback row state. */
+  feedbackState: FeedbackRowState;
+  /** Navigates to the post-event feedback flow; fired only when feedback is actionable. */
   onGiveFeedback: () => void;
 }
 
@@ -159,7 +160,7 @@ export function EventHubView({
   onRetryNextPage,
   onLoadMore,
   onScanAttendance,
-  hasPendingFeedback,
+  feedbackState,
   onGiveFeedback,
 }: EventHubViewProps): ReactElement {
   const insets = useSafeAreaInsets();
@@ -379,7 +380,10 @@ export function EventHubView({
                   />
                 </View>
                 <View className="mb-sm">
-                  <FeedbackRow isPending={hasPendingFeedback} onPress={hasPendingFeedback ? onGiveFeedback : noop} />
+                  <FeedbackRow
+                    state={feedbackState}
+                    onPress={feedbackState.kind === 'actionable' ? onGiveFeedback : noop}
+                  />
                 </View>
                 <EventRemindersRow />
               </View>
