@@ -2,7 +2,7 @@
 // beside it: any .test.tsx under src/app/ is picked up by Expo Router as a route.
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import type { ReactElement, ReactNode } from 'react';
+import { type ReactElement, type ReactNode, useState } from 'react';
 import { Alert, Pressable as MockPressable, Text as MockText, View as MockView } from 'react-native';
 import type { DynamicFormProps } from '@/components/forms/DynamicForm';
 import type { RatingStepProps } from '@/components/ganaps/RatingStep';
@@ -145,6 +145,48 @@ function codedError(message: string, errorCode?: string): Error & { errorCode?: 
   return error;
 }
 
+/**
+ * Stateful DynamicForm double that models a value entered by the student.
+ * Keeping the value in component state makes a route-level remount observable
+ * instead of allowing a fixture constant to make the regression pass.
+ *
+ * @param props - Props supplied by the feedback route
+ * @returns A small interactive form surface for route tests
+ */
+function StatefulDynamicFormMock(props: DynamicFormProps): ReactElement {
+  const [answer, setAnswer] = useState<string>('');
+  const submittedInput: SubmitFormAnswersInput = {
+    scope: 'POST_ATTENDANCE',
+    answers: [{ formBlockId: 'block_1', textValue: answer, numberValue: 9 }],
+  };
+
+  return (
+    <MockView>
+      <MockText>{props.title}</MockText>
+      <MockText>{answer}</MockText>
+      <MockText>{props.submissionError?.message ?? ''}</MockText>
+      <MockPressable
+        accessibilityRole="button"
+        accessibilityLabel="Enter mocked answer"
+        onPress={(): void => setAnswer(formAnswersWithLegacyFields.answers[0]?.textValue ?? '')}
+      />
+      <MockPressable
+        accessibilityRole="button"
+        accessibilityLabel="Mark form dirty"
+        onPress={(): void => props.onDirtyChange(true)}
+      />
+      <MockPressable accessibilityRole="button" accessibilityLabel="Back from mocked form" onPress={props.onBack} />
+      <MockPressable
+        accessibilityRole="button"
+        accessibilityLabel="Submit mocked form"
+        onPress={(): void => {
+          void props.onSubmit(submittedInput);
+        }}
+      />
+    </MockView>
+  );
+}
+
 function resetStates(pendingSteps: FeedbackStep[], ratingScore: number = 5): void {
   const registration = mockGanap.myRegistration;
   if (registration === null || registration === undefined) throw new Error('Expected an attended fixture');
@@ -201,28 +243,7 @@ function resetStates(pendingSteps: FeedbackStep[], ratingScore: number = 5): voi
     ),
   );
 
-  mockDynamicForm.mockImplementation(
-    (props: DynamicFormProps): ReactElement => (
-      <MockView>
-        <MockText>{props.title}</MockText>
-        <MockText>{formAnswersWithLegacyFields.answers[0]?.textValue ?? ''}</MockText>
-        <MockText>{props.submissionError?.message ?? ''}</MockText>
-        <MockPressable
-          accessibilityRole="button"
-          accessibilityLabel="Mark form dirty"
-          onPress={(): void => props.onDirtyChange(true)}
-        />
-        <MockPressable accessibilityRole="button" accessibilityLabel="Back from mocked form" onPress={props.onBack} />
-        <MockPressable
-          accessibilityRole="button"
-          accessibilityLabel="Submit mocked form"
-          onPress={(): void => {
-            void props.onSubmit(formAnswersWithLegacyFields);
-          }}
-        />
-      </MockView>
-    ),
-  );
+  mockDynamicForm.mockImplementation((props: DynamicFormProps): ReactElement => <StatefulDynamicFormMock {...props} />);
 }
 
 beforeEach((): void => {
@@ -293,6 +314,9 @@ describe('feedback route step resolution', (): void => {
       resetStates(pendingSteps, pendingSteps.includes('rating') ? 4 : 5);
       mockSubmitFeedback.mockResolvedValueOnce({ myRating: 4, postAttendanceFormSubmittedAt: null });
       const screen = await renderRoute();
+      if (!pendingSteps.includes('rating')) {
+        await fireEvent.press(screen.getByRole('button', { name: 'Enter mocked answer' }));
+      }
       const control = screen.getByRole('button', {
         name: pendingSteps[0] === 'rating' ? 'Submit mocked rating' : 'Submit mocked form',
       });
@@ -395,37 +419,30 @@ describe('feedback route step resolution', (): void => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Submit mocked rating' }));
     await waitFor(() => expect(mockDynamicForm).toHaveBeenCalled());
-    const validInput: SubmitFormAnswersInput = {
-      scope: 'POST_ATTENDANCE',
-      answers: [{ formBlockId: 'block_1', textValue: 'Great event', numberValue: 9 }],
-    };
-    let formProps: DynamicFormProps = mockDynamicForm.mock.calls.at(-1)?.[0] as DynamicFormProps;
+    await fireEvent.press(screen.getByRole('button', { name: 'Enter mocked answer' }));
+    expect(screen.getByText('Great event')).toBeTruthy();
 
-    await act(async (): Promise<void> => {
-      try {
-        await formProps.onSubmit(validInput);
-      } catch {
-        // The pre-fix route leaked a rejected refetch through this callback.
-      }
-    });
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit mocked form' }));
+    await waitFor(() => expect(mockSubmitFeedback).toHaveBeenCalledTimes(1));
     expect(screen.getByText('Share your feedback')).toBeTruthy();
     expect(screen.getByText('Great event')).toBeTruthy();
     expect(screen.getByText('Your rating was already submitted and cannot be changed.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Submit mocked form' })).toBeTruthy();
+    expect(mockSubmitFeedback.mock.calls[0]).toEqual([
+      { ganapId: 'g1', input: { rating: 5, answers: [{ formBlockId: 'block_1', textValue: 'Great event' }] } },
+    ]);
 
     mockRefetch.mockImplementationOnce(async (): Promise<unknown> => {
       mockFeedbackState.error = null;
       return undefined;
     });
-    formProps = mockDynamicForm.mock.calls.at(-1)?.[0] as DynamicFormProps;
-    await act(async (): Promise<void> => {
-      await formProps.onSubmit(validInput);
-    });
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit mocked form' }));
 
-    expect(mockSubmitFeedback).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(mockSubmitFeedback).toHaveBeenCalledTimes(2));
     expect(mockSubmitFeedback.mock.calls[1]).toEqual([
       { ganapId: 'g1', input: { answers: [{ formBlockId: 'block_1', textValue: 'Great event' }] } },
     ]);
+    expect(screen.getByText('Great event')).toBeTruthy();
     await waitFor(() => expect(screen.getByText('Your rating was already submitted and cannot be changed.')).toBeTruthy());
     screen.unmount();
   });
