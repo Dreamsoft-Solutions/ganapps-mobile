@@ -12,7 +12,7 @@ import { Routes } from '@/constants/routes';
 import { useGanapFeedback } from '@/hooks/useGanapFeedback';
 import type { SubmitFormAnswersInput } from '@/types/ganap.types';
 import type { FeedbackErrorModel, FeedbackStep } from '@/utils/feedback';
-import { mapFeedbackError } from '@/utils/feedback';
+import { mapFeedbackError, toSubmitFeedbackInput } from '@/utils/feedback';
 import { ratingSchema } from '@/utils/validation';
 
 /**
@@ -37,10 +37,10 @@ interface FeedbackUnavailableProps {
 /**
  * Terminal state for a Ganap whose feedback can never be submitted.
  *
- * `ErrorView` renders no action without a retry callback, and retrying a
- * `not-found` is meaningless — but the flow still must not strand the student,
- * which matters more here than elsewhere because the route disables the iOS
- * back gesture. Mirrors the registration route's unavailable state.
+ * `ErrorView` renders no action without a retry callback, but the flow still
+ * must not strand the student, which matters more here than elsewhere because
+ * the route disables the iOS back gesture. Mirrors the registration route's
+ * unavailable state.
  *
  * @param props - The mapped explanation and the leave callback
  * @returns A centered explanation with a way back to the event
@@ -77,14 +77,13 @@ export default function FeedbackRoute(): ReactElement {
   const [formDone, setFormDone] = useState<boolean>(false);
   const [isDirty, setIsDirty] = useState<boolean>(false);
   const [stepError, setStepError] = useState<FeedbackErrorModel | null>(null);
-
-  const isSubmitting: boolean = feedback.isRating || feedback.isSubmittingForm;
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
+  const isSubmitting: boolean = feedback.isSubmitting;
+  const hasPostAttendanceForm: boolean = feedback.blocks !== undefined && feedback.blocks.length > 0;
 
   const currentStep: FeedbackStep | undefined = feedback.pendingSteps.find((step: FeedbackStep): boolean =>
     step === 'rating' ? !ratingDone : !formDone,
   );
-
-  const isFatal: boolean = stepError?.kind === 'not-found';
 
   /**
    * Leaves the feedback flow.
@@ -113,44 +112,27 @@ export default function FeedbackRoute(): ReactElement {
   // never anything pending — so neither path can dead-end on a blank screen.
   useEffect((): void => {
     if (feedback.isLoading || feedback.error || !feedback.ganap) return;
-    if (currentStep === undefined && !isFatal) leave();
-  }, [currentStep, feedback.error, feedback.ganap, feedback.isLoading, isFatal, leave]);
+    if (currentStep === undefined) leave();
+  }, [currentStep, feedback.error, feedback.ganap, feedback.isLoading, leave]);
 
   const recoverFromError = useCallback(
     async (caught: unknown): Promise<void> => {
       const model: FeedbackErrorModel = mapFeedbackError(toError(caught));
 
       switch (model.kind) {
-        // The student already rated. Not a failure — complete the step silently
-        // and let the flow continue to the form.
-        case 'already-rated':
-          setStepError(null);
-          setRatingDone(true);
-          return;
-
-        // The organizer removed the blocks after we read them. Nothing left to
-        // answer, so the step is complete.
-        case 'no-form':
-          setStepError(null);
-          setFormDone(true);
-          return;
-
-        // Our view of the registration is stale. Refresh and let the student out.
-        case 'not-attended':
+        // Eligibility can change while the route is open. Refresh the shared
+        // state and use the normal leave fallback rather than claiming success.
+        case 'not-eligible':
           setStepError(null);
           await feedback.refetch();
           leave();
           return;
 
-        // The form changed under us. Refresh the blocks and keep the student here
-        // so they can answer the current questions.
-        case 'stale-blocks':
+        // A rating is immutable. Clear the score held for an atomic form
+        // submission, refresh authoritative state, and keep the form mounted.
+        case 'rating-conflict':
+          setSelectedRating(null);
           await feedback.refetch();
-          setStepError(model);
-          return;
-
-        // Fatal: rendered as the terminal FeedbackUnavailable state, not inline.
-        case 'not-found':
           setStepError(model);
           return;
 
@@ -158,7 +140,7 @@ export default function FeedbackRoute(): ReactElement {
           setStepError(model);
       }
     },
-    [feedback, leave],
+    [feedback.refetch, leave],
   );
 
   const handleSubmitRating = useCallback(
@@ -178,14 +160,24 @@ export default function FeedbackRoute(): ReactElement {
         return;
       }
 
+      const formPending: boolean = feedback.pendingSteps.includes('form');
+      if (formPending) {
+        setSelectedRating(parsed.data.score);
+        setRatingDone(true);
+        return;
+      }
+
       try {
-        await feedback.submitRating({ ganapId, input: parsed.data });
+        await feedback.submitFeedback({
+          ganapId,
+          input: toSubmitFeedbackInput({ rating: parsed.data.score }),
+        });
         setRatingDone(true);
       } catch (caught: unknown) {
         await recoverFromError(caught);
       }
     },
-    [feedback.submitRating, ganapId, recoverFromError],
+    [feedback.pendingSteps, feedback.submitFeedback, ganapId, recoverFromError],
   );
 
   const handleSkipRating = useCallback((): void => {
@@ -196,17 +188,21 @@ export default function FeedbackRoute(): ReactElement {
   const handleSubmitForm = useCallback(
     async (input: SubmitFormAnswersInput): Promise<void> => {
       setStepError(null);
+      const rating: number | undefined =
+        selectedRating !== null && feedback.ganap?.myRating === null ? selectedRating : undefined;
       try {
-        // The scope must be added here — `buildSubmitFormAnswersInput` does not
-        // set it, and without it the server validates against the REGISTRATION
-        // blocks and rejects the submission.
-        await feedback.submitForm({ ganapId, input: { ...input, scope: 'POST_ATTENDANCE' } });
+        await feedback.submitFeedback({
+          ganapId,
+          input: toSubmitFeedbackInput({ rating, formAnswers: input }),
+        });
+        setRatingDone(true);
         setFormDone(true);
+        setSelectedRating(null);
       } catch (caught: unknown) {
         await recoverFromError(caught);
       }
     },
-    [feedback.submitForm, ganapId, recoverFromError],
+    [feedback.ganap?.myRating, feedback.submitFeedback, ganapId, recoverFromError, selectedRating],
   );
 
   const requestBack = useCallback((): void => {
@@ -237,23 +233,22 @@ export default function FeedbackRoute(): ReactElement {
   // Both step components take an `Error`; the mapped copy is what the student
   // reads, so the model's message becomes the error's message.
   const inlineError: Error | null = useMemo(
-    (): Error | null => (stepError && !isFatal ? new Error(stepError.message) : null),
-    [isFatal, stepError],
+    (): Error | null => (stepError ? new Error(stepError.message) : null),
+    [stepError],
   );
 
   if (feedback.isLoading) return <Loading />;
   if (feedback.error) return <ErrorView error={feedback.error} onRetry={(): void => void feedback.refetch()} />;
   if (!feedback.ganap) return <FeedbackUnavailable message="This event is no longer available." onLeave={leave} />;
-  if (isFatal && stepError) return <FeedbackUnavailable message={stepError.message} onLeave={leave} />;
 
   if (currentStep === 'rating') {
     return (
       <RatingStep
         ganapTitle={feedback.ganap.title}
-        isSubmitting={feedback.isRating}
+        isSubmitting={feedback.isSubmitting}
         submissionError={inlineError}
         onSubmit={handleSubmitRating}
-        onSkip={handleSkipRating}
+        onSkip={hasPostAttendanceForm ? undefined : handleSkipRating}
         onBack={requestBack}
       />
     );
@@ -267,7 +262,7 @@ export default function FeedbackRoute(): ReactElement {
         submitLabel="Submit feedback"
         ganapTitle={feedback.ganap.title}
         blocks={feedback.blocks ?? []}
-        isSubmitting={feedback.isSubmittingForm}
+        isSubmitting={feedback.isSubmitting}
         submissionError={inlineError}
         onBack={requestBack}
         onDirtyChange={setIsDirty}

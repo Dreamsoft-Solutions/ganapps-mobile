@@ -15,7 +15,7 @@ export interface RatingStepProps {
   isSubmitting: boolean;
   submissionError: Error | null;
   onSubmit: (score: number) => void | Promise<void>;
-  onSkip: () => void;
+  onSkip?: () => void;
   /** Leaves the flow without rating. The route owns where that lands. */
   onBack: () => void;
 }
@@ -105,9 +105,11 @@ export function RatingStep({
           >
             Submit rating
           </Button>
-          <Button variant="ghost" size="md" disabled={isSubmitting} onPress={onSkip}>
-            Skip
-          </Button>
+          {onSkip !== undefined ? (
+            <Button variant="ghost" size="md" disabled={isSubmitting} onPress={onSkip}>
+              Skip
+            </Button>
+          ) : null}
         </View>
       </View>
     </View>
