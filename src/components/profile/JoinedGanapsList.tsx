@@ -1,26 +1,28 @@
 import { useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
 import { FlatList, type ListRenderItemInfo, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Empty } from '@/components/common/Empty';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { Routes } from '@/constants/routes';
-import { Spacing } from '@/constants/theme';
 import { useJoinedGanaps } from '@/hooks/useJoinedGanaps';
 import type { JoinedGanap } from '@/types/profile.types';
 import { JoinedGanapCard } from './JoinedGanapCard';
 
 const JOINED_PAGE_SIZE: number = 20;
 
+export interface JoinedGanapsListProps {
+  contentTopPadding: number;
+  contentBottomPadding: number;
+}
+
 /**
  * Full list of Ganaps joined by the current User.
  *
  * @returns The paginated joined Ganap list.
  */
-export function JoinedGanapsList(): ReactElement {
+export function JoinedGanapsList({ contentTopPadding, contentBottomPadding }: JoinedGanapsListProps): ReactElement {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const joinedGanaps = useJoinedGanaps(JOINED_PAGE_SIZE);
 
   if (joinedGanaps.isLoading) return <Loading message="Loading joined events..." />;
@@ -32,6 +34,7 @@ export function JoinedGanapsList(): ReactElement {
   return (
     <View className="flex-1 bg-background px-md">
       <FlatList
+        testID="joined-ganaps-list"
         data={joinedGanaps.items}
         keyExtractor={(item: JoinedGanap): string => item.id}
         renderItem={({ item }: ListRenderItemInfo<JoinedGanap>): ReactElement => (
@@ -49,7 +52,7 @@ export function JoinedGanapsList(): ReactElement {
         }}
         onEndReachedThreshold={0.5}
         ListFooterComponent={joinedGanaps.isFetchingNextPage ? <Loading /> : <View className="h-8" />}
-        contentContainerStyle={{ paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + 80 }}
+        contentContainerStyle={{ paddingTop: contentTopPadding, paddingBottom: contentBottomPadding }}
       />
     </View>
   );
