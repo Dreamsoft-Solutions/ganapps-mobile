@@ -1,19 +1,28 @@
-import Mapbox, { Camera, MapView, MarkerView } from '@rnmapbox/maps';
+import Mapbox, { Camera, type MapState, MapView } from '@rnmapbox/maps';
 import { useRouter } from 'expo-router';
-import type { ReactElement } from 'react';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import type { ComponentRef, ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
-import { GanapMapPin } from '@/components/map/GanapMapPin';
+import { ClusterEventsSheet, type ClusterZoomTarget } from '@/components/map/ClusterEventsSheet';
+import { ClusteredGanapMarkers } from '@/components/map/ClusteredGanapMarkers';
 import { MapSearchBar } from '@/components/map/MapSearchBar';
 import { SelectedGanapCard } from '@/components/map/SelectedGanapCard';
 import { TagChips } from '@/components/map/TagChips';
 import { Routes } from '@/constants/routes';
 import { useGanapsMap } from '@/hooks/useGanapsMap';
 import type { GanapListItem } from '@/types/ganap.types';
+import {
+  createGanapClusterIndex,
+  DEFAULT_MAP_VIEWPORT,
+  type GanapClusterFeature,
+  getVisibleMapFeatures,
+  type MapViewport,
+  mapStateToViewport,
+} from '@/utils/map-clustering';
 
 const MAPBOX_TOKEN: string = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
 
@@ -33,7 +42,17 @@ export default function HomeScreen(): ReactElement {
   const insets = useSafeAreaInsets();
   const { items, tags, search, setSearch, tag, setTag, isLoading, isError, error, refetch } = useGanapsMap();
 
+  const cameraRef = useRef<ComponentRef<typeof Camera>>(null);
+  const [viewport, setViewport] = useState<MapViewport>(DEFAULT_MAP_VIEWPORT);
   const [selectedGanap, setSelectedGanap] = useState<GanapListItem | null>(null);
+  const [selectedCluster, setSelectedCluster] = useState<GanapClusterFeature | null>(null);
+
+  const clusterIndex = useMemo(() => createGanapClusterIndex(items), [items]);
+  const visibleFeatures = useMemo(() => getVisibleMapFeatures(clusterIndex, viewport), [clusterIndex, viewport]);
+
+  useEffect((): void => {
+    setSelectedCluster(null);
+  }, [clusterIndex]);
 
   useEffect(() => {
     if (MAPBOX_TOKEN) {
@@ -41,17 +60,31 @@ export default function HomeScreen(): ReactElement {
     }
   }, []);
 
-  const markers = useMemo(
-    () =>
-      items.map((ganap) => (
-        <MarkerView key={ganap.id} coordinate={[ganap.locationLong, ganap.locationLat]} anchor={{ x: 0.5, y: 1 }}>
-          <Pressable onPress={(): void => setSelectedGanap(ganap)}>
-            <GanapMapPin ganap={ganap} />
-          </Pressable>
-        </MarkerView>
-      )),
-    [items],
-  );
+  const handleMapIdle = useCallback((state: MapState): void => {
+    setViewport(
+      mapStateToViewport({
+        bounds: state.properties.bounds,
+        zoom: state.properties.zoom,
+      }),
+    );
+  }, []);
+
+  const handleGanapPress = useCallback((ganap: GanapListItem): void => {
+    setSelectedCluster(null);
+    setSelectedGanap(ganap);
+  }, []);
+
+  const handleClusterPress = useCallback((cluster: GanapClusterFeature): void => {
+    setSelectedCluster(cluster);
+  }, []);
+
+  const handleClusterZoomIn = useCallback((target: ClusterZoomTarget): void => {
+    cameraRef.current?.setCamera({
+      centerCoordinate: target.coordinate,
+      zoomLevel: target.zoom,
+      animationDuration: 300,
+    });
+  }, []);
 
   if (!MAPBOX_TOKEN) {
     return (
@@ -80,9 +113,14 @@ export default function HomeScreen(): ReactElement {
         scaleBarEnabled={false}
         attributionEnabled
         logoEnabled
+        onMapIdle={handleMapIdle}
       >
-        <Camera centerCoordinate={CPU_CENTER} zoomLevel={INITIAL_ZOOM} animationMode="none" />
-        {markers}
+        <Camera ref={cameraRef} centerCoordinate={CPU_CENTER} zoomLevel={INITIAL_ZOOM} animationMode="none" />
+        <ClusteredGanapMarkers
+          features={visibleFeatures}
+          onGanapPress={handleGanapPress}
+          onClusterPress={handleClusterPress}
+        />
       </MapView>
 
       <View className="absolute left-0 right-0" style={{ top: insets.top + 12 }} pointerEvents="box-none">
@@ -91,6 +129,14 @@ export default function HomeScreen(): ReactElement {
         </View>
         <TagChips tags={tags} selectedTag={tag} onSelectTag={setTag} />
       </View>
+
+      <ClusterEventsSheet
+        cluster={selectedCluster}
+        index={clusterIndex}
+        onClose={(): void => setSelectedCluster(null)}
+        onSelectGanap={handleGanapPress}
+        onZoomIn={handleClusterZoomIn}
+      />
 
       {selectedGanap && (
         <View className="absolute bottom-4 left-0 right-0" pointerEvents="box-none">
