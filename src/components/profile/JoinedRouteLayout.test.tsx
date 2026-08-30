@@ -38,6 +38,7 @@ const mockJoinedGanapsResult: UseJoinedGanapsResult = {
   hasNextPage: false,
   fetchNextPage: jest.fn<UseJoinedGanapsResult['fetchNextPage']>(),
   isFetchingNextPage: false,
+  isRefetching: false,
   refetch: jest.fn<UseJoinedGanapsResult['refetch']>(),
 };
 

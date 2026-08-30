@@ -9,7 +9,7 @@ export const profileAPI = {
   /**
    * Lists Ganaps joined by the current User.
    *
-   * @param params - Optional offset pagination.
+   * @param params - Optional offset pagination and joined-event filters.
    * @returns A paginated list of joined Ganaps.
    */
   listJoinedGanaps: (params?: JoinedGanapParams): Promise<PaginatedResponse<JoinedGanap>> =>

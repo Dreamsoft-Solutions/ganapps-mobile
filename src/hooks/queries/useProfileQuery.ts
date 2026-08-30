@@ -2,14 +2,15 @@ import { type InfiniteData, type UseInfiniteQueryResult, useInfiniteQuery } from
 import { profileAPI } from '@/api/endpoints/profile';
 import type { PaginatedResponse } from '@/api/types/api-response';
 import { useAuthStore } from '@/store/auth.store';
-import type { JoinedGanap } from '@/types/profile.types';
+import type { JoinedGanap, JoinedGanapFilters, JoinedGanapParams } from '@/types/profile.types';
 
 type JoinedGanapPage = PaginatedResponse<JoinedGanap>;
 
 /** Query keys for current User profile data. */
 export const profileQueryKeys = {
   all: ['profile'] as const,
-  joinedGanaps: (take: number) => [...profileQueryKeys.all, 'joined-ganaps', take] as const,
+  joinedGanaps: (take: number, filters: JoinedGanapFilters = {}) =>
+    [...profileQueryKeys.all, 'joined-ganaps', take, filters] as const,
 };
 
 /**
@@ -31,13 +32,18 @@ export function getNextJoinedGanapPageParam(lastPage: JoinedGanapPage): number |
  */
 export function useJoinedGanapsQuery(
   take: number,
+  filters: JoinedGanapFilters = {},
 ): UseInfiniteQueryResult<InfiniteData<JoinedGanapPage, number>, Error> {
   const token = useAuthStore((s) => s.token);
 
   return useInfiniteQuery<JoinedGanapPage, Error, InfiniteData<JoinedGanapPage, number>, readonly unknown[], number>({
-    queryKey: profileQueryKeys.joinedGanaps(take),
-    queryFn: ({ pageParam }: { pageParam: number }): Promise<JoinedGanapPage> =>
-      profileAPI.listJoinedGanaps({ skip: pageParam, take }),
+    queryKey: profileQueryKeys.joinedGanaps(take, filters),
+    queryFn: ({ pageParam }: { pageParam: number }): Promise<JoinedGanapPage> => {
+      const params: JoinedGanapParams = { skip: pageParam, take };
+      if (filters.search !== undefined) params.search = filters.search;
+      if (filters.time !== undefined) params.time = filters.time;
+      return profileAPI.listJoinedGanaps(params);
+    },
     getNextPageParam: (lastPage: JoinedGanapPage): number | undefined => getNextJoinedGanapPageParam(lastPage),
     initialPageParam: 0,
     staleTime: 5 * 60 * 1000,
