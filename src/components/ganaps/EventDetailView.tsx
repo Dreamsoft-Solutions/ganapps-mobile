@@ -30,10 +30,10 @@ interface EventDetailViewProps {
   isLikePending: boolean;
   isSavePending: boolean;
   /** Whether a route-owned Event Details refresh is in progress. */
-  isRefreshing?: boolean;
+  isRefreshing: boolean;
   onBack: () => void;
   /** Refetches the route-owned Event Details query. */
-  onRefresh?: () => Promise<void>;
+  onRefresh: () => Promise<void>;
   onShare: () => void | Promise<void>;
   onToggleLike: () => void | Promise<void>;
   onToggleSave: () => void | Promise<void>;
@@ -89,7 +89,7 @@ export function EventDetailView({
   isPrimaryPending,
   isLikePending,
   isSavePending,
-  isRefreshing = false,
+  isRefreshing,
   onBack,
   onRefresh,
   onShare,
@@ -199,7 +199,7 @@ export function EventDetailView({
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={(): void => {
-              void onRefresh?.();
+              void onRefresh();
             }}
           />
         }
