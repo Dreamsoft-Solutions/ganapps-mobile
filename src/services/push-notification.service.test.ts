@@ -9,8 +9,10 @@ import type {
 } from 'expo-notifications';
 import { Platform } from 'react-native';
 import { Routes } from '@/constants/routes';
+import type { NotificationDelivery } from './push-notification.service';
 
 let mockPushTokenListener: ((token: DevicePushToken) => void) | null = null;
+let mockNotificationReceivedListener: ((notification: Notification) => void) | null = null;
 let mockNotificationResponseListener: ((response: NotificationResponse) => void) | null = null;
 const mockSetNotificationHandler = jest.fn<(handler: NotificationHandler) => void>();
 const mockSetNotificationChannelAsync = jest.fn<(...args: unknown[]) => Promise<null>>();
@@ -18,11 +20,14 @@ const mockGetPermissionsAsync = jest.fn<() => Promise<{ granted: boolean }>>();
 const mockRequestPermissionsAsync = jest.fn<() => Promise<{ granted: boolean }>>();
 const mockGetDevicePushTokenAsync = jest.fn<() => Promise<DevicePushToken>>();
 const mockAddPushTokenListener = jest.fn<(listener: (token: DevicePushToken) => void) => EventSubscription>();
+const mockAddNotificationReceivedListener =
+  jest.fn<(listener: (notification: Notification) => void) => EventSubscription>();
 const mockAddNotificationResponseReceivedListener =
   jest.fn<(listener: (response: NotificationResponse) => void) => EventSubscription>();
 const mockGetLastNotificationResponse = jest.fn<() => NotificationResponse | null>();
 const mockClearLastNotificationResponse = jest.fn<() => void>();
 const mockRemovePushListener = jest.fn<() => void>();
+const mockRemoveForegroundListener = jest.fn<() => void>();
 const mockRemoveResponseListener = jest.fn<() => void>();
 const mockRegister =
   jest.fn<(request: { token: string; platform: 'android' | 'ios' }) => Promise<{ registered: boolean }>>();
@@ -40,6 +45,7 @@ jest.mock('expo-notifications', () => ({
   requestPermissionsAsync: mockRequestPermissionsAsync,
   getDevicePushTokenAsync: mockGetDevicePushTokenAsync,
   addPushTokenListener: mockAddPushTokenListener,
+  addNotificationReceivedListener: mockAddNotificationReceivedListener,
   addNotificationResponseReceivedListener: mockAddNotificationResponseReceivedListener,
   getLastNotificationResponse: mockGetLastNotificationResponse,
   clearLastNotificationResponse: mockClearLastNotificationResponse,
@@ -87,8 +93,23 @@ function makeResponse(identifier: string, data: Record<string, unknown>): Notifi
   } as unknown as NotificationResponse;
 }
 
+/**
+ * Creates the subset of an Expo notification used by the foreground delivery service.
+ *
+ * @param data - Notification data payload.
+ * @returns A typed test notification.
+ */
+function makeNotification(data: Record<string, unknown>): Notification {
+  return {
+    request: {
+      content: { data },
+    },
+  } as unknown as Notification;
+}
+
 beforeEach((): void => {
   mockPushTokenListener = null;
+  mockNotificationReceivedListener = null;
   mockNotificationResponseListener = null;
   mockSetNotificationHandler.mockClear();
   mockSetNotificationChannelAsync.mockClear().mockResolvedValue(null);
@@ -101,6 +122,12 @@ beforeEach((): void => {
       mockPushTokenListener = listener;
       return { remove: mockRemovePushListener };
     });
+  mockAddNotificationReceivedListener
+    .mockClear()
+    .mockImplementation((listener: (notification: Notification) => void): EventSubscription => {
+      mockNotificationReceivedListener = listener;
+      return { remove: mockRemoveForegroundListener };
+    });
   mockAddNotificationResponseReceivedListener
     .mockClear()
     .mockImplementation((listener: (response: NotificationResponse) => void): EventSubscription => {
@@ -110,6 +137,7 @@ beforeEach((): void => {
   mockGetLastNotificationResponse.mockClear().mockReturnValue(null);
   mockClearLastNotificationResponse.mockClear();
   mockRemovePushListener.mockClear();
+  mockRemoveForegroundListener.mockClear();
   mockRemoveResponseListener.mockClear();
   mockRegister.mockClear().mockResolvedValue({ registered: true });
   mockRevoke.mockClear().mockResolvedValue({ revoked: 1 });
@@ -189,13 +217,24 @@ describe('notification response lifecycle', (): void => {
     });
     mockGetLastNotificationResponse.mockReturnValue(response);
 
-    const cleanup = pushNotificationService.startNotificationResponseObserver();
+    const onDelivery = jest.fn<(delivery: NotificationDelivery) => void>();
+    const cleanup = pushNotificationService.startNotificationResponseObserver(onDelivery);
     const secondCleanup = pushNotificationService.startNotificationResponseObserver();
     const target = pushNotificationService.getPendingNotificationTarget();
 
+    expect(onDelivery).toHaveBeenCalledTimes(1);
+    expect(onDelivery).toHaveBeenCalledWith({
+      source: 'cold-start',
+      data: {
+        type: 'REGISTRATION_STATUS_UPDATED',
+        ganapId: 'ganap-42',
+        registrationStatus: 'REGISTERED',
+      },
+    });
     expect(target).toEqual(Routes.ganapDetail('ganap-42'));
     expect(mockAddNotificationResponseReceivedListener).toHaveBeenCalledTimes(1);
     mockNotificationResponseListener?.(response);
+    expect(onDelivery).toHaveBeenCalledTimes(1);
     expect(pushNotificationService.getPendingNotificationTarget()).toBe(target);
 
     if (target !== null) pushNotificationService.completePendingNotification(target);
@@ -205,5 +244,68 @@ describe('notification response lifecycle', (): void => {
     expect(mockRemoveResponseListener).not.toHaveBeenCalled();
     secondCleanup();
     expect(mockRemoveResponseListener).toHaveBeenCalledTimes(1);
+  });
+
+  it('delivers a valid foreground receipt without queuing navigation', (): void => {
+    const onDelivery = jest.fn<(delivery: NotificationDelivery) => void>();
+    const cleanup = pushNotificationService.startNotificationResponseObserver(onDelivery);
+
+    mockNotificationReceivedListener?.(
+      makeNotification({
+        type: 'REGISTRATION_STATUS_UPDATED',
+        ganapId: 'ganap-42',
+        registrationStatus: 'WAITLISTED',
+      }),
+    );
+
+    expect(onDelivery).toHaveBeenCalledWith({
+      source: 'foreground',
+      data: {
+        type: 'REGISTRATION_STATUS_UPDATED',
+        ganapId: 'ganap-42',
+        registrationStatus: 'WAITLISTED',
+      },
+    });
+    expect(pushNotificationService.getPendingNotificationTarget()).toBeNull();
+    cleanup();
+  });
+
+  it('delivers a response once, before pending navigation, and removes both listeners', (): void => {
+    const onDelivery = jest.fn<(delivery: NotificationDelivery) => void>();
+    const response = makeResponse('response-2', {
+      type: 'REGISTRATION_STATUS_UPDATED',
+      ganapId: 'ganap-42',
+      registrationStatus: 'REGISTERED',
+    });
+    const cleanup = pushNotificationService.startNotificationResponseObserver(onDelivery);
+
+    mockNotificationResponseListener?.(response);
+    mockNotificationResponseListener?.(response);
+
+    expect(onDelivery).toHaveBeenCalledTimes(1);
+    expect(pushNotificationService.getPendingNotificationTarget()).toEqual(Routes.ganapDetail('ganap-42'));
+    expect(mockAddNotificationReceivedListener).toHaveBeenCalledTimes(1);
+    expect(mockAddNotificationResponseReceivedListener).toHaveBeenCalledTimes(1);
+    const target = pushNotificationService.getPendingNotificationTarget();
+    if (target !== null) pushNotificationService.completePendingNotification(target);
+    cleanup();
+    expect(mockRemoveForegroundListener).toHaveBeenCalledTimes(1);
+    expect(mockRemoveResponseListener).toHaveBeenCalledTimes(1);
+  });
+
+  it('does nothing for an unknown type or unsupported status', (): void => {
+    const onDelivery = jest.fn<(delivery: NotificationDelivery) => void>();
+    const cleanup = pushNotificationService.startNotificationResponseObserver(onDelivery);
+
+    mockNotificationReceivedListener?.(
+      makeNotification({ type: 'OTHER', ganapId: 'ganap-42', registrationStatus: 'REGISTERED' }),
+    );
+    mockNotificationReceivedListener?.(
+      makeNotification({ type: 'REGISTRATION_STATUS_UPDATED', ganapId: 'ganap-42', registrationStatus: 'PENDING' }),
+    );
+
+    expect(onDelivery).not.toHaveBeenCalled();
+    expect(pushNotificationService.getPendingNotificationTarget()).toBeNull();
+    cleanup();
   });
 });

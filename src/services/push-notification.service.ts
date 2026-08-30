@@ -10,10 +10,23 @@ import * as Notifications from 'expo-notifications';
 import type { Href } from 'expo-router';
 import { Platform } from 'react-native';
 import { pushTokensAPI } from '@/api/endpoints/push-tokens';
-import { notificationRoute } from '@/utils/notification';
+import type { NotificationData } from '@/types/notification.types';
+import { notificationRoute, parseNotificationData } from '@/utils/notification';
 
 /** Stable Android channel used for registration-status notifications. */
 export const ANDROID_NOTIFICATION_CHANNEL_ID: string = 'registration-status';
+
+/** Native source that produced a validated registration-status notification delivery. */
+export type NotificationDeliverySource = 'foreground' | 'response' | 'cold-start';
+
+/** Validated notification data and the native lifecycle event that delivered it. */
+export interface NotificationDelivery {
+  data: NotificationData;
+  source: NotificationDeliverySource;
+}
+
+/** Receives validated notification data before response navigation is queued. */
+export type NotificationDataListener = (delivery: NotificationDelivery) => void;
 
 const ANDROID_NOTIFICATION_CHANNEL: NotificationChannelInput = {
   name: 'Registration status',
@@ -25,11 +38,13 @@ const ANDROID_NOTIFICATION_CHANNEL: NotificationChannelInput = {
 };
 
 let notificationHandlerConfigured: boolean = false;
+let foregroundSubscription: EventSubscription | null = null;
 let responseSubscription: EventSubscription | null = null;
 let responseObserverReferences: number = 0;
 let hasReadLastNotificationResponse: boolean = false;
 let pendingNotification: { target: Href } | null = null;
 const seenResponseKeys: Set<string> = new Set();
+const notificationDataListeners: Set<NotificationDataListener> = new Set();
 const pendingNotificationListeners: Set<(target: Href | null) => void> = new Set();
 
 /**
@@ -129,12 +144,25 @@ export async function revokeRegisteredAndroidPushToken(): Promise<void> {
 /**
  * Starts the single root-level notification response observer and reads a cold-start response once.
  *
+ * @param listener - Optional callback for validated foreground, response, and cold-start deliveries.
  * @returns A reference-counted cleanup function for the response observer.
  */
-export function startNotificationResponseObserver(): () => void {
+export function startNotificationResponseObserver(listener?: NotificationDataListener): () => void {
   configureNotificationHandling();
 
   if (Platform.OS === 'web') return (): void => {};
+
+  if (listener !== undefined) notificationDataListeners.add(listener);
+
+  if (foregroundSubscription === null) {
+    try {
+      foregroundSubscription = Notifications.addNotificationReceivedListener((notification: Notification): void => {
+        emitNotificationDelivery(notification.request.content.data, 'foreground');
+      });
+    } catch {
+      foregroundSubscription = null;
+    }
+  }
 
   if (responseSubscription === null) {
     try {
@@ -159,8 +187,11 @@ export function startNotificationResponseObserver(): () => void {
   return (): void => {
     if (released) return;
     released = true;
+    if (listener !== undefined) notificationDataListeners.delete(listener);
     responseObserverReferences -= 1;
     if (responseObserverReferences > 0) return;
+    foregroundSubscription?.remove();
+    foregroundSubscription = null;
     responseSubscription?.remove();
     responseSubscription = null;
   };
@@ -216,7 +247,7 @@ function readLastNotificationResponse(): void {
   try {
     if (typeof Notifications.getLastNotificationResponse !== 'function') return;
     const response = Notifications.getLastNotificationResponse();
-    if (response !== null) queueNotificationResponse(response);
+    if (response !== null) queueNotificationResponse(response, 'cold-start');
   } catch {
     // A response API can be unavailable in a non-native runtime.
   }
@@ -228,7 +259,10 @@ function readLastNotificationResponse(): void {
  * @param response - Notification response emitted by Expo.
  * @returns Nothing.
  */
-function queueNotificationResponse(response: NotificationResponse): void {
+function queueNotificationResponse(
+  response: NotificationResponse,
+  source: 'response' | 'cold-start' = 'response',
+): void {
   const responseKey = getNotificationResponseKey(response);
   if (seenResponseKeys.has(responseKey)) return;
 
@@ -238,11 +272,33 @@ function queueNotificationResponse(response: NotificationResponse): void {
     if (typeof oldestKey === 'string') seenResponseKeys.delete(oldestKey);
   }
 
-  const target = notificationRoute(response.notification.request.content.data);
+  const notificationValue = response.notification.request.content.data;
+  const data = emitNotificationDelivery(notificationValue, source);
+  if (data === null) return;
+
+  const target = notificationRoute(notificationValue);
   if (target === null) return;
 
   pendingNotification = { target };
   notifyPendingNotificationListeners(target);
+}
+
+/**
+ * Validates a native notification payload and delivers it to active consumers.
+ *
+ * @param value - Unknown data received from Expo Notifications.
+ * @param source - Native lifecycle source for this delivery.
+ * @returns The validated data, or `null` when the payload is unsupported.
+ */
+function emitNotificationDelivery(value: unknown, source: NotificationDeliverySource): NotificationData | null {
+  const data = parseNotificationData(value);
+  if (data === null) return null;
+
+  const delivery: NotificationDelivery = { data, source };
+  notificationDataListeners.forEach((listener: NotificationDataListener): void => {
+    listener(delivery);
+  });
+  return data;
 }
 
 /**
