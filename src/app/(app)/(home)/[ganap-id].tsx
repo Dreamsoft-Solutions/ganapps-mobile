@@ -24,7 +24,7 @@ import {
 export default function GanapDetailScreen(): ReactElement {
   const { 'ganap-id': ganapId } = useLocalSearchParams<{ 'ganap-id': string }>();
   const router = useRouter();
-  const { data: ganap, isLoading, error, refetch } = useGanapDetailQuery(ganapId);
+  const { data: ganap, isLoading, isRefetching, error, refetch } = useGanapDetailQuery(ganapId);
   const businessQuery = useBusinessDetailQuery(ganap?.businessId);
   const { join, leave, toggleLike, toggleSave, isJoining, isLeaving, isTogglingLike, isTogglingSave } = useGanaps();
 
@@ -90,7 +90,11 @@ export default function GanapDetailScreen(): ReactElement {
       isPrimaryPending={isJoining || isLeaving}
       isLikePending={isTogglingLike}
       isSavePending={isTogglingSave}
+      isRefreshing={isRefetching}
       onBack={(): void => router.back()}
+      onRefresh={async (): Promise<void> => {
+        await refetch();
+      }}
       onShare={handleShare}
       onToggleLike={(): Promise<void> => toggleLike({ ganapId: ganap.id, isLiked: ganap.isLiked ?? false })}
       onToggleSave={(): Promise<void> => toggleSave({ ganapId: ganap.id, isSaved: ganap.isSaved ?? false })}

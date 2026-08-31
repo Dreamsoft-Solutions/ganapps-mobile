@@ -11,7 +11,7 @@ import {
   Users,
 } from 'lucide-react-native';
 import type { ReactElement, ReactNode } from 'react';
-import { FlatList, type ListRenderItemInfo, useWindowDimensions, View } from 'react-native';
+import { FlatList, type ListRenderItemInfo, RefreshControl, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { Empty } from '@/components/common/Empty';
@@ -24,6 +24,7 @@ import { Colors, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { GanapAnnouncement, GanapDetail } from '@/types/ganap.types';
 import type { AttendanceScanState } from '@/utils/attendance';
+import type { FeedbackRowState } from '@/utils/feedback';
 import type { GanapScheduleModel } from '@/utils/ganap-detail';
 import { AnnouncementCard } from './AnnouncementCard';
 import { AttendanceScanRow } from './AttendanceScanRow';
@@ -44,18 +45,22 @@ export interface EventHubViewProps {
   isFetchingNextPage: boolean;
   isFetchNextPageError: boolean;
   accessLost: boolean;
+  /** Whether the route-owned detail and announcements refresh is active. */
+  isRefreshing: boolean;
   /** Attendance scan surface state, driving the row's presentation. */
   scanState: AttendanceScanState;
   onBack: () => void;
   onShare: () => void | Promise<void>;
+  /** Refetches the Event Hub's detail and announcement data together. */
+  onRefresh: () => Promise<void>;
   onRetryAnnouncements: () => void | Promise<void>;
   onRetryNextPage: () => void | Promise<void>;
   onLoadMore: () => void | Promise<void>;
   /** Navigates to the attendance scanner; fired only when `scanState` is `available`. */
   onScanAttendance: () => void;
-  /** Whether any post-event feedback step is still outstanding. */
-  hasPendingFeedback: boolean;
-  /** Navigates to the post-event feedback flow; fired only when `hasPendingFeedback` is true. */
+  /** Authoritative post-event feedback row state. */
+  feedbackState: FeedbackRowState;
+  /** Navigates to the post-event feedback flow; fired only when feedback is actionable. */
   onGiveFeedback: () => void;
 }
 
@@ -146,14 +151,16 @@ export function EventHubView({
   isFetchingNextPage,
   isFetchNextPageError,
   accessLost,
+  isRefreshing,
   scanState,
   onBack,
   onShare,
+  onRefresh,
   onRetryAnnouncements,
   onRetryNextPage,
   onLoadMore,
   onScanAttendance,
-  hasPendingFeedback,
+  feedbackState,
   onGiveFeedback,
 }: EventHubViewProps): ReactElement {
   const insets = useSafeAreaInsets();
@@ -315,6 +322,14 @@ export function EventHubView({
       <View className="flex-1">
         <FlatList
           testID="announcement-list"
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={(): void => {
+                void onRefresh();
+              }}
+            />
+          }
           data={announcements}
           keyExtractor={(announcement: GanapAnnouncement): string => announcement.id}
           renderItem={({ item }: ListRenderItemInfo<GanapAnnouncement>): ReactElement => (
@@ -365,7 +380,10 @@ export function EventHubView({
                   />
                 </View>
                 <View className="mb-sm">
-                  <FeedbackRow isPending={hasPendingFeedback} onPress={hasPendingFeedback ? onGiveFeedback : noop} />
+                  <FeedbackRow
+                    state={feedbackState}
+                    onPress={feedbackState.kind === 'actionable' ? onGiveFeedback : noop}
+                  />
                 </View>
                 <EventRemindersRow />
               </View>

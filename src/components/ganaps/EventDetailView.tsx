@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { ArrowLeft, Bookmark, Calendar, Check, Clock, Heart, Share2, Star, Users } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
-import { ScrollView, useWindowDimensions, View } from 'react-native';
+import { RefreshControl, ScrollView, useWindowDimensions, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/common/Avatar';
@@ -29,7 +29,11 @@ interface EventDetailViewProps {
   isPrimaryPending: boolean;
   isLikePending: boolean;
   isSavePending: boolean;
+  /** Whether a route-owned Event Details refresh is in progress. */
+  isRefreshing: boolean;
   onBack: () => void;
+  /** Refetches the route-owned Event Details query. */
+  onRefresh: () => Promise<void>;
   onShare: () => void | Promise<void>;
   onToggleLike: () => void | Promise<void>;
   onToggleSave: () => void | Promise<void>;
@@ -85,7 +89,9 @@ export function EventDetailView({
   isPrimaryPending,
   isLikePending,
   isSavePending,
+  isRefreshing,
   onBack,
+  onRefresh,
   onShare,
   onToggleLike,
   onToggleSave,
@@ -189,6 +195,14 @@ export function EventDetailView({
         testID="event-detail-scroll"
         className="flex-1"
         contentContainerStyle={{ paddingBottom: insets.bottom + actionBarClearance }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={(): void => {
+              void onRefresh();
+            }}
+          />
+        }
       >
         <View className="w-full max-w-3xl self-center">
           <View className="relative h-64 overflow-hidden rounded-b-xl bg-muted">
@@ -287,7 +301,9 @@ export function EventDetailView({
             <View className="mt-md flex-row flex-wrap items-center gap-lg">
               {hasRating && (
                 <View className="flex-row items-center">
-                  <Star size={16} className="mr-xs fill-primary text-primary" />
+                  <View className="mr-xs">
+                    <Star size={16} className="fill-primary text-primary" />
+                  </View>
                   <Text className="text-body-md">{ganap.averageRating?.toFixed(1)}</Text>
                   <Text className="ml-xs text-body-md text-muted-foreground">({ganap.ratingCount})</Text>
                 </View>

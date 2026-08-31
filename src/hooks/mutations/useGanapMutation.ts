@@ -6,6 +6,8 @@ import type {
   GanapRating,
   JoinGanapResult,
   RateGanapInput,
+  SubmitFeedbackInput,
+  SubmitFeedbackResponse,
   SubmitFormAnswersInput,
 } from '@/types/ganap.types';
 import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
@@ -28,6 +30,12 @@ export interface ToggleSaveVariables {
 export interface SubmitFormAnswersVariables {
   ganapId: string;
   input: SubmitFormAnswersInput;
+}
+
+/** Arguments for submitting a Ganap's combined rating and feedback answers. */
+export interface SubmitFeedbackVariables {
+  ganapId: string;
+  input: SubmitFeedbackInput;
 }
 
 /**
@@ -104,6 +112,26 @@ export function useSubmitFormAnswersMutation(): UseMutationResult<JoinGanapResul
     // Both callers render the failure inline against the form the student is
     // still looking at — the registration route via `submissionError`, and the
     // feedback route via its mapped step error — so a global toast duplicates it.
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
+  });
+}
+
+/**
+ * Submits the student's rating and post-attendance answers atomically.
+ *
+ * @returns The mutation, resolving to the submitted feedback state
+ */
+export function useSubmitFeedbackMutation(): UseMutationResult<SubmitFeedbackResponse, Error, SubmitFeedbackVariables> {
+  const queryClient = useQueryClient();
+
+  return useMutation<SubmitFeedbackResponse, Error, SubmitFeedbackVariables>({
+    mutationFn: ({ ganapId, input }: SubmitFeedbackVariables): Promise<SubmitFeedbackResponse> =>
+      ganapsAPI.submitFeedback(ganapId, input),
+    onSuccess: (_result: SubmitFeedbackResponse, { ganapId }: SubmitFeedbackVariables): void => {
+      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
+      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });
+    },
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }

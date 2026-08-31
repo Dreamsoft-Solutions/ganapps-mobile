@@ -18,8 +18,17 @@ export interface JoinedGanap {
   registeredAt: string;
 }
 
+/** Time range filters accepted by the current User's joined Ganap endpoint. */
+export type JoinedGanapTimeFilter = 'UPCOMING' | 'PAST' | 'ALL';
+
+/** Optional search and time filters for the current User's joined Ganap list. */
+export interface JoinedGanapFilters {
+  search?: string;
+  time?: JoinedGanapTimeFilter;
+}
+
 /** Parameters accepted by the current User's joined Ganap endpoint. */
-export interface JoinedGanapParams {
+export interface JoinedGanapParams extends JoinedGanapFilters {
   skip?: number;
   take?: number;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
 import { Text as MockText, View as MockView, type StyleProp, type ViewStyle } from 'react-native';
 import { Colors } from '@/constants/theme';
@@ -40,7 +40,7 @@ jest.mock('lucide-react-native', () => ({
     />
   ),
   Share2: (): null => null,
-  Star: (): null => null,
+  Star: (): ReactElement => <MockView testID="rating-star" />,
   Users: (): ReactElement => <MockView testID="capacity-users" />,
 }));
 
@@ -176,6 +176,45 @@ const actionModel: GanapActionModel = {
   secondary: null,
 };
 
+const defaultRefreshProps: { isRefreshing: boolean; onRefresh: () => Promise<void> } = {
+  isRefreshing: false,
+  onRefresh: async (): Promise<void> => {},
+} satisfies { isRefreshing: boolean; onRefresh: () => Promise<void> };
+
+describe('EventDetailView refresh', (): void => {
+  it('binds pull-to-refresh to the detail query state and callback', async (): Promise<void> => {
+    const onRefresh = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    const screen = await render(
+      <EventDetailView
+        {...defaultRefreshProps}
+        ganap={ganap}
+        business={business}
+        capacity={capacity}
+        schedule={schedule}
+        actionModel={actionModel}
+        isPrimaryPending={false}
+        isLikePending={false}
+        isSavePending={false}
+        isRefreshing
+        onRefresh={onRefresh}
+        onBack={(): void => {}}
+        onShare={(): void => {}}
+        onToggleLike={(): void => {}}
+        onToggleSave={(): void => {}}
+        onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
+      />,
+    );
+
+    const scroll = screen.getByTestId('event-detail-scroll');
+    expect(scroll.props.refreshControl.props.refreshing).toBe(true);
+
+    await fireEvent(scroll, 'onRefresh');
+
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('EventDetailView action bar wiring', (): void => {
   it('forwards the action model and distinct primary/secondary callbacks unchanged', async (): Promise<void> => {
     const onPrimaryAction = jest.fn<() => void>();
@@ -192,6 +231,7 @@ describe('EventDetailView action bar wiring', (): void => {
 
     await render(
       <EventDetailView
+        {...defaultRefreshProps}
         ganap={ganap}
         business={business}
         capacity={capacity}
@@ -232,6 +272,7 @@ describe('EventDetailView action bar clearance', (): void => {
 
     const single = await render(
       <EventDetailView
+        {...defaultRefreshProps}
         ganap={ganap}
         business={business}
         capacity={capacity}
@@ -253,6 +294,7 @@ describe('EventDetailView action bar clearance', (): void => {
 
     const dual = await render(
       <EventDetailView
+        {...defaultRefreshProps}
         ganap={ganap}
         business={business}
         capacity={capacity}
@@ -279,6 +321,7 @@ describe('EventDetailView media', (): void => {
   it('gives a remote hero image explicit dimensions', async (): Promise<void> => {
     const screen = await render(
       <EventDetailView
+        {...defaultRefreshProps}
         ganap={ganap}
         business={business}
         capacity={capacity}
@@ -309,6 +352,7 @@ describe('EventDetailView description', (): void => {
 
     const screen = await render(
       <EventDetailView
+        {...defaultRefreshProps}
         ganap={{ ...ganap, description }}
         business={business}
         capacity={capacity}
@@ -337,6 +381,7 @@ describe('EventDetailView description', (): void => {
   it('configures the description renderer with safe links', async (): Promise<void> => {
     await render(
       <EventDetailView
+        {...defaultRefreshProps}
         ganap={ganap}
         business={business}
         capacity={capacity}
@@ -369,6 +414,7 @@ describe('EventDetailView social actions', (): void => {
     const onToggleSave = jest.fn<() => void>();
     const screen = await render(
       <EventDetailView
+        {...defaultRefreshProps}
         ganap={ganap}
         business={business}
         capacity={capacity}
@@ -402,6 +448,7 @@ describe('EventDetailView social actions', (): void => {
   it('passes selected colors to liked and saved icons', async (): Promise<void> => {
     const screen = await render(
       <EventDetailView
+        {...defaultRefreshProps}
         ganap={{ ...ganap, isLiked: true, isSaved: true }}
         business={business}
         capacity={capacity}
@@ -427,9 +474,34 @@ describe('EventDetailView social actions', (): void => {
 });
 
 describe('EventDetailView icon spacing', (): void => {
+  it('places spacing on a wrapper around the rating icon', async (): Promise<void> => {
+    const screen = await render(
+      <EventDetailView
+        {...defaultRefreshProps}
+        ganap={{ ...ganap, averageRating: 4.5, ratingCount: 2 }}
+        business={business}
+        capacity={capacity}
+        schedule={schedule}
+        actionModel={actionModel}
+        isPrimaryPending={false}
+        isLikePending={false}
+        isSavePending={false}
+        onBack={(): void => {}}
+        onShare={(): void => {}}
+        onToggleLike={(): void => {}}
+        onToggleSave={(): void => {}}
+        onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
+      />,
+    );
+
+    expect(screen.getByTestId('rating-star').parent?.props.className).toContain('mr-xs');
+  });
+
   it('places spacing on a wrapper around the likes icon', async (): Promise<void> => {
     const screen = await render(
       <EventDetailView
+        {...defaultRefreshProps}
         ganap={ganap}
         business={business}
         capacity={capacity}
@@ -453,6 +525,7 @@ describe('EventDetailView icon spacing', (): void => {
   it('places spacing on a wrapper around the capacity icon', async (): Promise<void> => {
     const screen = await render(
       <EventDetailView
+        {...defaultRefreshProps}
         ganap={ganap}
         business={business}
         capacity={capacity}
@@ -476,6 +549,7 @@ describe('EventDetailView icon spacing', (): void => {
   it('uses a heavier stroke for the verified check icon', async (): Promise<void> => {
     const screen = await render(
       <EventDetailView
+        {...defaultRefreshProps}
         ganap={ganap}
         business={business}
         capacity={capacity}

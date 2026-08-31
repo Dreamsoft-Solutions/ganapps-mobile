@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { Calendar, CheckCircle2, ChevronRight, Clock } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { Pressable, View } from 'react-native';
@@ -31,6 +32,7 @@ interface JoinedGanapCardProps {
 export function JoinedGanapCard({ ganap, onPress }: JoinedGanapCardProps): ReactElement {
   const registrationLabel: string = REGISTRATION_LABELS[ganap.registrationStatus];
   const firstTag: string | undefined = ganap.tags[0];
+  const coverImage: string | null = ganap.coverImage || null;
 
   return (
     <Pressable
@@ -40,8 +42,19 @@ export function JoinedGanapCard({ ganap, onPress }: JoinedGanapCardProps): React
       className="active:opacity-80"
     >
       <Card className="mb-sm flex-row items-start">
-        <View className="mr-sm h-10 w-10 items-center justify-center rounded-md bg-primary/10">
-          <Calendar size={18} className="text-primary" />
+        <View className="mr-sm h-10 w-10 overflow-hidden rounded-md bg-primary/10">
+          {coverImage ? (
+            <Image
+              source={{ uri: coverImage }}
+              className="h-full w-full"
+              contentFit="cover"
+              accessibilityLabel={`${ganap.title} event image`}
+            />
+          ) : (
+            <View className="h-full w-full items-center justify-center">
+              <Calendar size={18} className="text-primary" />
+            </View>
+          )}
         </View>
         <View className="min-w-0 flex-1">
           <Text className="text-headline-sm" numberOfLines={2}>
@@ -51,13 +64,17 @@ export function JoinedGanapCard({ ganap, onPress }: JoinedGanapCardProps): React
             {ganap.businessName}
           </Text>
           <View className="mt-2 flex-row items-center">
-            <Clock size={12} className="mr-1 text-muted-foreground" />
+            <View className="mr-xs">
+              <Clock size={12} className="text-muted-foreground" />
+            </View>
             <Text className="text-label-sm text-muted-foreground">{formatGanapDate(ganap.startDate)}</Text>
           </View>
         </View>
         <View className="ml-sm items-end">
           <View className="flex-row items-center rounded-full bg-muted px-2 py-1">
-            <CheckCircle2 size={12} className="mr-1 text-primary" />
+            <View className="mr-xs">
+              <CheckCircle2 size={12} className="text-primary" />
+            </View>
             <Text className="text-label-sm text-muted-foreground">{registrationLabel}</Text>
           </View>
           {firstTag && (
@@ -66,7 +83,11 @@ export function JoinedGanapCard({ ganap, onPress }: JoinedGanapCardProps): React
             </Text>
           )}
         </View>
-        {onPress && <ChevronRight size={18} className="ml-1 mt-1 text-muted-foreground" />}
+        {onPress && (
+          <View className="ml-xs mt-1">
+            <ChevronRight size={18} className="text-muted-foreground" />
+          </View>
+        )}
       </Card>
     </Pressable>
   );

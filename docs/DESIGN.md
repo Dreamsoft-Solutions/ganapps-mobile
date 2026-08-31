@@ -83,10 +83,9 @@ list into the design system and require a token change to add a category. Tags
 are also decorative rather than structural: they carry no meaning a color-blind
 user loses, because the label is always shown.
 
-Google's brand colors on the login screen are the same kind of exception, for
-the same reason — they are someone else's brand, not ours to re-role. That is
-why `components/forms/LoginForm.tsx` keeps a literal `bg-white` on the Google
-badge; it is the only one left in `src/`.
+The Google icon on the login screen intentionally uses Ganapps' `primary` token
+so it follows the app's action color and theme instead of preserving Google's
+official blue.
 
 ## Typography
 

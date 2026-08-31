@@ -1,12 +1,19 @@
 // Tests for src/app/(app)/(home)/event-hub/[ganap-id].tsx live here rather than
 // beside it: any .test.tsx under src/app/ is picked up by Expo Router as a route.
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render } from '@testing-library/react-native';
+import type { UseQueryResult } from '@tanstack/react-query';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 import { Pressable as MockPressable, Text as MockText, View as MockView, Share } from 'react-native';
 import type { EventHubViewProps } from '@/components/ganaps/EventHubView';
 import { Routes } from '@/constants/routes';
-import type { GanapAnnouncement, GanapDetail, RegistrationStatus } from '@/types/ganap.types';
+import type {
+  FormBlock,
+  FormBlockScope,
+  GanapAnnouncement,
+  GanapDetail,
+  RegistrationStatus,
+} from '@/types/ganap.types';
 import { getGanapScheduleModel } from '@/utils/ganap-detail';
 
 const mockRouter = {
@@ -22,6 +29,14 @@ const mockDetailRefetch = jest.fn<() => Promise<unknown>>().mockResolvedValue(un
 const mockAnnouncementsRefetch = jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined);
 const mockFetchNextPage = jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined);
 const mockEventHubView = jest.fn<(props: EventHubViewProps) => ReactElement>();
+
+type FormBlocksQueryState = Pick<UseQueryResult<FormBlock[], Error>, 'data' | 'isLoading' | 'error'>;
+type UseFormBlocksQueryMock = (ganapId: string, scope: FormBlockScope) => FormBlocksQueryState;
+
+let mockFormBlocksState: FormBlocksQueryState;
+const mockUseFormBlocksQuery = jest.fn<UseFormBlocksQueryMock>(
+  (_ganapId: string, _scope: FormBlockScope): FormBlocksQueryState => mockFormBlocksState,
+);
 
 const announcement: GanapAnnouncement = {
   id: 'announcement_1',
@@ -70,6 +85,27 @@ const mockGanap: GanapDetail = {
   updatedAt: '2026-08-01T00:00:00.000Z',
 };
 
+const postAttendanceBlock: FormBlock = {
+  id: 'post_attendance_block_1',
+  ganapId: 'g1',
+  scope: 'POST_ATTENDANCE',
+  type: 'TEXT',
+  label: 'What did you think?',
+  isRequired: true,
+  allowMultiple: false,
+  order: 0,
+  config: null,
+  options: [],
+  createdAt: '2026-08-01T00:00:00.000Z',
+  updatedAt: '2026-08-01T00:00:00.000Z',
+};
+
+const mockRegistrationBase = {
+  id: 'registration_1',
+  createdAt: '2026-08-01T00:00:00.000Z',
+  registrationFormSubmittedAt: null,
+};
+
 let mockDetailState: {
   data: GanapDetail | undefined;
   isLoading: boolean;
@@ -93,6 +129,28 @@ let mockAnnouncementsState: {
 const mockUseGanapAnnouncements = jest.fn(
   (_ganapId: string, _isEligible: boolean): typeof mockAnnouncementsState => mockAnnouncementsState,
 );
+
+interface Deferred {
+  promise: Promise<void>;
+  resolve: () => void;
+}
+
+/**
+ * Creates a manually resolvable promise so a route callback can be observed in flight.
+ *
+ * @returns The promise and its resolver.
+ */
+function createDeferred(): Deferred {
+  let resolvePromise: (() => void) | undefined;
+  const promise = new Promise<void>((resolve: () => void): void => {
+    resolvePromise = resolve;
+  });
+
+  return {
+    promise,
+    resolve: (): void => resolvePromise?.(),
+  };
+}
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: (): typeof mockParams => mockParams,
@@ -126,6 +184,8 @@ jest.mock('@/components/ganaps/EventHubView', () => ({
 
 jest.mock('@/hooks/queries/useGanapsQuery', () => ({
   useGanapDetailQuery: (): typeof mockDetailState => mockDetailState,
+  useFormBlocksQuery: (ganapId: string, scope: FormBlockScope): FormBlocksQueryState =>
+    mockUseFormBlocksQuery(ganapId, scope),
 }));
 
 jest.mock('@/hooks/useGanapAnnouncements', () => ({
@@ -174,6 +234,11 @@ function resetStates(): void {
     isFetchingNextPage: false,
     isFetchNextPageError: false,
     hasLostAccess: false,
+  };
+  mockFormBlocksState = {
+    data: [],
+    isLoading: false,
+    error: null,
   };
   mockEventHubView.mockImplementation(
     (props: EventHubViewProps): ReactElement => (
@@ -232,6 +297,7 @@ describe('Event Hub route detail states', (): void => {
 
     expect(screen.getByText('Loading')).toBeTruthy();
     expect(mockUseGanapAnnouncements).not.toHaveBeenCalled();
+    expect(mockUseFormBlocksQuery).not.toHaveBeenCalled();
   });
 
   it('renders a retryable error when detail fails', async (): Promise<void> => {
@@ -243,6 +309,7 @@ describe('Event Hub route detail states', (): void => {
     expect(screen.getByText('Unable to load event')).toBeTruthy();
     expect(mockDetailRefetch).toHaveBeenCalledTimes(1);
     expect(mockUseGanapAnnouncements).not.toHaveBeenCalled();
+    expect(mockUseFormBlocksQuery).not.toHaveBeenCalled();
   });
 
   it('reports a missing Ganap as not found', async (): Promise<void> => {
@@ -252,6 +319,7 @@ describe('Event Hub route detail states', (): void => {
 
     expect(screen.getByText('Event not found')).toBeTruthy();
     expect(mockUseGanapAnnouncements).not.toHaveBeenCalled();
+    expect(mockUseFormBlocksQuery).not.toHaveBeenCalled();
   });
 });
 
@@ -279,6 +347,7 @@ describe('Event Hub route eligibility guard', (): void => {
 
     expect(screen.getByText('Event Hub is for joined students')).toBeTruthy();
     expect(mockUseGanapAnnouncements).not.toHaveBeenCalled();
+    expect(mockUseFormBlocksQuery).not.toHaveBeenCalled();
     expect(mockEventHubView).not.toHaveBeenCalled();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Back to Event Details' }));
@@ -305,6 +374,7 @@ describe('Event Hub route eligibility guard', (): void => {
 
     expect(mockUseGanapAnnouncements).toHaveBeenCalledWith('g1', true);
     expect(mockEventHubView).toHaveBeenCalled();
+    expect(mockUseFormBlocksQuery).toHaveBeenCalledWith('g1', 'POST_ATTENDANCE');
   });
 });
 
@@ -368,6 +438,37 @@ describe('Event Hub route loaded behavior', (): void => {
     expect(mockAnnouncementsRefetch).toHaveBeenCalledTimes(1);
     expect(mockFetchNextPage).toHaveBeenCalledTimes(2);
   });
+
+  it('refreshes detail and announcements from one pull gesture', async (): Promise<void> => {
+    const detailRefresh = createDeferred();
+    const announcementsRefresh = createDeferred();
+    const refetchDetail = jest.fn<() => Promise<unknown>>((): Promise<unknown> => detailRefresh.promise);
+    const refetchAnnouncements = jest.fn<() => Promise<unknown>>((): Promise<unknown> => announcementsRefresh.promise);
+    mockDetailState.refetch = refetchDetail;
+    mockAnnouncementsState.refetch = refetchAnnouncements;
+
+    await renderRoute();
+
+    let refresh: Promise<void> | undefined;
+    await act(async (): Promise<void> => {
+      refresh = latestViewProps().onRefresh();
+      await Promise.resolve();
+    });
+
+    await waitFor((): void => {
+      expect(refetchDetail).toHaveBeenCalledTimes(1);
+      expect(refetchAnnouncements).toHaveBeenCalledTimes(1);
+      expect(latestViewProps().isRefreshing).toBe(true);
+    });
+
+    await act(async (): Promise<void> => {
+      detailRefresh.resolve();
+      announcementsRefresh.resolve();
+      await refresh;
+    });
+
+    await waitFor((): void => expect(latestViewProps().isRefreshing).toBe(false));
+  });
 });
 
 describe('Event Hub route access loss', (): void => {
@@ -418,5 +519,130 @@ describe('Event Hub route access loss', (): void => {
     await fireEvent.press(screen.getByRole('button', { name: 'Hub retry announcements' }));
 
     expect(mockAnnouncementsRefetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Event Hub route feedback state', (): void => {
+  it('shows actionable feedback when an attended Ganap has no form and no rating', async (): Promise<void> => {
+    mockDetailState.data = {
+      ...mockGanap,
+      myRating: null,
+      myRegistration: {
+        ...mockRegistrationBase,
+        status: 'ATTENDED',
+        postAttendanceFormSubmittedAt: null,
+      },
+    };
+    mockFormBlocksState = { data: [], isLoading: false, error: null };
+
+    await renderRoute();
+
+    expect(latestViewProps().feedbackState).toEqual({ kind: 'actionable' });
+    expect(mockUseFormBlocksQuery).toHaveBeenCalledWith('g1', 'POST_ATTENDANCE');
+  });
+
+  it('shows submitted feedback when an attended Ganap has complete rating and form metadata', async (): Promise<void> => {
+    mockDetailState.data = {
+      ...mockGanap,
+      myRating: 5,
+      myRegistration: {
+        ...mockRegistrationBase,
+        status: 'ATTENDED',
+        postAttendanceFormSubmittedAt: '2026-08-29T04:00:00.000Z',
+      },
+    };
+    mockFormBlocksState = { data: [postAttendanceBlock], isLoading: false, error: null };
+
+    await renderRoute();
+
+    expect(latestViewProps().feedbackState).toEqual({ kind: 'submitted' });
+  });
+
+  it.each([
+    { label: 'loading', state: { data: undefined, isLoading: true, error: null } },
+    { label: 'error', state: { data: undefined, isLoading: false, error: new Error('Form metadata unavailable') } },
+  ] satisfies Array<{
+    label: string;
+    state: FormBlocksQueryState;
+  }>)('hides feedback while form metadata is $label', async ({
+    state,
+  }: {
+    state: FormBlocksQueryState;
+  }): Promise<void> => {
+    mockDetailState.data = {
+      ...mockGanap,
+      myRating: null,
+      myRegistration: {
+        ...mockRegistrationBase,
+        status: 'ATTENDED',
+        postAttendanceFormSubmittedAt: null,
+      },
+    };
+    mockFormBlocksState = state;
+
+    await renderRoute();
+
+    expect(latestViewProps().feedbackState).toEqual({ kind: 'hidden' });
+  });
+
+  it('keeps a form metadata error isolated from the announcement error surface', async (): Promise<void> => {
+    const announcementError: Error = new Error('Announcements unavailable');
+    mockDetailState.data = {
+      ...mockGanap,
+      myRating: null,
+      myRegistration: {
+        ...mockRegistrationBase,
+        status: 'ATTENDED',
+        postAttendanceFormSubmittedAt: null,
+      },
+    };
+    mockAnnouncementsState.announcements = [];
+    mockAnnouncementsState.total = 0;
+    mockAnnouncementsState.error = announcementError;
+    mockFormBlocksState = {
+      data: undefined,
+      isLoading: false,
+      error: new Error('Form metadata unavailable'),
+    };
+
+    await renderRoute();
+
+    expect(latestViewProps().announcementError).toBe(announcementError);
+    expect(latestViewProps().feedbackState).toEqual({ kind: 'hidden' });
+  });
+
+  it('hides feedback for a registration that is not attended', async (): Promise<void> => {
+    mockDetailState.data = {
+      ...mockGanap,
+      myRating: null,
+      myRegistration: {
+        ...mockRegistrationBase,
+        status: 'REGISTERED',
+        postAttendanceFormSubmittedAt: null,
+      },
+    };
+    mockFormBlocksState = { data: [], isLoading: false, error: null };
+
+    await renderRoute();
+
+    expect(latestViewProps().feedbackState).toEqual({ kind: 'hidden' });
+  });
+
+  it('hides cached-complete feedback when announcement access is lost', async (): Promise<void> => {
+    mockDetailState.data = {
+      ...mockGanap,
+      myRating: 5,
+      myRegistration: {
+        ...mockRegistrationBase,
+        status: 'ATTENDED',
+        postAttendanceFormSubmittedAt: '2026-08-29T04:00:00.000Z',
+      },
+    };
+    mockFormBlocksState = { data: [postAttendanceBlock], isLoading: false, error: null };
+    mockAnnouncementsState.hasLostAccess = true;
+
+    await renderRoute();
+
+    expect(latestViewProps().feedbackState).toEqual({ kind: 'hidden' });
   });
 });

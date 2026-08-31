@@ -146,14 +146,16 @@ function buildProps(overrides: Partial<EventHubViewProps> = {}): EventHubViewPro
     isFetchingNextPage: false,
     isFetchNextPageError: false,
     accessLost: false,
+    isRefreshing: false,
     onBack: (): void => {},
     onShare: (): void => {},
+    onRefresh: async (): Promise<void> => {},
     onRetryAnnouncements: (): void => {},
     onRetryNextPage: (): void => {},
     onLoadMore: (): void => {},
     scanState: 'hidden',
     onScanAttendance: (): void => {},
-    hasPendingFeedback: false,
+    feedbackState: { kind: 'hidden' },
     onGiveFeedback: (): void => {},
     ...overrides,
   };
@@ -301,6 +303,18 @@ describe('EventHubView announcement cards', (): void => {
 });
 
 describe('EventHubView announcement states', (): void => {
+  it('refreshes detail and announcements from the shared pull gesture', async (): Promise<void> => {
+    const onRefresh = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    const screen = await render(<EventHubView {...buildProps({ isRefreshing: false, onRefresh })} />);
+
+    const list = screen.getByTestId('announcement-list');
+    expect(list.props.refreshControl.props.refreshing).toBe(false);
+
+    await fireEvent(list, 'onRefresh');
+
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
   it('shows a loading state while the first announcement page is pending', async (): Promise<void> => {
     const screen = await render(
       <EventHubView {...buildProps({ announcements: [], total: 0, isAnnouncementsLoading: true })} />,
@@ -509,18 +523,33 @@ describe('attendance scan row', (): void => {
 
 describe('feedback row', (): void => {
   it('renders nothing when no feedback is pending', async (): Promise<void> => {
-    const screen = await render(<EventHubView {...buildProps({ hasPendingFeedback: false })} />);
+    const screen = await render(<EventHubView {...buildProps({ feedbackState: { kind: 'hidden' } })} />);
 
     expect(screen.queryByTestId('feedback-row')).toBeNull();
   });
 
   it('is pressable and fires onGiveFeedback when feedback is pending', async (): Promise<void> => {
     const onGiveFeedback = jest.fn<() => void>();
-    const screen = await render(<EventHubView {...buildProps({ hasPendingFeedback: true, onGiveFeedback })} />);
+    const screen = await render(
+      <EventHubView {...buildProps({ feedbackState: { kind: 'actionable' }, onGiveFeedback })} />,
+    );
 
     await fireEvent.press(screen.getByTestId('feedback-row'));
 
     expect(onGiveFeedback).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders submitted feedback as a static confirmation without navigation', async (): Promise<void> => {
+    const onGiveFeedback = jest.fn<() => void>();
+    const screen = await render(
+      <EventHubView {...buildProps({ feedbackState: { kind: 'submitted' }, onGiveFeedback })} />,
+    );
+
+    expect(screen.getByText('Feedback submitted')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Feedback submitted' })).toBeNull();
+    await fireEvent.press(screen.getByTestId('feedback-row'));
+
+    expect(onGiveFeedback).not.toHaveBeenCalled();
   });
 });
 

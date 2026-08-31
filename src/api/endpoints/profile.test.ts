@@ -64,4 +64,20 @@ describe('profileAPI.listJoinedGanaps', () => {
 
     await expect(profileAPI.listJoinedGanaps()).resolves.toEqual(page);
   });
+
+  it('sends optional search and time to the joined-event endpoint', async () => {
+    axiosInstance.defaults.adapter = envelopeAdapter({
+      items: [],
+      pagination: { total: 0, skip: 0, take: 20, pages: 0 },
+    });
+
+    await profileAPI.listJoinedGanaps({
+      skip: 0,
+      take: 20,
+      search: 'design',
+      time: 'PAST',
+    });
+
+    expect(captured[0].params).toEqual({ skip: 0, take: 20, search: 'design', time: 'PAST' });
+  });
 });

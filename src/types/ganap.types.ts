@@ -55,6 +55,24 @@ export interface FormAnswerItem {
   selectedOptionIds?: string[];
 }
 
+/** An answer accepted by the combined feedback submission endpoint. */
+export type SubmitFeedbackAnswerInput = Pick<
+  FormAnswerItem,
+  'formBlockId' | 'textValue' | 'scaleValue' | 'selectedOptionIds'
+>;
+
+/** Request payload for submitting a Ganap rating and post-attendance answers atomically. */
+export interface SubmitFeedbackInput {
+  rating?: number;
+  answers?: SubmitFeedbackAnswerInput[];
+}
+
+/** Result returned after a combined feedback submission. */
+export interface SubmitFeedbackResponse {
+  myRating: number;
+  postAttendanceFormSubmittedAt: string | null;
+}
+
 /** Request payload for submitting form answers in either scope. */
 export interface SubmitFormAnswersInput {
   answers: FormAnswerItem[];

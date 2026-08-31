@@ -1,4 +1,12 @@
-import type { FormBlock, GanapDetail } from '@/types/ganap.types';
+import { ErrorCodes } from '@/constants/errors';
+import type {
+  FormAnswerItem,
+  FormBlock,
+  GanapDetail,
+  SubmitFeedbackAnswerInput,
+  SubmitFeedbackInput,
+  SubmitFormAnswersInput,
+} from '@/types/ganap.types';
 
 /** One step of the post-event feedback flow. */
 export type FeedbackStep = 'rating' | 'form';
@@ -8,9 +16,9 @@ export type FeedbackStep = 'rating' | 'form';
  *
  * Only an `ATTENDED` registration has anything to answer. The two pending
  * tests degrade differently while the server fields are absent, and the
- * asymmetry is deliberate: re-rating is rejected with `400 Already rated this
- * event`, so an unknown rating state hides the step; re-submitting the form is
- * a silent upsert, so an unknown submission state still offers it.
+ * asymmetry is deliberate: re-rating is rejected with a conflict, so an
+ * unknown rating state hides the step; re-submitting the form is a harmless
+ * upsert, so an unknown form submission state still offers it.
  *
  * @param ganap - Ganap detail including the caller's registration and rating
  * @param blocks - The Ganap's `POST_ATTENDANCE` blocks, empty when none exist
@@ -30,8 +38,75 @@ export function getPendingFeedbackSteps(ganap: GanapDetail, blocks: FormBlock[])
   return steps;
 }
 
+/** The feedback row state rendered by Event Hub. */
+export type FeedbackRowState = { kind: 'hidden' } | { kind: 'actionable' } | { kind: 'submitted' };
+
+/**
+ * Derives whether the Event Hub may show feedback, an actionable row, or a
+ * submitted confirmation from authoritative metadata.
+ *
+ * @param ganap - Ganap detail including the caller's registration and rating
+ * @param blocks - Loaded post-attendance form blocks, or undefined while unknown
+ * @param accessLost - Whether announcement access was lost while this row was cached
+ * @returns The strict Event Hub feedback row state
+ */
+export function getFeedbackRowState(
+  ganap: GanapDetail,
+  blocks: FormBlock[] | undefined,
+  accessLost: boolean,
+): FeedbackRowState {
+  const registration = ganap.myRegistration;
+  if (accessLost || blocks === undefined || ganap.myRating === undefined || registration?.status !== 'ATTENDED') {
+    return { kind: 'hidden' };
+  }
+  if (blocks.length > 0 && registration.postAttendanceFormSubmittedAt === undefined) {
+    return { kind: 'hidden' };
+  }
+  return getPendingFeedbackSteps(ganap, blocks).length > 0 ? { kind: 'actionable' } : { kind: 'submitted' };
+}
+
+/** Parts of a feedback request collected by the rating and form steps. */
+export interface FeedbackInputParts {
+  rating?: number;
+  formAnswers?: SubmitFormAnswersInput;
+}
+
+/**
+ * Converts legacy form-step values into the combined feedback request shape.
+ *
+ * `scope` and `numberValue` belong only to the registration/form-answer
+ * transport. Selected-option arrays are copied so later form edits cannot
+ * mutate a request already handed to the mutation.
+ *
+ * @param parts - Optional rating and form-answer halves of the request
+ * @returns A transport-safe combined feedback request
+ */
+export function toSubmitFeedbackInput(parts: FeedbackInputParts): SubmitFeedbackInput {
+  return {
+    ...(parts.rating === undefined ? {} : { rating: parts.rating }),
+    ...(parts.formAnswers === undefined
+      ? {}
+      : {
+          answers: parts.formAnswers.answers.map(
+            ({ formBlockId, textValue, scaleValue, selectedOptionIds }: FormAnswerItem): SubmitFeedbackAnswerInput => ({
+              formBlockId,
+              ...(textValue === undefined ? {} : { textValue }),
+              ...(scaleValue === undefined ? {} : { scaleValue }),
+              ...(selectedOptionIds === undefined ? {} : { selectedOptionIds: [...selectedOptionIds] }),
+            }),
+          ),
+        }),
+  };
+}
+
 /** How a rejected feedback submission should be recovered from. */
-export type FeedbackErrorKind = 'already-rated' | 'no-form' | 'not-attended' | 'stale-blocks' | 'not-found' | 'unknown';
+export type FeedbackErrorKind =
+  | 'not-eligible'
+  | 'rating-required'
+  | 'answers-required'
+  | 'rating-conflict'
+  | 'invalid-input'
+  | 'unknown';
 
 /** Attendee-facing copy for a rejected feedback submission. */
 export interface FeedbackErrorModel {
@@ -40,93 +115,74 @@ export interface FeedbackErrorModel {
   message: string;
 }
 
-/**
- * Server rejection messages, keyed verbatim.
- *
- * Every one arrives as a plain `BadRequestException`, `ForbiddenException` or
- * `NotFoundException` through the global exception filter, so they share one
- * `errorCode` and the message string is the only discriminator. Coupled to
- * `GanapService.rateGanap` and `GanapService.submitFormAnswers` in
- * `ganapps-server` — if a string there changes, the mapping falls back to
- * `unknown`.
- */
-const FEEDBACK_ERROR_MODELS: Record<string, FeedbackErrorModel> = {
-  'Already rated this event': {
-    kind: 'already-rated',
-    title: 'Already rated',
-    message: 'You have already rated this event.',
-  },
-  'No post-attendance form exists for this event': {
-    kind: 'no-form',
-    title: 'No feedback form',
-    message: 'The organization is not collecting written feedback for this event.',
-  },
-  'Must attend the event before rating': {
-    kind: 'not-attended',
-    title: 'Attendance not recorded yet',
-    message: 'Record your attendance with the organizer QR code before leaving feedback.',
-  },
-  'Must attend the event before submitting post-attendance feedback': {
-    kind: 'not-attended',
-    title: 'Attendance not recorded yet',
-    message: 'Record your attendance with the organizer QR code before leaving feedback.',
-  },
-  'Event not found': {
-    kind: 'not-found',
-    title: 'Event unavailable',
-    message: 'This event is no longer available.',
-  },
-  'Not registered for this event': {
-    kind: 'not-found',
-    title: 'Event unavailable',
-    message: 'You are not registered for this event.',
-  },
-};
+type StaticFeedbackErrorCode =
+  | typeof ErrorCodes.FEEDBACK_NOT_ELIGIBLE
+  | typeof ErrorCodes.FEEDBACK_RATING_REQUIRED
+  | typeof ErrorCodes.FEEDBACK_ANSWERS_REQUIRED
+  | typeof ErrorCodes.FEEDBACK_RATING_CONFLICT;
 
-/**
- * Prefix-matched rejections, whose messages embed a runtime value.
- *
- * `Required field "<label>" is missing` and `Unknown form block ID: <id>` both
- * interpolate server data, so they cannot be keyed exactly.
- */
-const FEEDBACK_ERROR_PREFIXES: ReadonlyArray<readonly [string, FeedbackErrorModel]> = [
-  [
-    'Required field',
-    {
-      kind: 'stale-blocks',
-      title: 'Questions have changed',
-      message: 'The organization updated this form. Reload it and answer the current questions.',
-    },
-  ],
-  [
-    'Unknown form block ID:',
-    {
-      kind: 'stale-blocks',
-      title: 'Questions have changed',
-      message: 'The organization updated this form. Reload it and answer the current questions.',
-    },
-  ],
-];
+const STATIC_FEEDBACK_ERROR_MODELS: Record<StaticFeedbackErrorCode, FeedbackErrorModel> = {
+  [ErrorCodes.FEEDBACK_NOT_ELIGIBLE]: {
+    kind: 'not-eligible',
+    title: 'Feedback unavailable',
+    message: 'You must attend this event before submitting feedback.',
+  },
+  [ErrorCodes.FEEDBACK_RATING_REQUIRED]: {
+    kind: 'rating-required',
+    title: 'Rating required',
+    message: 'Choose a rating before submitting feedback.',
+  },
+  [ErrorCodes.FEEDBACK_ANSWERS_REQUIRED]: {
+    kind: 'answers-required',
+    title: 'Feedback form required',
+    message: 'Complete the post-event form before submitting feedback.',
+  },
+  [ErrorCodes.FEEDBACK_RATING_CONFLICT]: {
+    kind: 'rating-conflict',
+    title: 'Rating already submitted',
+    message: 'Your rating was already submitted and cannot be changed.',
+  },
+} satisfies Record<StaticFeedbackErrorCode, FeedbackErrorModel>;
 
-const UNKNOWN_FEEDBACK_ERROR: FeedbackErrorModel = {
+const GENERIC_FEEDBACK_ERROR_MESSAGE: string = 'Feedback could not be submitted. Please try again.';
+const GENERIC_FEEDBACK_ERROR_MODEL: FeedbackErrorModel = {
   kind: 'unknown',
   title: 'Feedback could not be sent',
-  message: 'Something went wrong. Try again in a moment.',
+  message: GENERIC_FEEDBACK_ERROR_MESSAGE,
 };
 
+interface ErrorWithCode extends Error {
+  errorCode?: unknown;
+}
+
+function readFeedbackErrorCode(error: Error): string | undefined {
+  const candidate: unknown = (error as ErrorWithCode).errorCode;
+  return typeof candidate === 'string' ? candidate : undefined;
+}
+
+function isStaticFeedbackErrorCode(value: string | undefined): value is StaticFeedbackErrorCode {
+  return value !== undefined && Object.hasOwn(STATIC_FEEDBACK_ERROR_MODELS, value);
+}
+
 /**
- * Maps a rejected rating or feedback submission to attendee-facing copy.
+ * Maps a rejected feedback submission to exact attendee-facing copy by code.
  *
- * @param error - The normalized error the mutation rejected with
- * @returns The matched model, or the unknown fallback
+ * Only a coded `INVALID_INPUT` response may surface the server's trimmed
+ * message. Unknown or missing codes always use the generic feedback message.
+ *
+ * @param error - The normalized error rejected by the feedback mutation
+ * @returns The mapped feedback error model
  */
 export function mapFeedbackError(error: Error): FeedbackErrorModel {
-  const exact = FEEDBACK_ERROR_MODELS[error.message];
-  if (exact) return exact;
-
-  for (const [prefix, model] of FEEDBACK_ERROR_PREFIXES) {
-    if (error.message.startsWith(prefix)) return model;
+  const errorCode: string | undefined = readFeedbackErrorCode(error);
+  if (errorCode === ErrorCodes.INVALID_INPUT) {
+    const message: string = error.message.trim();
+    return {
+      kind: 'invalid-input',
+      title: 'Feedback could not be sent',
+      message: message.length > 0 ? message : GENERIC_FEEDBACK_ERROR_MESSAGE,
+    };
   }
-
-  return UNKNOWN_FEEDBACK_ERROR;
+  if (isStaticFeedbackErrorCode(errorCode)) return STATIC_FEEDBACK_ERROR_MODELS[errorCode];
+  return GENERIC_FEEDBACK_ERROR_MODEL;
 }

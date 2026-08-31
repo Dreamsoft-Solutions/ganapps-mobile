@@ -11,6 +11,8 @@ import type {
   GanapRating,
   JoinGanapResult,
   RateGanapInput,
+  SubmitFeedbackInput,
+  SubmitFeedbackResponse,
   SubmitFormAnswersInput,
 } from '@/types/ganap.types';
 import axiosInstance from '../axios-instance';
@@ -59,6 +61,16 @@ export const ganapsAPI = {
    */
   submitFormAnswers: (ganapId: string, input: SubmitFormAnswersInput): Promise<JoinGanapResult> =>
     axiosInstance.post<JoinGanapResult>(`/ganaps/${ganapId}/form-answers`, input).then((res) => res.data),
+
+  /**
+   * Submits the current user's rating and post-attendance form answers atomically.
+   *
+   * @param ganapId - Id of the Ganap
+   * @param input - Combined feedback request body
+   * @returns The submitted rating and form timestamp
+   */
+  submitFeedback: (ganapId: string, input: SubmitFeedbackInput): Promise<SubmitFeedbackResponse> =>
+    axiosInstance.post<SubmitFeedbackResponse>(`/ganaps/${ganapId}/feedback`, input).then((res) => res.data),
 
   /**
    * Registers the current user for a Ganap. Sends no body.

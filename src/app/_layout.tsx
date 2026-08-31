@@ -13,9 +13,9 @@ import { Loading } from '@/components/common/Loading';
 import { ToastHost } from '@/components/common/ToastHost';
 import { Routes } from '@/constants/routes';
 import { db } from '@/db';
+import { useNotificationQuerySync } from '@/hooks/useNotificationQuerySync';
 import { RootProvider } from '@/providers/RootProvider';
 import { ThemeProvider } from '@/providers/ThemeProvider';
-import { startNotificationResponseObserver } from '@/services/push-notification.service';
 import { remoteConfigService } from '@/services/remote-config.service';
 import { type CheckInReplayOutcome, startOutboxDrain } from '@/services/sync.service';
 import { useAuthStore } from '@/store/auth.store';
@@ -45,11 +45,12 @@ function RootLayoutNav(): ReactElement {
   const [hasHiddenSplash, setHasHiddenSplash] = useState(false);
   const { success: migrationsReady, error: migrationError } = useMigrations(db, migrations);
 
+  useNotificationQuerySync();
+
   useEffect(() => {
     useAuthStore.getState().hydrate();
     remoteConfigService.initialize();
     NavigationBar.setHidden(true);
-    return startNotificationResponseObserver();
   }, []);
 
   useEffect(() => {

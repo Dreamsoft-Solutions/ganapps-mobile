@@ -4,14 +4,16 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import { useAuthStore } from '@/store/auth.store';
-import type { FormBlock, GanapDetail, GanapRating } from '@/types/ganap.types';
+import type { FormBlock, GanapDetail, SubmitFeedbackResponse } from '@/types/ganap.types';
 import { ganapQueryKeys } from './queries/useGanapsQuery';
+import { profileQueryKeys } from './queries/useProfileQuery';
 import { useGanapFeedback } from './useGanapFeedback';
 
 jest.mock('@/api/endpoints/ganaps', () => ({
   ganapsAPI: {
     getById: jest.fn(),
     listFormBlocks: jest.fn(),
+    submitFeedback: jest.fn(),
     submitFormAnswers: jest.fn(),
     rateGanap: jest.fn(),
     join: jest.fn(),
@@ -27,7 +29,9 @@ jest.mock('@/services/sync.service', () => ({ enqueueOutbox: jest.fn() }));
 
 const mockedGetById = jest.mocked(ganapsAPI.getById);
 const mockedListFormBlocks = jest.mocked(ganapsAPI.listFormBlocks);
+const mockedSubmitFeedback = jest.mocked(ganapsAPI.submitFeedback);
 const mockedRateGanap = jest.mocked(ganapsAPI.rateGanap);
+const mockedSubmitFormAnswers = jest.mocked(ganapsAPI.submitFormAnswers);
 const clients: QueryClient[] = [];
 
 const postAttendanceBlock: FormBlock = {
@@ -45,19 +49,8 @@ const postAttendanceBlock: FormBlock = {
   updatedAt: '2026-08-18T00:00:00.000Z',
 };
 
-const ratingRow: GanapRating = {
-  id: 'rating_1',
-  ganapId: 'g1',
-  userId: 'u1',
-  rating: 5,
-  comment: null,
-  createdAt: '2026-08-18T00:00:00.000Z',
-  updatedAt: '2026-08-18T00:00:00.000Z',
-};
-
 /**
- * An attended Ganap whose rating field is present and null — the state in
- * which the rating step is offered.
+ * An attended Ganap whose rating is explicitly absent, so the route offers feedback.
  */
 const attendedGanapWithNoRating: GanapDetail = {
   id: 'g1',
@@ -80,6 +73,7 @@ const attendedGanapWithNoRating: GanapDetail = {
     status: 'ATTENDED',
     createdAt: '2026-08-01T00:00:00.000Z',
     registrationFormSubmittedAt: null,
+    postAttendanceFormSubmittedAt: null,
   },
   createdAt: '2026-07-01T00:00:00.000Z',
   updatedAt: '2026-08-01T00:00:00.000Z',
@@ -136,38 +130,77 @@ describe('useGanapFeedback', (): void => {
     unmount();
   });
 
-  it('invalidates the detail and list caches after a rating', async (): Promise<void> => {
+  it('submits feedback atomically and invalidates detail, lists, and profile', async (): Promise<void> => {
     useAuthStore.setState({ token: 'access-token' });
     mockedGetById.mockResolvedValue(attendedGanapWithNoRating);
     mockedListFormBlocks.mockResolvedValue([]);
-    mockedRateGanap.mockResolvedValue(ratingRow);
+
+    const response: SubmitFeedbackResponse = {
+      myRating: 5,
+      postAttendanceFormSubmittedAt: null,
+    };
+    let resolveSubmission: ((value: SubmitFeedbackResponse) => void) | undefined;
+    const pendingSubmission: Promise<SubmitFeedbackResponse> = new Promise<SubmitFeedbackResponse>(
+      (resolve: (value: SubmitFeedbackResponse) => void): void => {
+        resolveSubmission = resolve;
+      },
+    );
+    mockedSubmitFeedback.mockReturnValue(pendingSubmission);
 
     const client = queryClient();
-    const spy = jest.spyOn(client, 'invalidateQueries');
+    const invalidateQueries = jest.spyOn(client, 'invalidateQueries');
+    invalidateQueries.mockResolvedValue();
     const { result, unmount } = await renderHook(() => useGanapFeedback('g1'), { wrapper: wrapperFor(client) });
 
     await waitFor((): void => expect(result.current.isLoading).toBe(false));
+    let submission: Promise<SubmitFeedbackResponse> | null = null;
     await act(async (): Promise<void> => {
-      await result.current.submitRating({ ganapId: 'g1', input: { score: 5 } });
+      submission = result.current.submitFeedback({ ganapId: 'g1', input: { rating: 5 } });
+      await Promise.resolve();
     });
 
-    expect(spy).toHaveBeenCalledWith({ queryKey: ganapQueryKeys.detail('g1') });
-    expect(spy).toHaveBeenCalledWith({ queryKey: ganapQueryKeys.lists() });
+    await waitFor((): void => expect(result.current.isSubmitting).toBe(true));
+    expect(mockedSubmitFeedback).toHaveBeenCalledWith('g1', { rating: 5 });
+    expect(mockedRateGanap).not.toHaveBeenCalled();
+    expect(mockedSubmitFormAnswers).not.toHaveBeenCalled();
+
+    if (resolveSubmission === undefined || submission === null) {
+      throw new Error('The feedback submission promise was not initialized');
+    }
+    const activeSubmission: Promise<SubmitFeedbackResponse> = submission;
+    resolveSubmission(response);
+    await act(async (): Promise<void> => {
+      await activeSubmission;
+    });
+
+    await waitFor((): void => expect(result.current.isSubmitting).toBe(false));
+    expect(result.current.submissionError).toBeNull();
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ganapQueryKeys.detail('g1') });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ganapQueryKeys.lists() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: profileQueryKeys.all });
     unmount();
   });
 
-  it('rejects a duplicate rating so the route can reconcile it', async (): Promise<void> => {
+  it('exposes a rejected combined submission error without calling legacy mutations', async (): Promise<void> => {
     useAuthStore.setState({ token: 'access-token' });
     mockedGetById.mockResolvedValue(attendedGanapWithNoRating);
     mockedListFormBlocks.mockResolvedValue([]);
-    mockedRateGanap.mockRejectedValue(new Error('Already rated this event'));
+    const submissionError = new Error('server failed');
+    mockedSubmitFeedback.mockRejectedValue(submissionError);
 
     const { result, unmount } = await renderHook(() => useGanapFeedback('g1'), { wrapper: wrapperFor(queryClient()) });
 
     await waitFor((): void => expect(result.current.isLoading).toBe(false));
-    await expect(result.current.submitRating({ ganapId: 'g1', input: { score: 5 } })).rejects.toThrow(
-      'Already rated this event',
-    );
+    await act(async (): Promise<void> => {
+      await expect(result.current.submitFeedback({ ganapId: 'g1', input: { rating: 5 } })).rejects.toBe(
+        submissionError,
+      );
+    });
+
+    await waitFor((): void => expect(result.current.submissionError).toBe(submissionError));
+    expect(result.current.isSubmitting).toBe(false);
+    expect(mockedRateGanap).not.toHaveBeenCalled();
+    expect(mockedSubmitFormAnswers).not.toHaveBeenCalled();
     unmount();
   });
 });
