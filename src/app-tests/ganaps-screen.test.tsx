@@ -1,10 +1,10 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, render } from '@testing-library/react-native';
+import GanapsScreen from '@/app/(app)/(ganaps)/ganaps';
 import { BAR_HEIGHT } from '@/components/navigation/AppTabBar';
 import { Spacing } from '@/constants/theme';
 import type { UseJoinedGanapsResult } from '@/hooks/useJoinedGanaps';
 import type { JoinedGanap, JoinedGanapFilters } from '@/types/profile.types';
-import GanapsScreen from './ganaps';
 
 const mockRouter = {
   push: jest.fn<(href: unknown) => void>(),

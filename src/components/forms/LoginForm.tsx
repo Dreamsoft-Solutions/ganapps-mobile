@@ -1,3 +1,4 @@
+import AntDesign from '@expo/vector-icons/AntDesign';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, Eye, EyeOff } from 'lucide-react-native';
 import type { ReactElement } from 'react';
@@ -33,17 +34,17 @@ const USERNAME_HINT = {
 /**
  * Google brand icon used in the social sign-in button.
  *
- * @returns A styled "G" badge that renders on native and web.
+ * @returns The Google brand glyph rendered on native and web.
  */
 function GoogleIcon(): ReactElement {
   return (
-    <View
-      className="w-5 h-5 rounded-full bg-white border border-border items-center justify-center"
+    <AntDesign
+      name="google"
+      size={20}
+      color={Colors[useResolvedTheme()].primary}
       accessibilityLabel="Google logo"
       accessibilityRole="image"
-    >
-      <Text className="text-base font-inter-bold text-primary">G</Text>
-    </View>
+    />
   );
 }
 

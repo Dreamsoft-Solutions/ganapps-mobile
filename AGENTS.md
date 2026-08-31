@@ -612,10 +612,30 @@ because this is a **nursery** rule: a minor bump could change its behaviour and 
 
 ## Testing
 
-Jest with the `jest-expo` preset. Tests sit beside the code as `<name>.test.ts`.
+Jest with the `jest-expo` preset. Tests generally sit beside the code as `<name>.test.ts`,
+except for Expo Router route tests, which live outside `src/app/` in `src/app-tests/`.
 
 **Write the test first** for hooks, utils, validation schemas, services, and the API layer.
 Screens and layouts are exempt.
+
+### Expo Router route tree
+
+Expo Router treats every file under `src/app/` as a route module, including files ending in
+`.test.ts`, `.test.tsx`, or similar. Keep all Jest tests for route screens outside `src/app/`;
+route tests can import their screen with the `@/app/...` alias from `src/app-tests/`.
+
+Never import `@testing-library/react-native` or another test-only module from `src/app/`.
+Those dependencies can import Node standard-library modules such as `console` and `util`,
+which are unavailable in the native React runtime and cause Android Metro bundling to fail
+through Expo Router's `require.context`.
+
+Before bundling, this check must return no files:
+
+```bash
+rg --files src/app | rg '\.test\.'
+```
+
+The `src/app-tests/route-tree.test.ts` invariant test enforces this boundary in Jest.
 
 Prefer a fake Axios adapter over mocking modules — it exercises the real instance and its
 interceptors without a network:

@@ -174,7 +174,7 @@ jest.mock('@/components/common/Text', () => ({
 
 process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN = 'test-token';
 
-const HomeScreen = require('./index').default as () => ReactElement;
+const HomeScreen = require('@/app/(app)/(home)/index').default as () => ReactElement;
 
 describe('Home map event markers', (): void => {
   beforeEach((): void => {
