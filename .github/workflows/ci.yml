@@ -32,6 +32,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run code-multivitals
+        uses: imchintoo/code-multivitals@v1.6.2
+        with:
+          patterns: '"src/**/*.ts" "src/**/*.tsx"'
+          profile: default
+          max-errors: 0
+          reporter: console
+
       # Biome lint + format + assists. Also the gate for nursery/useExplicitType,
       # which is set to error — see AGENTS.md, TypeScript Standards.
       - name: Check formatting and lint
@@ -49,11 +57,3 @@ jobs:
 
       - name: Test
         run: npm run test
-
-      - name: Run code-multivitals
-        uses: imchintoo/code-multivitals@v1.6.2
-        with:
-          patterns: '"src/**/*.ts" "src/**/*.tsx"'
-          profile: default
-          max-errors: 0
-          reporter: console
