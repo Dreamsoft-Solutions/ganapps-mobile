@@ -206,7 +206,11 @@ describe('useSubmitFeedbackMutation', () => {
   });
 
   it('rejects a conflicting rating with parsed server metadata', async () => {
-    axiosInstance.defaults.adapter = serverErrorAdapter(409, 'This Ganap already has a rating', ErrorCodes.FEEDBACK_RATING_CONFLICT);
+    axiosInstance.defaults.adapter = serverErrorAdapter(
+      409,
+      'This Ganap already has a rating',
+      ErrorCodes.FEEDBACK_RATING_CONFLICT,
+    );
     const client = queryClient();
     const { result, unmount } = await renderHook(() => useSubmitFeedbackMutation(), { wrapper: wrapperFor(client) });
 
@@ -290,7 +294,11 @@ describe('global error toast suppression', () => {
   });
 
   it('suppresses the global toast for combined feedback', async () => {
-    axiosInstance.defaults.adapter = serverErrorAdapter(409, 'This Ganap already has a rating', ErrorCodes.FEEDBACK_RATING_CONFLICT);
+    axiosInstance.defaults.adapter = serverErrorAdapter(
+      409,
+      'This Ganap already has a rating',
+      ErrorCodes.FEEDBACK_RATING_CONFLICT,
+    );
     const client = queryClient();
     const { result, unmount } = await renderHook(() => useSubmitFeedbackMutation(), { wrapper: wrapperFor(client) });
 

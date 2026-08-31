@@ -121,11 +121,7 @@ export function useSubmitFormAnswersMutation(): UseMutationResult<JoinGanapResul
  *
  * @returns The mutation, resolving to the submitted feedback state
  */
-export function useSubmitFeedbackMutation(): UseMutationResult<
-  SubmitFeedbackResponse,
-  Error,
-  SubmitFeedbackVariables
-> {
+export function useSubmitFeedbackMutation(): UseMutationResult<SubmitFeedbackResponse, Error, SubmitFeedbackVariables> {
   const queryClient = useQueryClient();
 
   return useMutation<SubmitFeedbackResponse, Error, SubmitFeedbackVariables>({

@@ -308,32 +308,32 @@ describe('feedback route step resolution', (): void => {
       pendingSteps: ['form'] as FeedbackStep[],
       input: { answers: [{ formBlockId: 'block_1', textValue: 'Great event' }] },
     },
-  ])(
-    'submits only the missing half for a legacy partial state',
-    async ({ pendingSteps, input }: { pendingSteps: FeedbackStep[]; input: SubmitFeedbackInput }): Promise<void> => {
-      resetStates(pendingSteps, pendingSteps.includes('rating') ? 4 : 5);
-      mockSubmitFeedback.mockResolvedValueOnce({ myRating: 4, postAttendanceFormSubmittedAt: null });
-      const screen = await renderRoute();
-      if (!pendingSteps.includes('rating')) {
-        await fireEvent.press(screen.getByRole('button', { name: 'Enter mocked answer' }));
-      }
-      const control = screen.getByRole('button', {
-        name: pendingSteps[0] === 'rating' ? 'Submit mocked rating' : 'Submit mocked form',
-      });
+  ])('submits only the missing half for a legacy partial state', async ({
+    pendingSteps,
+    input,
+  }: {
+    pendingSteps: FeedbackStep[];
+    input: SubmitFeedbackInput;
+  }): Promise<void> => {
+    resetStates(pendingSteps, pendingSteps.includes('rating') ? 4 : 5);
+    mockSubmitFeedback.mockResolvedValueOnce({ myRating: 4, postAttendanceFormSubmittedAt: null });
+    const screen = await renderRoute();
+    if (!pendingSteps.includes('rating')) {
+      await fireEvent.press(screen.getByRole('button', { name: 'Enter mocked answer' }));
+    }
+    const control = screen.getByRole('button', {
+      name: pendingSteps[0] === 'rating' ? 'Submit mocked rating' : 'Submit mocked form',
+    });
 
-      await fireEvent.press(control);
+    await fireEvent.press(control);
 
-      await waitFor(() => expect(mockSubmitFeedback).toHaveBeenCalledTimes(1));
-      expect(mockSubmitFeedback).toHaveBeenCalledWith({ ganapId: 'g1', input });
-    },
-  );
+    await waitFor(() => expect(mockSubmitFeedback).toHaveBeenCalledTimes(1));
+    expect(mockSubmitFeedback).toHaveBeenCalledWith({ ganapId: 'g1', input });
+  });
 
   it('keeps the form rendered, shows mapped invalid input, and retries the identical payload', async (): Promise<void> => {
     resetStates(['rating', 'form']);
-    const error = codedError(
-      '  Required field "How was the venue?" is missing  ',
-      ErrorCodes.INVALID_INPUT,
-    );
+    const error = codedError('  Required field "How was the venue?" is missing  ', ErrorCodes.INVALID_INPUT);
     mockSubmitFeedback.mockRejectedValueOnce(error).mockResolvedValueOnce(combinedResponse);
     const screen = await renderRoute();
 
@@ -391,7 +391,9 @@ describe('feedback route step resolution', (): void => {
       await formProps.onSubmit(validInput);
     });
 
-    await waitFor(() => expect(screen.getByText('Your rating was already submitted and cannot be changed.')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText('Your rating was already submitted and cannot be changed.')).toBeTruthy(),
+    );
     expect(mockRefetch).toHaveBeenCalledTimes(1);
     expect(mockDynamicForm).toHaveBeenCalled();
 
@@ -443,7 +445,9 @@ describe('feedback route step resolution', (): void => {
       { ganapId: 'g1', input: { answers: [{ formBlockId: 'block_1', textValue: 'Great event' }] } },
     ]);
     expect(screen.getByText('Great event')).toBeTruthy();
-    await waitFor(() => expect(screen.getByText('Your rating was already submitted and cannot be changed.')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText('Your rating was already submitted and cannot be changed.')).toBeTruthy(),
+    );
     screen.unmount();
   });
 

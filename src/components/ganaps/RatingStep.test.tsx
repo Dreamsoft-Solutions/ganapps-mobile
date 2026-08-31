@@ -35,7 +35,15 @@ jest.mock('@/components/common/IconButton', () => ({
 }));
 
 jest.mock('@/components/common/Button', () => ({
-  Button: ({ children, disabled, onPress }: { children: ReactNode; disabled?: boolean; onPress: () => void }): ReactElement => (
+  Button: ({
+    children,
+    disabled,
+    onPress,
+  }: {
+    children: ReactNode;
+    disabled?: boolean;
+    onPress: () => void;
+  }): ReactElement => (
     <MockPressable
       accessibilityRole="button"
       accessibilityLabel={typeof children === 'string' ? children : undefined}
