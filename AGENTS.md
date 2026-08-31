@@ -116,10 +116,16 @@ src/
 │   │   └── login.tsx                                    # Login AND register — see below
 │   └── (app)/                        # Authenticated group (tab navigator)
 │       ├── _layout.tsx               # Tabs: Map, My Events, Chat, Profile
-│       ├── (home)/{_layout,index}.tsx                   # Map discovery — owns `/`
-│       ├── (ganaps)/{_layout,ganaps}.tsx                # My Events placeholder
-│       ├── (chat)/{_layout,chat}.tsx                    # Chat placeholder
-│       └── (profile)/{_layout,profile,edit,settings}.tsx
+│       ├── (home)/                                      # Map discovery — owns `/`
+│       │   ├── {_layout,index}.tsx
+│       │   ├── [ganap-id].tsx                           # Ganap detail
+│       │   ├── registration/[ganap-id].tsx
+│       │   ├── event-hub/[ganap-id].tsx
+│       │   ├── scan/[ganap-id].tsx                      # QR check-in (expo-camera)
+│       │   └── feedback/[ganap-id].tsx                  # Post-attendance form
+│       ├── (ganaps)/{_layout,ganaps}.tsx                # My Events — renders JoinedGanapsList
+│       ├── (chat)/{_layout,chat}.tsx                    # Chat — still a placeholder
+│       └── (profile)/{_layout,profile,edit,settings,joined}.tsx
 ├── components/
 │   ├── common/                       # UI primitives
 │   │   ├── Button.tsx                # CVA variants; takes `children: string`
@@ -672,12 +678,26 @@ between `useAuth`'s `login` and `register`. `constants/routes.ts` therefore has 
 `auth.register` entry, and adding one would fail `npm run type-check`. Earlier revisions of
 this file listed the screen; it never existed.
 
-`npx expo prebuild` needs one artifact that is not in the repo: **`google-services.json`**,
-downloaded from the Firebase console for the `com.ganapps.app` Android app and placed in the
-project root. `app.json` points at it via `android.googleServicesFile`, and at
-`GoogleService-Info.plist` via `ios.googleServicesFile` — the iOS app is not registered yet.
-Both files are gitignored and hold project credentials, so each developer downloads their own
-rather than sharing copies. Everything else prebuild needs is in place.
+`npx expo prebuild` needs two artifacts that are not in the repo, both downloaded from the
+Firebase console for the `com.ganapps.app` apps and placed in the project root:
+**`google-services.json`** (Android) and **`GoogleService-Info.plist`** (iOS).
+`app.config.js` points at them via `android.googleServicesFile` and `ios.googleServicesFile`.
+Both are gitignored and hold project credentials, so each developer downloads their own
+rather than sharing copies.
+
+**Both Firebase apps are registered.** Verified 2026-08-29 by reading the plist:
+`BUNDLE_ID: com.ganapps.app`, `PROJECT_ID: ganapps`, `IS_SIGNIN_ENABLED: true`. Earlier
+revisions of this file said the iOS app was unregistered; that was wrong.
+
+iOS prebuild needs a third thing that is **not** yet configured: a secret Mapbox token with
+`DOWNLOADS:READ` scope in `~/.netrc`. `@rnmapbox/maps` fetches the Mapbox iOS SDK from a
+private registry at `pod install` time, so without it `pod install` fails and no iOS build is
+possible. This is separate from `EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN` in `.env`, which is the
+public `pk.` runtime token. Never put the secret token in `.env` — the `EXPO_PUBLIC_` prefix
+bundles it into the shipped binary. Tracked as DS-88.
+
+`npx expo prebuild -p ios --no-install` skips CocoaPods and works without the Mapbox token,
+which is enough to regenerate and inspect `ios/ganappsmobile/Info.plist`.
 
 `android.package` and `ios.bundleIdentifier` are both **`com.ganapps.app`**, matching the
 Android app AJ registered in the production Firebase project (confirmed with him — it is not a
@@ -686,10 +706,10 @@ so the two must stay identical character-for-character or Firebase fails at runt
 error that does not name the mismatch. Do not "correct" it to a `com.<company>.<app>` shape.
 
 Changing it is cheap until the first Play Store or App Store upload — nothing is published yet,
-`/android` and `/ios` are regenerated from `app.json` — and effectively impossible afterwards,
+`/android` and `/ios` are regenerated from `app.config.js` — and effectively impossible afterwards,
 since the identifier is permanent on both stores and tied to the signing key.
 
-A config-plugin entry in `app.json` must be a package that actually ships an `app.plugin.js`.
+A config-plugin entry in `app.config.js` must be a package that actually ships an `app.plugin.js`.
 `@react-native-firebase/app` does; `@react-native-firebase/remote-config` does not, and listing
 it made Expo load the package's runtime entry as a plugin, which threw and broke **all** config
 resolution — `expo start`, `expo config`, `expo prebuild` and `expo customize` alike. Check for
