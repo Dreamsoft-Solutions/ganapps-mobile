@@ -40,7 +40,7 @@ jest.mock('lucide-react-native', () => ({
     />
   ),
   Share2: (): null => null,
-  Star: (): null => null,
+  Star: (): ReactElement => <MockView testID="rating-star" />,
   Users: (): ReactElement => <MockView testID="capacity-users" />,
 }));
 
@@ -474,6 +474,30 @@ describe('EventDetailView social actions', (): void => {
 });
 
 describe('EventDetailView icon spacing', (): void => {
+  it('places spacing on a wrapper around the rating icon', async (): Promise<void> => {
+    const screen = await render(
+      <EventDetailView
+        {...defaultRefreshProps}
+        ganap={{ ...ganap, averageRating: 4.5, ratingCount: 2 }}
+        business={business}
+        capacity={capacity}
+        schedule={schedule}
+        actionModel={actionModel}
+        isPrimaryPending={false}
+        isLikePending={false}
+        isSavePending={false}
+        onBack={(): void => {}}
+        onShare={(): void => {}}
+        onToggleLike={(): void => {}}
+        onToggleSave={(): void => {}}
+        onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
+      />,
+    );
+
+    expect(screen.getByTestId('rating-star').parent?.props.className).toContain('mr-xs');
+  });
+
   it('places spacing on a wrapper around the likes icon', async (): Promise<void> => {
     const screen = await render(
       <EventDetailView

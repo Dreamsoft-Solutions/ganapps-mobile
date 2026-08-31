@@ -301,7 +301,9 @@ export function EventDetailView({
             <View className="mt-md flex-row flex-wrap items-center gap-lg">
               {hasRating && (
                 <View className="flex-row items-center">
-                  <Star size={16} className="mr-xs fill-primary text-primary" />
+                  <View className="mr-xs">
+                    <Star size={16} className="fill-primary text-primary" />
+                  </View>
                   <Text className="text-body-md">{ganap.averageRating?.toFixed(1)}</Text>
                   <Text className="ml-xs text-body-md text-muted-foreground">({ganap.ratingCount})</Text>
                 </View>
