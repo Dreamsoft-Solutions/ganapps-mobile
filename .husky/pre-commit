@@ -1,1 +1,1 @@
-npx lint-staged
+node scripts/check-standalone-comments.mjs && npx lint-staged
