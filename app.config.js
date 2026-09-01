@@ -118,11 +118,22 @@ module.exports = {
         'expo-camera',
         {
           cameraPermission: "Ganapps uses the camera to scan the organizer's attendance QR code.",
+          // The app only scans QR codes — it never records video or audio. Without this,
+          // expo-camera writes its default NSMicrophoneUsageDescription and the app asks
+          // for a permission it never uses, which App Review rejects under 5.1.1.
+          microphonePermission: false,
         },
       ],
       [
         'expo-image-picker',
         {
+          // Apple requires the purpose string to cover every use of the data, so this
+          // names both the profile picture and sharing media in event chats. Update it
+          // whenever a new picker call site is added.
+          photosPermission:
+            'Ganapps uses your photos so you can set a profile picture and share photos and videos in event chats.',
+          // Media is only ever chosen from the existing library — the picker never
+          // records, so it must not declare NSMicrophoneUsageDescription.
           microphonePermission: false,
         },
       ],
