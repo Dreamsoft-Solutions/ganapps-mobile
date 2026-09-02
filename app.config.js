@@ -127,11 +127,7 @@ module.exports = {
       [
         'expo-image-picker',
         {
-          // Apple requires the purpose string to cover every use of the data, so this
-          // names both the profile picture and sharing media in event chats. Update it
-          // whenever a new picker call site is added.
-          photosPermission:
-            'Ganapps uses your photos so you can set a profile picture and share photos and videos in event chats.',
+          photosPermission: 'Ganapps uses your photos so you can set a profile picture and scan a saved QR code image.',
           // Media is only ever chosen from the existing library — the picker never
           // records, so it must not declare NSMicrophoneUsageDescription.
           microphonePermission: false,
