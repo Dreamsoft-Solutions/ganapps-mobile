@@ -34,6 +34,8 @@ export interface RouteTable {
   ganapRegistration: (ganapId: string) => Href;
   eventHub: (ganapId: string) => Href;
   eventChat: (ganapId: string) => Href;
+  friendProfile: (userId: string) => Href;
+  friendSettings: Href;
   attendanceScan: (ganapId: string) => Href;
   ganapFeedback: (ganapId: string) => Href;
 }
@@ -136,6 +138,20 @@ export const Routes: RouteTable = {
     pathname: '/(app)/(chat)/event-chat/[ganap-id]',
     params: { 'ganap-id': ganapId },
   }),
+
+  /**
+   * Builds the href for a relationship-scoped Friend profile.
+   *
+   * @param userId - User identifier for the `[user-id]` profile route.
+   * @returns An href targeting the Friend profile screen.
+   */
+  friendProfile: (userId: string): Href => ({
+    pathname: '/(app)/(chat)/friend-profile/[user-id]',
+    params: { 'user-id': userId },
+  }),
+
+  /** Href for the Friends privacy settings screen. */
+  friendSettings: { pathname: '/(app)/(chat)/friend-settings' },
 
   /**
    * Builds the href for a Ganap's attendance scanner screen.
