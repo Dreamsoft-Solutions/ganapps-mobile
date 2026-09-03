@@ -1,3 +1,5 @@
+import type { ReactionSummary } from './chat.types';
+
 /**
  * Lifecycle of a student's registration for a Ganap.
  *
@@ -276,6 +278,8 @@ export interface GanapAnnouncement {
   title?: string | null;
   content: string;
   createdAt: string;
+  /** Aggregate acknowledgement state; absent/null means engagement is unavailable. */
+  reactionSummary?: ReactionSummary | null;
 }
 
 /** Offset-pagination query parameters for the attendee announcement list. */

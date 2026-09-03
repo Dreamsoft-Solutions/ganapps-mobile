@@ -1,13 +1,15 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { type ReactElement, useCallback, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 import { EventChatThreadView } from '@/components/chat/EventChatThreadView';
 import { ModerationActionSheet, type ModerationActionTarget } from '@/components/moderation/ModerationActionSheet';
 import { Routes } from '@/constants/routes';
+import { useMessageReactionMutation, useUnsendMessageMutation } from '@/hooks/mutations/useChatEngagementMutation';
 import { useBlockUserMutation, useCreateReportMutation } from '@/hooks/mutations/useModerationMutation';
 import { useChat } from '@/hooks/useChat';
 import { useAuthStore } from '@/store/auth.store';
 import { showToast } from '@/store/toast.store';
-import type { ChatMessage } from '@/types/chat.types';
+import type { ChatMessage, ReactionType } from '@/types/chat.types';
 import type { CreateReportInput, ModerationReportReceipt } from '@/types/moderation.types';
 
 /**
@@ -26,10 +28,41 @@ export default function EventChatThreadScreen(): ReactElement {
   const currentUserId: string | null = useAuthStore((state) => state.user?.id ?? null);
   const reportMutation = useCreateReportMutation();
   const blockMutation = useBlockUserMutation();
+  const reactionMutation = useMessageReactionMutation();
+  const unsendMutation = useUnsendMessageMutation();
+  const [reactionPendingMessageId, setReactionPendingMessageId] = useState<string | null>(null);
   const [moderationTarget, setModerationTarget] = useState<ModerationActionTarget | null>(null);
+
+  const confirmUnsend = useCallback(
+    (message: ChatMessage): void => {
+      if (message.type === 'UNSENT' || message.senderId !== currentUserId || unsendMutation.isPending) return;
+      Alert.alert('Unsend message?', 'This message will be replaced for everyone in the conversation.', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unsend for everyone',
+          style: 'destructive',
+          onPress: (): void => {
+            void unsendMutation
+              .mutateAsync({ conversationId: message.conversationId, messageId: message.id })
+              .then((): void => {
+                showToast('success', 'Message unsent.');
+              })
+              .catch((): void => {
+                showToast('error', 'This message could not be unsent.');
+              });
+          },
+        },
+      ]);
+    },
+    [currentUserId, unsendMutation],
+  );
 
   const openMessageActions = useCallback(
     (message: ChatMessage): void => {
+      if (message.senderId === currentUserId) {
+        confirmUnsend(message);
+        return;
+      }
       setModerationTarget({
         type: 'MESSAGE',
         id: message.id,
@@ -38,7 +71,26 @@ export default function EventChatThreadScreen(): ReactElement {
         canBlock: currentUserId !== null && message.senderId !== currentUserId,
       });
     },
-    [currentUserId],
+    [confirmUnsend, currentUserId],
+  );
+
+  const onReaction = useCallback(
+    async (message: ChatMessage, reaction: ReactionType | null): Promise<void> => {
+      if (message.type === 'UNSENT' || reactionMutation.isPending) return;
+      setReactionPendingMessageId(message.id);
+      try {
+        await reactionMutation.mutateAsync({
+          conversationId: message.conversationId,
+          messageId: message.id,
+          reaction,
+        });
+      } catch {
+        showToast('error', 'Reaction could not be saved.');
+      } finally {
+        setReactionPendingMessageId(null);
+      }
+    },
+    [reactionMutation],
   );
 
   const closeModeration = useCallback((): void => {
@@ -97,6 +149,8 @@ export default function EventChatThreadScreen(): ReactElement {
         onRetryImage={chat.retryImage}
         onRefreshImage={chat.refreshImage}
         onMessageActions={openMessageActions}
+        onReaction={onReaction}
+        reactionPendingMessageId={reactionPendingMessageId}
         accessLost={chat.accessLost}
       />
       <ModerationActionSheet

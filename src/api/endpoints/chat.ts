@@ -10,7 +10,7 @@ import type {
   MarkChatReadInput,
   SendChatMessageInput,
 } from '@/types/chat.types';
-import type { ChatConversationSummaryPage, DirectChatReadResult } from '@/types/direct-chat.types';
+import type { DirectChatReadResult } from '@/types/direct-chat.types';
 import axiosInstance from '../axios-instance';
 
 /** Query parameters accepted by the Event Chat summary endpoint. */
@@ -22,19 +22,13 @@ export interface EventChatListParams {
 
 /** Query parameters accepted by the mixed Event/Direct summary endpoint. */
 export interface ChatConversationListParams {
-  type: 'EVENT' | 'DIRECT' | 'ALL';
+  type?: 'EVENT' | 'DIRECT' | 'ALL';
   cursor?: string;
   limit?: number;
 }
 
 /** Query parameters accepted by the Event Chat history endpoint. */
 export interface ChatMessagesParams {
-  cursor?: string;
-  limit?: number;
-}
-
-/** Query parameters accepted by Direct and mixed conversation summaries. */
-export interface ChatConversationListParams {
   cursor?: string;
   limit?: number;
 }
@@ -182,23 +176,12 @@ export const chatAPI = {
    * @param params - Opaque cursor and bounded page size
    * @returns Cursor page preserving server order and capabilities
    */
-  listDirectConversations: (params: ChatConversationListParams = {}): Promise<ChatConversationSummaryPage> =>
+  listDirectConversations: (
+    params: Omit<ChatConversationListParams, 'type'> = {},
+  ): Promise<ChatConversationSummaryPage> =>
     axiosInstance
       .get<ChatConversationSummaryPage>('/chat/conversations', {
         params: { type: 'DIRECT', cursor: params.cursor, limit: params.limit },
-      })
-      .then((res) => res.data),
-
-  /**
-   * Lists the server-owned mixed Event and Direct conversation feed.
-   *
-   * @param params - Opaque cursor and bounded page size
-   * @returns Cursor page preserving the server's cross-type order
-   */
-  listAllConversations: (params: ChatConversationListParams = {}): Promise<ChatConversationSummaryPage> =>
-    axiosInstance
-      .get<ChatConversationSummaryPage>('/chat/conversations', {
-        params: { type: 'ALL', cursor: params.cursor, limit: params.limit },
       })
       .then((res) => res.data),
 

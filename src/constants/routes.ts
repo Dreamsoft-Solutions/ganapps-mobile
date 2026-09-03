@@ -154,6 +154,7 @@ export const Routes: RouteTable = {
 
   /** Href for the Friends privacy settings screen. */
   friendSettings: { pathname: '/(app)/(chat)/friend-settings' },
+  /**
    * Builds an href for an existing canonical Direct Chat conversation.
    *
    * @param conversationId - Canonical Direct conversation id

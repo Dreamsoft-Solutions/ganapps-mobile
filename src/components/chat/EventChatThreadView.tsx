@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatImageBubble, ChatImagePreview } from '@/components/chat/ChatImage';
+import { MessageReactionBar } from '@/components/chat/MessageReactionBar';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { Empty } from '@/components/common/Empty';
@@ -23,7 +24,7 @@ import { Colors, Spacing } from '@/constants/theme';
 import type { FailedDraft } from '@/hooks/useChat';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { ChatConnectionState } from '@/services/chat-socket.service';
-import type { ChatImageDraft, ChatMessage, EventChatSession } from '@/types/chat.types';
+import type { ChatImageDraft, ChatMessage, EventChatSession, ReactionType } from '@/types/chat.types';
 import { isChatImageAuthorizationError } from '@/utils/chat-image';
 
 /** Maximum text size accepted by the Event Chat server contract. */
@@ -65,6 +66,10 @@ export interface EventChatThreadViewProps {
   onRefreshImage?: (messageId: string) => void | Promise<void>;
   /** Opens report/block actions for a message, including the labelled alternative to long press. */
   onMessageActions?: (message: ChatMessage) => void;
+  /** Sets or removes the current User's reaction on a message. */
+  onReaction?: (message: ChatMessage, reaction: ReactionType | null) => void;
+  /** Message currently being reconciled by a reaction mutation. */
+  reactionPendingMessageId?: string | null;
   accessLost: boolean;
 }
 
@@ -97,12 +102,16 @@ function MessageRow({
   imageLoadState,
   onImageLoadError,
   onRetryImageLoad,
+  onReaction,
+  reactionPendingMessageId,
 }: {
   message: ChatMessage;
   onMessageActions: (message: ChatMessage) => void;
   imageLoadState: ImageLoadState;
   onImageLoadError: (messageId: string, error: string) => void;
   onRetryImageLoad: (messageId: string) => void;
+  onReaction: (message: ChatMessage, reaction: ReactionType | null) => void;
+  reactionPendingMessageId: string | null;
 }): ReactElement {
   const messageCopy: string = getMessageCopy(message);
   const actionLabel: string = `Message actions for ${message.senderUsername}`;
@@ -115,36 +124,43 @@ function MessageRow({
     <View className="mb-md flex-row items-end px-md">
       <Avatar src={message.senderDisplayPicture} name={message.senderUsername} size="xs" />
       <View className="ml-sm min-w-0 max-w-[82%] flex-1 flex-row items-end">
-        <Pressable
-          onLongPress={(): void => onMessageActions(message)}
-          onPress={
-            media
-              ? (): void => {
-                  void Linking.openURL(media.url).catch((): void => {});
-                }
-              : undefined
-          }
-          delayLongPress={350}
-          accessibilityRole="button"
-          accessibilityLabel={messageLabel}
-          accessibilityHint="Long press to open report and block actions"
-          className="min-w-0 flex-1 rounded-xl border border-border bg-card px-md py-sm active:opacity-70"
-        >
-          <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>
-          {media ? (
-            <ChatImageBubble
-              media={media}
-              senderUsername={message.senderUsername}
-              reloadToken={imageLoadState.reloadToken}
-              loadFailed={imageLoadState.loadFailed}
-              onLoadError={(error: string): void => onImageLoadError(message.id, error)}
-              onRetry={(): void => onRetryImageLoad(message.id)}
-            />
-          ) : (
-            <Text className="mt-xs text-body-md">{messageCopy}</Text>
-          )}
-          <Text className="mt-xs text-label-sm text-muted-foreground">{formatMessageTime(message.sentAt)}</Text>
-        </Pressable>
+        <View className="min-w-0 flex-1">
+          <Pressable
+            onLongPress={(): void => onMessageActions(message)}
+            onPress={
+              media
+                ? (): void => {
+                    void Linking.openURL(media.url).catch((): void => {});
+                  }
+                : undefined
+            }
+            delayLongPress={350}
+            accessibilityRole="button"
+            accessibilityLabel={messageLabel}
+            accessibilityHint="Long press to open report and block actions"
+            className="min-w-0 flex-1 rounded-xl border border-border bg-card px-md py-sm active:opacity-70"
+          >
+            <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>
+            {media ? (
+              <ChatImageBubble
+                media={media}
+                senderUsername={message.senderUsername}
+                reloadToken={imageLoadState.reloadToken}
+                loadFailed={imageLoadState.loadFailed}
+                onLoadError={(error: string): void => onImageLoadError(message.id, error)}
+                onRetry={(): void => onRetryImageLoad(message.id)}
+              />
+            ) : (
+              <Text className="mt-xs text-body-md">{messageCopy}</Text>
+            )}
+            <Text className="mt-xs text-label-sm text-muted-foreground">{formatMessageTime(message.sentAt)}</Text>
+          </Pressable>
+          <MessageReactionBar
+            summary={message.type === 'UNSENT' ? null : message.reactionSummary}
+            isPending={reactionPendingMessageId === message.id}
+            onSelect={(reaction: ReactionType | null): void => onReaction(message, reaction)}
+          />
+        </View>
         <IconButton
           accessibilityLabel={actionLabel}
           accessibilityHint="Opens report and block actions for this message"
@@ -224,6 +240,8 @@ export function EventChatThreadView({
   onSendImage = async (): Promise<void> => {},
   onRetryImage = async (): Promise<void> => {},
   onRefreshImage = async (): Promise<void> => {},
+  onReaction = (): void => {},
+  reactionPendingMessageId = null,
   accessLost,
 }: EventChatThreadViewProps): ReactElement {
   const theme = useResolvedTheme();
@@ -344,6 +362,8 @@ export function EventChatThreadView({
             imageLoadState={imageLoadStates[item.id] ?? INITIAL_IMAGE_LOAD_STATE}
             onImageLoadError={handleImageLoadError}
             onRetryImageLoad={handleRetryImageLoad}
+            onReaction={onReaction}
+            reactionPendingMessageId={reactionPendingMessageId}
           />
         )}
         ListEmptyComponent={<Empty message="No messages yet. Start the conversation." />}

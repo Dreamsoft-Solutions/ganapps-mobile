@@ -2,7 +2,7 @@ import { io } from 'socket.io-client';
 import { API_BASE_URL } from '@/api/config';
 import { chatAPI } from '@/api/endpoints/chat';
 import { useAuthStore } from '@/store/auth.store';
-import type { ChatMessage, ChatMessageMedia, ChatReadResult } from '@/types/chat.types';
+import type { ChatMessage, ChatMessageMedia, ChatReadResult, ReactionCount, ReactionType } from '@/types/chat.types';
 
 /** Connection states exposed to Event Chat screens. */
 export type ChatConnectionState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'error';
@@ -31,10 +31,28 @@ export interface ChatSocketAccessRevokedEvent {
   ganapId?: string;
 }
 
+/** Aggregate event emitted when a visible message reaction changes. */
+export interface ChatSocketMessageReactionEvent {
+  conversationId: string;
+  messageId: string;
+  counts: ReactionCount[];
+  myReaction: ReactionType | null;
+}
+
+/** Tombstone event emitted when a visible message is unsent. */
+export interface ChatSocketMessageUnsentEvent {
+  conversationId: string;
+  messageId: string;
+  type: 'UNSENT';
+  unsentAt: string;
+}
+
 /** Events delivered to one conversation listener. */
 export type ChatSocketEvent =
   | { type: 'message'; message: ChatMessage }
   | { type: 'read'; receipt: ChatSocketReadReceipt }
+  | { type: 'message-reaction'; event: ChatSocketMessageReactionEvent }
+  | { type: 'message-unsent'; event: ChatSocketMessageUnsentEvent }
   | { type: 'message-hidden'; event: ChatSocketMessageHiddenEvent }
   | { type: 'access-revoked'; event: ChatSocketAccessRevokedEvent };
 
@@ -147,6 +165,44 @@ function isMessageHiddenEvent(value: unknown): value is ChatSocketMessageHiddenE
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Partial<ChatSocketMessageHiddenEvent>;
   return typeof candidate.conversationId === 'string' && typeof candidate.messageId === 'string';
+}
+
+function isReactionType(value: unknown): value is ReactionType {
+  return value === 'HEART' || value === 'LAUGH' || value === 'THUMBS_UP' || value === 'SAD' || value === 'ANGRY';
+}
+
+function isMessageReactionEvent(value: unknown): value is ChatSocketMessageReactionEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatSocketMessageReactionEvent>;
+  if (typeof candidate.conversationId !== 'string' || typeof candidate.messageId !== 'string') return false;
+  if (!Array.isArray(candidate.counts) || candidate.counts.length !== 5) return false;
+  const counts: unknown[] = candidate.counts;
+  if (
+    !counts.every((entry: unknown): boolean => {
+      if (typeof entry !== 'object' || entry === null) return false;
+      const count = entry as Partial<ReactionCount>;
+      return (
+        isReactionType(count.type) &&
+        typeof count.count === 'number' &&
+        Number.isInteger(count.count) &&
+        count.count >= 0
+      );
+    })
+  ) {
+    return false;
+  }
+  return candidate.myReaction === null || isReactionType(candidate.myReaction);
+}
+
+function isMessageUnsentEvent(value: unknown): value is ChatSocketMessageUnsentEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatSocketMessageUnsentEvent>;
+  return (
+    typeof candidate.conversationId === 'string' &&
+    typeof candidate.messageId === 'string' &&
+    candidate.type === 'UNSENT' &&
+    typeof candidate.unsentAt === 'string'
+  );
 }
 
 function isAccessRevokedEvent(value: unknown): value is ChatSocketAccessRevokedEvent {
@@ -415,6 +471,8 @@ export class ChatSocketClient {
     socket.on('connect_error', this.handleConnectError);
     socket.on('chat:message:new', this.handleMessage);
     socket.on('chat:message:read', this.handleRead);
+    socket.on('chat:message:reaction', this.handleMessageReaction);
+    socket.on('chat:message:unsent', this.handleMessageUnsent);
     socket.on('chat:message:hidden', this.handleMessageHidden);
     socket.on('chat:access:revoked', this.handleAccessRevoked);
   }
@@ -510,6 +568,22 @@ export class ChatSocketClient {
     const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
     room?.listeners.forEach((listener: ChatSocketListener): void => {
       listener({ type: 'read', receipt: value });
+    });
+  };
+
+  private readonly handleMessageReaction = (value: unknown): void => {
+    if (!isMessageReactionEvent(value)) return;
+    const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
+    room?.listeners.forEach((listener: ChatSocketListener): void => {
+      listener({ type: 'message-reaction', event: value });
+    });
+  };
+
+  private readonly handleMessageUnsent = (value: unknown): void => {
+    if (!isMessageUnsentEvent(value)) return;
+    const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
+    room?.listeners.forEach((listener: ChatSocketListener): void => {
+      listener({ type: 'message-unsent', event: value });
     });
   };
 

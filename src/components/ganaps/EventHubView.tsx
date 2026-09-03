@@ -22,6 +22,7 @@ import { Text } from '@/components/common/Text';
 import { formatInterestLabel } from '@/constants/interests';
 import { Colors, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import type { ReactionType } from '@/types/chat.types';
 import type { GanapAnnouncement, GanapDetail } from '@/types/ganap.types';
 import type { AttendanceScanState } from '@/utils/attendance';
 import type { FeedbackRowState } from '@/utils/feedback';
@@ -64,6 +65,10 @@ export interface EventHubViewProps {
   feedbackState: FeedbackRowState;
   /** Navigates to the post-event feedback flow; fired only when feedback is actionable. */
   onGiveFeedback: () => void;
+  /** Sets or removes an eligible attendee's announcement acknowledgement. */
+  onAnnouncementReaction?: (announcement: GanapAnnouncement, reaction: ReactionType | null) => void;
+  /** Announcement currently being reconciled by the reaction mutation. */
+  announcementReactionPendingId?: string | null;
 }
 
 interface ScheduleItemProps {
@@ -165,6 +170,8 @@ export function EventHubView({
   onScanAttendance,
   feedbackState,
   onGiveFeedback,
+  onAnnouncementReaction = (): void => {},
+  announcementReactionPendingId = null,
 }: EventHubViewProps): ReactElement {
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
@@ -312,10 +319,15 @@ export function EventHubView({
               variant="default"
               disabled={!onOpenChat}
               accessibilityLabel={onOpenChat ? 'Event chat' : 'Event chat coming soon'}
-              accessibilityHint={onOpenChat ? 'Opens the Event Chat thread' : 'Event chat will be available in a later release'}
+              accessibilityHint={
+                onOpenChat ? 'Opens the Event Chat thread' : 'Event chat will be available in a later release'
+              }
               onPress={onOpenChat ?? ((): void => {})}
             >
-              <MessageCircle size={18} color={onOpenChat ? Colors[theme].foreground : Colors[theme]['muted-foreground']} />
+              <MessageCircle
+                size={18}
+                color={onOpenChat ? Colors[theme].foreground : Colors[theme]['muted-foreground']}
+              />
             </IconButton>
           </View>
         </View>
@@ -335,7 +347,11 @@ export function EventHubView({
           data={announcements}
           keyExtractor={(announcement: GanapAnnouncement): string => announcement.id}
           renderItem={({ item }: ListRenderItemInfo<GanapAnnouncement>): ReactElement => (
-            <AnnouncementCard announcement={item} />
+            <AnnouncementCard
+              announcement={item}
+              onReaction={(reaction: ReactionType | null): void => onAnnouncementReaction(item, reaction)}
+              reactionPending={announcementReactionPendingId === item.id}
+            />
           )}
           contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, flexGrow: 1 }}
           ListHeaderComponent={announcementHeader}

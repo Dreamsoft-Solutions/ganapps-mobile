@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatImageBubble, ChatImagePreview } from '@/components/chat/ChatImage';
+import { MessageReactionBar } from '@/components/chat/MessageReactionBar';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { Empty } from '@/components/common/Empty';
@@ -23,8 +24,8 @@ import { Colors, Spacing } from '@/constants/theme';
 import type { DirectFailedDraft } from '@/hooks/useDirectChat';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { ChatConnectionState } from '@/services/chat-socket.service';
-import type { ChatMessage, DirectChatFriendSummary, DirectChatSession } from '@/types/direct-chat.types';
-import type { ChatImageDraft as BaseChatImageDraft, ChatMessage as BaseChatMessage } from '@/types/chat.types';
+import type { ChatImageDraft as BaseChatImageDraft, ChatMessage, ReactionType } from '@/types/chat.types';
+import type { DirectChatFriendSummary, DirectChatSession } from '@/types/direct-chat.types';
 import { compareChatMessages } from '@/utils/chat';
 import { isChatImageAuthorizationError } from '@/utils/chat-image';
 
@@ -60,7 +61,11 @@ export interface DirectChatThreadViewProps {
   onSendImage?: () => void | Promise<void>;
   onRetryImage?: () => void | Promise<void>;
   onRefreshImage?: (messageId: string) => void | Promise<void>;
-  onMessageActions?: (message: BaseChatMessage) => void;
+  onMessageActions?: (message: ChatMessage) => void;
+  /** Sets or removes the current User's reaction on a message. */
+  onReaction?: (message: ChatMessage, reaction: ReactionType | null) => void;
+  /** Message currently being reconciled by a reaction mutation. */
+  reactionPendingMessageId?: string | null;
   accessLost: boolean;
 }
 
@@ -111,6 +116,8 @@ function MessageRow({
   imageLoadState,
   onImageLoadError,
   onRetryImageLoad,
+  onReaction,
+  reactionPendingMessageId,
 }: {
   message: ChatMessage;
   currentUserId: string | null;
@@ -120,6 +127,8 @@ function MessageRow({
   imageLoadState: ImageLoadState;
   onImageLoadError: (messageId: string, error: string) => void;
   onRetryImageLoad: (messageId: string) => void;
+  onReaction: (message: ChatMessage, reaction: ReactionType | null) => void;
+  reactionPendingMessageId: string | null;
 }): ReactElement {
   const theme = useResolvedTheme();
   const isMine: boolean = currentUserId !== null && message.senderId === currentUserId;
@@ -134,53 +143,60 @@ function MessageRow({
   return (
     <View className={`mb-md flex-row items-end px-md ${isMine ? 'justify-end' : 'justify-start'}`}>
       {!isMine && <Avatar src={message.senderDisplayPicture} name={message.senderUsername} size="xs" />}
-      <View className={`min-w-0 max-w-[82%] flex-row items-end ${isMine ? '' : 'ml-sm'}`}>
-        <Pressable
-          onLongPress={(): void => onMessageActions(message)}
-          onPress={
-            media
-              ? (): void => {
-                  void Linking.openURL(media.url).catch((): void => {});
-                }
-              : undefined
-          }
-          delayLongPress={350}
-          accessibilityRole="button"
-          accessibilityLabel={messageLabel}
-          accessibilityHint="Long press to open report and block actions"
-          className={`min-w-0 rounded-xl px-md py-sm ${isMine ? 'bg-primary' : 'border border-border bg-card'}`}
-        >
-          {!isMine && <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>}
-          {media ? (
-            <ChatImageBubble
-              media={media}
-              senderUsername={isMine ? 'you' : message.senderUsername}
-              reloadToken={imageLoadState.reloadToken}
-              loadFailed={imageLoadState.loadFailed}
-              onLoadError={(error: string): void => onImageLoadError(message.id, error)}
-              onRetry={(): void => onRetryImageLoad(message.id)}
-            />
-          ) : (
-            <Text className={`text-body-md ${isMine ? 'text-primary-foreground' : 'text-foreground'}`}>
-              {messageCopy}
-            </Text>
-          )}
-          <View className="mt-xs flex-row items-center justify-end gap-xs">
-            <Text className={`text-label-sm ${isMine ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
-              {formatMessageTime(message.sentAt)}
-            </Text>
-            {seen && (
-              <Text
-                accessibilityLabel="Seen"
-                className={`text-label-sm font-inter-semibold ${
-                  isMine ? 'text-primary-foreground' : 'text-muted-foreground'
-                }`}
-              >
-                Seen
+      <View className={`min-w-0 max-w-[82%] flex-1 flex-row items-end ${isMine ? '' : 'ml-sm'}`}>
+        <View className="min-w-0 flex-1">
+          <Pressable
+            onLongPress={(): void => onMessageActions(message)}
+            onPress={
+              media
+                ? (): void => {
+                    void Linking.openURL(media.url).catch((): void => {});
+                  }
+                : undefined
+            }
+            delayLongPress={350}
+            accessibilityRole="button"
+            accessibilityLabel={messageLabel}
+            accessibilityHint="Long press to open report and block actions"
+            className={`min-w-0 rounded-xl px-md py-sm ${isMine ? 'bg-primary' : 'border border-border bg-card'}`}
+          >
+            {!isMine && <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>}
+            {media ? (
+              <ChatImageBubble
+                media={media}
+                senderUsername={isMine ? 'you' : message.senderUsername}
+                reloadToken={imageLoadState.reloadToken}
+                loadFailed={imageLoadState.loadFailed}
+                onLoadError={(error: string): void => onImageLoadError(message.id, error)}
+                onRetry={(): void => onRetryImageLoad(message.id)}
+              />
+            ) : (
+              <Text className={`text-body-md ${isMine ? 'text-primary-foreground' : 'text-foreground'}`}>
+                {messageCopy}
               </Text>
             )}
-          </View>
-        </Pressable>
+            <View className="mt-xs flex-row items-center justify-end gap-xs">
+              <Text className={`text-label-sm ${isMine ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
+                {formatMessageTime(message.sentAt)}
+              </Text>
+              {seen && (
+                <Text
+                  accessibilityLabel="Seen"
+                  className={`text-label-sm font-inter-semibold ${
+                    isMine ? 'text-primary-foreground' : 'text-muted-foreground'
+                  }`}
+                >
+                  Seen
+                </Text>
+              )}
+            </View>
+          </Pressable>
+          <MessageReactionBar
+            summary={message.type === 'UNSENT' ? null : message.reactionSummary}
+            isPending={reactionPendingMessageId === message.id}
+            onSelect={(reaction: ReactionType | null): void => onReaction(message, reaction)}
+          />
+        </View>
         <IconButton
           accessibilityLabel={actionLabel}
           accessibilityHint="Opens report and block actions for this message"
@@ -266,6 +282,8 @@ export function DirectChatThreadView({
   onSendImage = async (): Promise<void> => {},
   onRetryImage = async (): Promise<void> => {},
   onRefreshImage = async (): Promise<void> => {},
+  onReaction = (): void => {},
+  reactionPendingMessageId = null,
   accessLost,
 }: DirectChatThreadViewProps): ReactElement {
   const theme = useResolvedTheme();
@@ -404,6 +422,8 @@ export function DirectChatThreadView({
             imageLoadState={imageLoadStates[item.id] ?? INITIAL_IMAGE_LOAD_STATE}
             onImageLoadError={handleImageLoadError}
             onRetryImageLoad={handleRetryImageLoad}
+            onReaction={onReaction}
+            reactionPendingMessageId={reactionPendingMessageId}
           />
         )}
         ListEmptyComponent={<Empty message="No messages yet. Start the conversation." />}
