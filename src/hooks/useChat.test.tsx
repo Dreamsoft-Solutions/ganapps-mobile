@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { act, type RenderHookResult, renderHook, waitFor } from '@testing-library/react-native';
+import * as ImagePicker from 'expo-image-picker';
 import type { ReactElement, ReactNode } from 'react';
 import { chatAPI } from '@/api/endpoints/chat';
 import { useAuthStore } from '@/store/auth.store';
@@ -14,8 +15,14 @@ jest.mock('@/api/endpoints/chat', () => ({
     listMessages: jest.fn(),
     resolveSession: jest.fn(),
     sendMessage: jest.fn(),
+    sendImage: jest.fn(),
     markRead: jest.fn(),
   },
+}));
+
+jest.mock('expo-image-picker', () => ({
+  requestMediaLibraryPermissionsAsync: jest.fn(),
+  launchImageLibraryAsync: jest.fn(),
 }));
 
 jest.mock('@/services/chat-socket.service', () => ({
@@ -30,6 +37,8 @@ jest.mock('@/services/chat-socket.service', () => ({
 }));
 
 const mockedChatAPI = jest.mocked(chatAPI);
+const mockedRequestMediaLibraryPermissionsAsync = jest.mocked(ImagePicker.requestMediaLibraryPermissionsAsync);
+const mockedLaunchImageLibraryAsync = jest.mocked(ImagePicker.launchImageLibraryAsync);
 
 const session: EventChatSession = {
   conversationId: 'conversation-1',
@@ -40,6 +49,35 @@ const session: EventChatSession = {
   canSend: true,
   isBusinessOnly: false,
   ganapStatus: 'ONGOING',
+};
+
+const pickerAsset: ImagePicker.ImagePickerAsset = {
+  uri: 'file:///valid-jpeg-under-5m.jpg',
+  width: 1600,
+  height: 1200,
+  type: 'image',
+  fileName: 'valid-jpeg-under-5m.jpg',
+  fileSize: 1024,
+  mimeType: 'image/jpeg',
+};
+
+const canonicalImageMessage: ChatMessage = {
+  id: 'canonical-image-1',
+  conversationId: 'conversation-1',
+  senderId: 'user-1',
+  senderUsername: 'Miguel Santos',
+  senderDisplayPicture: null,
+  content: null,
+  type: 'IMAGE',
+  sentAt: '2026-09-01T00:00:00.000Z',
+  media: {
+    id: 'media-1',
+    url: 'https://api.example.test/secure-assets/chat/media-1?exp=1&sig=signed',
+    mimeType: 'image/webp',
+    bytes: 4096,
+    width: 1600,
+    height: 1200,
+  },
 };
 
 function message(id: string, sentAt: string): ChatMessage {
@@ -67,6 +105,14 @@ function makeClient(): QueryClient {
 
 beforeEach((): void => {
   useAuthStore.setState({ token: 'access-token', user: null });
+  mockedChatAPI.sendImage.mockReset();
+  mockedRequestMediaLibraryPermissionsAsync.mockResolvedValue({
+    status: 'granted' as ImagePicker.MediaLibraryPermissionResponse['status'],
+    expires: 'never',
+    granted: true,
+    canAskAgain: true,
+  });
+  mockedLaunchImageLibraryAsync.mockResolvedValue({ canceled: true, assets: null });
   mockedChatAPI.resolveSession.mockResolvedValue(session);
   mockedChatAPI.listMessages.mockResolvedValue({ items: [], nextCursor: null });
   mockedChatAPI.markRead.mockResolvedValue({
@@ -125,6 +171,180 @@ describe('useChat failed drafts', (): void => {
     expect(result.current.failedDrafts).toEqual([]);
     expect(mockedChatAPI.sendMessage).toHaveBeenCalledTimes(1);
     unmount();
+    client.clear();
+  });
+});
+
+describe('useChat image drafts', (): void => {
+  async function renderImageChat(): Promise<{
+    result: RenderHookResult<ReturnType<typeof useChat>, unknown>['result'];
+    unmount: () => Promise<void>;
+    client: QueryClient;
+  }> {
+    const client: QueryClient = makeClient();
+    const rendered = await renderHook(() => useChat('ganap-1'), { wrapper: wrapperFor(client) });
+    await waitFor((): void => expect(rendered.result.current.session).toEqual(session));
+    return { result: rendered.result, unmount: rendered.unmount, client };
+  }
+
+  it('keeps WebP eligible locally, configures one library image, and removes it without sending', async (): Promise<void> => {
+    const webpAsset: ImagePicker.ImagePickerAsset = {
+      ...pickerAsset,
+      fileName: 'candidate.webp',
+      mimeType: 'image/webp',
+    };
+    mockedLaunchImageLibraryAsync.mockResolvedValue({ canceled: false, assets: [webpAsset] });
+    const { result, unmount, client } = await renderImageChat();
+
+    await act(async (): Promise<void> => {
+      await result.current.pickImage();
+    });
+
+    expect(mockedLaunchImageLibraryAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: false,
+        selectionLimit: 1,
+        allowsEditing: false,
+      }),
+    );
+    expect(result.current.imageDraft).toMatchObject({ status: 'ready', asset: { mimeType: 'image/webp' } });
+    await act(async (): Promise<void> => {
+      result.current.removeImage();
+    });
+    expect(result.current.imageDraft).toBeNull();
+    expect(mockedChatAPI.sendImage).not.toHaveBeenCalled();
+    await unmount();
+    client.clear();
+  });
+
+  it('enters Checking image only after Send image and reconciles the canonical response without an optimistic message', async (): Promise<void> => {
+    let resolveImage: ((message: ChatMessage) => void) | undefined;
+    mockedLaunchImageLibraryAsync.mockResolvedValue({ canceled: false, assets: [pickerAsset] });
+    mockedChatAPI.sendImage.mockImplementation(
+      async (): Promise<ChatMessage> =>
+        new Promise<ChatMessage>((resolve): void => {
+          resolveImage = resolve;
+        }),
+    );
+    const { result, unmount, client } = await renderImageChat();
+
+    await act(async (): Promise<void> => {
+      await result.current.pickImage();
+    });
+    expect(result.current.imageDraft?.status).toBe('ready');
+    let sendPromise: Promise<void> | undefined;
+    await act(async (): Promise<void> => {
+      sendPromise = result.current.sendImage();
+    });
+    await waitFor((): void => expect(result.current.imageDraft?.status).toBe('checking'));
+    await waitFor((): void => expect(resolveImage).toBeDefined());
+    expect(result.current.messages).toEqual([]);
+    expect(mockedChatAPI.sendImage).toHaveBeenCalledWith(
+      'ganap-1',
+      expect.objectContaining({ clientMessageId: result.current.imageDraft?.clientMessageId }),
+    );
+
+    await act(async (): Promise<void> => {
+      resolveImage?.(canonicalImageMessage);
+      await sendPromise;
+    });
+    expect(result.current.imageDraft).toBeNull();
+    expect(result.current.messages).toEqual([canonicalImageMessage]);
+    await unmount();
+    client.clear();
+  });
+
+  it('retains a retryable image draft and reuses its client id for one explicit retry', async (): Promise<void> => {
+    const networkError: Error & { errorCode: string } = Object.assign(new Error('offline'), {
+      errorCode: 'NETWORK_ERROR',
+    });
+    mockedLaunchImageLibraryAsync.mockResolvedValue({ canceled: false, assets: [pickerAsset] });
+    mockedChatAPI.sendImage.mockRejectedValueOnce(networkError).mockResolvedValueOnce(canonicalImageMessage);
+    const { result, unmount, client } = await renderImageChat();
+
+    await act(async (): Promise<void> => {
+      await result.current.pickImage();
+    });
+    await waitFor((): void => expect(result.current.imageDraft?.status).toBe('ready'));
+    await act(async (): Promise<void> => {
+      await result.current.sendImage();
+    });
+    const clientMessageId: string | undefined = result.current.imageDraft?.clientMessageId;
+    expect(result.current.imageDraft?.status).toBe('retryable-failure');
+    expect(clientMessageId).toBeTruthy();
+
+    await act(async (): Promise<void> => {
+      await result.current.retryImage();
+    });
+    expect(mockedChatAPI.sendImage).toHaveBeenNthCalledWith(2, 'ganap-1', expect.objectContaining({ clientMessageId }));
+    expect(result.current.imageDraft).toBeNull();
+    await unmount();
+    client.clear();
+  });
+
+  it('gates a capacity retry until the server-provided delay elapses', async (): Promise<void> => {
+    const capacityError: Error & { errorCode: string; retryAfterSeconds: number } = Object.assign(new Error('busy'), {
+      errorCode: 'MEDIA_CAPACITY_EXCEEDED',
+      retryAfterSeconds: 30,
+    });
+    mockedLaunchImageLibraryAsync.mockResolvedValue({ canceled: false, assets: [pickerAsset] });
+    mockedChatAPI.sendImage.mockRejectedValue(capacityError);
+    const { result, unmount, client } = await renderImageChat();
+
+    await act(async (): Promise<void> => {
+      await result.current.pickImage();
+    });
+    await waitFor((): void => expect(result.current.imageDraft?.status).toBe('ready'));
+    await act(async (): Promise<void> => {
+      await result.current.sendImage();
+    });
+    expect(result.current.imageDraft?.status).toBe('retryable-failure');
+    expect(result.current.imageRetryAfterSeconds).toBeGreaterThan(0);
+
+    await act(async (): Promise<void> => {
+      await result.current.retryImage();
+    });
+    expect(mockedChatAPI.sendImage).toHaveBeenCalledTimes(1);
+    await unmount();
+    client.clear();
+  });
+
+  it('rejects known oversized picker input before upload and keeps permanent server failures non-retryable', async (): Promise<void> => {
+    mockedLaunchImageLibraryAsync.mockResolvedValue({
+      canceled: false,
+      assets: [{ ...pickerAsset, fileSize: 5 * 1024 * 1024 + 1 }],
+    });
+    const { result, unmount, client } = await renderImageChat();
+    await act(async (): Promise<void> => {
+      await result.current.pickImage();
+    });
+    expect(result.current.imagePickerError?.message).toBe('Choose a JPEG, PNG, or WebP image under 5 MiB.');
+    expect(result.current.imageDraft).toBeNull();
+    expect(mockedChatAPI.sendImage).not.toHaveBeenCalled();
+
+    mockedLaunchImageLibraryAsync.mockResolvedValue({ canceled: false, assets: [pickerAsset] });
+    const malformedError: Error & { errorCode: string } = Object.assign(new Error('malformed'), {
+      errorCode: 'IMAGE_MALFORMED',
+    });
+    mockedChatAPI.sendImage.mockRejectedValue(malformedError);
+    await act(async (): Promise<void> => {
+      await result.current.pickImage();
+    });
+    await waitFor((): void => expect(result.current.imageDraft?.status).toBe('ready'));
+    await act(async (): Promise<void> => {
+      await result.current.sendImage();
+    });
+    expect(result.current.imageDraft?.status).toBe('permanent-failure');
+    await act(async (): Promise<void> => {
+      await result.current.retryImage();
+    });
+    expect(mockedChatAPI.sendImage).toHaveBeenCalledTimes(1);
+    await act(async (): Promise<void> => {
+      result.current.removeImage();
+    });
+    expect(result.current.imageDraft).toBeNull();
+    await unmount();
     client.clear();
   });
 });
