@@ -24,7 +24,10 @@ export type ChatPageParam = string | undefined;
 export const chatQueryKeys = {
   all: ['chat'] as const,
   eventSession: (ganapId: string) => [...chatQueryKeys.all, 'event-session', ganapId] as const,
+  eventMessagesRoot: () => [...chatQueryKeys.all, 'event-messages'] as const,
   eventMessages: (ganapId: string) => [...chatQueryKeys.all, 'event-messages', ganapId] as const,
+  directMessagesRoot: () => [...chatQueryKeys.all, 'direct-messages'] as const,
+  directMessages: (conversationId: string) => [...chatQueryKeys.all, 'direct-messages', conversationId] as const,
   eventList: () => [...chatQueryKeys.all, 'event-list'] as const,
 };
 

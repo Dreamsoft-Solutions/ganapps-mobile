@@ -29,6 +29,12 @@ export const ErrorCodes = {
   FEEDBACK_ANSWERS_REQUIRED: 'FEEDBACK_ANSWERS_REQUIRED',
   FEEDBACK_RATING_CONFLICT: 'FEEDBACK_RATING_CONFLICT',
   NETWORK_ERROR: 'NETWORK_ERROR',
+  INVALID_REPORT_TARGET: 'INVALID_REPORT_TARGET',
+  REPORT_SCOPE_FORBIDDEN: 'REPORT_SCOPE_FORBIDDEN',
+  SOCIAL_TARGET_UNAVAILABLE: 'SOCIAL_TARGET_UNAVAILABLE',
+  REPORT_NOT_FOUND: 'REPORT_NOT_FOUND',
+  SOCIAL_STATE_CHANGED: 'SOCIAL_STATE_CHANGED',
+  REPORT_ALREADY_CLOSED: 'REPORT_ALREADY_CLOSED',
 } as const;
 
 export const ErrorMessages: Record<string, string> = {
@@ -43,6 +49,12 @@ export const ErrorMessages: Record<string, string> = {
   [ErrorCodes.EMAIL_NOT_VERIFIED]: 'Please verify your email address',
   [ErrorCodes.INVALID_VERIFICATION_CODE]: 'Invalid verification code',
   [ErrorCodes.VERIFICATION_CODE_EXPIRED]: 'Verification code has expired',
+  [ErrorCodes.INVALID_REPORT_TARGET]: 'This message is no longer available.',
+  [ErrorCodes.REPORT_SCOPE_FORBIDDEN]: 'Report unavailable.',
+  [ErrorCodes.SOCIAL_TARGET_UNAVAILABLE]: 'Unable to complete this action.',
+  [ErrorCodes.REPORT_NOT_FOUND]: 'Report status could not be confirmed. Try again.',
+  [ErrorCodes.SOCIAL_STATE_CHANGED]: 'Block status changed. Refresh and try again.',
+  [ErrorCodes.REPORT_ALREADY_CLOSED]: 'Report cannot be changed.',
 };
 
 export type ErrorCode = keyof typeof ErrorCodes;
