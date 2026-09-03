@@ -62,6 +62,30 @@ export interface EventChatSummary {
   updatedAt: string;
 }
 
+/** Safe friend projection embedded in a Direct Chat summary. */
+export interface DirectChatFriendSummary {
+  userId: string;
+  username: string;
+  displayName: string;
+  displayPicture: string | null;
+}
+
+/** One server-owned Direct Chat summary used by the mixed Friends feed. */
+export interface DirectChatSummary {
+  conversationId: string;
+  type: 'DIRECT';
+  friend: DirectChatFriendSummary;
+  lastMessage: EventChatLastMessage | null;
+  unreadCount: number;
+  latestOutgoingSeenAt: string | null;
+  canRead: boolean;
+  canSend: boolean;
+  updatedAt: string;
+}
+
+/** Discriminated Event/Direct summary row returned by `type=ALL`. */
+export type ChatConversationSummary = EventChatSummary | DirectChatSummary;
+
 /** Session and capabilities resolved for the current User and Ganap. */
 export interface EventChatSession {
   conversationId: string;
@@ -96,6 +120,12 @@ export interface ChatMessagesPage {
 /** Cursor page returned by the Event Chat summary endpoint. */
 export interface EventChatSummaryPage {
   items: EventChatSummary[];
+  nextCursor: string | null;
+}
+
+/** Cursor page returned by the mixed Event/Direct summary endpoint. */
+export interface ChatConversationSummaryPage {
+  items: ChatConversationSummary[];
   nextCursor: string | null;
 }
 

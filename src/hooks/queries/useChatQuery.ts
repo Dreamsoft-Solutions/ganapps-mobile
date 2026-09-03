@@ -9,6 +9,8 @@ import {
 import { type ChatMessagesParams, chatAPI, type EventChatListParams } from '@/api/endpoints/chat';
 import { useAuthStore } from '@/store/auth.store';
 import type {
+  ChatConversationSummary,
+  ChatConversationSummaryPage,
   ChatMessage,
   ChatMessagesPage,
   EventChatSession,
@@ -29,10 +31,14 @@ export const chatQueryKeys = {
   directMessagesRoot: () => [...chatQueryKeys.all, 'direct-messages'] as const,
   directMessages: (conversationId: string) => [...chatQueryKeys.all, 'direct-messages', conversationId] as const,
   eventList: () => [...chatQueryKeys.all, 'event-list'] as const,
+  summaries: () => [...chatQueryKeys.all, 'summaries'] as const,
 };
 
 /** Fixed page size for Event Chat summary rows. */
 export const EVENT_CHAT_LIST_PAGE_SIZE = 20;
+
+/** Fixed page size for the mixed Friends-hub summary feed. */
+export const CHAT_SUMMARY_PAGE_SIZE = 20;
 
 /** Fixed page size for Event Chat history. */
 export const EVENT_CHAT_MESSAGE_PAGE_SIZE = 30;
@@ -45,6 +51,14 @@ export type UseEventChatListQueryResult = UseInfiniteQueryResult<
   summaries: EventChatSummary[];
 };
 
+/** Result shape for the mixed Event/Direct summary query. */
+export type UseChatSummariesQueryResult = UseInfiniteQueryResult<
+  InfiniteData<ChatConversationSummaryPage, ChatPageParam>,
+  Error
+> & {
+  summaries: ChatConversationSummary[];
+};
+
 /** Result shape for the Event Chat history query, with flattened server pages. */
 export type UseEventChatMessagesQueryResult = UseInfiniteQueryResult<
   InfiniteData<ChatMessagesPage, ChatPageParam>,
@@ -54,7 +68,9 @@ export type UseEventChatMessagesQueryResult = UseInfiniteQueryResult<
 };
 
 /** Returns the next opaque cursor without interpreting or transforming it. */
-export function getNextChatPageParam(page: ChatMessagesPage | EventChatSummaryPage): string | undefined {
+export function getNextChatPageParam(
+  page: ChatMessagesPage | EventChatSummaryPage | ChatConversationSummaryPage,
+): string | undefined {
   return page.nextCursor ?? undefined;
 }
 
@@ -106,6 +122,46 @@ export function useEventChatListQuery(enabled = true): UseEventChatListQueryResu
   const summaries: EventChatSummary[] = result.data?.pages.flatMap((page: EventChatSummaryPage) => page.items) ?? [];
   return { ...result, summaries };
 }
+
+/**
+ * Lists the server-owned mixed Event and Direct conversation summaries.
+ *
+ * No history query is created or prefetched for a summary row. The server owns
+ * ordering, unread counts, latest-message previews, and read/send capabilities.
+ *
+ * @param enabled - Optional route/access guard
+ * @returns Infinite summary query and flattened rows
+ */
+export function useChatSummariesQuery(enabled = true): UseChatSummariesQueryResult {
+  const token: string | null = useAuthStore((state) => state.token);
+  const result: UseInfiniteQueryResult<
+    InfiniteData<ChatConversationSummaryPage, ChatPageParam>,
+    Error
+  > = useInfiniteQuery<
+    ChatConversationSummaryPage,
+    Error,
+    InfiniteData<ChatConversationSummaryPage, ChatPageParam>,
+    readonly ['chat', 'summaries'],
+    ChatPageParam
+  >({
+    queryKey: chatQueryKeys.summaries(),
+    queryFn: ({
+      pageParam,
+    }: QueryFunctionContext<readonly ['chat', 'summaries'], ChatPageParam>): Promise<ChatConversationSummaryPage> =>
+      chatAPI.listAllConversations({ cursor: pageParam, limit: CHAT_SUMMARY_PAGE_SIZE }),
+    initialPageParam: undefined,
+    getNextPageParam: getNextChatPageParam,
+    ...CHAT_QUERY_OPTIONS,
+    retry: shouldRetryChatQuery,
+    enabled: Boolean(token && enabled),
+  });
+  const summaries: ChatConversationSummary[] =
+    result.data?.pages.flatMap((page: ChatConversationSummaryPage): ChatConversationSummary[] => page.items) ?? [];
+  return { ...result, summaries };
+}
+
+/** Backwards-readable alias for the Friends hub summary query. */
+export const useMixedChatListQuery: typeof useChatSummariesQuery = useChatSummariesQuery;
 
 /**
  * Resolves one Ganap's server-authoritative Event Chat session.
