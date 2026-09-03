@@ -12,9 +12,29 @@ patterns. Any new UI work must follow these tokens.
   under the `.dark` class. The app follows the device color scheme.
 - **Compose with primitives.** Screens are built from `components/common/`
   primitives. One-off styles are avoided; prefer adding a variant.
-- **No emojis.** Use `lucide-react-native` for iconography.
+- **No emojis outside the narrow reaction exception below.** Use `lucide-react-native` for
+  iconography.
 - **User-facing only.** This design system serves the consumer mobile app
   (finding, joining, and registering for Ganaps), not the organizer dashboard.
+
+### System-native reaction glyph exception
+
+The no-emojis rule has one narrow, system-native exception: message reactions in Event Chat
+and Direct Chat, plus the separate acknowledgement reactions on eligible Event Hub
+Announcements. The wire enum and glyph set are closed:
+
+| Wire value | Glyph |
+|---|---|
+| `HEART` | `❤️` |
+| `LAUGH` | `😂` |
+| `THUMBS_UP` | `👍` |
+| `SAD` | `😢` |
+| `ANGRY` | `😡` |
+
+These glyphs may appear only inside a reaction control or its count. They must not appear in
+general UI copy, labels, errors, notifications, profile text, message previews, or as a
+replacement for iconography. Each control exposes a word-based accessibility label and
+selected state; use `lucide-react-native` for every other icon.
 
 ## Color tokens
 

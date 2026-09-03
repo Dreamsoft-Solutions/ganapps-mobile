@@ -52,9 +52,26 @@ _Avoid_: Check-in (that is the act), Presence, Visit, Turnout
 The per-Ganap group conversation Attendees can join before the event starts. Restricted to the Business when the Ganap has `isChatBusinessOnly` set.
 _Avoid_: Group chat, Room, Channel, Thread
 
+**Direct Chat**:
+A one-to-one conversation between two Users whose Friendship is accepted and not blocked. It
+is created lazily by the first successful message and reuses one canonical conversation for
+the pair; accepting a Friendship never creates an empty conversation.
+_Avoid_: DM, Private chat, Inbox thread
+
 **Announcement**:
 A one-way message a Business posts to a Ganap, typed `GENERAL`, `REMINDER`, or `UPDATE`. Separate from the Event Chat — Users cannot reply to it.
 _Avoid_: Notification (that is per-User and push-delivered), Post, Update (that names one type)
+
+**Friendship**:
+The accepted relationship between two Users, represented by one canonical unordered pair.
+Friend requests are retained attempts against that pair; rejecting, revoking, or blocking does
+not create a Direct Chat, and unblocking never restores a former Friendship.
+_Avoid_: Follow, Contact, Connection
+
+**Friend Code**:
+A shareable 12-character uppercase Crockford identifier that a User can regenerate to help
+another User find them. It identifies a target but is not a credential or sign-in secret.
+_Avoid_: Invite code, Password, Token
 
 **Saved Ganap**:
 A Ganap a User has kept for later. Backed by the `SavedEvent` model server-side, which is historical naming — write "saved Ganap" in mobile code and "saved" in UI copy.
@@ -67,3 +84,40 @@ _Avoid_: Survey, Questionnaire, Custom fields, Registration questions
 **Feedback**:
 What an Attendee leaves after a Ganap: a rating, plus answers to any `POST_ATTENDANCE` form blocks.
 _Avoid_: Review, Comment, Survey response, Rating (that is one part of it)
+
+**Block**:
+A directional moderation action by one User against another. The blocker no longer receives
+the blocked User's messages or new Direct requests, while other Event Chat participants keep
+their own server-authorized view. Blocking patches message history and previews but does not
+delete whole Event or Direct conversation rows; unblocking does not restore Friendship or
+requests.
+_Avoid_: Friend request status, Mute, Delete conversation
+
+**Presence**:
+The coarse active state derived from a recent device heartbeat and shown only to accepted,
+unblocked friends when visibility is enabled. It never exposes exact last-seen time or
+location.
+_Avoid_: Online location, Last seen, Tracking
+
+**Going**:
+A privacy-filtered summary that a friend is associated with an upcoming or ongoing published
+Ganap. It does not distinguish `REGISTERED` from `ATTENDED` and is never a check-in indicator.
+_Avoid_: Attendance, Check-in, Live location
+
+**Seen**:
+The Direct Chat read receipt shown only on the latest outgoing message after the other User's
+server read cursor commits. Event Chat advances unread cursors but never shows a Seen label.
+_Avoid_: Read everything, Delivered, Event Chat receipt
+
+**Message reaction**:
+One of the five permitted system-native reaction glyphs (`❤️`, `😂`, `👍`, `😢`, `😡`) applied
+once per User per message in Event Chat or Direct Chat. Reactions are not general UI copy,
+icons, or Announcement messages; eligible Announcements use the same glyphs as separate
+acknowledgements.
+_Avoid_: Emoji decoration, Like (a Ganap action), Comment
+
+**Message unsent**:
+The visible tombstone left when a User unsends their own text or image within the server's
+15-minute window. It hides original content, media, and reactions but remains reportable by a
+recipient during the 30-day evidence window.
+_Avoid_: Deleted for me, Edited, Retracted
