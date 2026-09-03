@@ -11,6 +11,7 @@ export function shouldHideAppTabBar(segments: readonly string[]): boolean {
     segments.includes('event-hub') ||
     segments.includes('event-chat') ||
     segments.includes('friend-profile') ||
-    segments.includes('friend-settings')
+    segments.includes('friend-settings') ||
+    segments.includes('direct-chat')
   );
 }

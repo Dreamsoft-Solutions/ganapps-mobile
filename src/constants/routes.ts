@@ -36,6 +36,8 @@ export interface RouteTable {
   eventChat: (ganapId: string) => Href;
   friendProfile: (userId: string) => Href;
   friendSettings: Href;
+  directChat: (conversationId: string) => Href;
+  directChatForFriend: (friendUserId: string) => Href;
   attendanceScan: (ganapId: string) => Href;
   ganapFeedback: (ganapId: string) => Href;
 }
@@ -152,6 +154,29 @@ export const Routes: RouteTable = {
 
   /** Href for the Friends privacy settings screen. */
   friendSettings: { pathname: '/(app)/(chat)/friend-settings' },
+   * Builds an href for an existing canonical Direct Chat conversation.
+   *
+   * @param conversationId - Canonical Direct conversation id
+   * @returns An href targeting the Direct Chat thread
+   */
+  directChat: (conversationId: string): Href => ({
+    pathname: '/(app)/(chat)/direct-chat/[conversation-id]',
+    params: { 'conversation-id': conversationId },
+  }),
+
+  /**
+   * Builds the lazy Direct Chat entry point from an accepted friend's profile.
+   *
+   * The `new` marker is route-local only; the client does not create a server
+   * conversation until the first successful send.
+   *
+   * @param friendUserId - Accepted friend's user id
+   * @returns An href targeting the lazy Direct Chat composer
+   */
+  directChatForFriend: (friendUserId: string): Href => ({
+    pathname: '/(app)/(chat)/direct-chat/[conversation-id]',
+    params: { 'conversation-id': 'new', 'friend-user-id': friendUserId },
+  }),
 
   /**
    * Builds the href for a Ganap's attendance scanner screen.

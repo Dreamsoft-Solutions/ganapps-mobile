@@ -17,6 +17,7 @@ import type {
   EventChatSummary,
   EventChatSummaryPage,
 } from '@/types/chat.types';
+import type { DirectChatSummary } from '@/types/chat.types';
 import { isChatForbidden } from '@/utils/chat';
 
 /** Shared page parameter type for opaque cursors and the initial undefined page. */
@@ -30,6 +31,7 @@ export const chatQueryKeys = {
   eventMessages: (ganapId: string) => [...chatQueryKeys.all, 'event-messages', ganapId] as const,
   directMessagesRoot: () => [...chatQueryKeys.all, 'direct-messages'] as const,
   directMessages: (conversationId: string) => [...chatQueryKeys.all, 'direct-messages', conversationId] as const,
+  directSummaries: () => [...chatQueryKeys.all, 'direct-summaries'] as const,
   eventList: () => [...chatQueryKeys.all, 'event-list'] as const,
   summaries: () => [...chatQueryKeys.all, 'summaries'] as const,
 };
@@ -61,6 +63,22 @@ export type UseChatSummariesQueryResult = UseInfiniteQueryResult<
 
 /** Result shape for the Event Chat history query, with flattened server pages. */
 export type UseEventChatMessagesQueryResult = UseInfiniteQueryResult<
+  InfiniteData<ChatMessagesPage, ChatPageParam>,
+  Error
+> & {
+  messages: ChatMessage[];
+};
+
+/** Result shape for the Direct-only summary query, with flattened server pages. */
+export type UseDirectChatListQueryResult = UseInfiniteQueryResult<
+  InfiniteData<ChatConversationSummaryPage, ChatPageParam>,
+  Error
+> & {
+  summaries: DirectChatSummary[];
+};
+
+/** Result shape for the Direct Chat history query, with flattened server pages. */
+export type UseDirectChatMessagesQueryResult = UseInfiniteQueryResult<
   InfiniteData<ChatMessagesPage, ChatPageParam>,
   Error
 > & {
@@ -212,6 +230,78 @@ export function useEventChatMessagesQuery(ganapId: string, enabled = true): UseE
     ...CHAT_QUERY_OPTIONS,
     retry: shouldRetryChatQuery,
     enabled: Boolean(token && ganapId && enabled),
+  });
+  const messages: ChatMessage[] = result.data?.pages.flatMap((page: ChatMessagesPage) => page.items) ?? [];
+  return { ...result, messages };
+}
+
+/**
+ * Lists server-owned Direct Chat summaries without loading any message history.
+ *
+ * @param enabled - Whether the Direct list is currently visible
+ * @returns Infinite Direct summary query and flattened rows
+ */
+export function useDirectChatListQuery(enabled = true): UseDirectChatListQueryResult {
+  const token: string | null = useAuthStore((state) => state.token);
+  const result: UseInfiniteQueryResult<
+    InfiniteData<ChatConversationSummaryPage, ChatPageParam>,
+    Error
+  > = useInfiniteQuery<
+    ChatConversationSummaryPage,
+    Error,
+    InfiniteData<ChatConversationSummaryPage, ChatPageParam>,
+    readonly ['chat', 'direct-summaries'],
+    ChatPageParam
+  >({
+    queryKey: chatQueryKeys.directSummaries(),
+    queryFn: ({
+      pageParam,
+    }: QueryFunctionContext<
+      readonly ['chat', 'direct-summaries'],
+      ChatPageParam
+    >): Promise<ChatConversationSummaryPage> =>
+      chatAPI.listDirectConversations({ cursor: pageParam, limit: CHAT_SUMMARY_PAGE_SIZE }),
+    initialPageParam: undefined,
+    getNextPageParam: getNextChatPageParam,
+    ...CHAT_QUERY_OPTIONS,
+    retry: shouldRetryChatQuery,
+    enabled: Boolean(token && enabled),
+  });
+  const summaries: DirectChatSummary[] =
+    result.data?.pages.flatMap((page: ChatConversationSummaryPage): DirectChatSummary[] =>
+      page.items.flatMap((item: ChatConversationSummaryPage['items'][number]): DirectChatSummary[] =>
+        item.type === 'DIRECT' ? [item] : [],
+      ),
+    ) ?? [];
+  return { ...result, summaries };
+}
+
+/**
+ * Reads Direct history only for a selected canonical conversation.
+ *
+ * @param conversationId - Canonical Direct conversation id
+ * @param enabled - Selected-thread/access/focus guard
+ * @returns Infinite history query and flattened messages
+ */
+export function useDirectChatMessagesQuery(conversationId: string, enabled = true): UseDirectChatMessagesQueryResult {
+  const token: string | null = useAuthStore((state) => state.token);
+  const result: UseInfiniteQueryResult<InfiniteData<ChatMessagesPage, ChatPageParam>, Error> = useInfiniteQuery<
+    ChatMessagesPage,
+    Error,
+    InfiniteData<ChatMessagesPage, ChatPageParam>,
+    readonly ['chat', 'direct-messages', string],
+    ChatPageParam
+  >({
+    queryKey: chatQueryKeys.directMessages(conversationId),
+    queryFn: ({
+      pageParam,
+    }: QueryFunctionContext<readonly ['chat', 'direct-messages', string], ChatPageParam>): Promise<ChatMessagesPage> =>
+      chatAPI.listDirectMessages(conversationId, { cursor: pageParam, limit: EVENT_CHAT_MESSAGE_PAGE_SIZE }),
+    initialPageParam: undefined,
+    getNextPageParam: getNextChatPageParam,
+    ...CHAT_QUERY_OPTIONS,
+    retry: shouldRetryChatQuery,
+    enabled: Boolean(token && conversationId && enabled),
   });
   const messages: ChatMessage[] = result.data?.pages.flatMap((page: ChatMessagesPage) => page.items) ?? [];
   return { ...result, messages };

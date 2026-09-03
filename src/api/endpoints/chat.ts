@@ -10,6 +10,7 @@ import type {
   MarkChatReadInput,
   SendChatMessageInput,
 } from '@/types/chat.types';
+import type { ChatConversationSummaryPage, DirectChatReadResult } from '@/types/direct-chat.types';
 import axiosInstance from '../axios-instance';
 
 /** Query parameters accepted by the Event Chat summary endpoint. */
@@ -32,10 +33,40 @@ export interface ChatMessagesParams {
   limit?: number;
 }
 
+/** Query parameters accepted by Direct and mixed conversation summaries. */
+export interface ChatConversationListParams {
+  cursor?: string;
+  limit?: number;
+}
+
 /** Multipart image fields sent to the Event Chat image endpoint. */
 export interface SendChatImageInput {
   clientMessageId: string;
   file: Pick<ChatImageAsset, 'uri' | 'name' | 'mimeType'>;
+}
+
+/** Multipart Direct Chat image fields, shared by first and later sends. */
+export type SendDirectChatImageInput = SendChatImageInput;
+
+function createChatImageFormData(input: SendChatImageInput): FormData {
+  const formData: FormData = new FormData();
+  formData.append('clientMessageId', input.clientMessageId);
+  formData.append('file', {
+    uri: input.file.uri,
+    name: input.file.name,
+    type: input.file.mimeType,
+  } as unknown as Blob);
+  return formData;
+}
+
+function imageRequestConfig(): {
+  headers: { 'Content-Type': undefined };
+  transformRequest: [(data: unknown) => unknown];
+} {
+  return {
+    headers: { 'Content-Type': undefined },
+    transformRequest: [(data: unknown): unknown => data],
+  };
 }
 
 /** Typed Event Chat HTTP endpoints. Paths intentionally omit `/api/v1`. */
@@ -137,20 +168,117 @@ export const chatAPI = {
    * @returns Canonical persisted image message
    */
   sendImage: (ganapId: string, input: SendChatImageInput): Promise<ChatMessage> => {
-    const formData: FormData = new FormData();
-    formData.append('clientMessageId', input.clientMessageId);
-    formData.append('file', {
-      uri: input.file.uri,
-      name: input.file.name,
-      type: input.file.mimeType,
-    } as unknown as Blob);
+    const formData: FormData = createChatImageFormData(input);
     return axiosInstance
       .post<ChatMessage>(`/ganaps/${ganapId}/chat/messages`, formData, {
-        headers: { 'Content-Type': undefined },
-        transformRequest: [(data: unknown): unknown => data],
+        ...imageRequestConfig(),
       })
       .then((res) => res.data);
   },
+
+  /**
+   * Lists only server-owned Direct Chat summaries.
+   *
+   * @param params - Opaque cursor and bounded page size
+   * @returns Cursor page preserving server order and capabilities
+   */
+  listDirectConversations: (params: ChatConversationListParams = {}): Promise<ChatConversationSummaryPage> =>
+    axiosInstance
+      .get<ChatConversationSummaryPage>('/chat/conversations', {
+        params: { type: 'DIRECT', cursor: params.cursor, limit: params.limit },
+      })
+      .then((res) => res.data),
+
+  /**
+   * Lists the server-owned mixed Event and Direct conversation feed.
+   *
+   * @param params - Opaque cursor and bounded page size
+   * @returns Cursor page preserving the server's cross-type order
+   */
+  listAllConversations: (params: ChatConversationListParams = {}): Promise<ChatConversationSummaryPage> =>
+    axiosInstance
+      .get<ChatConversationSummaryPage>('/chat/conversations', {
+        params: { type: 'ALL', cursor: params.cursor, limit: params.limit },
+      })
+      .then((res) => res.data),
+
+  /**
+   * Reads one cursor page of retained Direct Chat history.
+   *
+   * @param conversationId - Canonical Direct conversation id
+   * @param params - Opaque cursor and bounded page size
+   * @returns Newest-first Direct history page
+   */
+  listDirectMessages: (conversationId: string, params: ChatMessagesParams = {}): Promise<ChatMessagesPage> =>
+    axiosInstance
+      .get<ChatMessagesPage>(`/direct/conversations/${conversationId}/messages`, {
+        params: { cursor: params.cursor, limit: params.limit },
+      })
+      .then((res) => res.data),
+
+  /**
+   * Sends the first Direct text message and lets the server create the canonical conversation.
+   *
+   * @param friendUserId - Accepted friend target
+   * @param input - Stable client id and message content
+   * @returns Canonical persisted Direct message
+   */
+  sendDirectMessageByFriend: (friendUserId: string, input: SendChatMessageInput): Promise<ChatMessage> =>
+    axiosInstance.post<ChatMessage>(`/friends/${friendUserId}/direct/messages`, input).then((res) => res.data),
+
+  /**
+   * Sends a Direct text message in an existing canonical conversation.
+   *
+   * @param conversationId - Canonical Direct conversation id
+   * @param input - Stable client id and message content
+   * @returns Canonical persisted Direct message
+   */
+  sendDirectMessage: (conversationId: string, input: SendChatMessageInput): Promise<ChatMessage> =>
+    axiosInstance.post<ChatMessage>(`/direct/conversations/${conversationId}/messages`, input).then((res) => res.data),
+
+  /**
+   * Sends the first Direct image through the accepted-friend route.
+   *
+   * @param friendUserId - Accepted friend target
+   * @param input - Stable client id and one local image file
+   * @returns Canonical persisted Direct image message
+   */
+  sendDirectImageByFriend: (friendUserId: string, input: SendDirectChatImageInput): Promise<ChatMessage> =>
+    axiosInstance
+      .post<ChatMessage>(
+        `/friends/${friendUserId}/direct/messages`,
+        createChatImageFormData(input),
+        imageRequestConfig(),
+      )
+      .then((res) => res.data),
+
+  /**
+   * Sends a Direct image through an existing canonical conversation route.
+   *
+   * @param conversationId - Canonical Direct conversation id
+   * @param input - Stable client id and one local image file
+   * @returns Canonical persisted Direct image message
+   */
+  sendDirectImage: (conversationId: string, input: SendDirectChatImageInput): Promise<ChatMessage> =>
+    axiosInstance
+      .post<ChatMessage>(
+        `/direct/conversations/${conversationId}/messages`,
+        createChatImageFormData(input),
+        imageRequestConfig(),
+      )
+      .then((res) => res.data),
+
+  /**
+   * Advances the Direct Seen cursor through one loaded message.
+   *
+   * @param conversationId - Canonical Direct conversation id
+   * @param input - Greatest loaded message to mark read through
+   * @returns Server-committed monotonic Seen cursor
+   */
+  markDirectRead: (conversationId: string, input: MarkChatReadInput): Promise<DirectChatReadResult> =>
+    axiosInstance
+      .post<DirectChatReadResult>(`/direct/conversations/${conversationId}/read`, input)
+      .then((res) => res.data),
 
   /**
    * Advances the current User's read cursor through one loaded message.
