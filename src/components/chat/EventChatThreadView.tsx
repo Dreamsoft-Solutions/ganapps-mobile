@@ -1,4 +1,4 @@
-import { ArrowLeft, Send } from 'lucide-react-native';
+import { ArrowLeft, MoreVertical, Send } from 'lucide-react-native';
 import { type ReactElement, useState } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,6 +36,8 @@ export interface EventChatThreadViewProps {
   onSend: (content: string) => void | Promise<void>;
   onRetryDraft: (clientMessageId: string) => void | Promise<void>;
   onDiscardDraft: (clientMessageId: string) => void;
+  /** Opens report/block actions for a message, including the labelled alternative to long press. */
+  onMessageActions?: (message: ChatMessage) => void;
   accessLost: boolean;
 }
 
@@ -44,14 +46,45 @@ function formatMessageTime(sentAt: string): string {
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-function MessageRow({ message }: { message: ChatMessage }): ReactElement {
+function getMessageCopy(message: ChatMessage): string {
+  if (message.type === 'IMAGE') return 'Photo';
+  if (message.type === 'UNSENT') return 'Message unsent';
+  return message.content;
+}
+
+function MessageRow({
+  message,
+  onMessageActions,
+}: {
+  message: ChatMessage;
+  onMessageActions: (message: ChatMessage) => void;
+}): ReactElement {
+  const messageCopy: string = getMessageCopy(message);
+  const actionLabel: string = `Message actions for ${message.senderUsername}`;
   return (
     <View className="mb-md flex-row items-end px-md">
       <Avatar src={message.senderDisplayPicture} name={message.senderUsername} size="xs" />
-      <View className="ml-sm max-w-[82%] rounded-xl border border-border bg-card px-md py-sm">
-        <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>
-        <Text className="mt-xs text-body-md">{message.content}</Text>
-        <Text className="mt-xs text-label-sm text-muted-foreground">{formatMessageTime(message.sentAt)}</Text>
+      <View className="ml-sm min-w-0 max-w-[82%] flex-1 flex-row items-end">
+        <Pressable
+          onLongPress={(): void => onMessageActions(message)}
+          delayLongPress={350}
+          accessibilityRole="button"
+          accessibilityLabel={`${messageCopy} from ${message.senderUsername}`}
+          accessibilityHint="Long press to open report and block actions"
+          className="min-w-0 flex-1 rounded-xl border border-border bg-card px-md py-sm active:opacity-70"
+        >
+          <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>
+          <Text className="mt-xs text-body-md">{messageCopy}</Text>
+          <Text className="mt-xs text-label-sm text-muted-foreground">{formatMessageTime(message.sentAt)}</Text>
+        </Pressable>
+        <IconButton
+          accessibilityLabel={actionLabel}
+          accessibilityHint="Opens report and block actions for this message"
+          onPress={(): void => onMessageActions(message)}
+          size="sm"
+        >
+          <MoreVertical size={18} className="text-muted-foreground" />
+        </IconButton>
       </View>
     </View>
   );
@@ -114,6 +147,7 @@ export function EventChatThreadView({
   onSend,
   onRetryDraft,
   onDiscardDraft,
+  onMessageActions = (): void => {},
   accessLost,
 }: EventChatThreadViewProps): ReactElement {
   const theme = useResolvedTheme();
@@ -168,7 +202,9 @@ export function EventChatThreadView({
         data={messages}
         inverted
         keyExtractor={(message: ChatMessage): string => message.id}
-        renderItem={({ item }: { item: ChatMessage }): ReactElement => <MessageRow message={item} />}
+        renderItem={({ item }: { item: ChatMessage }): ReactElement => (
+          <MessageRow message={item} onMessageActions={onMessageActions} />
+        )}
         ListEmptyComponent={<Empty message="No messages yet. Start the conversation." />}
         ListHeaderComponent={
           hasNextPage ? (

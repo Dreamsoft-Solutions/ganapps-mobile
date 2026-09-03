@@ -8,6 +8,7 @@ import { EventChatThreadView } from './EventChatThreadView';
 
 jest.mock('lucide-react-native', () => ({
   ArrowLeft: (): null => null,
+  MoreVertical: (): null => null,
   Send: (): null => null,
 }));
 
