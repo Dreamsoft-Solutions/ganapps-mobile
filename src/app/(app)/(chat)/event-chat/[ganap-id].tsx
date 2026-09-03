@@ -88,6 +88,14 @@ export default function EventChatThreadScreen(): ReactElement {
         onSend={chat.sendMessage}
         onRetryDraft={chat.retryDraft}
         onDiscardDraft={chat.discardDraft}
+        imageDraft={chat.imageDraft}
+        imagePickerError={chat.imagePickerError}
+        imageRetryAfterSeconds={chat.imageRetryAfterSeconds}
+        onPickImage={chat.pickImage}
+        onRemoveImage={chat.removeImage}
+        onSendImage={chat.sendImage}
+        onRetryImage={chat.retryImage}
+        onRefreshImage={chat.refreshImage}
         onMessageActions={openMessageActions}
         accessLost={chat.accessLost}
       />

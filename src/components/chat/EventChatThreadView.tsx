@@ -1,7 +1,17 @@
 import { ArrowLeft, MoreVertical, Send } from 'lucide-react-native';
-import { type ReactElement, useState } from 'react';
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
+import { type ReactElement, useCallback, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChatImageBubble, ChatImagePreview } from '@/components/chat/ChatImage';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { Empty } from '@/components/common/Empty';
@@ -13,7 +23,8 @@ import { Colors, Spacing } from '@/constants/theme';
 import type { FailedDraft } from '@/hooks/useChat';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { ChatConnectionState } from '@/services/chat-socket.service';
-import type { ChatMessage, EventChatSession } from '@/types/chat.types';
+import type { ChatImageDraft, ChatMessage, EventChatSession } from '@/types/chat.types';
+import { isChatImageAuthorizationError } from '@/utils/chat-image';
 
 /** Maximum text size accepted by the Event Chat server contract. */
 export const CHAT_MAX_MESSAGE_LENGTH = 2_000;
@@ -36,6 +47,22 @@ export interface EventChatThreadViewProps {
   onSend: (content: string) => void | Promise<void>;
   onRetryDraft: (clientMessageId: string) => void | Promise<void>;
   onDiscardDraft: (clientMessageId: string) => void;
+  /** Current local image draft, if one is selected. */
+  imageDraft?: ChatImageDraft | null;
+  /** Safe picker/precheck error copy. */
+  imagePickerError?: Error | null;
+  /** Capacity gate countdown in seconds, when applicable. */
+  imageRetryAfterSeconds?: number | null;
+  /** Opens the existing-library image picker. */
+  onPickImage?: () => void | Promise<void>;
+  /** Removes the local image draft without a network request. */
+  onRemoveImage?: () => void;
+  /** Sends the selected local image. */
+  onSendImage?: () => void | Promise<void>;
+  /** Retries a retryable image send with the same client message id. */
+  onRetryImage?: () => void | Promise<void>;
+  /** Refetches canonical history after one signed-URL authorization failure. */
+  onRefreshImage?: (messageId: string) => void | Promise<void>;
   /** Opens report/block actions for a message, including the labelled alternative to long press. */
   onMessageActions?: (message: ChatMessage) => void;
   accessLost: boolean;
@@ -49,32 +76,73 @@ function formatMessageTime(sentAt: string): string {
 function getMessageCopy(message: ChatMessage): string {
   if (message.type === 'IMAGE') return 'Photo';
   if (message.type === 'UNSENT') return 'Message unsent';
-  return message.content;
+  return message.content ?? '';
 }
+
+interface ImageLoadState {
+  refreshRequested: boolean;
+  loadFailed: boolean;
+  reloadToken: number;
+}
+
+const INITIAL_IMAGE_LOAD_STATE: ImageLoadState = {
+  refreshRequested: false,
+  loadFailed: false,
+  reloadToken: 0,
+};
 
 function MessageRow({
   message,
   onMessageActions,
+  imageLoadState,
+  onImageLoadError,
+  onRetryImageLoad,
 }: {
   message: ChatMessage;
   onMessageActions: (message: ChatMessage) => void;
+  imageLoadState: ImageLoadState;
+  onImageLoadError: (messageId: string, error: string) => void;
+  onRetryImageLoad: (messageId: string) => void;
 }): ReactElement {
   const messageCopy: string = getMessageCopy(message);
   const actionLabel: string = `Message actions for ${message.senderUsername}`;
+  const hasImage: boolean = message.type === 'IMAGE' && message.media !== null && message.media !== undefined;
+  const media = hasImage ? message.media : null;
+  const messageLabel: string = media
+    ? `Photo sent by ${message.senderUsername}, ${media.width} by ${media.height} pixels`
+    : `${messageCopy} from ${message.senderUsername}`;
   return (
     <View className="mb-md flex-row items-end px-md">
       <Avatar src={message.senderDisplayPicture} name={message.senderUsername} size="xs" />
       <View className="ml-sm min-w-0 max-w-[82%] flex-1 flex-row items-end">
         <Pressable
           onLongPress={(): void => onMessageActions(message)}
+          onPress={
+            media
+              ? (): void => {
+                  void Linking.openURL(media.url).catch((): void => {});
+                }
+              : undefined
+          }
           delayLongPress={350}
           accessibilityRole="button"
-          accessibilityLabel={`${messageCopy} from ${message.senderUsername}`}
+          accessibilityLabel={messageLabel}
           accessibilityHint="Long press to open report and block actions"
           className="min-w-0 flex-1 rounded-xl border border-border bg-card px-md py-sm active:opacity-70"
         >
           <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>
-          <Text className="mt-xs text-body-md">{messageCopy}</Text>
+          {media ? (
+            <ChatImageBubble
+              media={media}
+              senderUsername={message.senderUsername}
+              reloadToken={imageLoadState.reloadToken}
+              loadFailed={imageLoadState.loadFailed}
+              onLoadError={(error: string): void => onImageLoadError(message.id, error)}
+              onRetry={(): void => onRetryImageLoad(message.id)}
+            />
+          ) : (
+            <Text className="mt-xs text-body-md">{messageCopy}</Text>
+          )}
           <Text className="mt-xs text-label-sm text-muted-foreground">{formatMessageTime(message.sentAt)}</Text>
         </Pressable>
         <IconButton
@@ -148,12 +216,79 @@ export function EventChatThreadView({
   onRetryDraft,
   onDiscardDraft,
   onMessageActions = (): void => {},
+  imageDraft = null,
+  imagePickerError = null,
+  imageRetryAfterSeconds = null,
+  onPickImage = async (): Promise<void> => {},
+  onRemoveImage = (): void => {},
+  onSendImage = async (): Promise<void> => {},
+  onRetryImage = async (): Promise<void> => {},
+  onRefreshImage = async (): Promise<void> => {},
   accessLost,
 }: EventChatThreadViewProps): ReactElement {
   const theme = useResolvedTheme();
   const insets = useSafeAreaInsets();
   const [draftText, setDraftText] = useState('');
+  const [imageLoadStates, setImageLoadStates] = useState<Record<string, ImageLoadState>>({});
+  const imageRefreshIds = useRef<Set<string>>(new Set<string>());
   const isReadOnly: boolean = Boolean(session?.canRead && !session.canSend);
+
+  const handleImageLoadError = useCallback(
+    (messageId: string, error: string): void => {
+      const current: ImageLoadState = imageLoadStates[messageId] ?? INITIAL_IMAGE_LOAD_STATE;
+      if (
+        !current.refreshRequested &&
+        !imageRefreshIds.current.has(messageId) &&
+        isChatImageAuthorizationError(error)
+      ) {
+        imageRefreshIds.current.add(messageId);
+        setImageLoadStates(
+          (states: Record<string, ImageLoadState>): Record<string, ImageLoadState> => ({
+            ...states,
+            [messageId]: { ...current, refreshRequested: true },
+          }),
+        );
+        void Promise.resolve()
+          .then((): void | Promise<void> => onRefreshImage(messageId))
+          .then((): void => {
+            setImageLoadStates((states: Record<string, ImageLoadState>): Record<string, ImageLoadState> => {
+              const latest: ImageLoadState = states[messageId] ?? current;
+              return {
+                ...states,
+                [messageId]: { ...latest, loadFailed: false, reloadToken: latest.reloadToken + 1 },
+              };
+            });
+          })
+          .catch((): void => {
+            setImageLoadStates((states: Record<string, ImageLoadState>): Record<string, ImageLoadState> => {
+              const latest: ImageLoadState = states[messageId] ?? current;
+              return {
+                ...states,
+                [messageId]: { ...latest, refreshRequested: true, loadFailed: true },
+              };
+            });
+          });
+        return;
+      }
+      setImageLoadStates(
+        (states: Record<string, ImageLoadState>): Record<string, ImageLoadState> => ({
+          ...states,
+          [messageId]: { ...current, loadFailed: true },
+        }),
+      );
+    },
+    [imageLoadStates, onRefreshImage],
+  );
+
+  const handleRetryImageLoad = useCallback((messageId: string): void => {
+    setImageLoadStates((states: Record<string, ImageLoadState>): Record<string, ImageLoadState> => {
+      const current: ImageLoadState = states[messageId] ?? INITIAL_IMAGE_LOAD_STATE;
+      return {
+        ...states,
+        [messageId]: { ...current, loadFailed: false, reloadToken: current.reloadToken + 1 },
+      };
+    });
+  }, []);
 
   if (accessLost) {
     return (
@@ -203,7 +338,13 @@ export function EventChatThreadView({
         inverted
         keyExtractor={(message: ChatMessage): string => message.id}
         renderItem={({ item }: { item: ChatMessage }): ReactElement => (
-          <MessageRow message={item} onMessageActions={onMessageActions} />
+          <MessageRow
+            message={item}
+            onMessageActions={onMessageActions}
+            imageLoadState={imageLoadStates[item.id] ?? INITIAL_IMAGE_LOAD_STATE}
+            onImageLoadError={handleImageLoadError}
+            onRetryImageLoad={handleRetryImageLoad}
+          />
         )}
         ListEmptyComponent={<Empty message="No messages yet. Start the conversation." />}
         ListHeaderComponent={
@@ -254,6 +395,33 @@ export function EventChatThreadView({
         </View>
       ) : session?.canSend ? (
         <View className="border-t border-border px-md pt-sm" style={{ paddingBottom: insets.bottom + Spacing.sm }}>
+          {imagePickerError && (
+            <Text accessibilityLiveRegion="polite" className="mb-sm text-body-md text-destructive">
+              {imagePickerError.message}
+            </Text>
+          )}
+          {imageDraft && (
+            <ChatImagePreview
+              draft={imageDraft}
+              retryAfterSeconds={imageRetryAfterSeconds}
+              onRemove={onRemoveImage}
+              onSend={onSendImage}
+              onRetry={onRetryImage}
+            />
+          )}
+          <View className="mb-sm flex-row">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isSending || imageDraft !== null}
+              onPress={(): void => {
+                void onPickImage();
+              }}
+              accessibilityHint="Opens the existing photo library for one image"
+            >
+              Add image
+            </Button>
+          </View>
           <Text nativeID="event-chat-composer-label" className="mb-xs font-inter-semibold text-label-md">
             Message
           </Text>
