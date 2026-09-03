@@ -52,6 +52,21 @@ export interface UpdateProfileRequest {
   interests?: string[];
 }
 
+export type DeleteAccountStatus = 'DELETED' | 'ALREADY_DELETED';
+
+export type FirebaseIdentityDeletion = 'QUEUED' | 'NOT_LINKED';
+
+export interface DeleteAccountResponse {
+  status: DeleteAccountStatus;
+  deletedAt: string;
+  firebaseIdentityDeletion: FirebaseIdentityDeletion;
+}
+
+export interface DeleteAccountInput {
+  confirmationPhrase: string;
+  idempotencyKey: string;
+}
+
 export interface GoogleAuthRequestDto {
   idToken: string;
 }

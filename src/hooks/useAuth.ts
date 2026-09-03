@@ -1,9 +1,11 @@
-import type { UseMutationResult } from '@tanstack/react-query';
+import { type UseMutationResult, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { Routes } from '@/constants/routes';
 import { useAuthStore } from '@/store/auth.store';
 import type {
+  DeleteAccountInput,
+  DeleteAccountResponse,
   GoogleAuthRequestDto,
   GoogleAuthResponse,
   LoginDto,
@@ -15,6 +17,7 @@ import type {
 } from '@/types/auth.types';
 import type { User } from '@/types/user.types';
 import {
+  useDeleteAccountMutation,
   useGoogleLoginMutation,
   useLoginMutation,
   useLogoutMutation,
@@ -37,6 +40,7 @@ export interface UseAuthResult {
   verifyEmail: (dto: VerifyEmailRequest) => Promise<void>;
   resendVerification: () => Promise<void>;
   updateProfile: (dto: UpdateProfileRequest | FormData) => Promise<void>;
+  deleteAccount: (confirmationPhrase: string) => Promise<void>;
   isAuthenticated: boolean;
   isVerified: boolean;
   loginMutation: UseMutationResult<TokenResponse, Error, LoginDto>;
@@ -46,21 +50,27 @@ export interface UseAuthResult {
   verifyEmailMutation: UseMutationResult<User, Error, VerifyEmailRequest>;
   resendVerificationMutation: UseMutationResult<{ message: string }, Error, void>;
   updateProfileMutation: UseMutationResult<User, Error, UpdateProfileRequest | FormData>;
+  deleteAccountMutation: UseMutationResult<DeleteAccountResponse, Error, DeleteAccountInput>;
 }
 
 export function useAuth(): UseAuthResult {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
   const { isLoading: userLoading, error: userError } = useAuthQuery();
 
   const loginMutation = useLoginMutation();
   const registerMutation = useRegisterMutation();
   const googleLoginMutation = useGoogleLoginMutation();
   const logoutMutation = useLogoutMutation();
+  const deleteAccountMutation = useDeleteAccountMutation();
   const verifyEmailMutation = useVerifyEmailMutation();
   const resendVerificationMutation = useResendVerificationMutation();
   const updateProfileMutation = useUpdateProfileMutation();
+  const deletionIdempotencyKey = useRef<string | null>(null);
+  const deletionInFlight = useRef<Promise<void> | null>(null);
 
   const login = useCallback(
     async (dto: LoginDto) => {
@@ -110,10 +120,49 @@ export function useAuth(): UseAuthResult {
     [updateProfileMutation],
   );
 
+  const deleteAccount = useCallback(
+    async (confirmationPhrase: string): Promise<void> => {
+      if (deletionInFlight.current !== null) {
+        await deletionInFlight.current;
+        return;
+      }
+
+      const idempotencyKey: string = deletionIdempotencyKey.current ?? createDeletionIdempotencyKey();
+      deletionIdempotencyKey.current = idempotencyKey;
+
+      const request: Promise<void> = (async (): Promise<void> => {
+        const result: DeleteAccountResponse = await deleteAccountMutation.mutateAsync({
+          confirmationPhrase,
+          idempotencyKey,
+        });
+
+        if (result.status !== 'DELETED' && result.status !== 'ALREADY_DELETED') return;
+
+        queryClient.clear();
+        await clearAuth();
+        router.replace(Routes.auth.login);
+        deletionIdempotencyKey.current = null;
+      })();
+
+      deletionInFlight.current = request;
+      try {
+        await request;
+      } finally {
+        if (deletionInFlight.current === request) deletionInFlight.current = null;
+      }
+    },
+    [clearAuth, deleteAccountMutation, queryClient, router],
+  );
+
   return {
     user,
     token,
-    isLoading: userLoading || loginMutation.isPending || registerMutation.isPending || googleLoginMutation.isPending,
+    isLoading:
+      userLoading ||
+      loginMutation.isPending ||
+      registerMutation.isPending ||
+      googleLoginMutation.isPending ||
+      deleteAccountMutation.isPending,
     error: userError,
     login,
     register,
@@ -122,6 +171,7 @@ export function useAuth(): UseAuthResult {
     verifyEmail: verifyEmailAction,
     resendVerification,
     updateProfile: updateProfileAction,
+    deleteAccount,
     isAuthenticated: !!token,
     isVerified: user?.isVerified ?? false,
     loginMutation,
@@ -131,5 +181,15 @@ export function useAuth(): UseAuthResult {
     verifyEmailMutation,
     resendVerificationMutation,
     updateProfileMutation,
+    deleteAccountMutation,
   };
+}
+
+/**
+ * Creates a bounded idempotency key for one account-deletion attempt.
+ *
+ * @returns A unique key that can be safely reused for an explicit retry.
+ */
+function createDeletionIdempotencyKey(): string {
+  return `account-deletion-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
 }

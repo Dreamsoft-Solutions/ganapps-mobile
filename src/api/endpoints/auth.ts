@@ -1,4 +1,5 @@
 import type {
+  DeleteAccountResponse,
   GoogleAuthRequestDto,
   GoogleAuthResponse,
   LoginDto,
@@ -23,6 +24,21 @@ export const authAPI = {
     axiosInstance.post<void>('/auth/logout', { refreshToken }).then((res) => res.data),
 
   getMe: (): Promise<User> => axiosInstance.get<User>('/auth/me').then((res) => res.data),
+
+  /**
+   * Permanently deactivates the authenticated account.
+   *
+   * @param confirmationPhrase - The exact phrase confirmed by the User.
+   * @param idempotencyKey - Stable key reused when an ambiguous request is retried.
+   * @returns The server's terminal deletion disposition.
+   */
+  deleteAccount: (confirmationPhrase: string, idempotencyKey: string): Promise<DeleteAccountResponse> =>
+    axiosInstance
+      .delete<DeleteAccountResponse>('/auth/me', {
+        data: { confirmationPhrase },
+        headers: { 'Idempotency-Key': idempotencyKey },
+      })
+      .then((res) => res.data),
 
   refreshToken: (dto: RefreshRequest): Promise<TokenResponse> =>
     axiosInstance.post<TokenResponse>('/auth/refresh', dto).then((res) => res.data),

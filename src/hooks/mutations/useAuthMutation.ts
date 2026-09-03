@@ -3,6 +3,8 @@ import { authAPI } from '@/api/endpoints/auth';
 import { revokeRegisteredAndroidPushToken } from '@/services/push-notification.service';
 import { useAuthStore } from '@/store/auth.store';
 import type {
+  DeleteAccountInput,
+  DeleteAccountResponse,
   GoogleAuthRequestDto,
   GoogleAuthResponse,
   LoginDto,
@@ -76,6 +78,20 @@ export function useLogoutMutation(): UseMutationResult<void, Error, void> {
       clearAuth();
       queryClient.clear();
     },
+  });
+}
+
+/**
+ * Creates the account-deletion mutation. Cache and auth cleanup stay with the
+ * aggregated auth action so the terminal response can be handled atomically.
+ *
+ * @returns A typed TanStack mutation for the online deletion request.
+ */
+export function useDeleteAccountMutation(): UseMutationResult<DeleteAccountResponse, Error, DeleteAccountInput> {
+  return useMutation<DeleteAccountResponse, Error, DeleteAccountInput>({
+    mutationFn: (input: DeleteAccountInput): Promise<DeleteAccountResponse> =>
+      authAPI.deleteAccount(input.confirmationPhrase, input.idempotencyKey),
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }
 

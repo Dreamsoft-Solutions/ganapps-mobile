@@ -1,9 +1,11 @@
 import type { ReactElement } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { Text } from '@/components/common/Text';
 import { VerifyEmailForm } from '@/components/forms/VerifyEmailForm';
+import { DeleteAccountFlow } from '@/components/profile/DeleteAccountFlow';
 import { useAuth } from '@/hooks/useAuth';
 
 /**
@@ -12,7 +14,13 @@ import { useAuth } from '@/hooks/useAuth';
  * @returns The verify email screen.
  */
 export default function VerifyEmailScreen(): ReactElement {
-  const { resendVerification, resendVerificationMutation } = useAuth();
+  const { deleteAccount, deleteAccountMutation, resendVerification, resendVerificationMutation } = useAuth();
+  const [isDeleteFlowVisible, setIsDeleteFlowVisible] = useState<boolean>(false);
+
+  const openDeleteFlow = (): void => {
+    deleteAccountMutation.reset();
+    setIsDeleteFlowVisible(true);
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -35,7 +43,24 @@ export default function VerifyEmailScreen(): ReactElement {
             Resend Code
           </Button>
         </View>
+
+        <View className="mt-8 items-center">
+          <Button
+            accessibilityHint="Opens an irreversible account deletion confirmation"
+            onPress={openDeleteFlow}
+            variant="destructive"
+          >
+            Delete account
+          </Button>
+        </View>
       </View>
+      <DeleteAccountFlow
+        visible={isDeleteFlowVisible}
+        isDeleting={deleteAccountMutation.isPending}
+        error={deleteAccountMutation.error}
+        onClose={(): void => setIsDeleteFlowVisible(false)}
+        onDelete={deleteAccount}
+      />
     </SafeAreaView>
   );
 }
