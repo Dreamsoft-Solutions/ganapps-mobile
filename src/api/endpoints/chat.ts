@@ -1,0 +1,112 @@
+import type {
+  ChatMessage,
+  ChatMessagesPage,
+  ChatReadResult,
+  ChatSocketTicket,
+  EventChatSession,
+  EventChatSummaryPage,
+  MarkChatReadInput,
+  SendChatMessageInput,
+} from '@/types/chat.types';
+import axiosInstance from '../axios-instance';
+
+/** Query parameters accepted by the Event Chat summary endpoint. */
+export interface EventChatListParams {
+  type?: 'EVENT';
+  cursor?: string;
+  limit?: number;
+}
+
+/** Query parameters accepted by the Event Chat history endpoint. */
+export interface ChatMessagesParams {
+  cursor?: string;
+  limit?: number;
+}
+
+/** Typed Event Chat HTTP endpoints. Paths intentionally omit `/api/v1`. */
+export const chatAPI = {
+  /**
+   * Requests a short-lived ticket for the process-wide Socket.IO client.
+   *
+   * @returns Ticket and its server-defined lifetime
+   */
+  getSocketTicket: (): Promise<ChatSocketTicket> =>
+    axiosInstance.post<ChatSocketTicket>('/chat/socket-ticket').then((res) => res.data),
+
+  /** Alias for callers that use the server operation's verb. */
+  issueSocketTicket: (): Promise<ChatSocketTicket> => chatAPI.getSocketTicket(),
+
+  /**
+   * Lists readable Event Chat summaries in server order.
+   *
+   * @param params - Event type, opaque cursor, and page size
+   * @returns Cursor page of server-owned summaries
+   */
+  listConversations: (params: EventChatListParams = { type: 'EVENT' }): Promise<EventChatSummaryPage> =>
+    axiosInstance
+      .get<EventChatSummaryPage>('/chat/conversations', {
+        params: { type: 'EVENT', ...params },
+      })
+      .then((res) => res.data),
+
+  /** Alias for the Event-only summary list. */
+  getConversations: (params: EventChatListParams = { type: 'EVENT' }): Promise<EventChatSummaryPage> =>
+    chatAPI.listConversations(params),
+
+  /**
+   * Resolves one Ganap's Event Chat session and current capabilities.
+   *
+   * @param ganapId - Ganap whose Event Chat is requested
+   * @returns Server-authoritative session and capability flags
+   */
+  resolveSession: (ganapId: string): Promise<EventChatSession> =>
+    axiosInstance.post<EventChatSession>(`/ganaps/${ganapId}/chat`).then((res) => res.data),
+
+  /** Alias for resolving the server-authoritative Event Chat session. */
+  getSession: (ganapId: string): Promise<EventChatSession> => chatAPI.resolveSession(ganapId),
+
+  /**
+   * Reads one cursor page of newest-first Event Chat history.
+   *
+   * @param ganapId - Ganap whose messages are requested
+   * @param params - Opaque cursor and page size
+   * @returns Cursor page preserving the server's newest-first order
+   */
+  listMessages: (ganapId: string, params: ChatMessagesParams = {}): Promise<ChatMessagesPage> =>
+    axiosInstance
+      .get<ChatMessagesPage>(`/ganaps/${ganapId}/chat/messages`, {
+        params: { cursor: params.cursor, limit: params.limit },
+      })
+      .then((res) => res.data),
+
+  /** Alias for reading Event Chat history. */
+  getMessages: (ganapId: string, params: ChatMessagesParams = {}): Promise<ChatMessagesPage> =>
+    chatAPI.listMessages(ganapId, params),
+
+  /**
+   * Sends one text message through the Ganap-scoped REST endpoint.
+   *
+   * @param ganapId - Ganap whose Event Chat receives the message
+   * @param input - Stable client id and message content
+   * @returns Canonical persisted message
+   */
+  sendMessage: (ganapId: string, input: SendChatMessageInput): Promise<ChatMessage> =>
+    axiosInstance.post<ChatMessage>(`/ganaps/${ganapId}/chat/messages`, input).then((res) => res.data),
+
+  /**
+   * Advances the current User's read cursor through one loaded message.
+   *
+   * @param ganapId - Ganap whose Event Chat is marked read
+   * @param input - Greatest loaded message to mark read through
+   * @returns Server read receipt summary
+   */
+  markRead: (ganapId: string, input: MarkChatReadInput): Promise<ChatReadResult> =>
+    axiosInstance.post<ChatReadResult>(`/ganaps/${ganapId}/chat/read`, input).then((res) => res.data),
+
+  /** Alias for marking the current User's Event Chat cursor read. */
+  markMessagesRead: (ganapId: string, input: MarkChatReadInput): Promise<ChatReadResult> =>
+    chatAPI.markRead(ganapId, input),
+};
+
+/** Backwards-readable alias for callers that name the ticket operation explicitly. */
+export const issueSocketTicket: typeof chatAPI.getSocketTicket = chatAPI.getSocketTicket;

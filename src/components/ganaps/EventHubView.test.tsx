@@ -210,6 +210,17 @@ describe('EventHubView header', (): void => {
 
     expect(chat.props.accessibilityState.disabled).toBe(true);
   });
+
+  it('opens Event Chat when the eligible route supplies the navigation callback', async (): Promise<void> => {
+    const onOpenChat = jest.fn<() => void>();
+    const screen = await render(<EventHubView {...buildProps({ onOpenChat })} />);
+    const chat = screen.getByRole('button', { name: 'Event chat' });
+
+    expect(chat.props.accessibilityState.disabled).toBe(false);
+    await fireEvent.press(chat);
+
+    expect(onOpenChat).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('EventHubView event summary', (): void => {

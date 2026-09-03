@@ -23,6 +23,8 @@ interface EventHubUnavailableProps {
 interface EligibleEventHubProps {
   ganap: GanapDetail;
   onBack: () => void;
+  /** Navigates to the Event Chat thread for this Ganap. */
+  onOpenChat: () => void;
   /** Refetches the Event Details query shared with the Hub refresh gesture. */
   onRefreshDetail: () => Promise<void>;
   /** Navigates to the attendance scanner; forwarded from the outer screen. */
@@ -66,6 +68,7 @@ function EventHubUnavailable({ onBack }: EventHubUnavailableProps): ReactElement
 function EligibleEventHub({
   ganap,
   onBack,
+  onOpenChat,
   onRefreshDetail,
   onScanAttendance,
   onGiveFeedback,
@@ -111,6 +114,7 @@ function EligibleEventHub({
       scanState={scanState}
       onBack={onBack}
       onShare={handleShare}
+      onOpenChat={onOpenChat}
       onRefresh={handleRefresh}
       onRetryAnnouncements={(): void => {
         void announcements.refetch();
@@ -159,6 +163,12 @@ export default function EventHubScreen(): ReactElement {
     router.push(Routes.ganapFeedback(ganapId));
   }
 
+  function handleOpenChat(): void {
+    // Event Hub is mounted only after the local REGISTERED/ATTENDED guard;
+    // the thread still resolves server-authoritative capability on open.
+    router.push(Routes.eventChat(ganapId));
+  }
+
   if (detail.isLoading) return <Loading />;
   if (detail.error) return <ErrorView error={detail.error} onRetry={(): void => void detail.refetch()} />;
   if (!detail.data) return <ErrorView error={new Error('Event not found')} />;
@@ -170,6 +180,7 @@ export default function EventHubScreen(): ReactElement {
     <EligibleEventHub
       ganap={detail.data}
       onBack={handleBack}
+      onOpenChat={handleOpenChat}
       onRefreshDetail={async (): Promise<void> => {
         await detail.refetch();
       }}
