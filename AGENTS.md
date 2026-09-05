@@ -8,13 +8,19 @@ disagrees with `../ganapps-server/`, **the server wins**: it owns the API contra
 
 ## Overview
 
-**Ganapps Mobile** is the React Native app for Ganapps, a campus event discovery product for
-Central Philippine University. Students browse events on a map or feed, register, join the
-event chat, check in by QR, and leave feedback.
+**Ganapps Mobile** is the React Native app for Ganapps, an event discovery product for
+**Iloilo City**. Users browse events on a map or feed, register, join the event chat, check
+in by QR, and leave feedback.
+
+Scope went city-wide on 2026-09-05. Ganapps began as a campus app for Central Philippine
+University, and CPU organizers remain the beachhead, but CPU is the first market rather than
+the boundary — **never hardcode CPU as the only campus, or a campus as the only kind of
+venue**. Because events are spread across a city rather than one campus, distance and
+proximity are core to discovery, not decorative.
 
 Domain vocabulary lives in `CONTEXT.md` at the repo root — read it before naming anything.
 The two terms that matter most: a **Ganap** is an event (never `Event`, which collides with
-DOM and React Native types), and a **Business** is a campus organization.
+DOM and React Native types), and a **Business** is an organizing body.
 
 **Tech stack:** Expo SDK 57 · Expo Router (file-based) · React Native 0.86 · TypeScript 6 ·
 NativeWind v4 (Tailwind) · TanStack Query v5 · Zustand v5 · react-hook-form · Zod v4 · Axios ·
