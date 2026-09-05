@@ -72,6 +72,7 @@ jest.mock('lucide-react-native', () => {
     LucideProvider: ({ children }: { children?: ReactNode }): ReactElement =>
       React.createElement(React.Fragment, null, children),
     X: (): null => null,
+    LocateFixed: (): null => null,
   };
 });
 
@@ -97,7 +98,17 @@ jest.mock('@/components/map/GanapMapPin', () => ({
   },
 }));
 jest.mock('@/components/map/MapSearchBar', () => ({ MapSearchBar: (): null => null }));
-jest.mock('@/components/map/TagChips', () => ({ TagChips: (): null => null }));
+jest.mock('@/components/map/TagChips', () => ({
+  TagChips: ({ onToggleNearby }: { onToggleNearby: () => void }): ReactElement => {
+    const React = require('react') as typeof import('react');
+    const ReactNative = require('react-native') as typeof import('react-native');
+    return React.createElement(ReactNative.Pressable, {
+      accessibilityRole: 'switch',
+      accessibilityLabel: 'Show events near me',
+      onPress: onToggleNearby,
+    });
+  },
+}));
 jest.mock('@/components/map/SelectedGanapCard', () => ({
   SelectedGanapCard: ({ ganap, onPress }: { ganap: GanapListItem; onPress: () => void }): ReactElement => {
     const React = require('react') as typeof import('react');
@@ -140,7 +151,7 @@ function ganap(id: string, longitude: number, latitude: number): GanapListItem {
   };
 }
 
-function mapHookResult(items: GanapListItem[]): UseGanapsMapResult {
+function mapHookResult(items: GanapListItem[], overrides: Partial<UseGanapsMapResult> = {}): UseGanapsMapResult {
   return {
     items,
     tags: [],
@@ -163,6 +174,7 @@ function mapHookResult(items: GanapListItem[]): UseGanapsMapResult {
     dismissAccuracyNotice: jest.fn(),
     openLocationSettings: jest.fn<() => Promise<void>>(),
     locationErrorMessage: null,
+    ...overrides,
   };
 }
 
@@ -285,5 +297,15 @@ describe('home map clustering integration', (): void => {
     await screen.rerender(<HomeScreen />);
 
     expect(screen.queryByTestId('cluster-events-sheet')).toBeNull();
+  });
+
+  it('toggles Nearby from the filter row', async (): Promise<void> => {
+    const toggleNearby = jest.fn();
+    mockUseGanapsMap.mockReturnValue(mapHookResult([], { toggleNearby }));
+
+    const { getByLabelText } = await render(<HomeScreen />);
+    fireEvent.press(getByLabelText('Show events near me'));
+
+    expect(toggleNearby).toHaveBeenCalledTimes(1);
   });
 });

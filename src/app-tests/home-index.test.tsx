@@ -72,6 +72,7 @@ jest.mock('lucide-react-native', () => {
     LucideProvider: ({ children }: { children?: ReactNode }): ReactElement =>
       React.createElement(React.Fragment, null, children),
     X: (): null => null,
+    LocateFixed: (): null => null,
   };
 });
 
