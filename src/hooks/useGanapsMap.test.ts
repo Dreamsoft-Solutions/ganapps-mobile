@@ -6,8 +6,10 @@ import { createElement } from 'react';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { CursorPage } from '@/api/types/api-response';
 import type { GanapListItem, GanapListParams } from '@/types/ganap.types';
+import { ganapQueryKeys } from './queries/useGanapsQuery';
 import { useGanaps } from './useGanaps';
 import { useGanapsMap } from './useGanapsMap';
+import type { UseNearbyLocationResult } from './useNearbyLocation';
 
 jest.mock('expo-sqlite', () => ({
   openDatabaseSync: (): Record<string, unknown> => ({}),
@@ -24,6 +26,31 @@ jest.mock('@/api/endpoints/ganaps', () => ({
 }));
 
 const mockedList = jest.mocked(ganapsAPI.list);
+
+const mockUseNearbyLocation = jest.fn<() => UseNearbyLocationResult>();
+
+jest.mock('./useNearbyLocation', () => ({
+  useNearbyLocation: (): UseNearbyLocationResult => mockUseNearbyLocation(),
+}));
+
+const ILOILO = { latitude: 10.72, longitude: 122.56 };
+
+function nearbyState(overrides: Partial<UseNearbyLocationResult>): UseNearbyLocationResult {
+  return {
+    isActive: false,
+    isDisabled: false,
+    coords: null,
+    isPrimingVisible: false,
+    isAccuracyNoticeVisible: false,
+    errorMessage: null,
+    toggle: jest.fn(),
+    confirmPriming: jest.fn<() => Promise<void>>(),
+    dismissPriming: jest.fn(),
+    dismissAccuracyNotice: jest.fn(),
+    openSettings: jest.fn<() => Promise<void>>(),
+    ...overrides,
+  };
+}
 
 /** Builds a Ganap list item carrying only the fields the hook reads. */
 function ganapWithTags(id: string, tags: string[]): GanapListItem {
@@ -95,6 +122,7 @@ function respondByFilter(): void {
 describe('useGanapsMap', () => {
   beforeEach((): void => {
     mockedList.mockReset();
+    mockUseNearbyLocation.mockReturnValue(nearbyState({}));
   });
 
   // The hook sets gcTime to 10 minutes, so without this the cache keeps a timer
@@ -179,5 +207,66 @@ describe('useGanapsMap', () => {
 
     await map.unmount();
     await events.unmount();
+  });
+});
+
+describe('useGanapsMap geo parameters', (): void => {
+  beforeEach((): void => {
+    mockedList.mockReset();
+  });
+
+  afterEach((): void => {
+    testClient?.clear();
+    testClient = null;
+  });
+
+  it('sends no geo parameters while Nearby is off', async (): Promise<void> => {
+    respondByFilter();
+    mockUseNearbyLocation.mockReturnValue(nearbyState({ isActive: false, coords: ILOILO }));
+
+    const { unmount } = await renderHook(() => useGanapsMap(), { wrapper: createWrapper() });
+
+    await waitFor((): void => {
+      expect(mockedList).toHaveBeenCalled();
+    });
+    const params = mockedList.mock.calls[0]?.[0] ?? {};
+    expect(params.lat).toBeUndefined();
+    expect(params.long).toBeUndefined();
+    expect(params.radius).toBeUndefined();
+    await unmount();
+  });
+
+  it('sends all three geo parameters together while Nearby is on', async (): Promise<void> => {
+    respondByFilter();
+    mockUseNearbyLocation.mockReturnValue(nearbyState({ isActive: true, coords: ILOILO }));
+
+    const { unmount } = await renderHook(() => useGanapsMap(), { wrapper: createWrapper() });
+
+    await waitFor((): void => {
+      expect(mockedList).toHaveBeenCalledWith(expect.objectContaining({ lat: 10.72, long: 122.56, radius: 5 }));
+    });
+    await unmount();
+  });
+
+  it('sends no geo parameters when Nearby is on but coords are missing', async (): Promise<void> => {
+    respondByFilter();
+    mockUseNearbyLocation.mockReturnValue(nearbyState({ isActive: true, coords: null }));
+
+    const { unmount } = await renderHook(() => useGanapsMap(), { wrapper: createWrapper() });
+
+    await waitFor((): void => {
+      expect(mockedList).toHaveBeenCalled();
+    });
+    const params = mockedList.mock.calls[0]?.[0] ?? {};
+    expect(params.lat).toBeUndefined();
+    expect(params.radius).toBeUndefined();
+    await unmount();
+  });
+
+  it('varies the query key by geo so a toggle refetches', (): void => {
+    const off = ganapQueryKeys.list({ search: undefined, tag: undefined });
+    const on = ganapQueryKeys.list({ search: undefined, tag: undefined, lat: 10.72, long: 122.56, radius: 5 });
+
+    expect(off).not.toEqual(on);
   });
 });

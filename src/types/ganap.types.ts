@@ -252,6 +252,9 @@ export interface GanapListParams {
   limit?: number;
   search?: string;
   tag?: string;
+  lat?: number; // rounded to 2 decimal places
+  long?: number; // rounded to 2 decimal places
+  radius?: number; // km; sent only alongside lat and long
 }
 
 /**

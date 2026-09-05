@@ -3,12 +3,19 @@ import { ganapsAPI } from '@/api/endpoints/ganaps';
 import { useAuthStore } from '@/store/auth.store';
 import type { FormBlock, FormBlockScope, GanapDetail } from '@/types/ganap.types';
 
+export interface GanapListFilters {
+  search?: string;
+  tag?: string;
+  lat?: number;
+  long?: number;
+  radius?: number;
+}
+
 export const ganapQueryKeys = {
   all: ['ganaps'] as const,
   lists: () => [...ganapQueryKeys.all, 'list'] as const,
-  list: (filters?: { search?: string; tag?: string }) => [...ganapQueryKeys.lists(), filters ?? {}] as const,
-  infiniteList: (filters?: { search?: string; tag?: string }) =>
-    [...ganapQueryKeys.lists(), 'infinite', filters ?? {}] as const,
+  list: (filters?: GanapListFilters) => [...ganapQueryKeys.lists(), filters ?? {}] as const,
+  infiniteList: (filters?: GanapListFilters) => [...ganapQueryKeys.lists(), 'infinite', filters ?? {}] as const,
   detail: (ganapId: string) => [...ganapQueryKeys.all, 'detail', ganapId] as const,
   formBlocks: (ganapId: string, scope: FormBlockScope) =>
     [...ganapQueryKeys.detail(ganapId), 'form-blocks', scope] as const,

@@ -152,6 +152,17 @@ function mapHookResult(items: GanapListItem[]): UseGanapsMapResult {
     isError: false,
     error: null,
     refetch: jest.fn<UseGanapsMapResult['refetch']>(),
+    isNearbyActive: false,
+    isNearbyDisabled: false,
+    toggleNearby: jest.fn(),
+    userCoords: null,
+    isPrimingVisible: false,
+    confirmPriming: jest.fn<() => Promise<void>>(),
+    dismissPriming: jest.fn(),
+    isAccuracyNoticeVisible: false,
+    dismissAccuracyNotice: jest.fn(),
+    openLocationSettings: jest.fn<() => Promise<void>>(),
+    locationErrorMessage: null,
   };
 }
 
