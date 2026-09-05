@@ -61,6 +61,10 @@ module.exports = {
       icon: './assets/brand/ganap-logo-1.png',
       bundleIdentifier: 'com.ganapps.app',
       googleServicesFile: googleServiceInfoPlist,
+      infoPlist: {
+        NSLocationWhenInUseUsageDescription:
+          'Ganapps uses your location to show events happening near you in Iloilo City.',
+      },
     },
     android: {
       package: 'com.ganapps.app',
@@ -87,6 +91,14 @@ module.exports = {
         },
       ],
       'expo-router',
+      [
+        'expo-location',
+        {
+          locationWhenInUsePermission: 'Ganapps uses your location to show events happening near you in Iloilo City.',
+          locationAlwaysAndWhenInUsePermission: false,
+          locationAlwaysPermission: false,
+        },
+      ],
       [
         'expo-notifications',
         {
