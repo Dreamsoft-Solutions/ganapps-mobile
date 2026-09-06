@@ -398,9 +398,13 @@ function cleanCommentText(text) {
   return text.replace(/\r$/, '');
 }
 
-function isExempt(comment, line) {
+function isExempt(comment, line, language) {
   const text = cleanCommentText(comment.text);
   const trimmed = text.trimStart();
+
+  if (language === 'typescript' && comment.kind === 'block' && text.startsWith('/**')) {
+    return true;
+  }
 
   if (line === 1 && trimmed.startsWith('#!')) {
     return true;
@@ -515,7 +519,7 @@ function checkFile(path, change) {
 
     if (
       !added ||
-      isExempt(comment, firstLine) ||
+      isExempt(comment, firstLine, language) ||
       isUnchangedReplacement({ ...comment, line: firstLine }, change, language)
     ) {
       continue;
