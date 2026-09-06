@@ -5,6 +5,9 @@
   "build": {
     "preview": {
       "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_FEATURE_FLAG_REMOTE_CONFIG_PARAMETER": "mobile_dev"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -12,7 +15,11 @@
         "simulator": true
       }
     },
-    "production": {}
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_FEATURE_FLAG_REMOTE_CONFIG_PARAMETER": "mobile_prod"
+      }
+    }
   },
   "submit": {
     "production": {}

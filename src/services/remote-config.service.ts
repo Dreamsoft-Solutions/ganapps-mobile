@@ -5,10 +5,32 @@ interface FeatureFlagStore {
 }
 
 const DEFAULT_CONFIG = require('../../config/feature-flags/default.json');
+const DEFAULT_REMOTE_CONFIG_PARAMETER = 'mobile_default';
+
+function isFeatureFlagValue(value: unknown): value is FeatureFlagStore[string] {
+  return typeof value === 'string' || typeof value === 'boolean' || typeof value === 'number';
+}
+
+function parseFeatureFlagStore(value: string): FeatureFlagStore {
+  const parsed: unknown = JSON.parse(value);
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('Remote Config feature flag parameter must be a JSON object');
+  }
+
+  const flags: FeatureFlagStore = {};
+  for (const [key, rawValue] of Object.entries(parsed)) {
+    if (!isFeatureFlagValue(rawValue)) {
+      throw new Error(`Remote Config feature flag "${key}" must be a string, boolean, or number`);
+    }
+    flags[key] = rawValue;
+  }
+  return flags;
+}
 
 class RemoteConfigService {
   private defaults: FeatureFlagStore = {};
-  private initialized = false;
+  private remoteValues: FeatureFlagStore = {};
+  private initializationPromise: Promise<void> | null = null;
 
   constructor() {
     this.loadDefaults();
@@ -28,6 +50,12 @@ class RemoteConfigService {
   }
 
   async initialize(): Promise<void> {
+    if (this.initializationPromise) return this.initializationPromise;
+    this.initializationPromise = this.fetchRemoteValues();
+    return this.initializationPromise;
+  }
+
+  private async fetchRemoteValues(): Promise<void> {
     try {
       remoteConfig().setConfigSettings({
         minimumFetchIntervalMillis: __DEV__ ? 0 : 300_000,
@@ -37,15 +65,21 @@ class RemoteConfigService {
       remoteConfig().setDefaults(this.defaults);
 
       await remoteConfig().fetchAndActivate();
-
-      this.initialized = true;
+      const parameterName =
+        process.env.EXPO_PUBLIC_FEATURE_FLAG_REMOTE_CONFIG_PARAMETER?.trim() || DEFAULT_REMOTE_CONFIG_PARAMETER;
+      const defaultFlags = parseFeatureFlagStore(remoteConfig().getValue(DEFAULT_REMOTE_CONFIG_PARAMETER).asString());
+      const environmentFlags =
+        parameterName === DEFAULT_REMOTE_CONFIG_PARAMETER
+          ? {}
+          : parseFeatureFlagStore(remoteConfig().getValue(parameterName).asString());
+      this.remoteValues = { ...defaultFlags, ...environmentFlags };
     } catch (_error) {
       console.warn('Firebase Remote Config fetch failed, using defaults and env overrides');
-      this.initialized = true;
     }
   }
 
   private getEnvOverride(key: string): string | undefined {
+    if (process.env.EXPO_PUBLIC_FEATURE_FLAG_ENV_OVERRIDE === 'false') return undefined;
     const envKey = `EXPO_PUBLIC_FEATURE_FLAG_${key.toUpperCase().replace(/-/g, '_')}`;
     return process.env[envKey];
   }
@@ -56,32 +90,32 @@ class RemoteConfigService {
       return envOverride === 'true';
     }
 
-    if (!this.initialized) {
-      return typeof this.defaults[key] === 'boolean' ? (this.defaults[key] as boolean) : defaultValue;
+    const remoteValue = this.remoteValues[key];
+    if (typeof remoteValue === 'boolean') {
+      return remoteValue;
     }
 
-    const value = remoteConfig().getValue(key);
-    try {
-      return value.asBoolean();
-    } catch {
-      return defaultValue;
+    const localDefault = this.defaults[key];
+    if (typeof localDefault === 'boolean') {
+      return localDefault;
     }
+    return defaultValue;
   }
 
   getString(key: string, defaultValue = ''): string {
     const envOverride = this.getEnvOverride(key);
     if (envOverride !== undefined) return envOverride;
 
-    if (!this.initialized) {
-      return typeof this.defaults[key] === 'string' ? (this.defaults[key] as string) : defaultValue;
+    const remoteValue = this.remoteValues[key];
+    if (typeof remoteValue === 'string') {
+      return remoteValue;
     }
 
-    const value = remoteConfig().getValue(key);
-    try {
-      return value.asString();
-    } catch {
-      return defaultValue;
+    const localDefault = this.defaults[key];
+    if (typeof localDefault === 'string') {
+      return localDefault;
     }
+    return defaultValue;
   }
 
   getNumber(key: string, defaultValue = 0): number {
@@ -91,20 +125,35 @@ class RemoteConfigService {
       return Number.isNaN(parsed) ? defaultValue : parsed;
     }
 
-    if (!this.initialized) {
-      return typeof this.defaults[key] === 'number' ? (this.defaults[key] as number) : defaultValue;
+    const remoteValue = this.remoteValues[key];
+    if (typeof remoteValue === 'number') {
+      return remoteValue;
     }
 
-    const value = remoteConfig().getValue(key);
-    try {
-      return value.asNumber();
-    } catch {
-      return defaultValue;
+    const localDefault = this.defaults[key];
+    if (typeof localDefault === 'number') {
+      return localDefault;
     }
+    return defaultValue;
   }
 
   getAll(): FeatureFlagStore {
-    return { ...this.defaults };
+    const result: FeatureFlagStore = { ...this.defaults, ...this.remoteValues };
+    for (const key of Object.keys(result)) {
+      const envOverride = this.getEnvOverride(key);
+      if (envOverride === undefined) continue;
+
+      const currentValue = result[key];
+      if (typeof currentValue === 'boolean') {
+        result[key] = envOverride === 'true';
+      } else if (typeof currentValue === 'number') {
+        const parsed = Number(envOverride);
+        result[key] = Number.isNaN(parsed) ? currentValue : parsed;
+      } else {
+        result[key] = envOverride;
+      }
+    }
+    return result;
   }
 }
 
