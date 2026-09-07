@@ -16,7 +16,7 @@ Domain vocabulary lives in a single glossary at root `CONTEXT.md`; architecture 
 # Working in this repo with Claude Code
 
 `AGENTS.md` above is authoritative for **code conventions** — commands, project structure,
-the three-layer hook pattern, component and form patterns, Lynx tokens, TSDoc, TypeScript
+the three-layer hook pattern, component and form patterns, semantic design tokens, TSDoc, TypeScript
 standards, error handling, state management, and architecture decisions. Follow it. This
 section covers only what it does not: how to work here, and where things go.
 
@@ -34,7 +34,7 @@ needs a server endpoint or a shared type that doesn't exist yet, stop and say so
 conversation with another developer, not a code change. Reading them for the API contract
 is fine and encouraged.
 
-Mobile and web intentionally diverge on components (CVA + `lynx-*` vs shadcn/ui + CSS
+Mobile and web intentionally diverge on components (CVA + semantic tokens vs shadcn/ui + CSS
 variables) and auth (secure-store tokens vs cookies). Don't "fix" that inconsistency.
 
 ### Reading the API contract
@@ -80,8 +80,7 @@ hardcoded colors, and must account for both light and dark themes. Read
 
 ## Session workflow
 
-- **Building something new** → brainstorm the design first, get it agreed, then plan, then
-  implement. Don't jump to code from a one-line request.
+- **Building something new** → resolve routine design choices from the brief and existing conventions, then implement and verify. Ask for agreement when an unresolved choice materially changes scope, the user flow, or the public contract.
 - **Fixing a bug** → find the root cause before proposing a fix. No speculative patches.
 - **Implementing** → write the test first where the code is testable (hooks, utils,
   validation schemas, services). Screens and layouts are exempt.
@@ -90,17 +89,7 @@ hardcoded colors, and must account for both light and dark themes. Read
 
 ## Verification before claiming done
 
-Never report work as complete, working, or fixed without running these and seeing them pass:
-
-```bash
-npm run check       # Biome lint + format
-npm run type-check  # tsc --noEmit
-npm run test        # Jest
-```
-
-Paste or summarize the actual output. If something fails, say so plainly rather than
-describing the work as done-with-caveats. `AGENTS.md` also requires a structured code
-review pass after every feature — its Code Review Process table is the checklist.
+Follow the verification scope in AGENTS.md's Code Review Process. Report the checks actually run and any failures or limits. Run the full application checks for feature changes and preserve required Git-hook and release checks; documentation-only edits require document and link checks.
 
 ## Boundaries
 

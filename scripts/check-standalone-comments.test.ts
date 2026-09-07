@@ -118,15 +118,25 @@ describe('standalone comment checker', () => {
     expect(result.stdout).toContain('db/query.sql:1: -- explain');
   });
 
-  it('blocks standalone block and documentation comments', () => {
+  it('blocks standalone block and triple-slash comments', () => {
     const result = runCheck({
       'src/example.ts': '/* block */\n/** documentation */\n/// documentation\nconst value = 1;\n',
     });
 
     expect(result.status).toBe(1);
     expect(result.stdout).toContain('src/example.ts:1: /* block */');
-    expect(result.stdout).toContain('src/example.ts:2: /** documentation */');
     expect(result.stdout).toContain('src/example.ts:3: /// documentation');
+    expect(result.stdout).not.toContain('src/example.ts:2: /** documentation */');
+  });
+
+  it('allows standalone TSDoc comments', () => {
+    const result = runCheck({
+      'src/example.ts':
+        '/**\n * Explain the exported value and its contract.\n * @returns The configured value.\n */\nconst value = 1;\n',
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe('');
   });
 
   it('allows a short postfix comment', () => {
