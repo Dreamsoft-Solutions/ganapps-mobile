@@ -50,7 +50,7 @@ const googleClientConfiguration = getGoogleClientConfiguration();
 
 module.exports = {
   expo: {
-    name: 'ganapps-mobile',
+    name: 'Ganapps',
     slug: 'dreamsoft-cpu',
     version: '1.0.0',
     orientation: 'portrait',
@@ -70,6 +70,7 @@ module.exports = {
         foregroundImage: './assets/brand/ganap-logo-1.png',
       },
       predictiveBackGestureEnabled: false,
+      usesCleartextTraffic: process.env.APP_ENV === 'local',
     },
     web: {
       output: 'static',
