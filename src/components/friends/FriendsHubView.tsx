@@ -136,7 +136,7 @@ function ChatSummaryRow({ summary, onOpen }: { summary: ChatConversationSummary;
             </Text>
           </View>
         )}
-        <MessageCircle size={16} color={Colors[theme].primary} />
+        <MessageCircle className="ml-sm" size={16} color={Colors[theme].primary} />
       </Card>
     </Pressable>
   );

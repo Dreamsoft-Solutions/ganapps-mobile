@@ -1,4 +1,4 @@
-import { ArrowLeft, MoreVertical, Send } from 'lucide-react-native';
+import { ArrowLeft, ImagePlus, MoreVertical, Send } from 'lucide-react-native';
 import { type ReactElement, useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatImageBubble, ChatImagePreview } from '@/components/chat/ChatImage';
-import { MessageReactionBar } from '@/components/chat/MessageReactionBar';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { Empty } from '@/components/common/Empty';
@@ -24,7 +23,7 @@ import { Colors, Spacing } from '@/constants/theme';
 import type { DirectFailedDraft } from '@/hooks/useDirectChat';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { ChatConnectionState } from '@/services/chat-socket.service';
-import type { ChatImageDraft as BaseChatImageDraft, ChatMessage, ReactionType } from '@/types/chat.types';
+import type { ChatImageDraft as BaseChatImageDraft, ChatMessage } from '@/types/chat.types';
 import type { DirectChatFriendSummary, DirectChatSession } from '@/types/direct-chat.types';
 import { compareChatMessages } from '@/utils/chat';
 import { isChatImageAuthorizationError } from '@/utils/chat-image';
@@ -62,10 +61,6 @@ export interface DirectChatThreadViewProps {
   onRetryImage?: () => void | Promise<void>;
   onRefreshImage?: (messageId: string) => void | Promise<void>;
   onMessageActions?: (message: ChatMessage) => void;
-  /** Sets or removes the current User's reaction on a message. */
-  onReaction?: (message: ChatMessage, reaction: ReactionType | null) => void;
-  /** Message currently being reconciled by a reaction mutation. */
-  reactionPendingMessageId?: string | null;
   accessLost: boolean;
 }
 
@@ -116,8 +111,6 @@ function MessageRow({
   imageLoadState,
   onImageLoadError,
   onRetryImageLoad,
-  onReaction,
-  reactionPendingMessageId,
 }: {
   message: ChatMessage;
   currentUserId: string | null;
@@ -127,8 +120,6 @@ function MessageRow({
   imageLoadState: ImageLoadState;
   onImageLoadError: (messageId: string, error: string) => void;
   onRetryImageLoad: (messageId: string) => void;
-  onReaction: (message: ChatMessage, reaction: ReactionType | null) => void;
-  reactionPendingMessageId: string | null;
 }): ReactElement {
   const theme = useResolvedTheme();
   const isMine: boolean = currentUserId !== null && message.senderId === currentUserId;
@@ -157,7 +148,7 @@ function MessageRow({
             delayLongPress={350}
             accessibilityRole="button"
             accessibilityLabel={messageLabel}
-            accessibilityHint="Long press to open report and block actions"
+            accessibilityHint="Long press to open message reactions and actions"
             className={`min-w-0 rounded-xl px-md py-sm ${isMine ? 'bg-primary' : 'border border-border bg-card'}`}
           >
             {!isMine && <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>}
@@ -191,17 +182,12 @@ function MessageRow({
               )}
             </View>
           </Pressable>
-          <MessageReactionBar
-            summary={message.type === 'UNSENT' ? null : message.reactionSummary}
-            isPending={reactionPendingMessageId === message.id}
-            onSelect={(reaction: ReactionType | null): void => onReaction(message, reaction)}
-          />
         </View>
         <IconButton
           accessibilityLabel={actionLabel}
-          accessibilityHint="Opens report and block actions for this message"
+          accessibilityHint="Opens message reactions and actions"
           onPress={(): void => onMessageActions(message)}
-          size="sm"
+          size="md"
         >
           <MoreVertical size={18} color={Colors[theme]['muted-foreground']} />
         </IconButton>
@@ -282,8 +268,6 @@ export function DirectChatThreadView({
   onSendImage = async (): Promise<void> => {},
   onRetryImage = async (): Promise<void> => {},
   onRefreshImage = async (): Promise<void> => {},
-  onReaction = (): void => {},
-  reactionPendingMessageId = null,
   accessLost,
 }: DirectChatThreadViewProps): ReactElement {
   const theme = useResolvedTheme();
@@ -422,8 +406,6 @@ export function DirectChatThreadView({
             imageLoadState={imageLoadStates[item.id] ?? INITIAL_IMAGE_LOAD_STATE}
             onImageLoadError={handleImageLoadError}
             onRetryImageLoad={handleRetryImageLoad}
-            onReaction={onReaction}
-            reactionPendingMessageId={reactionPendingMessageId}
           />
         )}
         ListEmptyComponent={<Empty message="No messages yet. Start the conversation." />}
@@ -476,7 +458,7 @@ export function DirectChatThreadView({
       ) : session?.canSend ? (
         <View className="border-t border-border px-md pt-sm" style={{ paddingBottom: insets.bottom + Spacing.sm }}>
           {imagePickerError && (
-            <Text accessibilityLiveRegion="polite" className="mb-sm text-body-md text-destructive">
+            <Text accessibilityRole="alert" accessibilityLiveRegion="polite" className="mb-sm text-body-md text-destructive">
               {imagePickerError.message}
             </Text>
           )}
@@ -489,23 +471,28 @@ export function DirectChatThreadView({
               onRetry={onRetryImage}
             />
           )}
-          <View className="mb-sm flex-row">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isSending || imageDraft !== null}
-              onPress={(): void => {
-                void onPickImage();
-              }}
-              accessibilityHint="Opens the existing photo library for one image"
-            >
-              Add image
-            </Button>
-          </View>
           <Text nativeID="direct-chat-composer-label" className="mb-xs font-inter-semibold text-label-md">
             Message
           </Text>
           <View className="flex-row items-end gap-sm">
+            <IconButton
+              accessibilityLabel="Add image"
+              accessibilityHint="Opens the existing photo library to select one image"
+              disabled={isSending || imageDraft !== null}
+              onPress={(): void => {
+                void onPickImage();
+              }}
+              size="md"
+              variant="default"
+            >
+              {ImagePlus ? (
+                <ImagePlus size={20} color={Colors[theme].foreground} />
+              ) : (
+                <Text accessible={false} className="text-lg text-foreground">
+                  ＋
+                </Text>
+              )}
+            </IconButton>
             <TextInput
               accessibilityLabel="Message"
               accessibilityHint="Enter a direct message"

@@ -1,6 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert } from 'react-native';
 import { DirectChatThreadView } from '@/components/chat/DirectChatThreadView';
 import { ModerationActionSheet, type ModerationActionTarget } from '@/components/moderation/ModerationActionSheet';
 import { Routes } from '@/constants/routes';
@@ -13,6 +12,7 @@ import { showToast } from '@/store/toast.store';
 import type { ChatMessage, ReactionType } from '@/types/chat.types';
 import type { DirectChatFriendSummary } from '@/types/direct-chat.types';
 import type { CreateReportInput, ModerationReportReceipt } from '@/types/moderation.types';
+import { getChatEngagementErrorMessage, isChatMessageUnsendAvailable } from '@/utils/chat-engagement';
 
 function firstParam(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
@@ -75,30 +75,7 @@ export default function DirectChatThreadScreen(): ReactElement {
   const unsendMutation = useUnsendMessageMutation();
   const [reactionPendingMessageId, setReactionPendingMessageId] = useState<string | null>(null);
   const [moderationTarget, setModerationTarget] = useState<ModerationActionTarget | null>(null);
-
-  const confirmUnsend = useCallback(
-    (message: ChatMessage): void => {
-      if (message.type === 'UNSENT' || message.senderId !== currentUserId || unsendMutation.isPending) return;
-      Alert.alert('Unsend message?', 'This message will be replaced for everyone in the conversation.', [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unsend for everyone',
-          style: 'destructive',
-          onPress: (): void => {
-            void unsendMutation
-              .mutateAsync({ conversationId: message.conversationId, messageId: message.id })
-              .then((): void => {
-                showToast('success', 'Message unsent.');
-              })
-              .catch((): void => {
-                showToast('error', 'This message could not be unsent.');
-              });
-          },
-        },
-      ]);
-    },
-    [currentUserId, unsendMutation],
-  );
+  const [moderationMessage, setModerationMessage] = useState<ChatMessage | null>(null);
 
   useFocusEffect(
     useCallback((): (() => void) => {
@@ -109,43 +86,68 @@ export default function DirectChatThreadScreen(): ReactElement {
 
   const openMessageActions = useCallback(
     (message: ChatMessage): void => {
-      if (message.senderId === currentUserId) {
-        confirmUnsend(message);
-        return;
-      }
+      setModerationMessage(message);
       setModerationTarget({
         type: 'MESSAGE',
         id: message.id,
         senderId: message.senderId,
         senderLabel: message.senderUsername,
         canBlock: currentUserId !== null && message.senderId !== currentUserId,
+        canUnsend: isChatMessageUnsendAvailable(message, currentUserId, chat.session?.canSend === true),
+        reactionSummary: message.type === 'UNSENT' ? null : message.reactionSummary,
+        canReact: chat.session?.canSend === true,
       });
     },
-    [confirmUnsend, currentUserId],
+    [chat.session?.canSend, currentUserId],
   );
 
   const onReaction = useCallback(
     async (message: ChatMessage, reaction: ReactionType | null): Promise<void> => {
-      if (message.type === 'UNSENT' || reactionMutation.isPending) return;
+      if (message.type === 'UNSENT' || chat.session?.canSend !== true || reactionMutation.isPending) return;
       setReactionPendingMessageId(message.id);
       try {
-        await reactionMutation.mutateAsync({
+        const summary = await reactionMutation.mutateAsync({
           conversationId: message.conversationId,
           messageId: message.id,
           reaction,
         });
-      } catch {
-        showToast('error', 'Reaction could not be saved.');
+        setModerationMessage((selected: ChatMessage | null): ChatMessage | null =>
+          selected?.id === message.id ? { ...selected, reactionSummary: summary } : selected,
+        );
+        setModerationTarget((selected: ModerationActionTarget | null): ModerationActionTarget | null =>
+          selected?.type === 'MESSAGE' && selected.id === message.id
+            ? { ...selected, reactionSummary: summary }
+            : selected,
+        );
+      } catch (error: unknown) {
+        showToast('error', getChatEngagementErrorMessage(error, 'Reaction could not be saved.'));
       } finally {
         setReactionPendingMessageId(null);
       }
     },
-    [reactionMutation],
+    [chat.session?.canSend, reactionMutation],
   );
 
   const closeModeration = useCallback((): void => {
     setModerationTarget(null);
+    setModerationMessage(null);
   }, []);
+
+  const unsendFromActions = useCallback(async (): Promise<void> => {
+    const message: ChatMessage | null = moderationMessage;
+    if (
+      !message ||
+      !isChatMessageUnsendAvailable(message, currentUserId, chat.session?.canSend === true) ||
+      unsendMutation.isPending
+    ) {
+      throw new Error('This message can no longer be unsent.');
+    }
+    try {
+      await unsendMutation.mutateAsync({ conversationId: message.conversationId, messageId: message.id });
+    } catch (error: unknown) {
+      throw new Error(getChatEngagementErrorMessage(error, 'This message could not be unsent.'));
+    }
+  }, [chat.session?.canSend, currentUserId, moderationMessage, unsendMutation]);
 
   const submitReport = useCallback(
     (input: CreateReportInput): Promise<ModerationReportReceipt> => reportMutation.mutateAsync(input),
@@ -204,8 +206,6 @@ export default function DirectChatThreadScreen(): ReactElement {
         onRetryImage={chat.retryImage}
         onRefreshImage={chat.refreshImage}
         onMessageActions={openMessageActions}
-        onReaction={onReaction}
-        reactionPendingMessageId={reactionPendingMessageId}
         accessLost={chat.accessLost}
       />
       <ModerationActionSheet
@@ -214,6 +214,13 @@ export default function DirectChatThreadScreen(): ReactElement {
         onClose={closeModeration}
         onReport={submitReport}
         onBlock={blockUser}
+        onUnsend={unsendFromActions}
+        onReaction={(reaction: ReactionType | null): Promise<void> => {
+          const message: ChatMessage | null = moderationMessage;
+          if (!message) return Promise.resolve();
+          return onReaction(message, reaction);
+        }}
+        reactionPending={reactionPendingMessageId === moderationMessage?.id}
       />
     </>
   );

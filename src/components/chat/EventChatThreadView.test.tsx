@@ -8,6 +8,7 @@ import { EventChatThreadView } from './EventChatThreadView';
 
 jest.mock('lucide-react-native', () => ({
   ArrowLeft: (): null => null,
+  ImagePlus: (): null => null,
   MoreVertical: (): null => null,
   Send: (): null => null,
 }));
@@ -174,6 +175,22 @@ describe('EventChatThreadView', (): void => {
     screen.unmount();
   });
 
+  it('keeps the one-image picker as an accessible icon in the composer row', async (): Promise<void> => {
+    const onPickImage = jest.fn<() => void>();
+    const screen = await render(
+      <EventChatThreadView
+        {...props({
+          session: { ...readOnlySession, capability: 'READ_WRITE', canSend: true, ganapStatus: 'ONGOING' },
+          onPickImage,
+        })}
+      />,
+    );
+
+    await fireEvent.press(screen.getByLabelText('Add image'));
+    expect(onPickImage).toHaveBeenCalledTimes(1);
+    screen.unmount();
+  });
+
   it('renders canonical Photo dimensions and keeps moderation actions reachable', async (): Promise<void> => {
     const screen = await render(
       <EventChatThreadView
@@ -186,6 +203,7 @@ describe('EventChatThreadView', (): void => {
 
     expect(screen.getByLabelText('Photo sent by Miguel Santos, 1600 by 1200 pixels')).toBeTruthy();
     expect(screen.getByLabelText('Message actions for Miguel Santos')).toBeTruthy();
+    expect(screen.queryByLabelText('React with heart')).toBeNull();
     screen.unmount();
   });
 });

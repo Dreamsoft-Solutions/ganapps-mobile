@@ -1,4 +1,11 @@
-import { type InfiniteData, type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  QueryClient,
+  QueryClientContext,
+  type InfiniteData,
+  type UseMutationResult,
+  useMutation,
+} from '@tanstack/react-query';
+import { useContext } from 'react';
 import {
   type AnnouncementReactionResponse,
   chatEngagementAPI,
@@ -18,6 +25,12 @@ import type {
 } from '@/types/chat.types';
 import { patchAnnouncementPages, patchMessageInPages, replaceMessageWithUnsent } from '@/utils/chat-engagement';
 import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
+
+const STANDALONE_ENGAGEMENT_QUERY_CLIENT: QueryClient = new QueryClient();
+
+function useEngagementQueryClient(): QueryClient {
+  return useContext(QueryClientContext) ?? STANDALONE_ENGAGEMENT_QUERY_CLIENT;
+}
 
 /** Variables for setting or removing one message reaction. */
 export interface MessageReactionVariables {
@@ -40,7 +53,7 @@ export interface UnsendMessageVariables {
 }
 
 function patchReactionInMessageCaches(
-  queryClient: ReturnType<typeof useQueryClient>,
+  queryClient: QueryClient,
   variables: MessageReactionVariables,
   summary: ReactionSummary,
 ): void {
@@ -74,7 +87,7 @@ function toReactionSummary(aggregate: ReactionAggregate): ReactionSummary {
 }
 
 function patchUnsentInMessageCaches(
-  queryClient: ReturnType<typeof useQueryClient>,
+  queryClient: QueryClient,
   tombstone: UnsentMessageResponse,
 ): void {
   const patch = (
@@ -147,7 +160,7 @@ function patchConversationSummaryForUnsend(
 }
 
 function patchAnnouncementReaction(
-  queryClient: ReturnType<typeof useQueryClient>,
+  queryClient: QueryClient,
   variables: AnnouncementReactionVariables,
   response: ReactionSummary,
 ): void {
@@ -160,7 +173,7 @@ function patchAnnouncementReaction(
 
 /** Sets or removes a message reaction with server-owned aggregate reconciliation. */
 export function useMessageReactionMutation(): UseMutationResult<ReactionSummary, Error, MessageReactionVariables> {
-  const queryClient = useQueryClient();
+  const queryClient: QueryClient = useEngagementQueryClient();
   return useMutation<ReactionSummary, Error, MessageReactionVariables>({
     mutationFn: async (variables: MessageReactionVariables): Promise<ReactionSummary> => {
       const aggregate: ReactionAggregate = variables.reaction
@@ -174,7 +187,7 @@ export function useMessageReactionMutation(): UseMutationResult<ReactionSummary,
       patchReactionInMessageCaches(queryClient, variables, summary),
     retry: false,
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
-  });
+  }, queryClient);
 }
 
 /** Sets or removes an attendee announcement acknowledgement. */
@@ -183,7 +196,7 @@ export function useAnnouncementReactionMutation(): UseMutationResult<
   Error,
   AnnouncementReactionVariables
 > {
-  const queryClient = useQueryClient();
+  const queryClient: QueryClient = useEngagementQueryClient();
   return useMutation<AnnouncementReactionResponse, Error, AnnouncementReactionVariables>({
     mutationFn: (variables: AnnouncementReactionVariables): Promise<AnnouncementReactionResponse> =>
       variables.reaction
@@ -200,12 +213,12 @@ export function useAnnouncementReactionMutation(): UseMutationResult<
     },
     retry: false,
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
-  });
+  }, queryClient);
 }
 
 /** Un-sends a message and reconciles the durable public tombstone everywhere it is cached. */
 export function useUnsendMessageMutation(): UseMutationResult<UnsentMessageResponse, Error, UnsendMessageVariables> {
-  const queryClient = useQueryClient();
+  const queryClient: QueryClient = useEngagementQueryClient();
   return useMutation<UnsentMessageResponse, Error, UnsendMessageVariables>({
     mutationFn: (variables: UnsendMessageVariables): Promise<UnsentMessageResponse> =>
       chatEngagementAPI.unsendMessage(variables.conversationId, variables.messageId),
@@ -229,5 +242,5 @@ export function useUnsendMessageMutation(): UseMutationResult<UnsentMessageRespo
     },
     retry: false,
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
-  });
+  }, queryClient);
 }

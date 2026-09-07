@@ -297,6 +297,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
         );
         void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventMessages(ganapId) });
         void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
+        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
         return;
       }
 
@@ -314,6 +315,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
         await Promise.allSettled([
           queryClient.invalidateQueries({ queryKey: ganapQueryKeys.all }),
           queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() }),
+          queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() }),
         ]);
       })();
     },
@@ -349,6 +351,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
               patchSummaryForMessage(data, incoming, userId !== null && incoming.senderId !== userId),
           );
           void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
           return;
         }
         if (event.type === 'message-reaction') {
@@ -380,6 +383,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
             (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => markMessageUnsent(data, event.event),
           );
           void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
           return;
         }
         if (event.type === 'read' && event.receipt.userId === userId) {
@@ -388,6 +392,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
             (data: InfiniteData<EventChatSummaryPage, ChatPageParam> | undefined) =>
               patchSummaryRead(data, event.receipt.conversationId),
           );
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
         }
       },
     );

@@ -102,7 +102,7 @@ export function ChatImagePreview({
         </Text>
         <View className="mt-sm flex-row flex-wrap gap-sm">
           {draft.status === 'ready' && (
-            <Button size="sm" onPress={onSend} accessibilityHint="Uploads this image to the Event Chat">
+            <Button size="sm" onPress={onSend} accessibilityHint="Sends this image as a separate chat message">
               Send image
             </Button>
           )}

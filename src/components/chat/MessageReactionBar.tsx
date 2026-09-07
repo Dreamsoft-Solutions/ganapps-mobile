@@ -4,11 +4,13 @@ import { Text } from '@/components/common/Text';
 import type { ReactionSummary, ReactionType } from '@/types/chat.types';
 import { CHAT_REACTION_OPTIONS, getReactionAccessibilityLabel } from '@/utils/chat-engagement';
 
-/** Props for the shared message-reaction controls used by Event and Direct Chat. */
+/** Props for the shared reaction controls used by chat action surfaces and announcements. */
 export interface MessageReactionBarProps {
   summary?: ReactionSummary | null;
   isPending?: boolean;
   containerLabel?: string;
+  /** Inline rows are retained for announcement surfaces; chat uses the tray. */
+  presentation?: 'inline' | 'tray';
   onSelect: (reaction: ReactionType | null) => void;
 }
 
@@ -25,12 +27,13 @@ export function MessageReactionBar({
   summary,
   isPending = false,
   containerLabel = 'Message reactions',
+  presentation = 'inline',
   onSelect,
 }: MessageReactionBarProps): ReactElement | null {
   if (summary === undefined || summary === null) return null;
   return (
     <View
-      className="mt-xs flex-row items-center gap-xs"
+      className={`flex-row items-center gap-xs ${presentation === 'tray' ? 'justify-center rounded-full bg-muted px-xs py-xs' : 'mt-xs'}`}
       accessibilityRole="toolbar"
       accessibilityLabel={containerLabel}
     >
@@ -45,7 +48,7 @@ export function MessageReactionBar({
             accessibilityState={{ selected, disabled: isPending, busy: isPending }}
             disabled={isPending}
             onPress={(): void => onSelect(selected ? null : option.value)}
-            className={`min-w-9 flex-row items-center justify-center rounded-full border px-xs py-xs ${
+            className={`${presentation === 'tray' ? 'flex-1' : ''} min-h-11 min-w-11 flex-row items-center justify-center rounded-full border px-xs py-xs ${
               selected ? 'border-primary bg-muted' : 'border-border bg-background'
             }`}
           >

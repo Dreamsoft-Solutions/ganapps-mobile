@@ -43,6 +43,12 @@ export const ErrorCodes = {
   REPORT_NOT_FOUND: 'REPORT_NOT_FOUND',
   SOCIAL_STATE_CHANGED: 'SOCIAL_STATE_CHANGED',
   REPORT_ALREADY_CLOSED: 'REPORT_ALREADY_CLOSED',
+  DIRECT_CONVERSATION_NOT_FOUND: 'DIRECT_CONVERSATION_NOT_FOUND',
+  DIRECT_ACCESS_FORBIDDEN: 'DIRECT_ACCESS_FORBIDDEN',
+  MESSAGE_ACCESS_FORBIDDEN: 'MESSAGE_ACCESS_FORBIDDEN',
+  UNSEND_WINDOW_EXPIRED: 'UNSEND_WINDOW_EXPIRED',
+  REACTION_NOT_ALLOWED: 'REACTION_NOT_ALLOWED',
+  ANNOUNCEMENT_ACK_NOT_ALLOWED: 'ANNOUNCEMENT_ACK_NOT_ALLOWED',
   FEATURE_DISABLED: 'FEATURE_DISABLED',
   CONTENT_BLOCKED: 'CONTENT_BLOCKED',
   IMAGE_FILE_REQUIRED: 'IMAGE_FILE_REQUIRED',
@@ -83,6 +89,13 @@ export const ErrorMessages: Record<string, string> = {
   [ErrorCodes.REPORT_NOT_FOUND]: 'Report status could not be confirmed. Try again.',
   [ErrorCodes.SOCIAL_STATE_CHANGED]: 'Block status changed. Refresh and try again.',
   [ErrorCodes.REPORT_ALREADY_CLOSED]: 'Report cannot be changed.',
+  [ErrorCodes.DIRECT_CONVERSATION_NOT_FOUND]: 'This conversation is no longer available.',
+  [ErrorCodes.DIRECT_ACCESS_FORBIDDEN]: 'This conversation action is no longer available.',
+  [ErrorCodes.MESSAGE_ACCESS_FORBIDDEN]: 'This message action is no longer available.',
+  [ErrorCodes.UNSEND_WINDOW_EXPIRED]: 'This message can no longer be unsent.',
+  [ErrorCodes.REACTION_NOT_ALLOWED]: 'Reactions are unavailable for this message.',
+  [ErrorCodes.ANNOUNCEMENT_ACK_NOT_ALLOWED]: 'This acknowledgement is no longer available.',
+  [ErrorCodes.FEATURE_DISABLED]: 'This chat feature is temporarily unavailable.',
 };
 
 export type ErrorCode = keyof typeof ErrorCodes;

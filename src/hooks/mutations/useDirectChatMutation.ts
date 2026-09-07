@@ -125,6 +125,7 @@ function reconcileDirectMessage(queryClient: ReturnType<typeof useQueryClient>, 
       patchSummaryPages(data, message, false),
   );
   void queryClient.invalidateQueries({ queryKey: chatQueryKeys.directSummaries() });
+  void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
 }
 
 /**
@@ -227,6 +228,7 @@ export function useMarkDirectReadMutation(): UseMutationResult<DirectChatReadRes
           patchSummaryRead(data, result.conversationId),
       );
       void queryClient.invalidateQueries({ queryKey: chatQueryKeys.directSummaries() });
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
     },
     retry: false,
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },

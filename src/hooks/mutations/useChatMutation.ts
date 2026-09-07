@@ -110,6 +110,7 @@ export function useSendChatMessageMutation(): UseMutationResult<ChatMessage, Err
           patchSummaryPages(data, ganapId, message),
       );
       void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
     },
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
@@ -141,6 +142,7 @@ export function useSendChatImageMutation(): UseMutationResult<ChatMessage, Error
           patchSummaryPages(data, ganapId, message),
       );
       void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
     },
     retry: false,
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
@@ -177,6 +179,7 @@ export function useMarkChatReadMutation(): UseMutationResult<ChatReadResult, Err
         },
       );
       void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
     },
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });

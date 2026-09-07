@@ -4,6 +4,7 @@ import { act, type RenderHookResult, renderHook, waitFor } from '@testing-librar
 import * as ImagePicker from 'expo-image-picker';
 import type { ReactElement, ReactNode } from 'react';
 import { chatAPI } from '@/api/endpoints/chat';
+import type { ChatSocketEvent } from '@/services/chat-socket.service';
 import { useAuthStore } from '@/store/auth.store';
 import type { ChatMessage, ChatMessagesPage, EventChatSession } from '@/types/chat.types';
 import { useChat } from './useChat';
@@ -31,10 +32,19 @@ jest.mock('@/services/chat-socket.service', () => ({
     onConnectionStateChange: jest.fn(() => (): void => {}),
     onModerationEvent: jest.fn(() => (): void => {}),
     setBeforeJoin: jest.fn(() => (): void => {}),
-    subscribe: jest.fn(() => (): void => {}),
+    subscribe: jest.fn(
+      (_conversationId: string, _ganapId: string, listener: (event: ChatSocketEvent) => void): (() => void) => {
+        mockChatSocketListener = listener;
+        return (): void => {
+          if (mockChatSocketListener === listener) mockChatSocketListener = undefined;
+        };
+      },
+    ),
     leaveConversation: jest.fn(),
   },
 }));
+
+let mockChatSocketListener: ((event: ChatSocketEvent) => void) | undefined;
 
 const mockedChatAPI = jest.mocked(chatAPI);
 const mockedRequestMediaLibraryPermissionsAsync = jest.mocked(ImagePicker.requestMediaLibraryPermissionsAsync);
@@ -105,6 +115,7 @@ function makeClient(): QueryClient {
 
 beforeEach((): void => {
   useAuthStore.setState({ token: 'access-token', user: null });
+  mockChatSocketListener = undefined;
   mockedChatAPI.sendImage.mockReset();
   mockedRequestMediaLibraryPermissionsAsync.mockResolvedValue({
     status: 'granted' as ImagePicker.MediaLibraryPermissionResponse['status'],
@@ -125,6 +136,7 @@ beforeEach((): void => {
 
 afterEach((): void => {
   jest.clearAllMocks();
+  mockChatSocketListener = undefined;
   useAuthStore.setState({ token: null, user: null });
 });
 
@@ -369,6 +381,39 @@ describe('useChat read behavior', (): void => {
     await waitFor((): void => expect(result.current?.messages).toEqual([newest, older]));
     expect(mockedChatAPI.markRead).toHaveBeenCalledTimes(1);
     expect(result.current.messages.join(' ')).not.toContain('Seen');
+    unmount();
+    client.clear();
+  });
+});
+
+describe('useChat inbound socket reconciliation', (): void => {
+  it('retains the server reaction summary on a newly delivered message when engagement is enabled', async (): Promise<void> => {
+    const reactionSummary = {
+      total: 1,
+      counts: [
+        { type: 'HEART' as const, count: 1 },
+        { type: 'LAUGH' as const, count: 0 },
+        { type: 'THUMBS_UP' as const, count: 0 },
+        { type: 'SAD' as const, count: 0 },
+        { type: 'ANGRY' as const, count: 0 },
+      ],
+      myReaction: null,
+    };
+    const incoming: ChatMessage = {
+      ...message('socket-message-1', '2026-09-01T00:00:00.000Z'),
+      reactionSummary,
+    };
+    const client: QueryClient = makeClient();
+    const { result, unmount } = await renderHook(() => useChat('ganap-1'), { wrapper: wrapperFor(client) });
+    await waitFor((): void => expect(result.current.session).toEqual(session));
+    await waitFor((): void => expect(mockChatSocketListener).toBeDefined());
+
+    await act(async (): Promise<void> => {
+      mockChatSocketListener?.({ type: 'message', message: incoming });
+    });
+
+    await waitFor((): void => expect(result.current.messages).toEqual([incoming]));
+    expect(result.current.messages[0]?.reactionSummary).toEqual(reactionSummary);
     unmount();
     client.clear();
   });

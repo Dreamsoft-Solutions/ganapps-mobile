@@ -76,7 +76,7 @@ function EventChatRow({ summary, onOpen }: { summary: EventChatSummary; onOpen: 
             </Text>
           </View>
         )}
-        <MessageCircle size={16} color={Colors[theme].primary} />
+        <MessageCircle className="ml-sm" size={16} color={Colors[theme].primary} />
       </Card>
     </Pressable>
   );
