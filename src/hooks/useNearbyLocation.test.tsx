@@ -19,10 +19,34 @@ jest.mock('react-native/Libraries/Linking/Linking', () => ({
   default: { openSettings: (): Promise<void> => mockOpenSettings() },
 }));
 
+type AppStateStatus = 'active' | 'background' | 'inactive';
+
+const appStateListeners: Array<(state: AppStateStatus) => void> = [];
+
+jest.mock('react-native/Libraries/AppState/AppState', () => ({
+  __esModule: true,
+  default: {
+    addEventListener: (_event: string, listener: (state: AppStateStatus) => void): { remove: () => void } => {
+      appStateListeners.push(listener);
+      return {
+        remove: (): void => {
+          const index = appStateListeners.indexOf(listener);
+          if (index >= 0) appStateListeners.splice(index, 1);
+        },
+      };
+    },
+  },
+}));
+
+function emitAppState(state: AppStateStatus): void {
+  for (const listener of [...appStateListeners]) listener(state);
+}
+
 import { useNearbyLocation } from './useNearbyLocation';
 
 const DENIED_ASKABLE: LocationPermissionState = { granted: false, canAskAgain: true, accuracy: null };
 const DENIED_FINAL: LocationPermissionState = { granted: false, canAskAgain: false, accuracy: null };
+const DENIED_REDUCED: LocationPermissionState = { granted: false, canAskAgain: false, accuracy: 'reduced' };
 const GRANTED_FULL: LocationPermissionState = { granted: true, canAskAgain: false, accuracy: 'full' };
 const GRANTED_REDUCED: LocationPermissionState = { granted: true, canAskAgain: false, accuracy: 'reduced' };
 const ILOILO: Coords = { latitude: 10.72, longitude: 122.56 };
@@ -200,6 +224,17 @@ describe('useNearbyLocation reduced accuracy', (): void => {
     });
   });
 
+  it('does not show the notice when permission is denied outright', async (): Promise<void> => {
+    mockGetPermissionStatus.mockResolvedValue(DENIED_REDUCED);
+    const { result } = await renderHook(() => useNearbyLocation());
+
+    await waitFor((): void => {
+      expect(result.current.isDisabled).toBe(true);
+    });
+
+    expect(result.current.isAccuracyNoticeVisible).toBe(false);
+  });
+
   it('does not show the notice for full accuracy', async (): Promise<void> => {
     mockGetPermissionStatus.mockResolvedValue(GRANTED_FULL);
     const { result } = await renderHook(() => useNearbyLocation());
@@ -255,5 +290,117 @@ describe('useNearbyLocation failure handling', (): void => {
     });
 
     expect(mockOpenSettings).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useNearbyLocation position freshness', (): void => {
+  it('re-reads the position every time Nearby is switched on', async (): Promise<void> => {
+    mockGetPermissionStatus.mockResolvedValue(GRANTED_FULL);
+    const MOVED: Coords = { latitude: 10.69, longitude: 122.51 };
+    const { result } = await renderHook(() => useNearbyLocation());
+    await waitFor((): void => {
+      expect(result.current.coords).toEqual(ILOILO);
+    });
+
+    await act(async (): Promise<void> => {
+      result.current.toggle();
+    });
+    await waitFor((): void => {
+      expect(result.current.isActive).toBe(true);
+    });
+    await act(async (): Promise<void> => {
+      result.current.toggle();
+    });
+
+    mockGetCurrentCoords.mockResolvedValue(MOVED);
+    await act(async (): Promise<void> => {
+      result.current.toggle();
+    });
+
+    await waitFor((): void => {
+      expect(result.current.coords).toEqual(MOVED);
+    });
+    expect(result.current.isActive).toBe(true);
+  });
+
+  it('refresh reads the position again and returns the new value', async (): Promise<void> => {
+    mockGetPermissionStatus.mockResolvedValue(GRANTED_FULL);
+    const MOVED: Coords = { latitude: 10.69, longitude: 122.51 };
+    const { result } = await renderHook(() => useNearbyLocation());
+    await waitFor((): void => {
+      expect(result.current.coords).toEqual(ILOILO);
+    });
+
+    mockGetCurrentCoords.mockResolvedValue(MOVED);
+    let returned: Coords | null = null;
+    await act(async (): Promise<void> => {
+      returned = await result.current.refresh();
+    });
+
+    expect(returned).toEqual(MOVED);
+    expect(result.current.coords).toEqual(MOVED);
+  });
+
+  it('refresh returns null and reads nothing without permission', async (): Promise<void> => {
+    mockGetPermissionStatus.mockResolvedValue(DENIED_ASKABLE);
+    const { result } = await renderHook(() => useNearbyLocation());
+    await waitFor((): void => {
+      expect(mockGetPermissionStatus).toHaveBeenCalled();
+    });
+
+    let returned: Coords | null = { latitude: 0, longitude: 0 };
+    await act(async (): Promise<void> => {
+      returned = await result.current.refresh();
+    });
+
+    expect(returned).toBeNull();
+    expect(mockGetCurrentCoords).not.toHaveBeenCalled();
+  });
+
+  it('re-reads the position when the app returns to the foreground', async (): Promise<void> => {
+    mockGetPermissionStatus.mockResolvedValue(GRANTED_FULL);
+    const MOVED: Coords = { latitude: 10.69, longitude: 122.51 };
+    const { result } = await renderHook(() => useNearbyLocation());
+    await waitFor((): void => {
+      expect(result.current.coords).toEqual(ILOILO);
+    });
+
+    mockGetCurrentCoords.mockResolvedValue(MOVED);
+    await act(async (): Promise<void> => {
+      emitAppState('active');
+    });
+
+    await waitFor((): void => {
+      expect(result.current.coords).toEqual(MOVED);
+    });
+  });
+
+  it('does not read the position on foreground without permission', async (): Promise<void> => {
+    mockGetPermissionStatus.mockResolvedValue(DENIED_ASKABLE);
+    await renderHook(() => useNearbyLocation());
+    await waitFor((): void => {
+      expect(mockGetPermissionStatus).toHaveBeenCalled();
+    });
+
+    await act(async (): Promise<void> => {
+      emitAppState('active');
+    });
+
+    expect(mockGetCurrentCoords).not.toHaveBeenCalled();
+  });
+
+  it('does not read the position when the app goes to the background', async (): Promise<void> => {
+    mockGetPermissionStatus.mockResolvedValue(GRANTED_FULL);
+    const { result } = await renderHook(() => useNearbyLocation());
+    await waitFor((): void => {
+      expect(result.current.coords).toEqual(ILOILO);
+    });
+    mockGetCurrentCoords.mockClear();
+
+    await act(async (): Promise<void> => {
+      emitAppState('background');
+    });
+
+    expect(mockGetCurrentCoords).not.toHaveBeenCalled();
   });
 });

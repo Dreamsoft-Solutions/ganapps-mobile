@@ -1,6 +1,7 @@
 import { describe, expect, jest } from '@jest/globals';
 import { fireEvent, render } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
+import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
 
 interface MarkerProps {
@@ -19,6 +20,12 @@ interface MockMapState {
   isError: boolean;
   error: Error | null;
   refetch: () => Promise<unknown>;
+  userCoords: Coords | null;
+}
+
+interface MockCameraStop {
+  centerCoordinate: [number, number];
+  zoomLevel: number;
 }
 
 interface SelectedGanapCardProps {
@@ -62,7 +69,9 @@ const mockMapState: MockMapState = {
   isError: false,
   error: null,
   refetch: jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined),
+  userCoords: null,
 };
+const mockSetCamera = jest.fn<(stop: MockCameraStop) => void>();
 const mockUseGanapsMap = jest.fn<() => MockMapState>(() => mockMapState);
 const mockSelectedGanapCard = jest.fn<(props: SelectedGanapCardProps) => ReactElement>();
 
@@ -82,8 +91,23 @@ jest.mock('@rnmapbox/maps', () => {
   return {
     __esModule: true,
     default: { setAccessToken: jest.fn<() => Promise<void>>().mockResolvedValue(undefined) },
-    Camera: (): null => null,
-    MapView: ({ children }: { children?: ReactNode }): ReactElement => React.createElement(View, null, children),
+    Camera: React.forwardRef((_props: unknown, ref: React.Ref<{ setCamera: (stop: MockCameraStop) => void }>): null => {
+      React.useImperativeHandle(ref, (): { setCamera: (stop: MockCameraStop) => void } => ({
+        setCamera: mockSetCamera,
+      }));
+      return null;
+    }),
+    LocationPuck: (): null => null,
+    MapView: ({
+      children,
+      onDidFinishLoadingMap,
+    }: {
+      children?: ReactNode;
+      onDidFinishLoadingMap?: () => void;
+    }): ReactElement => {
+      React.useEffect((): void => onDidFinishLoadingMap?.(), [onDidFinishLoadingMap]);
+      return React.createElement(View, null, children);
+    },
     MarkerView: ({ anchor, children }: MarkerProps): ReactElement => {
       mockCapturedAnchors.push(anchor);
       return React.createElement(View, null, children);
@@ -182,12 +206,35 @@ describe('Home map event markers', (): void => {
     mockCapturedAnchors.length = 0;
     mockSelectedGanapCard.mockClear();
     mockRouter.push.mockClear();
+    mockSetCamera.mockClear();
+    mockMapState.isLoading = false;
+    mockMapState.userCoords = null;
+  });
+
+  it('centres on the user when the position arrives while the events query is still loading', async (): Promise<void> => {
+    mockMapState.isLoading = true;
+    mockMapState.userCoords = { latitude: 10.71, longitude: 122.55 };
+
+    const screen = await render(<HomeScreen />);
+
+    expect(mockSetCamera).not.toHaveBeenCalled();
+
+    mockMapState.isLoading = false;
+    await screen.rerender(<HomeScreen />);
+
+    expect(mockSetCamera).toHaveBeenCalledTimes(1);
+    expect(mockSetCamera.mock.calls[0]?.[0].centerCoordinate).toEqual([122.55, 10.71]);
   });
 
   it('anchors an individual event marker at the visible pin tip and preserves selection', async (): Promise<void> => {
     const screen = await render(<HomeScreen />);
 
-    expect(mockCapturedAnchors).toEqual([{ x: 0.5, y: 1 }]);
+    const distinctAnchors = mockCapturedAnchors.filter(
+      (anchor, index): boolean =>
+        mockCapturedAnchors.findIndex((other): boolean => other.x === anchor.x && other.y === anchor.y) === index,
+    );
+
+    expect(distinctAnchors).toEqual([{ x: 0.5, y: 1 }]);
 
     await fireEvent.press(screen.getByTestId('ganap-map-pin-child'));
 

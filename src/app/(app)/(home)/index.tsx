@@ -1,4 +1,4 @@
-import Mapbox, { Camera, type MapState, MapView } from '@rnmapbox/maps';
+import Mapbox, { Camera, LocationPuck, type MapState, MapView } from '@rnmapbox/maps';
 import { useRouter } from 'expo-router';
 import type { ComponentRef, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -17,6 +17,7 @@ import { SelectedGanapCard } from '@/components/map/SelectedGanapCard';
 import { TagChips } from '@/components/map/TagChips';
 import { Routes } from '@/constants/routes';
 import { useGanapsMap } from '@/hooks/useGanapsMap';
+import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
 import {
   createGanapClusterIndex,
@@ -27,12 +28,14 @@ import {
   type MapViewport,
   mapStateToViewport,
 } from '@/utils/map-clustering';
+import { USER_ZOOM } from '@/utils/map-viewport';
 
 const MAPBOX_TOKEN: string = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
 
 const ILOILO_CITY_CENTER: [number, number] = [122.5621, 10.7202];
 const CITY_ZOOM = 12;
-const USER_ZOOM = 14;
+const MAP_OVERLAY_TOP = 132; // see ADR 0003
+const MAP_OVERLAY_BOTTOM = 96;
 
 export default function HomeScreen(): ReactElement {
   const router = useRouter();
@@ -51,6 +54,7 @@ export default function HomeScreen(): ReactElement {
     isNearbyActive,
     isNearbyDisabled,
     toggleNearby,
+    refreshLocation,
     userCoords,
     isPrimingVisible,
     confirmPriming,
@@ -63,7 +67,9 @@ export default function HomeScreen(): ReactElement {
 
   const cameraRef = useRef<ComponentRef<typeof Camera>>(null);
   const hasCentredOnUser = useRef<boolean>(false);
+  const wasNearbyActive = useRef<boolean>(false);
   const [viewport, setViewport] = useState<MapViewport>(DEFAULT_MAP_VIEWPORT);
+  const [isMapReady, setIsMapReady] = useState<boolean>(false);
   const [selectedGanap, setSelectedGanap] = useState<GanapListItem | null>(null);
   const [selectedCluster, setSelectedCluster] = useState<GanapClusterFeature | null>(null);
   const [selectedClusterIndex, setSelectedClusterIndex] = useState<GanapClusterIndex | null>(null);
@@ -84,27 +90,50 @@ export default function HomeScreen(): ReactElement {
     }
   }, []);
 
-  useEffect((): void => {
-    if (!userCoords || hasCentredOnUser.current) return;
-    hasCentredOnUser.current = true;
-    cameraRef.current?.setCamera({
-      centerCoordinate: [userCoords.longitude, userCoords.latitude],
-      zoomLevel: USER_ZOOM,
-      animationDuration: 500,
-    });
-  }, [userCoords]);
-
-  const handleLocateMe = useCallback((): void => {
-    if (userCoords) {
+  const centreOnUser = useCallback(
+    (coords: Coords): void => {
       cameraRef.current?.setCamera({
-        centerCoordinate: [userCoords.longitude, userCoords.latitude],
+        centerCoordinate: [coords.longitude, coords.latitude],
         zoomLevel: USER_ZOOM,
         animationDuration: 500,
+        padding: {
+          paddingTop: insets.top + MAP_OVERLAY_TOP,
+          paddingBottom: MAP_OVERLAY_BOTTOM,
+          paddingLeft: 0,
+          paddingRight: 0,
+        },
       });
-      return;
-    }
-    toggleNearby();
-  }, [toggleNearby, userCoords]);
+    },
+    [insets.top],
+  );
+
+  useEffect((): void => {
+    if (!isMapReady || !userCoords || hasCentredOnUser.current) return; // see ADR 0003
+    hasCentredOnUser.current = true;
+    centreOnUser(userCoords);
+  }, [centreOnUser, isMapReady, userCoords]);
+
+  useEffect((): void => {
+    const turnedOn = isNearbyActive && !wasNearbyActive.current;
+    wasNearbyActive.current = isNearbyActive;
+    if (!turnedOn || !userCoords) return;
+    centreOnUser(userCoords);
+  }, [centreOnUser, isNearbyActive, userCoords]);
+
+  const handleLocateMe = useCallback((): void => {
+    void (async (): Promise<void> => {
+      const fresh = await refreshLocation();
+      if (fresh) {
+        centreOnUser(fresh);
+        return;
+      }
+      if (!userCoords) toggleNearby();
+    })();
+  }, [centreOnUser, refreshLocation, toggleNearby, userCoords]);
+
+  const handleMapReady = useCallback((): void => {
+    setIsMapReady(true);
+  }, []);
 
   const handleMapIdle = useCallback((state: MapState): void => {
     setViewport(
@@ -170,8 +199,10 @@ export default function HomeScreen(): ReactElement {
         attributionEnabled
         logoEnabled
         onMapIdle={handleMapIdle}
+        onDidFinishLoadingMap={handleMapReady}
       >
         <Camera ref={cameraRef} centerCoordinate={ILOILO_CITY_CENTER} zoomLevel={CITY_ZOOM} animationMode="none" />
+        {userCoords !== null && <LocationPuck puckBearing="heading" puckBearingEnabled />}
         <ClusteredGanapMarkers
           features={visibleFeatures}
           onGanapPress={handleGanapPress}

@@ -4,6 +4,7 @@ import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { CursorPage } from '@/api/types/api-response';
 import type { Coords } from '@/services/location.service';
 import type { GanapListItem, GanapListParams } from '@/types/ganap.types';
+import { NEARBY_RADIUS_KM } from '@/utils/map-viewport';
 import { ganapQueryKeys } from './queries/useGanapsQuery';
 import { useDebouncedValue } from './useDebouncedValue';
 import { useNearbyLocation } from './useNearbyLocation';
@@ -27,6 +28,7 @@ export interface UseGanapsMapResult {
   isNearbyActive: boolean;
   isNearbyDisabled: boolean;
   toggleNearby: () => void;
+  refreshLocation: () => Promise<Coords | null>;
   userCoords: Coords | null;
   isPrimingVisible: boolean;
   confirmPriming: () => Promise<void>;
@@ -39,7 +41,6 @@ export interface UseGanapsMapResult {
 
 const MAP_LIMIT = 100;
 const SEARCH_DEBOUNCE_MS = 350;
-const NEARBY_RADIUS_KM = 5;
 
 /**
  * Aggregated hook for discovering Ganaps on the map.
@@ -137,6 +138,7 @@ export function useGanapsMap(): UseGanapsMapResult {
     isNearbyActive: nearby.isActive,
     isNearbyDisabled: nearby.isDisabled,
     toggleNearby: nearby.toggle,
+    refreshLocation: nearby.refresh,
     userCoords: nearby.coords,
     isPrimingVisible: nearby.isPrimingVisible,
     confirmPriming: nearby.confirmPriming,

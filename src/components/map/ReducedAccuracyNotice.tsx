@@ -12,8 +12,8 @@ export function ReducedAccuracyNotice({
   visible,
   onOpenSettings,
   onDismiss,
-}: ReducedAccuracyNoticeProps): ReactElement {
-  if (!visible) return <></>;
+}: ReducedAccuracyNoticeProps): ReactElement | null {
+  if (!visible) return null;
 
   return (
     <View className="mx-4 mt-2 rounded-md bg-card border border-border p-sm gap-1">

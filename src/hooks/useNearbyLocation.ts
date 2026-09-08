@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking } from 'react-native';
+import { AppState, type AppStateStatus, Linking } from 'react-native';
 import {
   type Coords,
   getCurrentCoords,
@@ -18,6 +18,7 @@ export interface UseNearbyLocationResult {
   isAccuracyNoticeVisible: boolean;
   errorMessage: string | null;
   toggle: () => void;
+  refresh: () => Promise<Coords | null>;
   confirmPriming: () => Promise<void>;
   dismissPriming: () => void;
   dismissAccuracyNotice: () => void;
@@ -32,6 +33,8 @@ export function useNearbyLocation(): UseNearbyLocationResult {
   const [isAccuracyNoticeDismissed, setIsAccuracyNoticeDismissed] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const isMountedRef = useRef<boolean>(true);
+  const latestPermissionRef = useRef<LocationPermissionState | null>(null);
+  latestPermissionRef.current = permission;
 
   const loadCoords = useCallback(async (): Promise<Coords | null> => {
     try {
@@ -68,14 +71,14 @@ export function useNearbyLocation(): UseNearbyLocationResult {
     }
     if (permission?.granted) {
       void (async (): Promise<void> => {
-        const next = coords ?? (await loadCoords());
+        const next = await loadCoords();
         if (isMountedRef.current && next) setIsActive(true);
       })();
       return;
     }
     if (permission && !permission.canAskAgain) return;
     setIsPrimingVisible(true);
-  }, [coords, isActive, loadCoords, permission]);
+  }, [isActive, loadCoords, permission]);
 
   const confirmPriming = useCallback(async (): Promise<void> => {
     setIsPrimingVisible(false);
@@ -85,6 +88,21 @@ export function useNearbyLocation(): UseNearbyLocationResult {
     if (!status.granted) return;
     const next = await loadCoords();
     if (isMountedRef.current && next) setIsActive(true);
+  }, [loadCoords]);
+
+  const refresh = useCallback(async (): Promise<Coords | null> => {
+    if (!latestPermissionRef.current?.granted) return null;
+    return loadCoords();
+  }, [loadCoords]);
+
+  useEffect((): (() => void) => {
+    const subscription = AppState.addEventListener('change', (state: AppStateStatus): void => {
+      if (state !== 'active') return; // foreground sampling, see ADR 0003
+      if (!latestPermissionRef.current?.granted) return;
+      void loadCoords();
+    });
+
+    return (): void => subscription.remove();
   }, [loadCoords]);
 
   const dismissPriming = useCallback((): void => {
@@ -102,9 +120,11 @@ export function useNearbyLocation(): UseNearbyLocationResult {
     isDisabled: permission !== null && !permission.granted && !permission.canAskAgain,
     coords,
     isPrimingVisible,
-    isAccuracyNoticeVisible: permission?.accuracy === 'reduced' && !isAccuracyNoticeDismissed,
+    isAccuracyNoticeVisible:
+      permission?.granted === true && permission.accuracy === 'reduced' && !isAccuracyNoticeDismissed,
     errorMessage,
     toggle,
+    refresh,
     confirmPriming,
     dismissPriming,
     dismissAccuracyNotice,

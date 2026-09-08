@@ -5,6 +5,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { createElement } from 'react';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { CursorPage } from '@/api/types/api-response';
+import type { Coords } from '@/services/location.service';
 import type { GanapListItem, GanapListParams } from '@/types/ganap.types';
 import { ganapQueryKeys } from './queries/useGanapsQuery';
 import { useGanaps } from './useGanaps';
@@ -44,6 +45,7 @@ function nearbyState(overrides: Partial<UseNearbyLocationResult>): UseNearbyLoca
     isAccuracyNoticeVisible: false,
     errorMessage: null,
     toggle: jest.fn(),
+    refresh: jest.fn<() => Promise<Coords | null>>(),
     confirmPriming: jest.fn<() => Promise<void>>(),
     dismissPriming: jest.fn(),
     dismissAccuracyNotice: jest.fn(),
@@ -243,7 +245,7 @@ describe('useGanapsMap geo parameters', (): void => {
     const { unmount } = await renderHook(() => useGanapsMap(), { wrapper: createWrapper() });
 
     await waitFor((): void => {
-      expect(mockedList).toHaveBeenCalledWith(expect.objectContaining({ lat: 10.72, long: 122.56, radius: 5 }));
+      expect(mockedList).toHaveBeenCalledWith(expect.objectContaining({ lat: 10.72, long: 122.56, radius: 2 }));
     });
     await unmount();
   });
@@ -265,7 +267,7 @@ describe('useGanapsMap geo parameters', (): void => {
 
   it('varies the query key by geo so a toggle refetches', (): void => {
     const off = ganapQueryKeys.list({ search: undefined, tag: undefined });
-    const on = ganapQueryKeys.list({ search: undefined, tag: undefined, lat: 10.72, long: 122.56, radius: 5 });
+    const on = ganapQueryKeys.list({ search: undefined, tag: undefined, lat: 10.72, long: 122.56, radius: 2 });
 
     expect(off).not.toEqual(on);
   });

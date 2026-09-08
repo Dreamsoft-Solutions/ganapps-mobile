@@ -3,6 +3,7 @@ import type { MapState } from '@rnmapbox/maps';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
 import type { UseGanapsMapResult } from '@/hooks/useGanapsMap';
+import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
 import {
   createGanapClusterIndex,
@@ -166,6 +167,7 @@ function mapHookResult(items: GanapListItem[], overrides: Partial<UseGanapsMapRe
     isNearbyActive: false,
     isNearbyDisabled: false,
     toggleNearby: jest.fn(),
+    refreshLocation: jest.fn<() => Promise<Coords | null>>(),
     userCoords: null,
     isPrimingVisible: false,
     confirmPriming: jest.fn<() => Promise<void>>(),

@@ -30,7 +30,13 @@ function renderClusterMarker(
   const label: string = `Open group of ${count} events`;
 
   return (
-    <MarkerView key={`cluster-${clusterId}`} coordinate={coordinate} anchor={CLUSTER_ANCHOR} allowOverlap>
+    <MarkerView
+      key={`cluster-${clusterId}`}
+      coordinate={coordinate}
+      anchor={CLUSTER_ANCHOR}
+      allowOverlap
+      allowOverlapWithPuck
+    >
       <Pressable
         testID={`map-cluster-marker-${clusterId}`}
         accessibilityRole="button"
@@ -55,7 +61,13 @@ function renderEventMarker(
   const ganap: GanapListItem = feature.properties.ganap;
 
   return (
-    <MarkerView key={`ganap-${ganap.id}`} coordinate={coordinate} anchor={EVENT_ANCHOR} allowOverlap>
+    <MarkerView
+      key={`ganap-${ganap.id}`}
+      coordinate={coordinate}
+      anchor={EVENT_ANCHOR}
+      allowOverlap
+      allowOverlapWithPuck
+    >
       <Pressable
         testID={`map-event-marker-${ganap.id}`}
         accessibilityRole="button"
