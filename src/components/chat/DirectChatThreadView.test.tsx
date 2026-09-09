@@ -12,6 +12,7 @@ jest.mock('lucide-react-native', () => ({
   ImagePlus: (): null => null,
   MoreVertical: (): null => null,
   Send: (): null => null,
+  X: (): null => null,
 }));
 
 jest.mock('expo-image', () => ({
@@ -29,6 +30,10 @@ jest.mock('react-native-safe-area-context', () => ({
 
 jest.mock('@/hooks/useResolvedTheme', () => ({
   useResolvedTheme: (): 'light' => 'light',
+}));
+
+jest.mock('@/store/toast.store', () => ({
+  showToast: jest.fn(),
 }));
 
 const session: DirectChatSession = {
@@ -103,6 +108,39 @@ describe('DirectChatThreadView', (): void => {
 
     await fireEvent.press(screen.getByLabelText('Add image'));
     expect(onPickImage).toHaveBeenCalledTimes(1);
+    screen.unmount();
+  });
+
+  it('gives a selected image precedence over text and removes it from the thumbnail X', async (): Promise<void> => {
+    const onSend = jest.fn<(content: string) => void>();
+    const onSendImage = jest.fn<() => void>();
+    const onRemoveImage = jest.fn<() => void>();
+    const imageDraft: NonNullable<Parameters<typeof DirectChatThreadView>[0]['imageDraft']> = {
+      clientMessageId: 'client-image-1',
+      asset: {
+        uri: 'file:///chat-image.jpg',
+        name: 'chat-image.jpg',
+        mimeType: 'image/jpeg',
+        width: 1600,
+        height: 1200,
+      },
+      status: 'ready',
+    };
+    const screen = await render(
+      <DirectChatThreadView {...props({ imageDraft, onSend, onSendImage, onRemoveImage })} />,
+    );
+
+    const input = screen.getByLabelText('Message');
+    await fireEvent.changeText(input, 'Keep this text');
+    await fireEvent.press(screen.getByLabelText('Send image'));
+    await fireEvent.press(screen.getByLabelText('Remove image'));
+
+    expect(onSendImage).toHaveBeenCalledTimes(1);
+    expect(onSend).not.toHaveBeenCalled();
+    expect(onRemoveImage).toHaveBeenCalledTimes(1);
+    expect(input.props.value).toBe('Keep this text');
+    expect(screen.getByLabelText('Remove image').props.hitSlop).toEqual({ top: 8, right: 8, bottom: 8, left: 8 });
+    expect(screen.queryByText('Ready to send')).toBeNull();
     screen.unmount();
   });
 });

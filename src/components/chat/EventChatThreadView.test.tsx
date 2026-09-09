@@ -3,6 +3,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 import { View as MockView } from 'react-native';
 import type { FailedDraft } from '@/hooks/useChat';
+import { showToast } from '@/store/toast.store';
 import type { ChatImageDraft, ChatMessage, EventChatSession } from '@/types/chat.types';
 import { EventChatThreadView } from './EventChatThreadView';
 
@@ -11,6 +12,7 @@ jest.mock('lucide-react-native', () => ({
   ImagePlus: (): null => null,
   MoreVertical: (): null => null,
   Send: (): null => null,
+  X: (): null => null,
 }));
 
 jest.mock('expo-image', () => ({
@@ -29,6 +31,12 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('@/hooks/useResolvedTheme', () => ({
   useResolvedTheme: (): 'light' => 'light',
 }));
+
+jest.mock('@/store/toast.store', () => ({
+  showToast: jest.fn(),
+}));
+
+const mockedShowToast = jest.mocked(showToast);
 
 const readOnlySession: EventChatSession = {
   conversationId: 'conversation-1',
@@ -106,6 +114,10 @@ function props(
 }
 
 describe('EventChatThreadView', (): void => {
+  beforeEach((): void => {
+    mockedShowToast.mockClear();
+  });
+
   it('shows the exact read-only copy without an enabled composer or Seen UI', async (): Promise<void> => {
     const screen = await render(<EventChatThreadView {...props()} />);
 
@@ -137,15 +149,17 @@ describe('EventChatThreadView', (): void => {
     screen.unmount();
   });
 
-  it('exposes the one-image preview actions and exact Checking image state', async (): Promise<void> => {
+  it('uses the composer send control for an image and preserves typed text', async (): Promise<void> => {
     const onPickImage = jest.fn<() => void>();
     const onRemoveImage = jest.fn<() => void>();
     const onSendImage = jest.fn<() => void>();
+    const onSend = jest.fn<(content: string) => void>();
     const screen = await render(
       <EventChatThreadView
         {...props({
           session: { ...readOnlySession, capability: 'READ_WRITE', canSend: true, ganapStatus: 'ONGOING' },
           imageDraft,
+          onSend,
           onPickImage,
           onRemoveImage,
           onSendImage,
@@ -153,25 +167,70 @@ describe('EventChatThreadView', (): void => {
       />,
     );
 
-    expect(screen.getByText('Ready to send')).toBeTruthy();
+    const input = screen.getByLabelText('Message');
+    await fireEvent.changeText(input, 'Keep this text');
     await fireEvent.press(screen.getByLabelText('Send image'));
     await fireEvent.press(screen.getByLabelText('Remove image'));
     expect(onSendImage).toHaveBeenCalledTimes(1);
+    expect(onSend).not.toHaveBeenCalled();
     expect(onRemoveImage).toHaveBeenCalledTimes(1);
+    expect(input.props.value).toBe('Keep this text');
+    expect(screen.getByLabelText('Remove image').props.hitSlop).toEqual({ top: 8, right: 8, bottom: 8, left: 8 });
+    expect(screen.queryByText('Ready to send')).toBeNull();
+    expect(screen.queryByText('Checking image…')).toBeNull();
+    expect(screen.getAllByLabelText('Send image')).toHaveLength(1);
+    expect(screen.queryByLabelText('Retry image')).toBeNull();
 
     await screen.rerender(
       <EventChatThreadView
         {...props({
           session: { ...readOnlySession, capability: 'READ_WRITE', canSend: true, ganapStatus: 'ONGOING' },
           imageDraft: { ...imageDraft, status: 'checking' },
+          isSending: true,
           onPickImage,
           onRemoveImage,
           onSendImage,
         })}
       />,
     );
-    expect(screen.getByText('Checking image…')).toBeTruthy();
-    expect(screen.queryByLabelText('Remove image')).toBeNull();
+    expect(screen.queryByText('Checking image…')).toBeNull();
+    expect(screen.getByLabelText('Remove image').props.accessibilityState).toMatchObject({ disabled: true });
+    expect(screen.getByLabelText('Send image').props.accessibilityState).toMatchObject({ disabled: true, busy: true });
+    screen.unmount();
+  });
+
+  it('uses the same composer control for retryable images and blocks permanent failures', async (): Promise<void> => {
+    const onRetryImage = jest.fn<() => void>();
+    const retryable = { ...imageDraft, status: 'retryable-failure' as const, error: new Error('offline') };
+    const screen = await render(
+      <EventChatThreadView
+        {...props({
+          session: { ...readOnlySession, capability: 'READ_WRITE', canSend: true, ganapStatus: 'ONGOING' },
+          imageDraft: retryable,
+          onRetryImage,
+        })}
+      />,
+    );
+
+    expect(mockedShowToast).toHaveBeenCalledWith(
+      'error',
+      "Image couldn't be sent. Check your connection and try again.",
+    );
+    expect(screen.queryByText("Image couldn't be sent. Check your connection and try again.")).toBeNull();
+    await fireEvent.press(screen.getByLabelText('Send image'));
+    expect(onRetryImage).toHaveBeenCalledTimes(1);
+
+    await screen.rerender(
+      <EventChatThreadView
+        {...props({
+          session: { ...readOnlySession, capability: 'READ_WRITE', canSend: true, ganapStatus: 'ONGOING' },
+          imageDraft: { ...retryable, status: 'permanent-failure' as const },
+          onRetryImage,
+        })}
+      />,
+    );
+    expect(screen.getByLabelText('Send image').props.accessibilityState).toMatchObject({ disabled: true });
+    expect(onRetryImage).toHaveBeenCalledTimes(1);
     screen.unmount();
   });
 

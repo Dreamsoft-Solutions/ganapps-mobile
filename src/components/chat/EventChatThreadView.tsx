@@ -1,5 +1,5 @@
 import { ArrowLeft, ImagePlus, MoreVertical, Send } from 'lucide-react-native';
-import { type ReactElement, useCallback, useRef, useState } from 'react';
+import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -23,8 +23,9 @@ import { Colors, Spacing } from '@/constants/theme';
 import type { FailedDraft } from '@/hooks/useChat';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { ChatConnectionState } from '@/services/chat-socket.service';
+import { showToast } from '@/store/toast.store';
 import type { ChatImageDraft, ChatMessage, EventChatSession } from '@/types/chat.types';
-import { isChatImageAuthorizationError } from '@/utils/chat-image';
+import { getChatImageErrorMessage, isChatImageAuthorizationError } from '@/utils/chat-image';
 
 /** Maximum text size accepted by the Event Chat server contract. */
 export const CHAT_MAX_MESSAGE_LENGTH = 2_000;
@@ -234,6 +235,18 @@ export function EventChatThreadView({
   const [imageLoadStates, setImageLoadStates] = useState<Record<string, ImageLoadState>>({});
   const imageRefreshIds = useRef<Set<string>>(new Set<string>());
   const isReadOnly: boolean = Boolean(session?.canRead && !session.canSend);
+  const canSendImage: boolean =
+    imageDraft?.status === 'ready' ||
+    (imageDraft?.status === 'retryable-failure' && (imageRetryAfterSeconds ?? 0) <= 0);
+  const sendDisabled: boolean = isSending || (imageDraft ? !canSendImage : draftText.trim().length === 0);
+
+  useEffect((): void => {
+    if (imagePickerError) showToast('error', imagePickerError.message);
+  }, [imagePickerError]);
+
+  useEffect((): void => {
+    if (imageDraft?.error) showToast('error', getChatImageErrorMessage(imageDraft.error));
+  }, [imageDraft?.error]);
 
   const handleImageLoadError = useCallback(
     (messageId: string, error: string): void => {
@@ -314,7 +327,7 @@ export function EventChatThreadView({
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-background"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? Spacing.lg : 0}
     >
       <View
@@ -397,20 +410,7 @@ export function EventChatThreadView({
         </View>
       ) : session?.canSend ? (
         <View className="border-t border-border px-md pt-sm" style={{ paddingBottom: insets.bottom + Spacing.sm }}>
-          {imagePickerError && (
-            <Text accessibilityRole="alert" accessibilityLiveRegion="polite" className="mb-sm text-body-md text-destructive">
-              {imagePickerError.message}
-            </Text>
-          )}
-          {imageDraft && (
-            <ChatImagePreview
-              draft={imageDraft}
-              retryAfterSeconds={imageRetryAfterSeconds}
-              onRemove={onRemoveImage}
-              onSend={onSendImage}
-              onRetry={onRetryImage}
-            />
-          )}
+          {imageDraft && <ChatImagePreview draft={imageDraft} onRemove={onRemoveImage} />}
           <Text nativeID="event-chat-composer-label" className="mb-xs font-inter-semibold text-label-md">
             Message
           </Text>
@@ -448,10 +448,19 @@ export function EventChatThreadView({
             />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Send message"
-              accessibilityState={{ disabled: isSending || draftText.trim().length === 0, busy: isSending }}
-              disabled={isSending || draftText.trim().length === 0}
+              accessibilityLabel={imageDraft ? 'Send image' : 'Send message'}
+              accessibilityHint={imageDraft ? 'Sends the selected image as a separate chat message' : undefined}
+              accessibilityState={{ disabled: sendDisabled, busy: isSending }}
+              disabled={sendDisabled}
               onPress={(): void => {
+                if (imageDraft) {
+                  if (imageDraft.status === 'retryable-failure') {
+                    void onRetryImage();
+                  } else if (imageDraft.status === 'ready') {
+                    void onSendImage();
+                  }
+                  return;
+                }
                 const content: string = draftText;
                 setDraftText('');
                 void onSend(content);

@@ -1,15 +1,19 @@
 import type { ImageErrorEventData } from 'expo-image';
 import { Image } from 'expo-image';
+import { X } from 'lucide-react-native';
 import type { ReactElement } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Button } from '@/components/common/Button';
-import { Card } from '@/components/common/Card';
 import { Text } from '@/components/common/Text';
+import { Colors } from '@/constants/theme';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { ChatImageDraft, ChatMessageMedia } from '@/types/chat.types';
-import { getChatImageErrorCode, getChatImageErrorMessage } from '@/utils/chat-image';
 
 /** Maximum width and height of a rendered chat image bubble in points. */
 export const CHAT_IMAGE_BUBBLE_MAX_SIZE: number = 260;
+
+/** Fixed edge length for the selected-image composer thumbnail. */
+export const CHAT_IMAGE_THUMBNAIL_SIZE: number = 64;
 
 /** Dimensions used to preserve an image's aspect ratio inside a bounded bubble. */
 export interface ChatImageDimensions {
@@ -20,10 +24,7 @@ export interface ChatImageDimensions {
 /** Props for the local image preview in the composer. */
 export interface ChatImagePreviewProps {
   draft: ChatImageDraft;
-  retryAfterSeconds: number | null;
   onRemove: () => void;
-  onSend: () => void | Promise<void>;
-  onRetry: () => void | Promise<void>;
 }
 
 /** Props for one canonical private image message bubble. */
@@ -58,73 +59,48 @@ export function getBoundedChatImageDimensions(
   };
 }
 
-function getPreviewMessage(draft: ChatImageDraft, retryAfterSeconds: number | null): string {
-  if (draft.status === 'ready') return 'Ready to send';
-  if (draft.status === 'checking') return 'Checking image…';
-  if (draft.status === 'permanent-failure') return "This image can't be sent. Choose a different image.";
-  if (getChatImageErrorCode(draft.error ?? new Error()) === 'MEDIA_CAPACITY_EXCEEDED' && retryAfterSeconds !== null) {
-    return retryAfterSeconds > 0
-      ? `Images are busy. Try again in ${retryAfterSeconds} seconds.`
-      : 'Images are busy. Try again now.';
-  }
-  return getChatImageErrorMessage(draft.error ?? new Error('Image could not be sent.'));
-}
-
 /**
- * Renders a removable local image draft and its explicit send/retry state.
+ * Renders a compact, removable local image draft.
  *
- * @param props - Draft state and composer actions
- * @returns Composer preview card
+ * @param props - Draft and remove action
+ * @returns Fixed-size composer thumbnail
  */
-export function ChatImagePreview({
-  draft,
-  retryAfterSeconds,
-  onRemove,
-  onSend,
-  onRetry,
-}: ChatImagePreviewProps): ReactElement {
-  const dimensions: ChatImageDimensions = getBoundedChatImageDimensions(draft.asset.width, draft.asset.height);
+export function ChatImagePreview({ draft, onRemove }: ChatImagePreviewProps): ReactElement {
+  const theme = useResolvedTheme();
   const isChecking: boolean = draft.status === 'checking';
-  const isRetryable: boolean = draft.status === 'retryable-failure';
-  const isRetryBlocked: boolean = (retryAfterSeconds ?? 0) > 0;
   return (
-    <Card className="mb-sm flex-row items-center gap-sm">
+    <View className="mb-sm self-start" style={{ position: 'relative' }}>
       <Image
         source={{ uri: draft.asset.uri }}
-        style={{ width: dimensions.width, height: dimensions.height }}
-        contentFit="cover"
+        style={{ width: CHAT_IMAGE_THUMBNAIL_SIZE, height: CHAT_IMAGE_THUMBNAIL_SIZE }}
+        contentFit="contain"
         cachePolicy="memory"
-        accessibilityLabel="Image preview"
+        accessibilityLabel="Selected image preview"
+        className="rounded-lg border border-border bg-muted"
       />
-      <View className="min-w-0 flex-1">
-        <Text accessibilityLiveRegion="polite" className="font-inter-semibold text-body-md">
-          {getPreviewMessage(draft, retryAfterSeconds)}
-        </Text>
-        <View className="mt-sm flex-row flex-wrap gap-sm">
-          {draft.status === 'ready' && (
-            <Button size="sm" onPress={onSend} accessibilityHint="Sends this image as a separate chat message">
-              Send image
-            </Button>
-          )}
-          {isRetryable && (
-            <Button
-              size="sm"
-              variant="outline"
-              onPress={onRetry}
-              disabled={isRetryBlocked}
-              accessibilityHint="Retries this image without creating a duplicate message"
-            >
-              Retry image
-            </Button>
-          )}
-          {!isChecking && (
-            <Button size="sm" variant="ghost" onPress={onRemove}>
-              Remove image
-            </Button>
-          )}
-        </View>
-      </View>
-    </Card>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Remove image"
+        accessibilityHint="Removes the selected image"
+        accessibilityState={{ disabled: isChecking }}
+        disabled={isChecking}
+        hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+        onPress={onRemove}
+        style={{
+          position: 'absolute',
+          top: -8,
+          right: -8,
+          width: 28,
+          height: 28,
+          borderRadius: 14,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: Colors[theme].muted,
+        }}
+      >
+        <X size={16} color={Colors[theme].foreground} />
+      </Pressable>
+    </View>
   );
 }
 

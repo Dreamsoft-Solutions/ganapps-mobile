@@ -11,11 +11,7 @@ import {
   useUnfriendMutation,
   useUpdateFriendSettingsMutation,
 } from '@/hooks/mutations/useFriendsMutation';
-import {
-  chatQueryKeys,
-  type UseChatSummariesQueryResult,
-  useChatSummariesQuery,
-} from '@/hooks/queries/useChatQuery';
+import { chatQueryKeys, type UseChatSummariesQueryResult, useChatSummariesQuery } from '@/hooks/queries/useChatQuery';
 import {
   type UseFriendGoingQueryResult,
   type UseFriendRequestsQueryResult,

@@ -33,6 +33,7 @@ export const friendsQueryKeys = {
   profile: (userId: string) => [...friendsQueryKeys.all, 'profile', userId] as const,
   presence: () => [...friendsQueryKeys.all, 'presence'] as const,
   going: () => [...friendsQueryKeys.all, 'going'] as const,
+  goingForGanap: (ganapId: string) => [...friendsQueryKeys.going(), ganapId] as const,
   settings: () => [...friendsQueryKeys.all, 'settings'] as const,
 };
 
@@ -226,10 +227,16 @@ export function useFriendPresenceQuery(
  * Lists privacy-filtered upcoming and ongoing Ganaps for accepted friends.
  *
  * @param enabled - Whether the Friends segment may request Going data
+ * @param ganapId - Optional Ganap whose Going friends should be returned
  * @returns Infinite Going query and flattened safe rows
  */
-export function useFriendGoingQuery(enabled = false): UseFriendGoingQueryResult {
+type FriendGoingQueryKey =
+  | ReturnType<typeof friendsQueryKeys.going>
+  | ReturnType<typeof friendsQueryKeys.goingForGanap>;
+
+export function useFriendGoingQuery(enabled = false, ganapId?: string): UseFriendGoingQueryResult {
   const token: string | null = useAuthStore((state) => state.token);
+  const queryKey: FriendGoingQueryKey = ganapId ? friendsQueryKeys.goingForGanap(ganapId) : friendsQueryKeys.going();
   const result: UseInfiniteQueryResult<
     InfiniteData<FriendPage<FriendGoingRecord>, FriendsPageParam>,
     Error
@@ -237,14 +244,14 @@ export function useFriendGoingQuery(enabled = false): UseFriendGoingQueryResult 
     FriendPage<FriendGoingRecord>,
     Error,
     InfiniteData<FriendPage<FriendGoingRecord>, FriendsPageParam>,
-    readonly ['friends', 'going'],
+    FriendGoingQueryKey,
     FriendsPageParam
   >({
-    queryKey: friendsQueryKeys.going(),
+    queryKey,
     queryFn: ({
       pageParam,
-    }: QueryFunctionContext<readonly ['friends', 'going'], FriendsPageParam>): Promise<FriendPage<FriendGoingRecord>> =>
-      friendsAPI.listGoing({ cursor: pageParam, limit: FRIENDS_PAGE_SIZE }),
+    }: QueryFunctionContext<FriendGoingQueryKey, FriendsPageParam>): Promise<FriendPage<FriendGoingRecord>> =>
+      friendsAPI.listGoing({ cursor: pageParam, limit: FRIENDS_PAGE_SIZE, ganapId }),
     initialPageParam: undefined,
     getNextPageParam: getNextFriendsPageParam,
     ...FRIENDS_QUERY_OPTIONS,

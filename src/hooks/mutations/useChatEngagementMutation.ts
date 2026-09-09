@@ -1,7 +1,7 @@
 import {
+  type InfiniteData,
   QueryClient,
   QueryClientContext,
-  type InfiniteData,
   type UseMutationResult,
   useMutation,
 } from '@tanstack/react-query';
@@ -86,10 +86,7 @@ function toReactionSummary(aggregate: ReactionAggregate): ReactionSummary {
   };
 }
 
-function patchUnsentInMessageCaches(
-  queryClient: QueryClient,
-  tombstone: UnsentMessageResponse,
-): void {
+function patchUnsentInMessageCaches(queryClient: QueryClient, tombstone: UnsentMessageResponse): void {
   const patch = (
     data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined,
   ): InfiniteData<ChatMessagesPage, ChatPageParam> | undefined => replaceMessageWithUnsent(data, tombstone);
@@ -174,20 +171,23 @@ function patchAnnouncementReaction(
 /** Sets or removes a message reaction with server-owned aggregate reconciliation. */
 export function useMessageReactionMutation(): UseMutationResult<ReactionSummary, Error, MessageReactionVariables> {
   const queryClient: QueryClient = useEngagementQueryClient();
-  return useMutation<ReactionSummary, Error, MessageReactionVariables>({
-    mutationFn: async (variables: MessageReactionVariables): Promise<ReactionSummary> => {
-      const aggregate: ReactionAggregate = variables.reaction
-        ? await chatEngagementAPI.setMessageReaction(variables.conversationId, variables.messageId, {
-            reaction: variables.reaction,
-          })
-        : await chatEngagementAPI.deleteMessageReaction(variables.conversationId, variables.messageId);
-      return toReactionSummary(aggregate);
+  return useMutation<ReactionSummary, Error, MessageReactionVariables>(
+    {
+      mutationFn: async (variables: MessageReactionVariables): Promise<ReactionSummary> => {
+        const aggregate: ReactionAggregate = variables.reaction
+          ? await chatEngagementAPI.setMessageReaction(variables.conversationId, variables.messageId, {
+              reaction: variables.reaction,
+            })
+          : await chatEngagementAPI.deleteMessageReaction(variables.conversationId, variables.messageId);
+        return toReactionSummary(aggregate);
+      },
+      onSuccess: (summary: ReactionSummary, variables: MessageReactionVariables): void =>
+        patchReactionInMessageCaches(queryClient, variables, summary),
+      retry: false,
+      meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
     },
-    onSuccess: (summary: ReactionSummary, variables: MessageReactionVariables): void =>
-      patchReactionInMessageCaches(queryClient, variables, summary),
-    retry: false,
-    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
-  }, queryClient);
+    queryClient,
+  );
 }
 
 /** Sets or removes an attendee announcement acknowledgement. */
@@ -197,50 +197,56 @@ export function useAnnouncementReactionMutation(): UseMutationResult<
   AnnouncementReactionVariables
 > {
   const queryClient: QueryClient = useEngagementQueryClient();
-  return useMutation<AnnouncementReactionResponse, Error, AnnouncementReactionVariables>({
-    mutationFn: (variables: AnnouncementReactionVariables): Promise<AnnouncementReactionResponse> =>
-      variables.reaction
-        ? chatEngagementAPI.setAnnouncementReaction(variables.ganapId, variables.announcementId, {
-            reaction: variables.reaction,
-          })
-        : chatEngagementAPI.deleteAnnouncementReaction(variables.ganapId, variables.announcementId),
-    onSuccess: (response: AnnouncementReactionResponse, variables: AnnouncementReactionVariables): void => {
-      const summary: ReactionSummary = {
-        ...response,
-        total: response.counts.reduce((total: number, entry): number => total + entry.count, 0),
-      };
-      patchAnnouncementReaction(queryClient, variables, summary);
+  return useMutation<AnnouncementReactionResponse, Error, AnnouncementReactionVariables>(
+    {
+      mutationFn: (variables: AnnouncementReactionVariables): Promise<AnnouncementReactionResponse> =>
+        variables.reaction
+          ? chatEngagementAPI.setAnnouncementReaction(variables.ganapId, variables.announcementId, {
+              reaction: variables.reaction,
+            })
+          : chatEngagementAPI.deleteAnnouncementReaction(variables.ganapId, variables.announcementId),
+      onSuccess: (response: AnnouncementReactionResponse, variables: AnnouncementReactionVariables): void => {
+        const summary: ReactionSummary = {
+          ...response,
+          total: response.counts.reduce((total: number, entry): number => total + entry.count, 0),
+        };
+        patchAnnouncementReaction(queryClient, variables, summary);
+      },
+      retry: false,
+      meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
     },
-    retry: false,
-    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
-  }, queryClient);
+    queryClient,
+  );
 }
 
 /** Un-sends a message and reconciles the durable public tombstone everywhere it is cached. */
 export function useUnsendMessageMutation(): UseMutationResult<UnsentMessageResponse, Error, UnsendMessageVariables> {
   const queryClient: QueryClient = useEngagementQueryClient();
-  return useMutation<UnsentMessageResponse, Error, UnsendMessageVariables>({
-    mutationFn: (variables: UnsendMessageVariables): Promise<UnsentMessageResponse> =>
-      chatEngagementAPI.unsendMessage(variables.conversationId, variables.messageId),
-    onSuccess: (tombstone: UnsentMessageResponse): void => {
-      patchUnsentInMessageCaches(queryClient, tombstone);
-      queryClient.setQueriesData<InfiniteData<EventChatSummaryPage, ChatPageParam>>(
-        { queryKey: chatQueryKeys.eventList() },
-        (data: InfiniteData<EventChatSummaryPage, ChatPageParam> | undefined) =>
-          patchEventSummaryForUnsend(data, tombstone),
-      );
-      queryClient.setQueriesData<InfiniteData<ChatConversationSummaryPage, ChatPageParam>>(
-        { queryKey: chatQueryKeys.summaries() },
-        (data: InfiniteData<ChatConversationSummaryPage, ChatPageParam> | undefined) =>
-          patchConversationSummaryForUnsend(data, tombstone),
-      );
-      queryClient.setQueriesData<InfiniteData<ChatConversationSummaryPage, ChatPageParam>>(
-        { queryKey: chatQueryKeys.directSummaries() },
-        (data: InfiniteData<ChatConversationSummaryPage, ChatPageParam> | undefined) =>
-          patchConversationSummaryForUnsend(data, tombstone),
-      );
+  return useMutation<UnsentMessageResponse, Error, UnsendMessageVariables>(
+    {
+      mutationFn: (variables: UnsendMessageVariables): Promise<UnsentMessageResponse> =>
+        chatEngagementAPI.unsendMessage(variables.conversationId, variables.messageId),
+      onSuccess: (tombstone: UnsentMessageResponse): void => {
+        patchUnsentInMessageCaches(queryClient, tombstone);
+        queryClient.setQueriesData<InfiniteData<EventChatSummaryPage, ChatPageParam>>(
+          { queryKey: chatQueryKeys.eventList() },
+          (data: InfiniteData<EventChatSummaryPage, ChatPageParam> | undefined) =>
+            patchEventSummaryForUnsend(data, tombstone),
+        );
+        queryClient.setQueriesData<InfiniteData<ChatConversationSummaryPage, ChatPageParam>>(
+          { queryKey: chatQueryKeys.summaries() },
+          (data: InfiniteData<ChatConversationSummaryPage, ChatPageParam> | undefined) =>
+            patchConversationSummaryForUnsend(data, tombstone),
+        );
+        queryClient.setQueriesData<InfiniteData<ChatConversationSummaryPage, ChatPageParam>>(
+          { queryKey: chatQueryKeys.directSummaries() },
+          (data: InfiniteData<ChatConversationSummaryPage, ChatPageParam> | undefined) =>
+            patchConversationSummaryForUnsend(data, tombstone),
+        );
+      },
+      retry: false,
+      meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
     },
-    retry: false,
-    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
-  }, queryClient);
+    queryClient,
+  );
 }

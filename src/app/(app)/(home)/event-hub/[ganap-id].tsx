@@ -9,10 +9,12 @@ import { Text } from '@/components/common/Text';
 import { EventHubView } from '@/components/ganaps/EventHubView';
 import { Routes } from '@/constants/routes';
 import { useAnnouncementReactionMutation } from '@/hooks/mutations/useChatEngagementMutation';
+import { useFriendGoingQuery } from '@/hooks/queries/useFriendsQuery';
 import { useFormBlocksQuery, useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { type UseGanapAnnouncementsResult, useGanapAnnouncements } from '@/hooks/useGanapAnnouncements';
 import { showToast } from '@/store/toast.store';
 import type { ReactionType } from '@/types/chat.types';
+import type { FriendGoingRecord, FriendUserSummary } from '@/types/friends.types';
 import type { FormBlock, GanapAnnouncement, GanapDetail, RegistrationStatus } from '@/types/ganap.types';
 import { type AttendanceScanState, getAttendanceScanState } from '@/utils/attendance';
 import { canAccessEventHub } from '@/utils/event-hub';
@@ -77,6 +79,7 @@ function EligibleEventHub({
   onGiveFeedback,
 }: EligibleEventHubProps): ReactElement {
   const announcements: UseGanapAnnouncementsResult = useGanapAnnouncements(ganap.id, true);
+  const friendsGoingQuery = useFriendGoingQuery(true, ganap.id);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const schedule: GanapScheduleModel = getGanapScheduleModel(ganap.startDate, ganap.endDate);
   const accessLost: boolean = announcements.hasLostAccess;
@@ -89,6 +92,9 @@ function EligibleEventHub({
     formBlocksQuery.data,
     announcements.hasLostAccess || formBlocksQuery.isLoading || formBlocksQuery.error !== null,
   );
+  const friendsGoing: FriendUserSummary[] = friendsGoingQuery.going
+    .filter((record: FriendGoingRecord): boolean => record.ganap.ganapId === ganap.id)
+    .map((record: FriendGoingRecord): FriendUserSummary => record.user);
 
   async function handleShare(): Promise<void> {
     await Share.share({ message: buildGanapShareMessage(ganap, schedule), title: ganap.title });
@@ -118,11 +124,11 @@ function EligibleEventHub({
   const handleRefresh = useCallback(async (): Promise<void> => {
     setIsRefreshing(true);
     try {
-      await Promise.all([onRefreshDetail(), announcements.refetch()]);
+      await Promise.all([onRefreshDetail(), announcements.refetch(), friendsGoingQuery.refetch()]);
     } finally {
       setIsRefreshing(false);
     }
-  }, [announcements.refetch, onRefreshDetail]);
+  }, [announcements.refetch, friendsGoingQuery.refetch, onRefreshDetail]);
 
   return (
     <EventHubView
@@ -137,6 +143,10 @@ function EligibleEventHub({
       isFetchNextPageError={!accessLost && announcements.isFetchNextPageError}
       accessLost={accessLost}
       isRefreshing={isRefreshing}
+      friendsGoing={accessLost ? [] : friendsGoing}
+      isFriendsGoingLoading={!accessLost && friendsGoingQuery.isLoading}
+      friendsGoingError={accessLost ? null : friendsGoingQuery.error}
+      hasMoreFriendsGoing={!accessLost && Boolean(friendsGoingQuery.hasNextPage)}
       scanState={scanState}
       onBack={onBack}
       onShare={handleShare}
@@ -144,6 +154,9 @@ function EligibleEventHub({
       onRefresh={handleRefresh}
       onRetryAnnouncements={(): void => {
         void announcements.refetch();
+      }}
+      onRetryFriendsGoing={(): void => {
+        void friendsGoingQuery.refetch();
       }}
       onRetryNextPage={(): void => {
         void announcements.fetchNextPage();

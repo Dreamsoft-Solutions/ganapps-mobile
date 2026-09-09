@@ -1,10 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import type { ChatMessage } from '@/types/chat.types';
-import {
-  CHAT_UNSEND_WINDOW_MS,
-  isChatMessageUnsendAvailable,
-  isChatMessageUnsendEligible,
-} from './chat-engagement';
+import { CHAT_UNSEND_WINDOW_MS, isChatMessageUnsendAvailable, isChatMessageUnsendEligible } from './chat-engagement';
 
 const NOW: number = Date.parse('2026-09-07T12:00:00.000Z');
 

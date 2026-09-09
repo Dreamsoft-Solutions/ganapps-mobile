@@ -42,6 +42,8 @@ export interface SendChatImageInput {
 /** Multipart Direct Chat image fields, shared by first and later sends. */
 export type SendDirectChatImageInput = SendChatImageInput;
 
+const CHAT_IMAGE_REQUEST_TIMEOUT_MS: number = 60_000;
+
 function createChatImageFormData(input: SendChatImageInput): FormData {
   const formData: FormData = new FormData();
   formData.append('clientMessageId', input.clientMessageId);
@@ -55,10 +57,12 @@ function createChatImageFormData(input: SendChatImageInput): FormData {
 
 function imageRequestConfig(): {
   headers: { 'Content-Type': undefined };
+  timeout: number;
   transformRequest: [(data: unknown) => unknown];
 } {
   return {
     headers: { 'Content-Type': undefined },
+    timeout: CHAT_IMAGE_REQUEST_TIMEOUT_MS,
     transformRequest: [(data: unknown): unknown => data],
   };
 }

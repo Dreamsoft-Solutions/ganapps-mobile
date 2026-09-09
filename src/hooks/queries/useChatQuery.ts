@@ -13,11 +13,11 @@ import type {
   ChatConversationSummaryPage,
   ChatMessage,
   ChatMessagesPage,
+  DirectChatSummary,
   EventChatSession,
   EventChatSummary,
   EventChatSummaryPage,
 } from '@/types/chat.types';
-import type { DirectChatSummary } from '@/types/chat.types';
 import { isChatForbidden } from '@/utils/chat';
 
 /** Shared page parameter type for opaque cursors and the initial undefined page. */

@@ -1,7 +1,7 @@
 import { type InfiniteData, type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatAPI, type SendDirectChatImageInput } from '@/api/endpoints/chat';
 import { type ChatPageParam, chatQueryKeys } from '@/hooks/queries/useChatQuery';
-import type { ChatMessage, ChatMessagesPage, ChatImageAsset } from '@/types/chat.types';
+import type { ChatImageAsset, ChatMessage, ChatMessagesPage } from '@/types/chat.types';
 import type {
   ChatConversationSummary,
   ChatConversationSummaryPage,

@@ -132,6 +132,7 @@ function buildReportInput(
  * @param props - Target and mutation callbacks
  * @returns A safe-area-aware, keyboard-safe moderation sheet
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The action sheet intentionally renders its explicit moderation state machine in one place.
 export function ModerationActionSheet({
   visible,
   target,
@@ -275,7 +276,9 @@ export function ModerationActionSheet({
             setError(null);
             setStep('reasons');
           })}
-        {target.type === 'MESSAGE' && target.canUnsend && onUnsend &&
+        {target.type === 'MESSAGE' &&
+          target.canUnsend &&
+          onUnsend &&
           renderAction(
             'Unsend message',
             (): void => {

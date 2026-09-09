@@ -193,6 +193,7 @@ describe('chatAPI', (): void => {
       | undefined;
     expect(headers?.['Content-Type']).toBeUndefined();
     expect(config?.transformRequest).toHaveLength(1);
+    expect(config?.timeout).toBe(60000);
   });
 
   it('preserves a typed forbidden result instead of turning it into a network retry', async (): Promise<void> => {
