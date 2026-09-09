@@ -107,6 +107,8 @@ export interface ChatMessage {
   senderDisplayPicture: string | null;
   content: string | null;
   type: ChatMessageType;
+  /** Conversation discriminator included by shared chat socket payloads when available. */
+  conversationType?: 'EVENT' | 'DIRECT';
   sentAt: string;
   media?: ChatMessageMedia | null;
 }

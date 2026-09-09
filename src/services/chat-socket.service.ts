@@ -12,7 +12,10 @@ export interface ChatSocketReadReceipt {
   conversationId: string;
   throughMessageId: string;
   userId: string;
-  readAt: string;
+  /** Event Chat's committed read timestamp, when supplied by the server. */
+  readAt?: string;
+  /** Direct Chat's committed Seen timestamp, when supplied by the server. */
+  seenAt?: string;
 }
 
 /** Moderation event emitted when a message is hidden for this User. */
@@ -24,7 +27,8 @@ export interface ChatSocketMessageHiddenEvent {
 /** Access event emitted when the current User can no longer read an Event Chat. */
 export interface ChatSocketAccessRevokedEvent {
   conversationId: string;
-  ganapId: string;
+  /** Event Chat identity; Direct Chat revocation events do not have a Ganap id. */
+  ganapId?: string;
 }
 
 /** Events delivered to one conversation listener. */
@@ -46,7 +50,8 @@ export type ChatSocketListener = (event: ChatSocketEvent) => void;
 export type ChatSocketModerationListener = (event: ChatSocketModerationEvent) => void;
 
 interface RoomSubscription {
-  ganapId: string;
+  kind: 'event' | 'direct';
+  ganapId?: string;
   listeners: Set<ChatSocketListener>;
 }
 
@@ -134,7 +139,7 @@ function isReadReceipt(value: unknown): value is ChatSocketReadReceipt {
     typeof candidate.conversationId === 'string' &&
     typeof candidate.throughMessageId === 'string' &&
     typeof candidate.userId === 'string' &&
-    typeof candidate.readAt === 'string'
+    (typeof candidate.readAt === 'string' || typeof candidate.seenAt === 'string')
   );
 }
 
@@ -147,7 +152,7 @@ function isMessageHiddenEvent(value: unknown): value is ChatSocketMessageHiddenE
 function isAccessRevokedEvent(value: unknown): value is ChatSocketAccessRevokedEvent {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Partial<ChatSocketAccessRevokedEvent>;
-  return typeof candidate.conversationId === 'string' && typeof candidate.ganapId === 'string';
+  return typeof candidate.conversationId === 'string';
 }
 
 function isSocketAuthError(error: unknown): boolean {
@@ -182,6 +187,7 @@ export class ChatSocketClient {
   private readonly seenMessageIds = new Set<string>();
   private readonly joinedConversationIds = new Set<string>();
   private readonly hiddenMessageKeys = new Set<string>();
+  private readonly focusedDirectConversationIds = new Set<string>();
   private connectionState: ChatConnectionState = 'idle';
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
@@ -259,16 +265,56 @@ export class ChatSocketClient {
    * @returns Cleanup function that decrements the room reference count
    */
   public subscribe(conversationId: string, ganapId: string, listener: ChatSocketListener): () => void {
-    if (!conversationId || !ganapId) return (): void => {};
+    return this.subscribeRoom(conversationId, 'event', ganapId, listener);
+  }
+
+  /**
+   * Focuses a Direct Chat room on the process-wide connection.
+   *
+   * @param conversationId - Direct conversation room key
+   * @param listener - Screen listener for canonical server events
+   * @returns Cleanup function that decrements the room reference count
+   */
+  public subscribeDirect(conversationId: string, listener: ChatSocketListener): () => void {
+    return this.subscribeRoom(conversationId, 'direct', undefined, listener);
+  }
+
+  /**
+   * Reports whether a Direct Chat screen is foregrounded to the server.
+   *
+   * The state is retained across reconnects and re-emitted after the room is
+   * rejoined. No message content or bearer token is sent with this event.
+   *
+   * @param conversationId - Direct conversation to mark focused
+   * @param focused - Whether the current screen is foregrounded
+   * @returns Nothing
+   */
+  public setDirectFocus(conversationId: string, focused: boolean): void {
+    if (!conversationId) return;
+    if (focused) this.focusedDirectConversationIds.add(conversationId);
+    else this.focusedDirectConversationIds.delete(conversationId);
+    if (this.socket?.connected && this.joinedConversationIds.has(conversationId)) {
+      this.socket.emit('chat:direct:focus', { conversationId, focused });
+    }
+  }
+
+  private subscribeRoom(
+    conversationId: string,
+    kind: 'event' | 'direct',
+    ganapId: string | undefined,
+    listener: ChatSocketListener,
+  ): () => void {
+    if (!conversationId || (kind === 'event' && !ganapId)) return (): void => {};
 
     const existing: RoomSubscription | undefined = this.rooms.get(conversationId);
-    const room: RoomSubscription = existing ?? { ganapId, listeners: new Set<ChatSocketListener>() };
+    const room: RoomSubscription = existing ?? { kind, ganapId, listeners: new Set<ChatSocketListener>() };
     const hadListeners: boolean = room.listeners.size > 0;
-    if (room.ganapId !== ganapId) room.ganapId = ganapId;
+    if (room.kind !== kind) room.kind = kind;
+    if (ganapId !== undefined) room.ganapId = ganapId;
     room.listeners.add(listener);
     this.rooms.set(conversationId, room);
 
-    if (this.socket?.connected && !hadListeners) this.joinRoomWhenReady(conversationId, room.ganapId);
+    if (this.socket?.connected && !hadListeners) this.joinRoomWhenReady(conversationId);
     else if (!this.socket?.connected) void this.ensureConnected();
 
     let active = true;
@@ -280,9 +326,10 @@ export class ChatSocketClient {
       current.listeners.delete(listener);
       if (current.listeners.size > 0) return;
       if (this.socket?.connected && this.joinedConversationIds.has(conversationId)) {
-        this.socket.emit('chat:leave', { conversationId });
+        this.emitLeave(current, conversationId);
       }
       this.joinedConversationIds.delete(conversationId);
+      this.focusedDirectConversationIds.delete(conversationId);
       this.rooms.delete(conversationId);
       if (this.rooms.size === 0) this.disconnect('no-subscribers');
     };
@@ -307,6 +354,7 @@ export class ChatSocketClient {
     this.seenMessageIds.clear();
     this.hiddenMessageKeys.clear();
     this.joinedConversationIds.clear();
+    this.focusedDirectConversationIds.clear();
     this.joinAfterRefreshPromise = null;
     this.setConnectionState('idle');
     this.intentionalDisconnect = false;
@@ -400,26 +448,26 @@ export class ChatSocketClient {
   private joinRoomsNow(): void {
     if (!this.socket?.connected) return;
     this.rooms.forEach((_room: RoomSubscription, conversationId: string): void => {
-      const room: RoomSubscription | undefined = this.rooms.get(conversationId);
-      if (room) this.joinRoomIfNeeded(conversationId, room.ganapId);
+      this.joinRoomIfNeeded(conversationId);
     });
   }
 
-  private joinRoomWhenReady(conversationId: string, ganapId: string): void {
+  private joinRoomWhenReady(conversationId: string): void {
     const pendingRefresh: Promise<void> | null = this.joinAfterRefreshPromise;
     if (pendingRefresh) {
       void pendingRefresh.then((): void => {
         const room: RoomSubscription | undefined = this.rooms.get(conversationId);
-        if (room && this.socket?.connected) this.joinRoomIfNeeded(conversationId, room.ganapId);
+        if (room && this.socket?.connected) this.joinRoomIfNeeded(conversationId);
       });
       return;
     }
-    this.joinRoomIfNeeded(conversationId, ganapId);
+    this.joinRoomIfNeeded(conversationId);
   }
 
-  private joinRoomIfNeeded(conversationId: string, ganapId: string): void {
+  private joinRoomIfNeeded(conversationId: string): void {
     if (this.joinedConversationIds.has(conversationId)) return;
-    this.joinRoom(conversationId, ganapId);
+    const room: RoomSubscription | undefined = this.rooms.get(conversationId);
+    if (room) this.joinRoom(conversationId, room);
   }
 
   private readonly handleDisconnect = (): void => {
@@ -450,6 +498,8 @@ export class ChatSocketClient {
       if (oldest) this.seenMessageIds.delete(oldest);
     }
     const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
+    if (room?.kind === 'direct' && value.conversationType !== 'DIRECT') return;
+    if (room?.kind === 'event' && value.conversationType === 'DIRECT') return;
     room?.listeners.forEach((listener: ChatSocketListener): void => {
       listener({ type: 'message', message: value });
     });
@@ -505,20 +555,28 @@ export class ChatSocketClient {
     const room: RoomSubscription | undefined = this.rooms.get(conversationId);
     if (!room) return;
     if (this.socket?.connected && this.joinedConversationIds.has(conversationId)) {
-      this.socket.emit('chat:leave', { conversationId });
+      this.emitLeave(room, conversationId);
     }
     this.joinedConversationIds.delete(conversationId);
+    this.focusedDirectConversationIds.delete(conversationId);
     this.rooms.delete(conversationId);
     if (this.rooms.size === 0) this.disconnect('access-revoked');
   }
 
-  private joinRoom(conversationId: string, ganapId: string): void {
-    this.socket?.emit('chat:join', { ganapId });
+  private joinRoom(conversationId: string, room: RoomSubscription): void {
+    if (room.kind === 'direct') {
+      this.socket?.emit('chat:direct:join', { conversationId });
+      if (this.focusedDirectConversationIds.has(conversationId)) {
+        this.socket?.emit('chat:direct:focus', { conversationId, focused: true });
+      }
+    } else if (room.ganapId) {
+      this.socket?.emit('chat:join', { ganapId: room.ganapId });
+    }
     this.joinedConversationIds.add(conversationId);
-    // Keep the conversation id in this method's contract for room reference
-    // accounting and future server acknowledgements without sending it in the
-    // wire payload, whose DS-95 contract is Ganap-scoped.
-    void conversationId;
+  }
+
+  private emitLeave(room: RoomSubscription, conversationId: string): void {
+    this.socket?.emit(room.kind === 'direct' ? 'chat:direct:leave' : 'chat:leave', { conversationId });
   }
 
   private scheduleReconnect(): void {
@@ -545,6 +603,7 @@ export class ChatSocketClient {
     this.ticketCache = null;
     this.reconnectAttempt = 0;
     this.joinedConversationIds.clear();
+    this.focusedDirectConversationIds.clear();
     this.joinAfterRefreshPromise = null;
     this.setConnectionState('disconnected');
     this.intentionalDisconnect = false;
