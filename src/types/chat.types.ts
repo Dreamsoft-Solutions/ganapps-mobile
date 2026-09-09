@@ -3,8 +3,8 @@ import type { GanapStatus } from './ganap.types';
 /** Message variants returned by the Event Chat summary projection. */
 export type ChatSummaryMessageType = 'TEXT' | 'IMAGE' | 'UNSENT';
 
-/** Event Chat messages currently supported by the mobile core slice. */
-export type ChatMessageType = 'TEXT';
+/** Message types whose moderation affordance is available on the message surface. */
+export type ChatMessageType = 'TEXT' | 'IMAGE' | 'UNSENT';
 
 /** A server-owned latest-message projection used by the chat list. */
 export interface EventChatLastMessage {

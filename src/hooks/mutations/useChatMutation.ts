@@ -7,7 +7,7 @@ import type {
   EventChatSummary,
   EventChatSummaryPage,
 } from '@/types/chat.types';
-import { compareChatMessagePositions, upsertChatMessage } from '@/utils/chat';
+import { compareChatMessagePositions, getChatMessagePreview, upsertChatMessage } from '@/utils/chat';
 import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
 import { type ChatPageParam, chatQueryKeys } from '../queries/useChatQuery';
 
@@ -65,7 +65,12 @@ function patchSummaryPages(
             (!summary.lastMessage || compareChatMessagePositions(message, summary.lastMessage) > 0)
               ? {
                   ...summary,
-                  lastMessage: { id: message.id, type: 'TEXT', preview: message.content, sentAt: message.sentAt },
+                  lastMessage: {
+                    id: message.id,
+                    type: message.type,
+                    preview: getChatMessagePreview(message),
+                    sentAt: message.sentAt,
+                  },
                   updatedAt: message.sentAt,
                 }
               : summary,

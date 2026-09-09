@@ -1,5 +1,6 @@
 import { type InfiniteData, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { BLOCKED_USERS_PAGE_SIZE, moderationAPI } from '@/api/endpoints/moderation';
 import {
   type MarkChatReadVariables,
   type SendChatMessageVariables,
@@ -12,7 +13,14 @@ import {
   useEventChatMessagesQuery,
   useEventChatSessionQuery,
 } from '@/hooks/queries/useChatQuery';
-import { type ChatConnectionState, type ChatSocketEvent, chatSocketClient } from '@/services/chat-socket.service';
+import { ganapQueryKeys } from '@/hooks/queries/useGanapsQuery';
+import { type ModerationPageParam, moderationQueryKeys } from '@/hooks/queries/useModerationQuery';
+import {
+  type ChatConnectionState,
+  type ChatSocketEvent,
+  type ChatSocketModerationEvent,
+  chatSocketClient,
+} from '@/services/chat-socket.service';
 import { useAuthStore } from '@/store/auth.store';
 import type {
   ChatMessage,
@@ -21,14 +29,17 @@ import type {
   EventChatSummary,
   EventChatSummaryPage,
 } from '@/types/chat.types';
+import type { BlockedUsersPage } from '@/types/moderation.types';
 import {
   compareChatMessagePositions,
   compareChatMessages,
+  getChatMessagePreview,
   greatestChatMessage,
   isChatForbidden,
   isChatNetworkError,
   upsertChatMessage,
 } from '@/utils/chat';
+import { isUserBlocked } from '@/utils/moderation';
 
 /** A failed in-memory send that can be retried with the same client id. */
 export interface FailedDraft {
@@ -58,6 +69,7 @@ export interface UseChatResult {
   discardDraft: (clientMessageId: string) => void;
   connectionState: ChatConnectionState;
   accessLost: boolean;
+  accessRevoked: boolean;
   isReadOnly: boolean;
 }
 
@@ -109,7 +121,12 @@ function patchSummaryForMessage(
               ? summary
               : {
                   ...summary,
-                  lastMessage: { id: message.id, type: 'TEXT', preview: message.content, sentAt: message.sentAt },
+                  lastMessage: {
+                    id: message.id,
+                    type: message.type,
+                    preview: getChatMessagePreview(message),
+                    sentAt: message.sentAt,
+                  },
                   unreadCount: incrementUnread ? summary.unreadCount + 1 : summary.unreadCount,
                   updatedAt: message.sentAt,
                 },
@@ -138,6 +155,25 @@ function patchSummaryRead(
   };
 }
 
+function removeHiddenMessage(
+  data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined,
+  messageId: string,
+  conversationId: string,
+): InfiniteData<ChatMessagesPage, ChatPageParam> | undefined {
+  if (!data) return data;
+  return {
+    ...data,
+    pages: data.pages.map(
+      (page: ChatMessagesPage): ChatMessagesPage => ({
+        ...page,
+        items: page.items.filter(
+          (message: ChatMessage): boolean => message.id !== messageId || message.conversationId !== conversationId,
+        ),
+      }),
+    ),
+  };
+}
+
 /**
  * Aggregates Event Chat session, history, REST mutations, socket events, and
  * in-memory failed sends for one focused Ganap thread.
@@ -153,13 +189,14 @@ function patchSummaryRead(
 export function useChat(ganapId = '', enabled = true): UseChatResult {
   const queryClient = useQueryClient();
   const userId: string | null = useAuthStore((state) => state.user?.id ?? null);
-  const sessionQuery = useEventChatSessionQuery(ganapId, enabled && Boolean(ganapId));
+  const [accessRevoked, setAccessRevoked] = useState<boolean>(false);
+  const sessionQuery = useEventChatSessionQuery(ganapId, enabled && Boolean(ganapId) && !accessRevoked);
   const canRead: boolean = sessionQuery.data?.canRead === true;
   const sessionAccessLost: boolean = Boolean(
     isChatForbidden(sessionQuery.error) || (sessionQuery.data !== undefined && !sessionQuery.data.canRead),
   );
-  const messagesQuery = useEventChatMessagesQuery(ganapId, enabled && canRead && !sessionAccessLost);
-  const accessLost: boolean = sessionAccessLost || isChatForbidden(messagesQuery.error);
+  const messagesQuery = useEventChatMessagesQuery(ganapId, enabled && canRead && !sessionAccessLost && !accessRevoked);
+  const accessLost: boolean = accessRevoked || sessionAccessLost || isChatForbidden(messagesQuery.error);
   const sendMutation = useSendChatMessageMutation();
   const readMutation = useMarkChatReadMutation();
   const [failedDraftMap, setFailedDraftMap] = useState<Record<string, FailedDraft>>({});
@@ -167,7 +204,63 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
   const inFlightIds = useRef<Set<string>>(new Set<string>());
   const readCursor = useRef<ChatMessage | null>(null);
   const previousConversationId = useRef<string | null>(null);
+  const previousGanapId = useRef<string>(ganapId);
   const previousConnectionState = useRef<ChatConnectionState>(connectionState);
+
+  const refreshBlocksBeforeJoin = useCallback(async (): Promise<void> => {
+    const page = await moderationAPI.listBlocks({ limit: BLOCKED_USERS_PAGE_SIZE });
+    queryClient.setQueryData<InfiniteData<BlockedUsersPage, ModerationPageParam>>(
+      moderationQueryKeys.blocks(),
+      (
+        _current: InfiniteData<BlockedUsersPage, ModerationPageParam> | undefined,
+      ): InfiniteData<BlockedUsersPage, ModerationPageParam> => ({
+        // Reconnect must discard old cursor pages: a block/unblock on another
+        // device can change every page boundary, not just the first page.
+        pages: [page],
+        pageParams: [undefined],
+      }),
+    );
+  }, [queryClient]);
+
+  useEffect((): (() => void) => chatSocketClient.setBeforeJoin(refreshBlocksBeforeJoin), [refreshBlocksBeforeJoin]);
+
+  const handleModerationEvent = useCallback(
+    (moderationEvent: ChatSocketModerationEvent): void => {
+      if (moderationEvent.type === 'message-hidden') {
+        if (accessRevoked) return;
+        const conversationId: string | undefined = sessionQuery.data?.conversationId;
+        if (!conversationId || moderationEvent.event.conversationId !== conversationId) return;
+        queryClient.setQueriesData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
+          { queryKey: chatQueryKeys.eventMessages(ganapId) },
+          (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) =>
+            removeHiddenMessage(data, moderationEvent.event.messageId, conversationId),
+        );
+        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventMessages(ganapId) });
+        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
+        return;
+      }
+
+      if (accessRevoked || !ganapId || moderationEvent.event.ganapId !== ganapId) return;
+      if (!sessionQuery.data || moderationEvent.event.conversationId !== sessionQuery.data.conversationId) return;
+      setAccessRevoked(true);
+      chatSocketClient.leaveConversation(moderationEvent.event.conversationId);
+      void (async (): Promise<void> => {
+        await Promise.all([
+          queryClient.cancelQueries({ queryKey: chatQueryKeys.eventMessages(ganapId) }),
+          queryClient.cancelQueries({ queryKey: chatQueryKeys.eventSession(ganapId) }),
+        ]);
+        queryClient.removeQueries({ queryKey: chatQueryKeys.eventMessages(ganapId), exact: true });
+        queryClient.removeQueries({ queryKey: chatQueryKeys.eventSession(ganapId), exact: true });
+        await Promise.allSettled([
+          queryClient.invalidateQueries({ queryKey: ganapQueryKeys.all }),
+          queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() }),
+        ]);
+      })();
+    },
+    [accessRevoked, ganapId, queryClient, sessionQuery.data],
+  );
+
+  useEffect((): (() => void) => chatSocketClient.onModerationEvent(handleModerationEvent), [handleModerationEvent]);
 
   useEffect((): (() => void) => {
     return chatSocketClient.onConnectionStateChange((nextState: ChatConnectionState): void => {
@@ -185,6 +278,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
         if (event.type === 'message') {
           const incoming: ChatMessage = event.message;
           if (incoming.conversationId !== conversationId) return;
+          if (isUserBlocked(queryClient, incoming.senderId)) return;
           queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
             chatQueryKeys.eventMessages(ganapId),
             (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => upsertMessageInPages(data, incoming),
@@ -197,7 +291,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
           void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
           return;
         }
-        if (event.receipt.userId === userId) {
+        if (event.type === 'read' && event.receipt.userId === userId) {
           queryClient.setQueryData<InfiniteData<EventChatSummaryPage, ChatPageParam>>(
             chatQueryKeys.eventList(),
             (data: InfiniteData<EventChatSummaryPage, ChatPageParam> | undefined) =>
@@ -215,6 +309,12 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
     previousConversationId.current = conversationId;
     readCursor.current = null;
   }, [sessionQuery.data?.conversationId]);
+
+  useEffect((): void => {
+    if (previousGanapId.current === ganapId) return;
+    previousGanapId.current = ganapId;
+    setAccessRevoked(false);
+  }, [ganapId]);
 
   useEffect((): void => {
     const previous: ChatConnectionState = previousConnectionState.current;
@@ -345,6 +445,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
     discardDraft,
     connectionState: canRead && !accessLost ? connectionState : 'idle',
     accessLost,
+    accessRevoked,
     isReadOnly,
   };
 }

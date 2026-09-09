@@ -86,3 +86,15 @@ export function greatestChatMessage(messages: ChatMessage[]): ChatMessage | null
     return greatest;
   }, null);
 }
+
+/**
+ * Returns the server-safe preview copy for any supported message type.
+ *
+ * @param message - Canonical message to summarize
+ * @returns Text content or the fixed image/tombstone preview
+ */
+export function getChatMessagePreview(message: ChatMessage): string {
+  if (message.type === 'IMAGE') return 'Photo';
+  if (message.type === 'UNSENT') return 'Message unsent';
+  return message.content;
+}

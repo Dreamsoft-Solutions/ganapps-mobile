@@ -22,7 +22,10 @@ jest.mock('@/services/chat-socket.service', () => ({
   chatSocketClient: {
     getConnectionState: jest.fn(() => 'idle'),
     onConnectionStateChange: jest.fn(() => (): void => {}),
+    onModerationEvent: jest.fn(() => (): void => {}),
+    setBeforeJoin: jest.fn(() => (): void => {}),
     subscribe: jest.fn(() => (): void => {}),
+    leaveConversation: jest.fn(),
   },
 }));
 

@@ -15,13 +15,35 @@ export interface ChatSocketReadReceipt {
   readAt: string;
 }
 
+/** Moderation event emitted when a message is hidden for this User. */
+export interface ChatSocketMessageHiddenEvent {
+  conversationId: string;
+  messageId: string;
+}
+
+/** Access event emitted when the current User can no longer read an Event Chat. */
+export interface ChatSocketAccessRevokedEvent {
+  conversationId: string;
+  ganapId: string;
+}
+
 /** Events delivered to one conversation listener. */
 export type ChatSocketEvent =
   | { type: 'message'; message: ChatMessage }
-  | { type: 'read'; receipt: ChatSocketReadReceipt };
+  | { type: 'read'; receipt: ChatSocketReadReceipt }
+  | { type: 'message-hidden'; event: ChatSocketMessageHiddenEvent }
+  | { type: 'access-revoked'; event: ChatSocketAccessRevokedEvent };
+
+/** Moderation-only events delivered by the process-wide socket listener. */
+export type ChatSocketModerationEvent =
+  | { type: 'message-hidden'; event: ChatSocketMessageHiddenEvent }
+  | { type: 'access-revoked'; event: ChatSocketAccessRevokedEvent };
 
 /** Listener invoked for canonical Event Chat socket events. */
 export type ChatSocketListener = (event: ChatSocketEvent) => void;
+
+/** Listener invoked for moderation events, including conversations not focused in a screen. */
+export type ChatSocketModerationListener = (event: ChatSocketModerationEvent) => void;
 
 interface RoomSubscription {
   ganapId: string;
@@ -78,7 +100,7 @@ function isChatMessage(value: unknown): value is ChatMessage {
     typeof candidate.senderUsername === 'string' &&
     (typeof candidate.senderDisplayPicture === 'string' || candidate.senderDisplayPicture === null) &&
     typeof candidate.content === 'string' &&
-    candidate.type === 'TEXT' &&
+    (candidate.type === 'TEXT' || candidate.type === 'IMAGE' || candidate.type === 'UNSENT') &&
     typeof candidate.sentAt === 'string'
   );
 }
@@ -92,6 +114,18 @@ function isReadReceipt(value: unknown): value is ChatSocketReadReceipt {
     typeof candidate.userId === 'string' &&
     typeof candidate.readAt === 'string'
   );
+}
+
+function isMessageHiddenEvent(value: unknown): value is ChatSocketMessageHiddenEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatSocketMessageHiddenEvent>;
+  return typeof candidate.conversationId === 'string' && typeof candidate.messageId === 'string';
+}
+
+function isAccessRevokedEvent(value: unknown): value is ChatSocketAccessRevokedEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatSocketAccessRevokedEvent>;
+  return typeof candidate.conversationId === 'string' && typeof candidate.ganapId === 'string';
 }
 
 function isSocketAuthError(error: unknown): boolean {
@@ -122,12 +156,17 @@ export class ChatSocketClient {
   private ticketCache: TicketCache | null = null;
   private readonly rooms = new Map<string, RoomSubscription>();
   private readonly stateListeners = new Set<(state: ChatConnectionState) => void>();
+  private readonly moderationListeners = new Set<ChatSocketModerationListener>();
   private readonly seenMessageIds = new Set<string>();
+  private readonly joinedConversationIds = new Set<string>();
+  private readonly hiddenMessageKeys = new Set<string>();
   private connectionState: ChatConnectionState = 'idle';
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
   private connectionPromise: Promise<void> | null = null;
   private intentionalDisconnect = false;
+  private beforeJoin: (() => Promise<void>) | null = null;
+  private joinAfterRefreshPromise: Promise<void> | null = null;
 
   /**
    * Creates a client. The factory is injectable to keep lifecycle tests fully
@@ -163,6 +202,33 @@ export class ChatSocketClient {
   }
 
   /**
+   * Subscribes to moderation events independently of focused room listeners.
+   *
+   * @param listener - Callback for hidden-message and access-revoked events
+   * @returns Cleanup function
+   */
+  public onModerationEvent(listener: ChatSocketModerationListener): () => void {
+    this.moderationListeners.add(listener);
+    return (): void => {
+      this.moderationListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Installs the cache-backed block-list refresh that runs before room joins.
+   *
+   * @param refresher - Async callback that refreshes current block state
+   * @returns Cleanup function that only clears this registration
+   */
+  public setBeforeJoin(refresher: (() => Promise<void>) | null): () => void {
+    const previous: (() => Promise<void>) | null = this.beforeJoin;
+    this.beforeJoin = refresher;
+    return (): void => {
+      if (this.beforeJoin === refresher) this.beforeJoin = previous;
+    };
+  }
+
+  /**
    * Focuses a readable conversation and joins its server room once connected.
    *
    * @param conversationId - Conversation room key
@@ -180,8 +246,8 @@ export class ChatSocketClient {
     room.listeners.add(listener);
     this.rooms.set(conversationId, room);
 
-    if (this.socket?.connected && !hadListeners) this.joinRoom(conversationId, room.ganapId);
-    else void this.ensureConnected();
+    if (this.socket?.connected && !hadListeners) this.joinRoomWhenReady(conversationId, room.ganapId);
+    else if (!this.socket?.connected) void this.ensureConnected();
 
     let active = true;
     return (): void => {
@@ -191,7 +257,10 @@ export class ChatSocketClient {
       if (!current) return;
       current.listeners.delete(listener);
       if (current.listeners.size > 0) return;
-      if (this.socket?.connected) this.socket.emit('chat:leave', { conversationId });
+      if (this.socket?.connected && this.joinedConversationIds.has(conversationId)) {
+        this.socket.emit('chat:leave', { conversationId });
+      }
+      this.joinedConversationIds.delete(conversationId);
       this.rooms.delete(conversationId);
       if (this.rooms.size === 0) this.disconnect('no-subscribers');
     };
@@ -214,6 +283,9 @@ export class ChatSocketClient {
     this.socket = null;
     this.connectionPromise = null;
     this.seenMessageIds.clear();
+    this.hiddenMessageKeys.clear();
+    this.joinedConversationIds.clear();
+    this.joinAfterRefreshPromise = null;
     this.setConnectionState('idle');
     this.intentionalDisconnect = false;
   }
@@ -273,19 +345,64 @@ export class ChatSocketClient {
     socket.on('connect_error', this.handleConnectError);
     socket.on('chat:message:new', this.handleMessage);
     socket.on('chat:message:read', this.handleRead);
+    socket.on('chat:message:hidden', this.handleMessageHidden);
+    socket.on('chat:access:revoked', this.handleAccessRevoked);
   }
 
   private readonly handleConnect = (): void => {
     this.reconnectAttempt = 0;
     this.cancelReconnect();
     this.setConnectionState('connected');
-    this.rooms.forEach((_room: RoomSubscription, conversationId: string): void => {
-      const room: RoomSubscription | undefined = this.rooms.get(conversationId);
-      if (room) this.joinRoom(conversationId, room.ganapId);
+    if (!this.beforeJoin) {
+      this.joinRoomsNow();
+      return;
+    }
+    const joinPromise: Promise<void> = this.joinRoomsAfterBlockRefresh();
+    this.joinAfterRefreshPromise = joinPromise;
+    void joinPromise.finally((): void => {
+      if (this.joinAfterRefreshPromise === joinPromise) this.joinAfterRefreshPromise = null;
     });
   };
 
+  private async joinRoomsAfterBlockRefresh(): Promise<void> {
+    try {
+      await this.beforeJoin?.();
+    } catch (_error) {
+      // A block-list refresh is advisory for the socket. REST history remains
+      // authoritative and the next foreground query reconciles the cache.
+    }
+    if (!this.socket?.connected) return;
+    this.joinRoomsNow();
+  }
+
+  private joinRoomsNow(): void {
+    if (!this.socket?.connected) return;
+    this.rooms.forEach((_room: RoomSubscription, conversationId: string): void => {
+      const room: RoomSubscription | undefined = this.rooms.get(conversationId);
+      if (room) this.joinRoomIfNeeded(conversationId, room.ganapId);
+    });
+  }
+
+  private joinRoomWhenReady(conversationId: string, ganapId: string): void {
+    const pendingRefresh: Promise<void> | null = this.joinAfterRefreshPromise;
+    if (pendingRefresh) {
+      void pendingRefresh.then((): void => {
+        const room: RoomSubscription | undefined = this.rooms.get(conversationId);
+        if (room && this.socket?.connected) this.joinRoomIfNeeded(conversationId, room.ganapId);
+      });
+      return;
+    }
+    this.joinRoomIfNeeded(conversationId, ganapId);
+  }
+
+  private joinRoomIfNeeded(conversationId: string, ganapId: string): void {
+    if (this.joinedConversationIds.has(conversationId)) return;
+    this.joinRoom(conversationId, ganapId);
+  }
+
   private readonly handleDisconnect = (): void => {
+    this.joinedConversationIds.clear();
+    this.joinAfterRefreshPromise = null;
     if (this.intentionalDisconnect || this.rooms.size === 0 || !useAuthStore.getState().token) {
       this.setConnectionState('disconnected');
       return;
@@ -303,6 +420,7 @@ export class ChatSocketClient {
   private readonly handleMessage = (value: unknown): void => {
     if (!isChatMessage(value)) return;
     const seenKey: string = `${value.conversationId}:${value.id}`;
+    if (this.hiddenMessageKeys.has(seenKey)) return;
     if (this.seenMessageIds.has(seenKey)) return;
     this.seenMessageIds.add(seenKey);
     if (this.seenMessageIds.size > MAX_SEEN_MESSAGE_IDS) {
@@ -323,8 +441,58 @@ export class ChatSocketClient {
     });
   };
 
+  private readonly handleMessageHidden = (value: unknown): void => {
+    if (!isMessageHiddenEvent(value)) return;
+    const hiddenKey: string = `${value.conversationId}:${value.messageId}`;
+    this.hiddenMessageKeys.add(hiddenKey);
+    if (this.hiddenMessageKeys.size > MAX_SEEN_MESSAGE_IDS) {
+      const oldest: string | undefined = this.hiddenMessageKeys.values().next().value;
+      if (oldest) this.hiddenMessageKeys.delete(oldest);
+    }
+    const event: ChatSocketModerationEvent = { type: 'message-hidden', event: value };
+    const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
+    room?.listeners.forEach((listener: ChatSocketListener): void => {
+      listener({ type: 'message-hidden', event: value });
+    });
+    this.moderationListeners.forEach((listener: ChatSocketModerationListener): void => {
+      listener(event);
+    });
+  };
+
+  private readonly handleAccessRevoked = (value: unknown): void => {
+    if (!isAccessRevokedEvent(value)) return;
+    const event: ChatSocketModerationEvent = { type: 'access-revoked', event: value };
+    const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
+    room?.listeners.forEach((listener: ChatSocketListener): void => {
+      listener({ type: 'access-revoked', event: value });
+    });
+    // Tear down the room at the transport boundary as soon as the server
+    // revokes access. Screen-level cleanup still removes its query caches.
+    this.leaveConversation(value.conversationId);
+    this.moderationListeners.forEach((listener: ChatSocketModerationListener): void => {
+      listener(event);
+    });
+  };
+
+  /**
+   * Leaves a conversation after a server access-revocation event.
+   *
+   * @param conversationId - Conversation whose room must be closed
+   */
+  public leaveConversation(conversationId: string): void {
+    const room: RoomSubscription | undefined = this.rooms.get(conversationId);
+    if (!room) return;
+    if (this.socket?.connected && this.joinedConversationIds.has(conversationId)) {
+      this.socket.emit('chat:leave', { conversationId });
+    }
+    this.joinedConversationIds.delete(conversationId);
+    this.rooms.delete(conversationId);
+    if (this.rooms.size === 0) this.disconnect('access-revoked');
+  }
+
   private joinRoom(conversationId: string, ganapId: string): void {
     this.socket?.emit('chat:join', { ganapId });
+    this.joinedConversationIds.add(conversationId);
     // Keep the conversation id in this method's contract for room reference
     // accounting and future server acknowledgements without sending it in the
     // wire payload, whose DS-95 contract is Ganap-scoped.
@@ -354,6 +522,8 @@ export class ChatSocketClient {
     this.socket = null;
     this.ticketCache = null;
     this.reconnectAttempt = 0;
+    this.joinedConversationIds.clear();
+    this.joinAfterRefreshPromise = null;
     this.setConnectionState('disconnected');
     this.intentionalDisconnect = false;
   }
