@@ -7,8 +7,14 @@ import {
 } from '@tanstack/react-query';
 import { moderationAPI } from '@/api/endpoints/moderation';
 import { type ChatPageParam, chatQueryKeys } from '@/hooks/queries/useChatQuery';
+import { friendsQueryKeys } from '@/hooks/queries/useFriendsQuery';
 import { moderationQueryKeys } from '@/hooks/queries/useModerationQuery';
-import type { ChatMessage, ChatMessagesPage, EventChatSummaryPage } from '@/types/chat.types';
+import type {
+  ChatConversationSummaryPage,
+  ChatMessage,
+  ChatMessagesPage,
+  EventChatSummaryPage,
+} from '@/types/chat.types';
 import type { BlockedUsersPage, CreateReportInput, ModerationReportReceipt } from '@/types/moderation.types';
 import {
   addOptimisticBlockedUser,
@@ -27,14 +33,20 @@ export interface BlockedMessageQuerySnapshot {
 /** Context carried through an optimistic block mutation. */
 export interface BlockUserMutationContext {
   messageSnapshots: BlockedMessageQuerySnapshot[];
-  summarySnapshots: EventChatSummaryQuerySnapshot[];
+  summarySnapshots: ChatSummaryQuerySnapshot[];
 }
 
-/** Query snapshot used to restore Event Chat rows on a rejected block. */
-export interface EventChatSummaryQuerySnapshot {
+/** Query snapshot used to restore Event and Direct summary rows on a rejected block. */
+export interface ChatSummaryQuerySnapshot {
   queryKey: readonly unknown[];
-  data: InfiniteData<EventChatSummaryPage, ChatPageParam> | undefined;
+  data:
+    | InfiniteData<EventChatSummaryPage, ChatPageParam>
+    | InfiniteData<ChatConversationSummaryPage, ChatPageParam>
+    | undefined;
 }
+
+/** Backwards-readable name for Event Chat summary snapshots. */
+export type EventChatSummaryQuerySnapshot = ChatSummaryQuerySnapshot;
 
 /** Variables accepted by the directional block mutation. */
 export interface BlockUserVariables {
@@ -73,9 +85,9 @@ function restoreMessageSnapshots(queryClient: QueryClient, snapshots: BlockedMes
   });
 }
 
-function restoreSummarySnapshots(queryClient: QueryClient, snapshots: EventChatSummaryQuerySnapshot[]): void {
-  snapshots.forEach((snapshot: EventChatSummaryQuerySnapshot): void => {
-    queryClient.setQueryData<InfiniteData<EventChatSummaryPage, ChatPageParam>>(snapshot.queryKey, snapshot.data);
+function restoreSummarySnapshots(queryClient: QueryClient, snapshots: ChatSummaryQuerySnapshot[]): void {
+  snapshots.forEach((snapshot: ChatSummaryQuerySnapshot): void => {
+    queryClient.setQueryData(snapshot.queryKey, snapshot.data);
   });
 }
 
@@ -147,17 +159,31 @@ export function useBlockUserMutation(): UseMutationResult<void, Error, BlockUser
             }),
           ),
       );
-      const summarySnapshots: EventChatSummaryQuerySnapshot[] = queryClient
+      const eventSummarySnapshots: ChatSummaryQuerySnapshot[] = queryClient
         .getQueriesData<InfiniteData<EventChatSummaryPage, ChatPageParam>>({ queryKey: chatQueryKeys.eventList() })
         .map(
           ([queryKey, data]: [
             readonly unknown[],
             InfiniteData<EventChatSummaryPage, ChatPageParam> | undefined,
-          ]): EventChatSummaryQuerySnapshot => ({
+          ]): ChatSummaryQuerySnapshot => ({
             queryKey,
             data,
           }),
         );
+      const mixedSummarySnapshots: ChatSummaryQuerySnapshot[] = queryClient
+        .getQueriesData<InfiniteData<ChatConversationSummaryPage, ChatPageParam>>({
+          queryKey: chatQueryKeys.summaries(),
+        })
+        .map(
+          ([queryKey, data]: [
+            readonly unknown[],
+            InfiniteData<ChatConversationSummaryPage, ChatPageParam> | undefined,
+          ]): ChatSummaryQuerySnapshot => ({
+            queryKey,
+            data,
+          }),
+        );
+      const summarySnapshots: ChatSummaryQuerySnapshot[] = [...eventSummarySnapshots, ...mixedSummarySnapshots];
       addOptimisticBlockedUser(userId);
       messageSnapshots.forEach((snapshot: BlockedMessageQuerySnapshot): void => {
         queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
@@ -179,6 +205,7 @@ export function useBlockUserMutation(): UseMutationResult<void, Error, BlockUser
       }
       await Promise.allSettled([
         queryClient.refetchQueries({ queryKey: chatQueryKeys.all }),
+        queryClient.refetchQueries({ queryKey: friendsQueryKeys.all }),
         queryClient.refetchQueries({ queryKey: moderationQueryKeys.blocks() }),
       ]);
     },
@@ -190,6 +217,11 @@ export function useBlockUserMutation(): UseMutationResult<void, Error, BlockUser
         queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventMessagesRoot(), refetchType: 'all' }),
         queryClient.invalidateQueries({ queryKey: chatQueryKeys.directMessagesRoot(), refetchType: 'all' }),
         queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList(), refetchType: 'all' }),
+        queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries(), refetchType: 'all' }),
+        queryClient.invalidateQueries({ queryKey: friendsQueryKeys.all, refetchType: 'all' }),
+        queryClient.invalidateQueries({ queryKey: friendsQueryKeys.profile(userId), refetchType: 'all' }),
+        queryClient.invalidateQueries({ queryKey: friendsQueryKeys.presence(), refetchType: 'all' }),
+        queryClient.invalidateQueries({ queryKey: friendsQueryKeys.going(), refetchType: 'all' }),
         queryClient.invalidateQueries({ queryKey: moderationQueryKeys.blocks(), refetchType: 'all' }),
       ]);
       removeOptimisticBlockedUser(userId);
@@ -243,6 +275,11 @@ export function useUnblockUserMutation(): UseMutationResult<void, Error, Unblock
       await Promise.allSettled([
         queryClient.invalidateQueries({ queryKey: moderationQueryKeys.blocks(), refetchType: 'all' }),
         queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList(), refetchType: 'all' }),
+        queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries(), refetchType: 'all' }),
+        queryClient.invalidateQueries({ queryKey: friendsQueryKeys.all, refetchType: 'all' }),
+        queryClient.invalidateQueries({ queryKey: friendsQueryKeys.profile(userId), refetchType: 'all' }),
+        queryClient.invalidateQueries({ queryKey: friendsQueryKeys.presence(), refetchType: 'all' }),
+        queryClient.invalidateQueries({ queryKey: friendsQueryKeys.going(), refetchType: 'all' }),
         // Mark history stale without rebuilding a focused thread. The next
         // open fetches the visibility the server grants after unblocking.
         queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventMessagesRoot(), refetchType: 'none' }),

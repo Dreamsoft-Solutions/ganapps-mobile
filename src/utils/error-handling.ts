@@ -7,6 +7,7 @@ export interface ParsedApiError extends Error {
   errorCode?: string;
   status?: number;
   retryAfterSeconds?: number;
+  retryAt?: string;
 }
 
 /**
@@ -31,6 +32,8 @@ export function parseApiError(error: AxiosError): ParsedApiError {
   const customError = new Error(data?.message || error.message || 'An unexpected error occurred') as ParsedApiError;
   customError.errorCode = data?.errorCode ?? (error.response === undefined ? ErrorCodes.NETWORK_ERROR : undefined);
   customError.status = data?.statusCode ?? error.response?.status;
+  const retryAt: unknown = data?.retryAt ?? data?.details?.retryAt;
+  if (typeof retryAt === 'string' && !Number.isNaN(new Date(retryAt).getTime())) customError.retryAt = retryAt;
 
   const retryAfterSeconds: unknown = data?.details?.retryAfterSeconds ?? error.response?.headers?.['retry-after'];
   if (typeof retryAfterSeconds === 'number' && Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
