@@ -23,8 +23,8 @@ import { Colors, Spacing } from '@/constants/theme';
 import type { DirectFailedDraft } from '@/hooks/useDirectChat';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { ChatConnectionState } from '@/services/chat-socket.service';
-import type { ChatMessage, DirectChatFriendSummary, DirectChatSession } from '@/types/direct-chat.types';
-import type { ChatImageDraft as BaseChatImageDraft, ChatMessage as BaseChatMessage } from '@/types/chat.types';
+import type { ChatImageDraft as BaseChatImageDraft, ChatMessage } from '@/types/chat.types';
+import type { DirectChatFriendSummary, DirectChatSession } from '@/types/direct-chat.types';
 import { compareChatMessages } from '@/utils/chat';
 import { isChatImageAuthorizationError } from '@/utils/chat-image';
 
@@ -60,7 +60,7 @@ export interface DirectChatThreadViewProps {
   onSendImage?: () => void | Promise<void>;
   onRetryImage?: () => void | Promise<void>;
   onRefreshImage?: (messageId: string) => void | Promise<void>;
-  onMessageActions?: (message: BaseChatMessage) => void;
+  onMessageActions?: (message: ChatMessage) => void;
   accessLost: boolean;
 }
 

@@ -31,8 +31,8 @@ import type {
 } from '@/types/direct-chat.types';
 import type { BlockedUsersPage } from '@/types/moderation.types';
 import {
-  compareChatMessages,
   compareChatMessagePositions,
+  compareChatMessages,
   getChatMessagePreview,
   greatestChatMessage,
   isChatNetworkError,

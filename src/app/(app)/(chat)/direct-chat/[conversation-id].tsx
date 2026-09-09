@@ -9,8 +9,8 @@ import { useDirectChat } from '@/hooks/useDirectChat';
 import { useAuthStore } from '@/store/auth.store';
 import { showToast } from '@/store/toast.store';
 import type { ChatMessage } from '@/types/chat.types';
-import type { CreateReportInput, ModerationReportReceipt } from '@/types/moderation.types';
 import type { DirectChatFriendSummary } from '@/types/direct-chat.types';
+import type { CreateReportInput, ModerationReportReceipt } from '@/types/moderation.types';
 
 function firstParam(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');

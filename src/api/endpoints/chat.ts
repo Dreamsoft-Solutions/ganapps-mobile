@@ -10,19 +10,12 @@ import type {
   MarkChatReadInput,
   SendChatMessageInput,
 } from '@/types/chat.types';
-import type { ChatConversationSummaryPage, DirectChatReadResult } from '@/types/direct-chat.types';
+import type { DirectChatReadResult } from '@/types/direct-chat.types';
 import axiosInstance from '../axios-instance';
 
 /** Query parameters accepted by the Event Chat summary endpoint. */
 export interface EventChatListParams {
   type?: 'EVENT';
-  cursor?: string;
-  limit?: number;
-}
-
-/** Query parameters accepted by the mixed Event/Direct summary endpoint. */
-export interface ChatConversationListParams {
-  type: 'EVENT' | 'DIRECT' | 'ALL';
   cursor?: string;
   limit?: number;
 }
@@ -99,23 +92,9 @@ export const chatAPI = {
   getConversations: (params: EventChatListParams = { type: 'EVENT' }): Promise<EventChatSummaryPage> =>
     chatAPI.listConversations(params),
 
-  /**
-   * Lists the server-owned mixed Event and Direct summary feed for the Friends hub.
-   *
-   * @param params - Opaque cursor and bounded page size; the type is always `ALL`
-   * @returns Cursor page preserving server ordering and capabilities
-   */
-  listAllConversations: (params: Omit<ChatConversationListParams, 'type'> = {}): Promise<ChatConversationSummaryPage> =>
-    axiosInstance
-      .get<ChatConversationSummaryPage>('/chat/conversations', {
-        params: { type: 'ALL', cursor: params.cursor, limit: params.limit },
-      })
-      .then((res) => res.data),
-
   /** Alias for the Friends hub's mixed Event/Direct summary list. */
-  listConversationSummaries: (
-    params: Omit<ChatConversationListParams, 'type'> = {},
-  ): Promise<ChatConversationSummaryPage> => chatAPI.listAllConversations(params),
+  listConversationSummaries: (params: ChatConversationListParams = {}): Promise<ChatConversationSummaryPage> =>
+    chatAPI.listAllConversations(params),
 
   /**
    * Resolves one Ganap's Event Chat session and current capabilities.
