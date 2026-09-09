@@ -1,4 +1,5 @@
 import type {
+  ChatImageAsset,
   ChatMessage,
   ChatMessagesPage,
   ChatReadResult,
@@ -21,6 +22,12 @@ export interface EventChatListParams {
 export interface ChatMessagesParams {
   cursor?: string;
   limit?: number;
+}
+
+/** Multipart image fields sent to the Event Chat image endpoint. */
+export interface SendChatImageInput {
+  clientMessageId: string;
+  file: Pick<ChatImageAsset, 'uri' | 'name' | 'mimeType'>;
 }
 
 /** Typed Event Chat HTTP endpoints. Paths intentionally omit `/api/v1`. */
@@ -92,6 +99,32 @@ export const chatAPI = {
    */
   sendMessage: (ganapId: string, input: SendChatMessageInput): Promise<ChatMessage> =>
     axiosInstance.post<ChatMessage>(`/ganaps/${ganapId}/chat/messages`, input).then((res) => res.data),
+
+  /**
+   * Sends one existing-library image as a multipart Event Chat message.
+   *
+   * The native FormData request deliberately leaves the content type unset so
+   * Axios/native networking can provide the multipart boundary.
+   *
+   * @param ganapId - Ganap whose Event Chat receives the image
+   * @param input - Stable client id and one local image file
+   * @returns Canonical persisted image message
+   */
+  sendImage: (ganapId: string, input: SendChatImageInput): Promise<ChatMessage> => {
+    const formData: FormData = new FormData();
+    formData.append('clientMessageId', input.clientMessageId);
+    formData.append('file', {
+      uri: input.file.uri,
+      name: input.file.name,
+      type: input.file.mimeType,
+    } as unknown as Blob);
+    return axiosInstance
+      .post<ChatMessage>(`/ganaps/${ganapId}/chat/messages`, formData, {
+        headers: { 'Content-Type': undefined },
+        transformRequest: [(data: unknown): unknown => data],
+      })
+      .then((res) => res.data);
+  },
 
   /**
    * Advances the current User's read cursor through one loaded message.

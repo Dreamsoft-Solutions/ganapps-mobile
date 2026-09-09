@@ -1,10 +1,12 @@
 import { type InfiniteData, useQueryClient } from '@tanstack/react-query';
+import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BLOCKED_USERS_PAGE_SIZE, moderationAPI } from '@/api/endpoints/moderation';
 import {
   type MarkChatReadVariables,
   type SendChatMessageVariables,
   useMarkChatReadMutation,
+  useSendChatImageMutation,
   useSendChatMessageMutation,
 } from '@/hooks/mutations/useChatMutation';
 import {
@@ -23,6 +25,7 @@ import {
 } from '@/services/chat-socket.service';
 import { useAuthStore } from '@/store/auth.store';
 import type {
+  ChatImageDraft,
   ChatMessage,
   ChatMessagesPage,
   EventChatSession,
@@ -39,6 +42,14 @@ import {
   isChatNetworkError,
   upsertChatMessage,
 } from '@/utils/chat';
+import {
+  CHAT_IMAGE_PICKER_OPTIONS,
+  getChatImageErrorCode,
+  getChatImagePrecheckError,
+  getChatImageRetryAfterSeconds,
+  isRetryableChatImageError,
+  toChatImageAsset,
+} from '@/utils/chat-image';
 import { isUserBlocked } from '@/utils/moderation';
 
 /** A failed in-memory send that can be retried with the same client id. */
@@ -67,6 +78,14 @@ export interface UseChatResult {
   send: (content: string) => Promise<void>;
   retryDraft: (clientMessageId: string) => Promise<void>;
   discardDraft: (clientMessageId: string) => void;
+  imageDraft: ChatImageDraft | null;
+  imagePickerError: Error | null;
+  imageRetryAfterSeconds: number | null;
+  pickImage: () => Promise<void>;
+  removeImage: () => void;
+  sendImage: () => Promise<void>;
+  retryImage: () => Promise<void>;
+  refreshImage: (messageId: string) => Promise<void>;
   connectionState: ChatConnectionState;
   accessLost: boolean;
   accessRevoked: boolean;
@@ -77,6 +96,41 @@ function createClientMessageId(): string {
   const cryptoObject: Crypto | undefined = typeof globalThis.crypto === 'object' ? globalThis.crypto : undefined;
   if (cryptoObject && typeof cryptoObject.randomUUID === 'function') return cryptoObject.randomUUID();
   return `mobile-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`.slice(0, 100);
+}
+
+function normalizeCaughtError(error: unknown): Error {
+  return error instanceof Error ? error : new Error('Image could not be sent.');
+}
+
+function canSubmitImageDraft(
+  draft: ChatImageDraft,
+  canSend: boolean,
+  accessLost: boolean,
+  inFlightIds: Set<string>,
+): boolean {
+  return (
+    canSend &&
+    !accessLost &&
+    draft.status !== 'checking' &&
+    draft.status !== 'permanent-failure' &&
+    !inFlightIds.has(draft.clientMessageId)
+  );
+}
+
+function updateImageDraftAfterFailure(
+  current: ChatImageDraft | null,
+  draft: ChatImageDraft,
+  error: Error,
+): ChatImageDraft | null {
+  if (!current || current.clientMessageId !== draft.clientMessageId) return current;
+  const retryable: boolean = isRetryableChatImageError(error);
+  const retryAfterSeconds: number | null = retryable ? getChatImageRetryAfterSeconds(error) : null;
+  return {
+    ...current,
+    status: retryable ? 'retryable-failure' : 'permanent-failure',
+    error,
+    retryAfterUntil: retryAfterSeconds ? Date.now() + retryAfterSeconds * 1000 : undefined,
+  };
 }
 
 function upsertMessageInPages(
@@ -198,10 +252,15 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
   const messagesQuery = useEventChatMessagesQuery(ganapId, enabled && canRead && !sessionAccessLost && !accessRevoked);
   const accessLost: boolean = accessRevoked || sessionAccessLost || isChatForbidden(messagesQuery.error);
   const sendMutation = useSendChatMessageMutation();
+  const sendImageMutation = useSendChatImageMutation();
   const readMutation = useMarkChatReadMutation();
   const [failedDraftMap, setFailedDraftMap] = useState<Record<string, FailedDraft>>({});
+  const [imageDraft, setImageDraft] = useState<ChatImageDraft | null>(null);
+  const [imagePickerError, setImagePickerError] = useState<Error | null>(null);
+  const [imageRetryClock, setImageRetryClock] = useState<number>(Date.now());
   const [connectionState, setConnectionState] = useState<ChatConnectionState>(chatSocketClient.getConnectionState());
   const inFlightIds = useRef<Set<string>>(new Set<string>());
+  const inFlightImageIds = useRef<Set<string>>(new Set<string>());
   const readCursor = useRef<ChatMessage | null>(null);
   const previousConversationId = useRef<string | null>(null);
   const previousGanapId = useRef<string>(ganapId);
@@ -314,7 +373,19 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
     if (previousGanapId.current === ganapId) return;
     previousGanapId.current = ganapId;
     setAccessRevoked(false);
+    setImageDraft(null);
+    setImagePickerError(null);
   }, [ganapId]);
+
+  useEffect((): (() => void) | undefined => {
+    const retryAfterUntil: number | undefined = imageDraft?.retryAfterUntil;
+    if (!retryAfterUntil || retryAfterUntil <= Date.now()) return undefined;
+    const timer: ReturnType<typeof setInterval> = setInterval((): void => {
+      setImageRetryClock(Date.now());
+      if (Date.now() >= retryAfterUntil) clearInterval(timer);
+    }, 250);
+    return (): void => clearInterval(timer);
+  }, [imageDraft?.retryAfterUntil]);
 
   useEffect((): void => {
     const previous: ChatConnectionState = previousConnectionState.current;
@@ -408,6 +479,115 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
     [clearFailedDraft],
   );
 
+  const pickImage = useCallback(async (): Promise<void> => {
+    if (!sessionQuery.data?.canSend || accessLost || imageDraft || sendImageMutation.isPending) return;
+    setImagePickerError(null);
+
+    let permissionResult: ImagePicker.MediaLibraryPermissionResponse;
+    try {
+      permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    } catch {
+      setImagePickerError(new Error('Unable to open your photo library.'));
+      return;
+    }
+    if (!permissionResult.granted) {
+      setImagePickerError(new Error('Photo access is required to add an image.'));
+      return;
+    }
+
+    try {
+      const result: ImagePicker.ImagePickerResult =
+        await ImagePicker.launchImageLibraryAsync(CHAT_IMAGE_PICKER_OPTIONS);
+      if (result.canceled || result.assets.length === 0) return;
+      const selected: ImagePicker.ImagePickerAsset = result.assets[0];
+      const precheckError: string | null = getChatImagePrecheckError(selected);
+      if (precheckError) {
+        setImagePickerError(new Error(precheckError));
+        return;
+      }
+      setImageDraft({
+        clientMessageId: createClientMessageId(),
+        asset: toChatImageAsset(selected),
+        status: 'ready',
+      });
+    } catch {
+      setImagePickerError(new Error('Unable to open your photo library.'));
+    }
+  }, [accessLost, imageDraft, sendImageMutation.isPending, sessionQuery.data]);
+
+  const removeImage = useCallback((): void => {
+    if (imageDraft?.status === 'checking') return;
+    setImageDraft(null);
+    setImagePickerError(null);
+  }, [imageDraft?.status]);
+
+  const submitImage = useCallback(
+    async (draft: ChatImageDraft): Promise<void> => {
+      if (!canSubmitImageDraft(draft, sessionQuery.data?.canSend === true, accessLost, inFlightImageIds.current))
+        return;
+      inFlightImageIds.current.add(draft.clientMessageId);
+      setImageDraft((current: ChatImageDraft | null): ChatImageDraft | null =>
+        current?.clientMessageId === draft.clientMessageId
+          ? { ...current, status: 'checking', error: undefined, retryAfterUntil: undefined }
+          : current,
+      );
+      try {
+        await sendImageMutation.mutateAsync({
+          ganapId,
+          clientMessageId: draft.clientMessageId,
+          file: draft.asset,
+        });
+        setImageDraft((current: ChatImageDraft | null): ChatImageDraft | null =>
+          current?.clientMessageId === draft.clientMessageId ? null : current,
+        );
+        setImagePickerError(null);
+      } catch (caughtError: unknown) {
+        const error: Error = normalizeCaughtError(caughtError);
+        const errorCode: string | undefined = getChatImageErrorCode(error);
+        if (errorCode === 'CLIENT_MESSAGE_ID_REUSED') {
+          try {
+            await messagesQuery.refetch();
+          } catch {
+            // The safe reconciliation copy below remains correct if history is offline.
+          }
+          setImageDraft((current: ChatImageDraft | null): ChatImageDraft | null =>
+            current?.clientMessageId === draft.clientMessageId ? null : current,
+          );
+          setImagePickerError(new Error('This image could not be sent. Choose it again.'));
+        } else {
+          setImageDraft((current: ChatImageDraft | null): ChatImageDraft | null =>
+            updateImageDraftAfterFailure(current, draft, error),
+          );
+        }
+      } finally {
+        inFlightImageIds.current.delete(draft.clientMessageId);
+      }
+    },
+    [accessLost, ganapId, messagesQuery.refetch, sendImageMutation, sessionQuery.data],
+  );
+
+  const imageRetryAfterSeconds: number | null = imageDraft?.retryAfterUntil
+    ? Math.max(0, Math.ceil((imageDraft.retryAfterUntil - imageRetryClock) / 1000))
+    : null;
+
+  const sendImage = useCallback(async (): Promise<void> => {
+    if (imageDraft?.status !== 'ready') return;
+    await submitImage(imageDraft);
+  }, [imageDraft, submitImage]);
+
+  const retryImage = useCallback(async (): Promise<void> => {
+    if (imageDraft?.status !== 'retryable-failure' || (imageRetryAfterSeconds ?? 0) > 0) return;
+    await submitImage(imageDraft);
+  }, [imageDraft, imageRetryAfterSeconds, submitImage]);
+
+  const refreshImage = useCallback(
+    async (messageId: string): Promise<void> => {
+      if (!messageId) return;
+      await messagesQuery.refetch();
+    },
+    [messagesQuery.refetch],
+  );
+
   const refetch = useCallback(async (): Promise<void> => {
     const refreshedSession = await sessionQuery.refetch();
     const refreshedCanRead: boolean = refreshedSession.data?.canRead === true;
@@ -436,13 +616,21 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
     isLoading: sessionQuery.isLoading || (!accessLost && canRead && messagesQuery.isLoading),
     error,
     refetch,
-    isSending: sendMutation.isPending || inFlightIds.current.size > 0,
+    isSending: sendMutation.isPending || sendImageMutation.isPending || inFlightIds.current.size > 0,
     isMarkingRead: readMutation.isPending,
     failedDrafts,
     sendMessage,
     send: sendMessage,
     retryDraft,
     discardDraft,
+    imageDraft,
+    imagePickerError,
+    imageRetryAfterSeconds,
+    pickImage,
+    removeImage,
+    sendImage,
+    retryImage,
+    refreshImage,
     connectionState: canRead && !accessLost ? connectionState : 'idle',
     accessLost,
     accessRevoked,

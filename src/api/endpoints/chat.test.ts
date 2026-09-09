@@ -12,6 +12,15 @@ import axiosInstance from '../axios-instance';
 import { chatAPI } from './chat';
 
 let captured: AxiosRequestConfig[] = [];
+const nativeFormData: typeof FormData = globalThis.FormData;
+
+class TestFormData {
+  readonly fields: Map<string, unknown> = new Map<string, unknown>();
+
+  append(name: string, value: unknown): void {
+    this.fields.set(name, value);
+  }
+}
 
 function envelopeAdapter(payload: unknown): (config: AxiosRequestConfig) => Promise<AxiosResponse> {
   return async (config: AxiosRequestConfig): Promise<AxiosResponse> => {
@@ -58,12 +67,29 @@ const message: ChatMessage = {
   sentAt: '2026-09-01T00:00:00.000Z',
 };
 
+const imageMessage: ChatMessage = {
+  ...message,
+  id: 'image-message-1',
+  content: null,
+  type: 'IMAGE',
+  media: {
+    id: 'media-1',
+    url: 'https://api.example.test/secure-assets/chat/media-1?exp=1&sig=signed',
+    mimeType: 'image/webp',
+    bytes: 4096,
+    width: 1600,
+    height: 1200,
+  },
+};
+
 beforeEach((): void => {
   captured = [];
 });
 
 afterEach((): void => {
   axiosInstance.defaults.adapter = undefined;
+  jest.restoreAllMocks();
+  Object.defineProperty(globalThis, 'FormData', { configurable: true, value: nativeFormData, writable: true });
 });
 
 describe('chatAPI', (): void => {
@@ -129,6 +155,44 @@ describe('chatAPI', (): void => {
     await expect(chatAPI.markRead('ganap-1', { throughMessageId: 'message-1' })).resolves.toEqual(read);
     expect(requestedUrl(captured[0])).toContain('/api/v1/ganaps/ganap-1/chat/read');
     expect(JSON.parse(String(captured[0].data))).toEqual({ throughMessageId: 'message-1' });
+  });
+
+  it('sends exactly one multipart file and stable client id while preserving native boundaries', async (): Promise<void> => {
+    Object.defineProperty(globalThis, 'FormData', { configurable: true, value: TestFormData, writable: true });
+    const post = jest.spyOn(axiosInstance, 'post').mockResolvedValue({
+      data: imageMessage,
+      status: 201,
+      statusText: 'Created',
+      headers: {},
+      config: {} as AxiosResponse['config'],
+    });
+    const file = {
+      uri: 'file:///chat-image.jpg',
+      name: 'chat-image.jpg',
+      mimeType: 'image/jpeg',
+    };
+
+    await expect(chatAPI.sendImage('ganap-1', { clientMessageId: 'client-image-1', file })).resolves.toEqual(
+      imageMessage,
+    );
+
+    expect(post).toHaveBeenCalledTimes(1);
+    const call: readonly [string, unknown, AxiosRequestConfig?] = post.mock.calls[0] as unknown as readonly [
+      string,
+      unknown,
+      AxiosRequestConfig?,
+    ];
+    expect(call[0]).toBe('/ganaps/ganap-1/chat/messages');
+    const formData: TestFormData = call[1] as TestFormData;
+    expect(formData.fields.get('clientMessageId')).toBe('client-image-1');
+    expect(formData.fields.get('file')).toEqual({ uri: file.uri, name: file.name, type: file.mimeType });
+    expect(formData.fields.size).toBe(2);
+    const config: AxiosRequestConfig | undefined = call[2];
+    const headers: Record<string, unknown> | undefined = config?.headers as unknown as
+      | Record<string, unknown>
+      | undefined;
+    expect(headers?.['Content-Type']).toBeUndefined();
+    expect(config?.transformRequest).toHaveLength(1);
   });
 
   it('preserves a typed forbidden result instead of turning it into a network retry', async (): Promise<void> => {

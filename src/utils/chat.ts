@@ -96,5 +96,5 @@ export function greatestChatMessage(messages: ChatMessage[]): ChatMessage | null
 export function getChatMessagePreview(message: ChatMessage): string {
   if (message.type === 'IMAGE') return 'Photo';
   if (message.type === 'UNSENT') return 'Message unsent';
-  return message.content;
+  return message.content ?? '';
 }

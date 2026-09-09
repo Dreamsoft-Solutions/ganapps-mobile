@@ -6,6 +6,41 @@ export type ChatSummaryMessageType = 'TEXT' | 'IMAGE' | 'UNSENT';
 /** Message types whose moderation affordance is available on the message surface. */
 export type ChatMessageType = 'TEXT' | 'IMAGE' | 'UNSENT';
 
+/** MIME types accepted by the DS-97 chat-image pipeline. */
+export type ChatImageMimeType = 'image/jpeg' | 'image/png' | 'image/webp';
+
+/** Canonical private-media projection returned with an image message. */
+export interface ChatMessageMedia {
+  id: string;
+  url: string;
+  mimeType: 'image/webp';
+  bytes: number;
+  width: number;
+  height: number;
+}
+
+/** Local library asset retained while an image message is being sent or retried. */
+export interface ChatImageAsset {
+  uri: string;
+  name: string;
+  mimeType: string;
+  fileSize?: number;
+  width: number;
+  height: number;
+}
+
+/** Explicit in-memory image draft states; no state is persisted to SQLite or storage. */
+export type ChatImageDraftStatus = 'ready' | 'checking' | 'retryable-failure' | 'permanent-failure';
+
+/** Image draft owned by the focused Event Chat composer. */
+export interface ChatImageDraft {
+  clientMessageId: string;
+  asset: ChatImageAsset;
+  status: ChatImageDraftStatus;
+  error?: Error;
+  retryAfterUntil?: number;
+}
+
 /** A server-owned latest-message projection used by the chat list. */
 export interface EventChatLastMessage {
   id: string;
@@ -46,9 +81,10 @@ export interface ChatMessage {
   senderId: string;
   senderUsername: string;
   senderDisplayPicture: string | null;
-  content: string;
+  content: string | null;
   type: ChatMessageType;
   sentAt: string;
+  media?: ChatMessageMedia | null;
 }
 
 /** Cursor page returned by Event Chat history. */

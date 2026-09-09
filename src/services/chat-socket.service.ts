@@ -2,7 +2,7 @@ import { io } from 'socket.io-client';
 import { API_BASE_URL } from '@/api/config';
 import { chatAPI } from '@/api/endpoints/chat';
 import { useAuthStore } from '@/store/auth.store';
-import type { ChatMessage, ChatReadResult } from '@/types/chat.types';
+import type { ChatMessage, ChatMessageMedia, ChatReadResult } from '@/types/chat.types';
 
 /** Connection states exposed to Event Chat screens. */
 export type ChatConnectionState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'error';
@@ -93,15 +93,37 @@ export function buildChatSocketUrl(apiBaseUrl: string = API_BASE_URL): string {
 function isChatMessage(value: unknown): value is ChatMessage {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Partial<ChatMessage>;
-  return (
+  const hasMessageIdentity: boolean =
     typeof candidate.id === 'string' &&
     typeof candidate.conversationId === 'string' &&
     typeof candidate.senderId === 'string' &&
     typeof candidate.senderUsername === 'string' &&
     (typeof candidate.senderDisplayPicture === 'string' || candidate.senderDisplayPicture === null) &&
-    typeof candidate.content === 'string' &&
-    (candidate.type === 'TEXT' || candidate.type === 'IMAGE' || candidate.type === 'UNSENT') &&
-    typeof candidate.sentAt === 'string'
+    typeof candidate.sentAt === 'string';
+  if (!hasMessageIdentity) return false;
+  if (candidate.type === 'TEXT') return typeof candidate.content === 'string' && candidate.media == null;
+  if (candidate.type === 'UNSENT') {
+    return (typeof candidate.content === 'string' || candidate.content === null) && candidate.media == null;
+  }
+  return candidate.type === 'IMAGE' && candidate.content === null && isChatMessageMedia(candidate.media);
+}
+
+function isChatMessageMedia(value: unknown): value is ChatMessageMedia {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatMessageMedia>;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.url === 'string' &&
+    candidate.mimeType === 'image/webp' &&
+    typeof candidate.bytes === 'number' &&
+    Number.isFinite(candidate.bytes) &&
+    candidate.bytes >= 0 &&
+    typeof candidate.width === 'number' &&
+    Number.isFinite(candidate.width) &&
+    candidate.width > 0 &&
+    typeof candidate.height === 'number' &&
+    Number.isFinite(candidate.height) &&
+    candidate.height > 0
   );
 }
 

@@ -1,6 +1,7 @@
 import { type InfiniteData, type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
-import { chatAPI } from '@/api/endpoints/chat';
+import { chatAPI, type SendChatImageInput } from '@/api/endpoints/chat';
 import type {
+  ChatImageAsset,
   ChatMessage,
   ChatMessagesPage,
   ChatReadResult,
@@ -16,6 +17,13 @@ export interface SendChatMessageVariables {
   ganapId: string;
   clientMessageId: string;
   content: string;
+}
+
+/** Variables accepted by the Event Chat multipart image mutation. */
+export interface SendChatImageVariables {
+  ganapId: string;
+  clientMessageId: string;
+  file: ChatImageAsset;
 }
 
 /** Variables accepted by the Event Chat read-cursor mutation. */
@@ -103,6 +111,38 @@ export function useSendChatMessageMutation(): UseMutationResult<ChatMessage, Err
       );
       void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
     },
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
+  });
+}
+
+/**
+ * Sends one Event Chat image and reconciles only the canonical server response.
+ *
+ * No optimistic image message is inserted: the server owns moderation, media
+ * dimensions, and the short-lived signed URL.
+ *
+ * @returns Mutation accepting Ganap id, stable client id, and one local image
+ */
+export function useSendChatImageMutation(): UseMutationResult<ChatMessage, Error, SendChatImageVariables> {
+  const queryClient = useQueryClient();
+  return useMutation<ChatMessage, Error, SendChatImageVariables>({
+    mutationFn: ({ ganapId, clientMessageId, file }: SendChatImageVariables): Promise<ChatMessage> => {
+      const input: SendChatImageInput = { clientMessageId, file };
+      return chatAPI.sendImage(ganapId, input);
+    },
+    onSuccess: (message: ChatMessage, { ganapId }: SendChatImageVariables): void => {
+      queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
+        chatQueryKeys.eventMessages(ganapId),
+        (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => patchMessagePages(data, message),
+      );
+      queryClient.setQueryData<InfiniteData<EventChatSummaryPage, ChatPageParam>>(
+        chatQueryKeys.eventList(),
+        (data: InfiniteData<EventChatSummaryPage, ChatPageParam> | undefined) =>
+          patchSummaryPages(data, ganapId, message),
+      );
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
+    },
+    retry: false,
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }
