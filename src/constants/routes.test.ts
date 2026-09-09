@@ -141,6 +141,17 @@ describe('route table entries resolve to their screens', () => {
     expect(resolve('/(app)/(home)/event-hub/abc123')).toEqual(['(app)', '(home)', 'event-hub/[ganap-id]']);
   });
 
+  it('opens an Event Chat thread inside the existing chat route group', () => {
+    expect(resolve('/(app)/(chat)/event-chat/abc123')).toEqual(['(app)', '(chat)', 'event-chat/[ganap-id]']);
+  });
+
+  it('builds an object-form Event Chat route with the Ganap parameter', () => {
+    expect(Routes.eventChat('abc123')).toEqual({
+      pathname: '/(app)/(chat)/event-chat/[ganap-id]',
+      params: { 'ganap-id': 'abc123' },
+    });
+  });
+
   it('builds an object-form Event Hub route with the Ganap parameter', () => {
     expect(Routes.eventHub('abc123')).toEqual({
       pathname: '/(app)/(home)/event-hub/[ganap-id]',

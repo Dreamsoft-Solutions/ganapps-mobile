@@ -51,6 +51,8 @@ export interface EventHubViewProps {
   scanState: AttendanceScanState;
   onBack: () => void;
   onShare: () => void | Promise<void>;
+  /** Navigates to the focused Event Chat thread when Event Hub is eligible. */
+  onOpenChat?: () => void;
   /** Refetches the Event Hub's detail and announcement data together. */
   onRefresh: () => Promise<void>;
   onRetryAnnouncements: () => void | Promise<void>;
@@ -155,6 +157,7 @@ export function EventHubView({
   scanState,
   onBack,
   onShare,
+  onOpenChat,
   onRefresh,
   onRetryAnnouncements,
   onRetryNextPage,
@@ -304,16 +307,20 @@ export function EventHubView({
             >
               <Share2 size={18} color={Colors[theme].foreground} />
             </IconButton>
-            {/* TODO(DS-48): Navigate to the event group chat when the mobile chat screen is implemented. */}
             <IconButton
               size="lg"
               variant="default"
-              disabled
-              accessibilityLabel="Event chat coming soon"
-              accessibilityHint="Event chat will be available in a later release"
-              onPress={(): void => {}}
+              disabled={!onOpenChat}
+              accessibilityLabel={onOpenChat ? 'Event chat' : 'Event chat coming soon'}
+              accessibilityHint={
+                onOpenChat ? 'Opens the Event Chat thread' : 'Event chat will be available in a later release'
+              }
+              onPress={onOpenChat ?? ((): void => {})}
             >
-              <MessageCircle size={18} color={Colors[theme]['muted-foreground']} />
+              <MessageCircle
+                size={18}
+                color={onOpenChat ? Colors[theme].foreground : Colors[theme]['muted-foreground']}
+              />
             </IconButton>
           </View>
         </View>
