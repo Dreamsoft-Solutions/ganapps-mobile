@@ -312,10 +312,15 @@ export function EventHubView({
               variant="default"
               disabled={!onOpenChat}
               accessibilityLabel={onOpenChat ? 'Event chat' : 'Event chat coming soon'}
-              accessibilityHint={onOpenChat ? 'Opens the Event Chat thread' : 'Event chat will be available in a later release'}
+              accessibilityHint={
+                onOpenChat ? 'Opens the Event Chat thread' : 'Event chat will be available in a later release'
+              }
               onPress={onOpenChat ?? ((): void => {})}
             >
-              <MessageCircle size={18} color={onOpenChat ? Colors[theme].foreground : Colors[theme]['muted-foreground']} />
+              <MessageCircle
+                size={18}
+                color={onOpenChat ? Colors[theme].foreground : Colors[theme]['muted-foreground']}
+              />
             </IconButton>
           </View>
         </View>
