@@ -6,6 +6,26 @@ export type ChatSummaryMessageType = 'TEXT' | 'IMAGE' | 'UNSENT';
 /** Message types whose moderation affordance is available on the message surface. */
 export type ChatMessageType = 'TEXT' | 'IMAGE' | 'UNSENT';
 
+/** Closed wire values for message and announcement reactions. */
+export type ReactionType = 'HEART' | 'LAUGH' | 'THUMBS_UP' | 'SAD' | 'ANGRY';
+
+/** One server-owned count in a reaction aggregate. */
+export interface ReactionCount {
+  type: ReactionType;
+  count: number;
+}
+
+/** Counts and the current User's reaction returned by mutation endpoints. */
+export interface ReactionAggregate {
+  counts: ReactionCount[];
+  myReaction: ReactionType | null;
+}
+
+/** Counts plus the current User's reaction for one target. */
+export interface ReactionSummary extends ReactionAggregate {
+  total: number;
+}
+
 /** MIME types accepted by the DS-97 chat-image pipeline. */
 export type ChatImageMimeType = 'image/jpeg' | 'image/png' | 'image/webp';
 
@@ -111,6 +131,8 @@ export interface ChatMessage {
   conversationType?: 'EVENT' | 'DIRECT';
   sentAt: string;
   media?: ChatMessageMedia | null;
+  unsentAt?: string | null;
+  reactionSummary?: ReactionSummary | null;
 }
 
 /** Cursor page returned by Event Chat history. */

@@ -402,7 +402,7 @@ function isExempt(comment, line, language) {
   const text = cleanCommentText(comment.text);
   const trimmed = text.trimStart();
 
-  if (language === 'typescript' && comment.kind === 'block' && trimmed.startsWith('/**')) {
+  if (language === 'typescript' && comment.kind === 'block' && text.startsWith('/**')) {
     return true;
   }
 

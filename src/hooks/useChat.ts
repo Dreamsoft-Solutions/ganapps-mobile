@@ -42,6 +42,7 @@ import {
   isChatNetworkError,
   upsertChatMessage,
 } from '@/utils/chat';
+import { markMessageUnsent, patchMessageInPages } from '@/utils/chat-engagement';
 import {
   CHAT_IMAGE_PICKER_OPTIONS,
   getChatImageErrorCode,
@@ -296,6 +297,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
         );
         void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventMessages(ganapId) });
         void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
+        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
         return;
       }
 
@@ -313,6 +315,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
         await Promise.allSettled([
           queryClient.invalidateQueries({ queryKey: ganapQueryKeys.all }),
           queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() }),
+          queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() }),
         ]);
       })();
     },
@@ -348,6 +351,39 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
               patchSummaryForMessage(data, incoming, userId !== null && incoming.senderId !== userId),
           );
           void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
+          return;
+        }
+        if (event.type === 'message-reaction') {
+          const reaction = event.event;
+          if (reaction.conversationId !== conversationId) return;
+          queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
+            chatQueryKeys.eventMessages(ganapId),
+            (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) =>
+              patchMessageInPages(
+                data,
+                conversationId,
+                reaction.messageId,
+                (message: ChatMessage): ChatMessage => ({
+                  ...message,
+                  reactionSummary: {
+                    total: reaction.counts.reduce((total: number, entry): number => total + entry.count, 0),
+                    counts: reaction.counts,
+                    myReaction: reaction.myReaction,
+                  },
+                }),
+              ),
+          );
+          return;
+        }
+        if (event.type === 'message-unsent') {
+          if (event.event.conversationId !== conversationId) return;
+          queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
+            chatQueryKeys.eventMessages(ganapId),
+            (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => markMessageUnsent(data, event.event),
+          );
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
           return;
         }
         if (event.type === 'read' && event.receipt.userId === userId) {
@@ -356,6 +392,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
             (data: InfiniteData<EventChatSummaryPage, ChatPageParam> | undefined) =>
               patchSummaryRead(data, event.receipt.conversationId),
           );
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
         }
       },
     );

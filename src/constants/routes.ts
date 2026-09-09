@@ -1,4 +1,7 @@
 import type { Href } from 'expo-router';
+import type { DirectChatFriendSummary } from '@/types/direct-chat.types';
+
+type DirectChatRouteFriend = Pick<DirectChatFriendSummary, 'userId' | 'username' | 'displayName' | 'displayPicture'>;
 
 /**
  * Shape of {@link Routes}.
@@ -37,7 +40,7 @@ export interface RouteTable {
   friendProfile: (userId: string) => Href;
   friendSettings: Href;
   directChat: (conversationId: string) => Href;
-  directChatForFriend: (friendUserId: string) => Href;
+  directChatForFriend: (friend: DirectChatRouteFriend) => Href;
   attendanceScan: (ganapId: string) => Href;
   ganapFeedback: (ganapId: string) => Href;
 }
@@ -171,12 +174,18 @@ export const Routes: RouteTable = {
    * The `new` marker is route-local only; the client does not create a server
    * conversation until the first successful send.
    *
-   * @param friendUserId - Accepted friend's user id
+   * @param friend - Accepted friend's safe identity for the new thread header
    * @returns An href targeting the lazy Direct Chat composer
    */
-  directChatForFriend: (friendUserId: string): Href => ({
+  directChatForFriend: (friend: DirectChatRouteFriend): Href => ({
     pathname: '/(app)/(chat)/direct-chat/[conversation-id]',
-    params: { 'conversation-id': 'new', 'friend-user-id': friendUserId },
+    params: {
+      'conversation-id': 'new',
+      'friend-user-id': friend.userId,
+      'friend-username': friend.username,
+      'friend-display-name': friend.displayName,
+      'friend-display-picture': friend.displayPicture ?? '',
+    },
   }),
 
   /**

@@ -12,12 +12,14 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MessageReactionBar } from '@/components/chat/MessageReactionBar';
 import { Button } from '@/components/common/Button';
 import { IconButton } from '@/components/common/IconButton';
 import { Text } from '@/components/common/Text';
 import { Colors, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { showToast } from '@/store/toast.store';
+import type { ReactionSummary, ReactionType } from '@/types/chat.types';
 import type { CreateReportInput, ModerationReportReason, ModerationReportReceipt } from '@/types/moderation.types';
 import { getModerationErrorMessage, MODERATION_REASONS } from '@/utils/moderation';
 
@@ -29,6 +31,12 @@ export interface MessageModerationTarget {
   senderLabel: string;
   /** False for the authenticated User's own message; self-block is not offered. */
   canBlock?: boolean;
+  /** True when the message is the authenticated User's currently eligible text/image. */
+  canUnsend?: boolean;
+  /** Aggregate used by the compact reaction tray in the action sheet. */
+  reactionSummary?: ReactionSummary | null;
+  /** Server capability gate; read-only chat must not offer reaction attempts. */
+  canReact?: boolean;
 }
 
 /** User target presented by the moderation action sheet. */
@@ -52,9 +60,15 @@ export interface ModerationActionSheetProps {
   onClose: () => void;
   onReport: (input: CreateReportInput) => Promise<ModerationReportReceipt>;
   onBlock: (userId: string) => Promise<void>;
+  /** Performs the sender-owned unsend after the in-app confirmation. */
+  onUnsend?: () => void | Promise<void>;
+  /** Sets or removes a reaction from the selected message. */
+  onReaction?: (reaction: ReactionType | null) => void | Promise<void>;
+  /** Message reaction mutation state for the selected message. */
+  reactionPending?: boolean;
 }
 
-type SheetStep = 'actions' | 'reasons' | 'report-confirm' | 'block-confirm' | 'block-success';
+type SheetStep = 'actions' | 'reasons' | 'report-confirm' | 'block-confirm' | 'block-success' | 'unsend-confirm';
 
 /** Maximum Unicode characters accepted for an `OTHER` report detail. */
 export const MAX_REPORT_DETAILS_LENGTH = 1_000;
@@ -118,12 +132,16 @@ function buildReportInput(
  * @param props - Target and mutation callbacks
  * @returns A safe-area-aware, keyboard-safe moderation sheet
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The action sheet intentionally renders its explicit moderation state machine in one place.
 export function ModerationActionSheet({
   visible,
   target,
   onClose,
   onReport,
   onBlock,
+  onUnsend,
+  onReaction,
+  reactionPending = false,
 }: ModerationActionSheetProps): ReactElement | null {
   const insets = useSafeAreaInsets();
   const theme = useResolvedTheme();
@@ -184,6 +202,21 @@ export function ModerationActionSheet({
     }
   };
 
+  const submitUnsend = async (): Promise<void> => {
+    if (!onUnsend || isSubmitting) return;
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      await onUnsend();
+      showToast('success', 'Message unsent.');
+      onClose();
+    } catch (caughtError: unknown) {
+      setError(caughtError instanceof Error ? caughtError : new Error('This message could not be unsent.'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const renderHeader = (title: string): ReactElement => (
     <View className="mb-md flex-row items-center justify-between">
       <Text className="flex-1 font-inter-bold text-headline-sm" accessibilityRole="header">
@@ -225,11 +258,35 @@ export function ModerationActionSheet({
       <>
         {renderHeader('Moderation actions')}
         <Text className="mb-md text-body-md text-muted-foreground">{getTargetDescription(target)}</Text>
+        {target.type === 'MESSAGE' && target.canReact !== false && target.reactionSummary && onReaction && (
+          <View className="mb-md rounded-xl border border-border bg-muted p-xs">
+            <MessageReactionBar
+              summary={target.reactionSummary}
+              presentation="tray"
+              isPending={reactionPending}
+              containerLabel="Message reactions"
+              onSelect={(reaction: ReactionType | null): void => {
+                void onReaction(reaction);
+              }}
+            />
+          </View>
+        )}
         {target.type === 'MESSAGE' &&
           renderAction(getReportActionLabel(target), (): void => {
             setError(null);
             setStep('reasons');
           })}
+        {target.type === 'MESSAGE' &&
+          target.canUnsend &&
+          onUnsend &&
+          renderAction(
+            'Unsend message',
+            (): void => {
+              setError(null);
+              setStep('unsend-confirm');
+            },
+            true,
+          )}
         {isUserReportTarget(target) &&
           target.contextConversationId &&
           renderAction(getReportActionLabel(target), (): void => {
@@ -324,6 +381,30 @@ export function ModerationActionSheet({
         <View className="mt-sm">
           <Button variant="outline" disabled={isSubmitting} onPress={(): void => setStep('reasons')}>
             Back
+          </Button>
+        </View>
+      </>
+    );
+  } else if (step === 'unsend-confirm') {
+    content = (
+      <>
+        {renderHeader('Unsend this message?')}
+        <Text className="mb-lg text-body-md text-muted-foreground">
+          This message will be replaced with “Message unsent” for everyone in the conversation.
+        </Text>
+        {renderError('This message could not be unsent.')}
+        <Button
+          variant="destructive"
+          disabled={isSubmitting}
+          loading={isSubmitting}
+          accessibilityHint="Replaces your message with a Message unsent notice for everyone"
+          onPress={(): void => void submitUnsend()}
+        >
+          Unsend for everyone
+        </Button>
+        <View className="mt-sm">
+          <Button variant="outline" disabled={isSubmitting} onPress={(): void => setStep('actions')}>
+            Cancel
           </Button>
         </View>
       </>

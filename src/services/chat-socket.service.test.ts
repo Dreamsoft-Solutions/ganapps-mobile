@@ -112,6 +112,28 @@ describe('ChatSocketClient', (): void => {
     expect(socket.emit).toHaveBeenCalledWith('chat:join', { ganapId: 'ganap-1' });
   });
 
+  it('keeps a summary-only connection and forwards one authorized summary change', async (): Promise<void> => {
+    const socket: FakeSocket = makeSocket();
+    const factory: jest.MockedFunction<ChatSocketFactory> = jest.fn((): ChatSocketLike => socket);
+    const client: ChatSocketClient = new ChatSocketClient(factory);
+    const listener = jest.fn();
+    const unsubscribe: () => void = client.onSummaryChange(listener);
+
+    await flushPromises();
+    socket.connected = true;
+    socket.fire('connect');
+    socket.fire('chat:summary:changed', { conversationId: 'conversation-1' });
+    socket.fire('chat:summary:changed', { conversationId: '' });
+
+    expect(factory).toHaveBeenCalledTimes(1);
+    expect(socket.connect).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith({ conversationId: 'conversation-1' });
+
+    unsubscribe();
+    expect(socket.disconnect).toHaveBeenCalledTimes(1);
+  });
+
   it('deduplicates duplicate socket messages and removes listeners on teardown', async (): Promise<void> => {
     const socket: FakeSocket = makeSocket();
     const factory: jest.MockedFunction<ChatSocketFactory> = jest.fn((): ChatSocketLike => socket);

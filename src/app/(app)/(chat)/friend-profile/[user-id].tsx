@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Ban, UserMinus } from 'lucide-react-native';
+import { ArrowLeft, Ban, MessageCircle, UserMinus } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { Alert, ScrollView, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { formatInterestLabel } from '@/constants/interests';
+import { Routes } from '@/constants/routes';
 import { useUnfriendMutation } from '@/hooks/mutations/useFriendsMutation';
 import { useBlockUserMutation } from '@/hooks/mutations/useModerationMutation';
 import { useFriendProfileQuery } from '@/hooks/queries/useFriendsQuery';
@@ -36,7 +37,7 @@ function formatGoingDate(value: string): string {
  * screen renders no email, provider identifier, attendance detail, or exact
  * location data.
  *
- * @returns Safe Friend profile with unfriend and block actions
+ * @returns Safe Friend profile with messaging, unfriend, and block actions
  */
 export default function FriendProfileScreen(): ReactElement {
   const router = useRouter();
@@ -99,6 +100,11 @@ export default function FriendProfileScreen(): ReactElement {
         },
       ],
     );
+  };
+
+  const handleMessage = (): void => {
+    if (!profileQuery.data) return;
+    router.push(Routes.directChatForFriend(profileQuery.data));
   };
 
   if (profileQuery.isLoading) return <Loading message="Loading profile" />;
@@ -178,6 +184,9 @@ export default function FriendProfileScreen(): ReactElement {
           </View>
         )}
         <View className="mt-lg gap-sm">
+          <Button onPress={handleMessage} leftIcon={<MessageCircle size={17} />}>
+            Message
+          </Button>
           <Button
             variant="outline"
             onPress={handleUnfriend}

@@ -1,5 +1,5 @@
-import { ArrowLeft, MoreVertical, Send } from 'lucide-react-native';
-import { type ReactElement, useCallback, useRef, useState } from 'react';
+import { ArrowLeft, ImagePlus, MoreVertical, Send } from 'lucide-react-native';
+import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -23,8 +23,9 @@ import { Colors, Spacing } from '@/constants/theme';
 import type { FailedDraft } from '@/hooks/useChat';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { ChatConnectionState } from '@/services/chat-socket.service';
+import { showToast } from '@/store/toast.store';
 import type { ChatImageDraft, ChatMessage, EventChatSession } from '@/types/chat.types';
-import { isChatImageAuthorizationError } from '@/utils/chat-image';
+import { getChatImageErrorMessage, isChatImageAuthorizationError } from '@/utils/chat-image';
 
 /** Maximum text size accepted by the Event Chat server contract. */
 export const CHAT_MAX_MESSAGE_LENGTH = 2_000;
@@ -115,41 +116,43 @@ function MessageRow({
     <View className="mb-md flex-row items-end px-md">
       <Avatar src={message.senderDisplayPicture} name={message.senderUsername} size="xs" />
       <View className="ml-sm min-w-0 max-w-[82%] flex-1 flex-row items-end">
-        <Pressable
-          onLongPress={(): void => onMessageActions(message)}
-          onPress={
-            media
-              ? (): void => {
-                  void Linking.openURL(media.url).catch((): void => {});
-                }
-              : undefined
-          }
-          delayLongPress={350}
-          accessibilityRole="button"
-          accessibilityLabel={messageLabel}
-          accessibilityHint="Long press to open report and block actions"
-          className="min-w-0 flex-1 rounded-xl border border-border bg-card px-md py-sm active:opacity-70"
-        >
-          <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>
-          {media ? (
-            <ChatImageBubble
-              media={media}
-              senderUsername={message.senderUsername}
-              reloadToken={imageLoadState.reloadToken}
-              loadFailed={imageLoadState.loadFailed}
-              onLoadError={(error: string): void => onImageLoadError(message.id, error)}
-              onRetry={(): void => onRetryImageLoad(message.id)}
-            />
-          ) : (
-            <Text className="mt-xs text-body-md">{messageCopy}</Text>
-          )}
-          <Text className="mt-xs text-label-sm text-muted-foreground">{formatMessageTime(message.sentAt)}</Text>
-        </Pressable>
+        <View className="min-w-0 flex-1">
+          <Pressable
+            onLongPress={(): void => onMessageActions(message)}
+            onPress={
+              media
+                ? (): void => {
+                    void Linking.openURL(media.url).catch((): void => {});
+                  }
+                : undefined
+            }
+            delayLongPress={350}
+            accessibilityRole="button"
+            accessibilityLabel={messageLabel}
+            accessibilityHint="Long press to open message reactions and actions"
+            className="min-w-0 flex-1 rounded-xl border border-border bg-card px-md py-sm active:opacity-70"
+          >
+            <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>
+            {media ? (
+              <ChatImageBubble
+                media={media}
+                senderUsername={message.senderUsername}
+                reloadToken={imageLoadState.reloadToken}
+                loadFailed={imageLoadState.loadFailed}
+                onLoadError={(error: string): void => onImageLoadError(message.id, error)}
+                onRetry={(): void => onRetryImageLoad(message.id)}
+              />
+            ) : (
+              <Text className="mt-xs text-body-md">{messageCopy}</Text>
+            )}
+            <Text className="mt-xs text-label-sm text-muted-foreground">{formatMessageTime(message.sentAt)}</Text>
+          </Pressable>
+        </View>
         <IconButton
           accessibilityLabel={actionLabel}
-          accessibilityHint="Opens report and block actions for this message"
+          accessibilityHint="Opens message reactions and actions"
           onPress={(): void => onMessageActions(message)}
-          size="sm"
+          size="md"
         >
           <MoreVertical size={18} className="text-muted-foreground" />
         </IconButton>
@@ -232,6 +235,18 @@ export function EventChatThreadView({
   const [imageLoadStates, setImageLoadStates] = useState<Record<string, ImageLoadState>>({});
   const imageRefreshIds = useRef<Set<string>>(new Set<string>());
   const isReadOnly: boolean = Boolean(session?.canRead && !session.canSend);
+  const canSendImage: boolean =
+    imageDraft?.status === 'ready' ||
+    (imageDraft?.status === 'retryable-failure' && (imageRetryAfterSeconds ?? 0) <= 0);
+  const sendDisabled: boolean = isSending || (imageDraft ? !canSendImage : draftText.trim().length === 0);
+
+  useEffect((): void => {
+    if (imagePickerError) showToast('error', imagePickerError.message);
+  }, [imagePickerError]);
+
+  useEffect((): void => {
+    if (imageDraft?.error) showToast('error', getChatImageErrorMessage(imageDraft.error));
+  }, [imageDraft?.error]);
 
   const handleImageLoadError = useCallback(
     (messageId: string, error: string): void => {
@@ -312,7 +327,7 @@ export function EventChatThreadView({
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-background"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? Spacing.lg : 0}
     >
       <View
@@ -395,37 +410,29 @@ export function EventChatThreadView({
         </View>
       ) : session?.canSend ? (
         <View className="border-t border-border px-md pt-sm" style={{ paddingBottom: insets.bottom + Spacing.sm }}>
-          {imagePickerError && (
-            <Text accessibilityLiveRegion="polite" className="mb-sm text-body-md text-destructive">
-              {imagePickerError.message}
-            </Text>
-          )}
-          {imageDraft && (
-            <ChatImagePreview
-              draft={imageDraft}
-              retryAfterSeconds={imageRetryAfterSeconds}
-              onRemove={onRemoveImage}
-              onSend={onSendImage}
-              onRetry={onRetryImage}
-            />
-          )}
-          <View className="mb-sm flex-row">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isSending || imageDraft !== null}
-              onPress={(): void => {
-                void onPickImage();
-              }}
-              accessibilityHint="Opens the existing photo library for one image"
-            >
-              Add image
-            </Button>
-          </View>
+          {imageDraft && <ChatImagePreview draft={imageDraft} onRemove={onRemoveImage} />}
           <Text nativeID="event-chat-composer-label" className="mb-xs font-inter-semibold text-label-md">
             Message
           </Text>
           <View className="flex-row items-end gap-sm">
+            <IconButton
+              accessibilityLabel="Add image"
+              accessibilityHint="Opens the existing photo library to select one image"
+              disabled={isSending || imageDraft !== null}
+              onPress={(): void => {
+                void onPickImage();
+              }}
+              size="md"
+              variant="default"
+            >
+              {ImagePlus ? (
+                <ImagePlus size={20} color={Colors[theme].foreground} />
+              ) : (
+                <Text accessible={false} className="text-lg text-foreground">
+                  ＋
+                </Text>
+              )}
+            </IconButton>
             <TextInput
               accessibilityLabel="Message"
               accessibilityHint="Enter a text message"
@@ -441,10 +448,19 @@ export function EventChatThreadView({
             />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Send message"
-              accessibilityState={{ disabled: isSending || draftText.trim().length === 0, busy: isSending }}
-              disabled={isSending || draftText.trim().length === 0}
+              accessibilityLabel={imageDraft ? 'Send image' : 'Send message'}
+              accessibilityHint={imageDraft ? 'Sends the selected image as a separate chat message' : undefined}
+              accessibilityState={{ disabled: sendDisabled, busy: isSending }}
+              disabled={sendDisabled}
               onPress={(): void => {
+                if (imageDraft) {
+                  if (imageDraft.status === 'retryable-failure') {
+                    void onRetryImage();
+                  } else if (imageDraft.status === 'ready') {
+                    void onSendImage();
+                  }
+                  return;
+                }
                 const content: string = draftText;
                 setDraftText('');
                 void onSend(content);

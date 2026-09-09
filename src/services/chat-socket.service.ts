@@ -2,7 +2,7 @@ import { io } from 'socket.io-client';
 import { API_BASE_URL } from '@/api/config';
 import { chatAPI } from '@/api/endpoints/chat';
 import { useAuthStore } from '@/store/auth.store';
-import type { ChatMessage, ChatMessageMedia, ChatReadResult } from '@/types/chat.types';
+import type { ChatMessage, ChatMessageMedia, ChatReadResult, ReactionCount, ReactionType } from '@/types/chat.types';
 
 /** Connection states exposed to Event Chat screens. */
 export type ChatConnectionState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'error';
@@ -31,10 +31,33 @@ export interface ChatSocketAccessRevokedEvent {
   ganapId?: string;
 }
 
+/** Aggregate event emitted when a visible message reaction changes. */
+export interface ChatSocketMessageReactionEvent {
+  conversationId: string;
+  messageId: string;
+  counts: ReactionCount[];
+  myReaction: ReactionType | null;
+}
+
+/** Tombstone event emitted when a visible message is unsent. */
+export interface ChatSocketMessageUnsentEvent {
+  conversationId: string;
+  messageId: string;
+  type: 'UNSENT';
+  unsentAt: string;
+}
+
+/** Minimal process-wide event that marks one summary feed as stale. */
+export interface ChatSocketSummaryChangedEvent {
+  conversationId: string;
+}
+
 /** Events delivered to one conversation listener. */
 export type ChatSocketEvent =
   | { type: 'message'; message: ChatMessage }
   | { type: 'read'; receipt: ChatSocketReadReceipt }
+  | { type: 'message-reaction'; event: ChatSocketMessageReactionEvent }
+  | { type: 'message-unsent'; event: ChatSocketMessageUnsentEvent }
   | { type: 'message-hidden'; event: ChatSocketMessageHiddenEvent }
   | { type: 'access-revoked'; event: ChatSocketAccessRevokedEvent };
 
@@ -48,6 +71,9 @@ export type ChatSocketListener = (event: ChatSocketEvent) => void;
 
 /** Listener invoked for moderation events, including conversations not focused in a screen. */
 export type ChatSocketModerationListener = (event: ChatSocketModerationEvent) => void;
+
+/** Listener invoked when an authorized conversation summary may have changed. */
+export type ChatSocketSummaryListener = (event: ChatSocketSummaryChangedEvent) => void;
 
 interface RoomSubscription {
   kind: 'event' | 'direct';
@@ -149,6 +175,50 @@ function isMessageHiddenEvent(value: unknown): value is ChatSocketMessageHiddenE
   return typeof candidate.conversationId === 'string' && typeof candidate.messageId === 'string';
 }
 
+function isReactionType(value: unknown): value is ReactionType {
+  return value === 'HEART' || value === 'LAUGH' || value === 'THUMBS_UP' || value === 'SAD' || value === 'ANGRY';
+}
+
+function isMessageReactionEvent(value: unknown): value is ChatSocketMessageReactionEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatSocketMessageReactionEvent>;
+  if (typeof candidate.conversationId !== 'string' || typeof candidate.messageId !== 'string') return false;
+  if (!Array.isArray(candidate.counts) || candidate.counts.length !== 5) return false;
+  const counts: unknown[] = candidate.counts;
+  if (
+    !counts.every((entry: unknown): boolean => {
+      if (typeof entry !== 'object' || entry === null) return false;
+      const count = entry as Partial<ReactionCount>;
+      return (
+        isReactionType(count.type) &&
+        typeof count.count === 'number' &&
+        Number.isInteger(count.count) &&
+        count.count >= 0
+      );
+    })
+  ) {
+    return false;
+  }
+  return candidate.myReaction === null || isReactionType(candidate.myReaction);
+}
+
+function isMessageUnsentEvent(value: unknown): value is ChatSocketMessageUnsentEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatSocketMessageUnsentEvent>;
+  return (
+    typeof candidate.conversationId === 'string' &&
+    typeof candidate.messageId === 'string' &&
+    candidate.type === 'UNSENT' &&
+    typeof candidate.unsentAt === 'string'
+  );
+}
+
+function isSummaryChangedEvent(value: unknown): value is ChatSocketSummaryChangedEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatSocketSummaryChangedEvent>;
+  return typeof candidate.conversationId === 'string' && candidate.conversationId.length > 0;
+}
+
 function isAccessRevokedEvent(value: unknown): value is ChatSocketAccessRevokedEvent {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Partial<ChatSocketAccessRevokedEvent>;
@@ -184,6 +254,7 @@ export class ChatSocketClient {
   private readonly rooms = new Map<string, RoomSubscription>();
   private readonly stateListeners = new Set<(state: ChatConnectionState) => void>();
   private readonly moderationListeners = new Set<ChatSocketModerationListener>();
+  private readonly summaryListeners = new Set<ChatSocketSummaryListener>();
   private readonly seenMessageIds = new Set<string>();
   private readonly joinedConversationIds = new Set<string>();
   private readonly hiddenMessageKeys = new Set<string>();
@@ -239,6 +310,22 @@ export class ChatSocketClient {
     this.moderationListeners.add(listener);
     return (): void => {
       this.moderationListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Subscribes to authorized summary invalidation events without joining a
+   * conversation room.
+   *
+   * @param listener - Callback for one changed conversation
+   * @returns Cleanup function
+   */
+  public onSummaryChange(listener: ChatSocketSummaryListener): () => void {
+    this.summaryListeners.add(listener);
+    if (useAuthStore.getState().token) void this.ensureConnected();
+    return (): void => {
+      this.summaryListeners.delete(listener);
+      if (this.rooms.size === 0 && this.summaryListeners.size === 0) this.disconnect('no-subscribers');
     };
   }
 
@@ -331,7 +418,7 @@ export class ChatSocketClient {
       this.joinedConversationIds.delete(conversationId);
       this.focusedDirectConversationIds.delete(conversationId);
       this.rooms.delete(conversationId);
-      if (this.rooms.size === 0) this.disconnect('no-subscribers');
+      if (this.rooms.size === 0 && this.summaryListeners.size === 0) this.disconnect('no-subscribers');
     };
   }
 
@@ -353,6 +440,7 @@ export class ChatSocketClient {
     this.connectionPromise = null;
     this.seenMessageIds.clear();
     this.hiddenMessageKeys.clear();
+    this.summaryListeners.clear();
     this.joinedConversationIds.clear();
     this.focusedDirectConversationIds.clear();
     this.joinAfterRefreshPromise = null;
@@ -365,8 +453,13 @@ export class ChatSocketClient {
     this.ticketCache = null;
   }
 
-  private async ensureConnected(): Promise<void> {
-    if (!useAuthStore.getState().token || this.rooms.size === 0) return;
+  /**
+   * Re-evaluates the connection after an app resume or another lifecycle boundary.
+   *
+   * @returns Nothing after any in-flight connection attempt settles
+   */
+  public async ensureConnected(): Promise<void> {
+    if (!useAuthStore.getState().token || (this.rooms.size === 0 && this.summaryListeners.size === 0)) return;
     if (this.socket?.connected || this.connectionPromise) return;
 
     this.connectionPromise = this.connect().finally((): void => {
@@ -376,12 +469,12 @@ export class ChatSocketClient {
   }
 
   private async connect(): Promise<void> {
-    if (!useAuthStore.getState().token || this.rooms.size === 0) return;
+    if (!useAuthStore.getState().token || (this.rooms.size === 0 && this.summaryListeners.size === 0)) return;
     this.setConnectionState(this.reconnectAttempt > 0 ? 'reconnecting' : 'connecting');
 
     try {
       const ticket: string = await this.getValidTicket();
-      if (!useAuthStore.getState().token || this.rooms.size === 0) return;
+      if (!useAuthStore.getState().token || (this.rooms.size === 0 && this.summaryListeners.size === 0)) return;
       this.intentionalDisconnect = false;
       if (!this.socket) this.createSocket();
       if (!this.socket) return;
@@ -415,6 +508,9 @@ export class ChatSocketClient {
     socket.on('connect_error', this.handleConnectError);
     socket.on('chat:message:new', this.handleMessage);
     socket.on('chat:message:read', this.handleRead);
+    socket.on('chat:message:reaction', this.handleMessageReaction);
+    socket.on('chat:message:unsent', this.handleMessageUnsent);
+    socket.on('chat:summary:changed', this.handleSummaryChanged);
     socket.on('chat:message:hidden', this.handleMessageHidden);
     socket.on('chat:access:revoked', this.handleAccessRevoked);
   }
@@ -473,7 +569,11 @@ export class ChatSocketClient {
   private readonly handleDisconnect = (): void => {
     this.joinedConversationIds.clear();
     this.joinAfterRefreshPromise = null;
-    if (this.intentionalDisconnect || this.rooms.size === 0 || !useAuthStore.getState().token) {
+    if (
+      this.intentionalDisconnect ||
+      (this.rooms.size === 0 && this.summaryListeners.size === 0) ||
+      !useAuthStore.getState().token
+    ) {
       this.setConnectionState('disconnected');
       return;
     }
@@ -510,6 +610,29 @@ export class ChatSocketClient {
     const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
     room?.listeners.forEach((listener: ChatSocketListener): void => {
       listener({ type: 'read', receipt: value });
+    });
+  };
+
+  private readonly handleMessageReaction = (value: unknown): void => {
+    if (!isMessageReactionEvent(value)) return;
+    const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
+    room?.listeners.forEach((listener: ChatSocketListener): void => {
+      listener({ type: 'message-reaction', event: value });
+    });
+  };
+
+  private readonly handleMessageUnsent = (value: unknown): void => {
+    if (!isMessageUnsentEvent(value)) return;
+    const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
+    room?.listeners.forEach((listener: ChatSocketListener): void => {
+      listener({ type: 'message-unsent', event: value });
+    });
+  };
+
+  private readonly handleSummaryChanged = (value: unknown): void => {
+    if (!isSummaryChangedEvent(value)) return;
+    this.summaryListeners.forEach((listener: ChatSocketSummaryListener): void => {
+      listener(value);
     });
   };
 
@@ -560,7 +683,7 @@ export class ChatSocketClient {
     this.joinedConversationIds.delete(conversationId);
     this.focusedDirectConversationIds.delete(conversationId);
     this.rooms.delete(conversationId);
-    if (this.rooms.size === 0) this.disconnect('access-revoked');
+    if (this.rooms.size === 0 && this.summaryListeners.size === 0) this.disconnect('access-revoked');
   }
 
   private joinRoom(conversationId: string, room: RoomSubscription): void {
@@ -580,7 +703,12 @@ export class ChatSocketClient {
   }
 
   private scheduleReconnect(): void {
-    if (this.reconnectTimer || this.rooms.size === 0 || !useAuthStore.getState().token) return;
+    if (
+      this.reconnectTimer ||
+      (this.rooms.size === 0 && this.summaryListeners.size === 0) ||
+      !useAuthStore.getState().token
+    )
+      return;
     const delay: number = Math.min(INITIAL_RECONNECT_DELAY_MS * 2 ** this.reconnectAttempt, MAX_RECONNECT_DELAY_MS);
     this.reconnectAttempt = Math.min(this.reconnectAttempt + 1, 8);
     this.reconnectTimer = setTimeout((): void => {

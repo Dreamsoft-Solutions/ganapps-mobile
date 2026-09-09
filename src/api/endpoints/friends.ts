@@ -19,6 +19,11 @@ export interface FriendsListParams {
   limit?: number;
 }
 
+/** Optional event focus for the privacy-filtered Going feed. */
+export interface FriendGoingParams extends FriendsListParams {
+  ganapId?: string;
+}
+
 /** Parameters for the one bounded active-friend presence sample. */
 export interface FriendPresenceParams {
   screenSession?: string;
@@ -166,10 +171,10 @@ export const friendsAPI = {
    * @param params - Opaque cursor and bounded page size
    * @returns Server-owned Going page
    */
-  listGoing: (params: FriendsListParams = {}): Promise<FriendPage<FriendGoingRecord>> =>
+  listGoing: (params: FriendGoingParams = {}): Promise<FriendPage<FriendGoingRecord>> =>
     axiosInstance
       .get<FriendPage<FriendGoingRecord>>('/friends/going', {
-        params: { cursor: params.cursor, limit: params.limit },
+        params: { cursor: params.cursor, limit: params.limit, ganapId: params.ganapId },
       })
       .then((res) => res.data),
 

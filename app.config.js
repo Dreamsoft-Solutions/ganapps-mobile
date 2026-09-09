@@ -50,7 +50,7 @@ const googleClientConfiguration = getGoogleClientConfiguration();
 
 module.exports = {
   expo: {
-    name: 'ganapps-mobile',
+    name: 'Ganapps',
     slug: 'dreamsoft-cpu',
     version: '1.0.0',
     orientation: 'portrait',
@@ -70,22 +70,13 @@ module.exports = {
         foregroundImage: './assets/brand/ganap-logo-1.png',
       },
       predictiveBackGestureEnabled: false,
+      usesCleartextTraffic: process.env.APP_ENV === 'local',
     },
     web: {
       output: 'static',
       favicon: './assets/images/favicon.png',
     },
     plugins: [
-      [
-        'expo-build-properties',
-        {
-          ios: {
-            useFrameworks: 'static', // required: see AGENTS.md
-            usePrecompiledModules: false, // required: see AGENTS.md
-            forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBRemoteConfig', 'RNFBAnalytics'],
-          },
-        },
-      ],
       'expo-router',
       [
         'expo-notifications',
@@ -137,7 +128,11 @@ module.exports = {
       [
         'expo-image-picker',
         {
-          photosPermission: 'Ganapps uses your photos so you can set a profile picture and scan a saved QR code image.',
+          // Apple requires the purpose string to cover every use of the data, so this
+          // names both the profile picture and sharing media in event chats. Update it
+          // whenever a new picker call site is added.
+          photosPermission:
+            'Ganapps uses your photos so you can set a profile picture and share photos and videos in event chats.',
           // Media is only ever chosen from the existing library — the picker never
           // records, so it must not declare NSMicrophoneUsageDescription.
           microphonePermission: false,

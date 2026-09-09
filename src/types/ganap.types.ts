@@ -1,3 +1,5 @@
+import type { ReactionSummary } from './chat.types';
+
 /**
  * Lifecycle of a student's registration for a Ganap.
  *
@@ -119,8 +121,8 @@ export interface RegistrationFormData {
  *
  * Mirrors the server's `PublicGanapListItemResponseDto`. The `isLiked`, `isSaved`
  * and `myRegistrationStatus` fields are present only when the request carried a
- * token. `registrationCount` and `likesCount` are currently hardcoded to 0 by the
- * server — real fields, placeholder values.
+ * token. `registrationCount` is the number of confirmed registrations; likes remain
+ * a placeholder until the public list exposes their aggregate.
  */
 export interface GanapListItem {
   id: string;
@@ -276,6 +278,8 @@ export interface GanapAnnouncement {
   title?: string | null;
   content: string;
   createdAt: string;
+  /** Aggregate acknowledgement state; absent/null means engagement is unavailable. */
+  reactionSummary?: ReactionSummary | null;
 }
 
 /** Offset-pagination query parameters for the attendee announcement list. */

@@ -1,6 +1,6 @@
 # Ganapps Mobile Context
 
-Ganapps Mobile is the app people use to discover events across Iloilo City, register for them, attend, and leave feedback.
+Ganapps Mobile is the app students use to discover campus events, register for them, attend, and leave feedback.
 
 ## Language
 
@@ -25,7 +25,7 @@ A verified User who creates and runs Ganaps on behalf of a Business. Organizers 
 _Avoid_: Host, Creator, Event admin, Business owner (that names a specific `OWNER` membership role)
 
 **Business**:
-The organizing body a Ganap belongs to — CPU Republic, a council, a student org, or any other Iloilo City organizer. Users attach to one through a membership carrying a role of `OWNER`, `ADMIN`, or `MEMBER`. User-facing copy says "organization".
+The organization a Ganap belongs to — CPU Republic, a council, a student org. Users attach to one through a membership carrying a role of `OWNER`, `ADMIN`, or `MEMBER`. UI copy shown to students says "organization".
 _Avoid_: Company, Vendor, Club, Organizer, Organization (in code and API names)
 
 **Registration**:

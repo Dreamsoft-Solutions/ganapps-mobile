@@ -38,6 +38,7 @@ import {
   isChatNetworkError,
   upsertChatMessage,
 } from '@/utils/chat';
+import { markMessageUnsent, patchMessageInPages } from '@/utils/chat-engagement';
 import {
   CHAT_IMAGE_PICKER_OPTIONS,
   getChatImageErrorCode,
@@ -289,6 +290,8 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
   const canSend: boolean = options.canSend === true || createdConversationId !== null;
   const accessLost: boolean = accessRevoked || (Boolean(conversationId) && !canRead);
   const messagesQuery = useDirectChatMessagesQuery(conversationId, enabled && canRead && !accessLost);
+  const messagesRef = useRef<ChatMessage[]>(messagesQuery.messages);
+  messagesRef.current = messagesQuery.messages;
   const sendByFriendMutation = useSendDirectMessageByFriendMutation();
   const sendMutation = useSendDirectMessageMutation();
   const sendImageByFriendMutation = useSendDirectImageByFriendMutation();
@@ -343,11 +346,14 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
         );
         void queryClient.invalidateQueries({ queryKey: chatQueryKeys.directMessages(conversationId) });
         void queryClient.invalidateQueries({ queryKey: chatQueryKeys.directSummaries() });
+        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
         return;
       }
       setAccessRevoked(true);
       chatSocketClient.leaveConversation(conversationId);
       queryClient.removeQueries({ queryKey: chatQueryKeys.directMessages(conversationId), exact: true });
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.directSummaries() });
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
     },
     [conversationId, queryClient],
   );
@@ -370,14 +376,48 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
             patchSummaryForMessage(data, incoming, currentUserId !== incoming.senderId && !focused),
         );
         void queryClient.invalidateQueries({ queryKey: chatQueryKeys.directSummaries() });
+        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
+        return;
+      }
+      if (event.type === 'message-reaction') {
+        const reaction = event.event;
+        if (reaction.conversationId !== conversationId) return;
+        queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
+          chatQueryKeys.directMessages(conversationId),
+          (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) =>
+            patchMessageInPages(
+              data,
+              conversationId,
+              reaction.messageId,
+              (message: ChatMessage): ChatMessage => ({
+                ...message,
+                reactionSummary: {
+                  total: reaction.counts.reduce((total: number, entry): number => total + entry.count, 0),
+                  counts: reaction.counts,
+                  myReaction: reaction.myReaction,
+                },
+              }),
+            ),
+        );
+        return;
+      }
+      if (event.type === 'message-unsent') {
+        if (event.event.conversationId !== conversationId) return;
+        queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
+          chatQueryKeys.directMessages(conversationId),
+          (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => markMessageUnsent(data, event.event),
+        );
+        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.directSummaries() });
+        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
         return;
       }
       if (event.type !== 'read' || event.receipt.userId === currentUserId) return;
       const seenAt: string | null = getSeenTimestamp(event.receipt);
-      const through: ChatMessage | undefined = messagesQuery.messages.find(
+      const messages: ChatMessage[] = messagesRef.current;
+      const through: ChatMessage | undefined = messages.find(
         (message: ChatMessage): boolean => message.id === event.receipt.throughMessageId,
       );
-      const latestOutgoing: ChatMessage | null = latestOutgoingMessage(messagesQuery.messages, currentUserId);
+      const latestOutgoing: ChatMessage | null = latestOutgoingMessage(messages, currentUserId);
       if (seenAt && through && latestOutgoing && isMessageAtOrBefore(latestOutgoing, through)) {
         setLatestOutgoingSeenAt((current: string | null): string => {
           if (!current || new Date(seenAt).getTime() > new Date(current).getTime()) return seenAt;
@@ -388,6 +428,7 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
           (data: InfiniteData<ChatConversationSummaryPage, ChatPageParam> | undefined) =>
             patchSummarySeenAt(data, conversationId, seenAt),
         );
+        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
       }
     });
     chatSocketClient.setDirectFocus(conversationId, focused);
@@ -395,7 +436,7 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
       chatSocketClient.setDirectFocus(conversationId, false);
       unsubscribe();
     };
-  }, [accessLost, canRead, conversationId, currentUserId, enabled, focused, messagesQuery.messages, queryClient]);
+  }, [accessLost, canRead, conversationId, currentUserId, enabled, focused, queryClient]);
 
   useEffect((): void => {
     const previous: ChatConnectionState = previousConnectionState.current;

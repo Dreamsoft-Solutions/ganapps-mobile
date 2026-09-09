@@ -1,5 +1,5 @@
-import { ArrowLeft, MoreVertical, Send } from 'lucide-react-native';
-import { type ReactElement, useCallback, useRef, useState } from 'react';
+import { ArrowLeft, ImagePlus, MoreVertical, Send } from 'lucide-react-native';
+import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -23,10 +23,11 @@ import { Colors, Spacing } from '@/constants/theme';
 import type { DirectFailedDraft } from '@/hooks/useDirectChat';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { ChatConnectionState } from '@/services/chat-socket.service';
+import { showToast } from '@/store/toast.store';
 import type { ChatImageDraft as BaseChatImageDraft, ChatMessage } from '@/types/chat.types';
 import type { DirectChatFriendSummary, DirectChatSession } from '@/types/direct-chat.types';
 import { compareChatMessages } from '@/utils/chat';
-import { isChatImageAuthorizationError } from '@/utils/chat-image';
+import { getChatImageErrorMessage, isChatImageAuthorizationError } from '@/utils/chat-image';
 
 /** Maximum text size accepted by the Direct Chat server contract. */
 export const DIRECT_CHAT_MAX_MESSAGE_LENGTH = 2_000;
@@ -102,6 +103,99 @@ function isSeenMessage(message: ChatMessage, latestOutgoing: ChatMessage | null,
   return !Number.isNaN(messageTime) && !Number.isNaN(seenTime) && seenTime >= messageTime;
 }
 
+interface MessageRowProps {
+  message: ChatMessage;
+  currentUserId: string | null;
+  latestOutgoing: ChatMessage | null;
+  latestOutgoingSeenAt: string | null;
+  onMessageActions: (message: ChatMessage) => void;
+  imageLoadState: ImageLoadState;
+  onImageLoadError: (messageId: string, error: string) => void;
+  onRetryImageLoad: (messageId: string) => void;
+}
+
+interface MessageBubbleProps {
+  message: ChatMessage;
+  isMine: boolean;
+  messageCopy: string;
+  media: NonNullable<ChatMessage['media']> | null;
+  seen: boolean;
+  messageLabel: string;
+  imageLoadState: ImageLoadState;
+  onMessageActions: (message: ChatMessage) => void;
+  onImageLoadError: (messageId: string, error: string) => void;
+  onRetryImageLoad: (messageId: string) => void;
+}
+
+interface MessageTimestampProps {
+  isMine: boolean;
+  sentAt: string;
+  seen: boolean;
+}
+
+function MessageTimestamp({ isMine, sentAt, seen }: MessageTimestampProps): ReactElement {
+  const textClassName: string = isMine ? 'text-primary-foreground' : 'text-muted-foreground';
+
+  return (
+    <View className="mt-xs flex-row items-center justify-end gap-xs">
+      <Text className={`text-label-sm ${textClassName}`}>{formatMessageTime(sentAt)}</Text>
+      {seen && (
+        <Text accessibilityLabel="Seen" className={`text-label-sm font-inter-semibold ${textClassName}`}>
+          Seen
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function MessageBubble({
+  message,
+  isMine,
+  messageCopy,
+  media,
+  seen,
+  messageLabel,
+  imageLoadState,
+  onMessageActions,
+  onImageLoadError,
+  onRetryImageLoad,
+}: MessageBubbleProps): ReactElement {
+  const bubbleClassName: string = isMine ? 'bg-primary' : 'border border-border bg-card';
+
+  return (
+    <Pressable
+      onLongPress={(): void => onMessageActions(message)}
+      onPress={
+        media
+          ? (): void => {
+              void Linking.openURL(media.url).catch((): void => {});
+            }
+          : undefined
+      }
+      delayLongPress={350}
+      accessibilityRole="button"
+      accessibilityLabel={messageLabel}
+      accessibilityHint="Long press to open message reactions and actions"
+      className={`min-w-0 rounded-xl px-md py-sm ${bubbleClassName}`}
+    >
+      {!isMine && <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>}
+      {media ? (
+        <ChatImageBubble
+          media={media}
+          senderUsername={isMine ? 'you' : message.senderUsername}
+          reloadToken={imageLoadState.reloadToken}
+          loadFailed={imageLoadState.loadFailed}
+          onLoadError={(error: string): void => onImageLoadError(message.id, error)}
+          onRetry={(): void => onRetryImageLoad(message.id)}
+        />
+      ) : (
+        <Text className={`text-body-md ${isMine ? 'text-primary-foreground' : 'text-foreground'}`}>{messageCopy}</Text>
+      )}
+      <MessageTimestamp isMine={isMine} sentAt={message.sentAt} seen={seen} />
+    </Pressable>
+  );
+}
+
 function MessageRow({
   message,
   currentUserId,
@@ -111,21 +205,11 @@ function MessageRow({
   imageLoadState,
   onImageLoadError,
   onRetryImageLoad,
-}: {
-  message: ChatMessage;
-  currentUserId: string | null;
-  latestOutgoing: ChatMessage | null;
-  latestOutgoingSeenAt: string | null;
-  onMessageActions: (message: ChatMessage) => void;
-  imageLoadState: ImageLoadState;
-  onImageLoadError: (messageId: string, error: string) => void;
-  onRetryImageLoad: (messageId: string) => void;
-}): ReactElement {
+}: MessageRowProps): ReactElement {
   const theme = useResolvedTheme();
   const isMine: boolean = currentUserId !== null && message.senderId === currentUserId;
   const messageCopy: string = getMessageCopy(message);
-  const hasImage: boolean = message.type === 'IMAGE' && message.media !== null && message.media !== undefined;
-  const media = hasImage ? message.media : null;
+  const media: NonNullable<ChatMessage['media']> | null = message.type === 'IMAGE' ? (message.media ?? null) : null;
   const messageLabel: string = media
     ? `Photo sent by ${isMine ? 'you' : message.senderUsername}`
     : `${messageCopy} from ${isMine ? 'you' : message.senderUsername}`;
@@ -134,58 +218,26 @@ function MessageRow({
   return (
     <View className={`mb-md flex-row items-end px-md ${isMine ? 'justify-end' : 'justify-start'}`}>
       {!isMine && <Avatar src={message.senderDisplayPicture} name={message.senderUsername} size="xs" />}
-      <View className={`min-w-0 max-w-[82%] flex-row items-end ${isMine ? '' : 'ml-sm'}`}>
-        <Pressable
-          onLongPress={(): void => onMessageActions(message)}
-          onPress={
-            media
-              ? (): void => {
-                  void Linking.openURL(media.url).catch((): void => {});
-                }
-              : undefined
-          }
-          delayLongPress={350}
-          accessibilityRole="button"
-          accessibilityLabel={messageLabel}
-          accessibilityHint="Long press to open report and block actions"
-          className={`min-w-0 rounded-xl px-md py-sm ${isMine ? 'bg-primary' : 'border border-border bg-card'}`}
-        >
-          {!isMine && <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>}
-          {media ? (
-            <ChatImageBubble
-              media={media}
-              senderUsername={isMine ? 'you' : message.senderUsername}
-              reloadToken={imageLoadState.reloadToken}
-              loadFailed={imageLoadState.loadFailed}
-              onLoadError={(error: string): void => onImageLoadError(message.id, error)}
-              onRetry={(): void => onRetryImageLoad(message.id)}
-            />
-          ) : (
-            <Text className={`text-body-md ${isMine ? 'text-primary-foreground' : 'text-foreground'}`}>
-              {messageCopy}
-            </Text>
-          )}
-          <View className="mt-xs flex-row items-center justify-end gap-xs">
-            <Text className={`text-label-sm ${isMine ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
-              {formatMessageTime(message.sentAt)}
-            </Text>
-            {seen && (
-              <Text
-                accessibilityLabel="Seen"
-                className={`text-label-sm font-inter-semibold ${
-                  isMine ? 'text-primary-foreground' : 'text-muted-foreground'
-                }`}
-              >
-                Seen
-              </Text>
-            )}
-          </View>
-        </Pressable>
+      <View className={`min-w-0 max-w-[82%] flex-1 flex-row items-end ${isMine ? '' : 'ml-sm'}`}>
+        <View className="min-w-0 flex-1">
+          <MessageBubble
+            message={message}
+            isMine={isMine}
+            messageCopy={messageCopy}
+            media={media}
+            seen={seen}
+            messageLabel={messageLabel}
+            imageLoadState={imageLoadState}
+            onMessageActions={onMessageActions}
+            onImageLoadError={onImageLoadError}
+            onRetryImageLoad={onRetryImageLoad}
+          />
+        </View>
         <IconButton
           accessibilityLabel={actionLabel}
-          accessibilityHint="Opens report and block actions for this message"
+          accessibilityHint="Opens message reactions and actions"
           onPress={(): void => onMessageActions(message)}
-          size="sm"
+          size="md"
         >
           <MoreVertical size={18} color={Colors[theme]['muted-foreground']} />
         </IconButton>
@@ -275,6 +327,18 @@ export function DirectChatThreadView({
   const imageRefreshIds = useRef<Set<string>>(new Set<string>());
   const latestOutgoing: ChatMessage | null = getLatestOutgoing(messages, currentUserId);
   const isReadOnly: boolean = Boolean(session?.canRead && !session.canSend);
+  const canSendImage: boolean =
+    imageDraft?.status === 'ready' ||
+    (imageDraft?.status === 'retryable-failure' && (imageRetryAfterSeconds ?? 0) <= 0);
+  const sendDisabled: boolean = isSending || (imageDraft ? !canSendImage : draftText.trim().length === 0);
+
+  useEffect((): void => {
+    if (imagePickerError) showToast('error', imagePickerError.message);
+  }, [imagePickerError]);
+
+  useEffect((): void => {
+    if (imageDraft?.error) showToast('error', getChatImageErrorMessage(imageDraft.error));
+  }, [imageDraft?.error]);
 
   const handleImageLoadError = useCallback(
     (messageId: string, imageError: string): void => {
@@ -354,7 +418,7 @@ export function DirectChatThreadView({
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-background"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? Spacing.lg : 0}
     >
       <View
@@ -455,37 +519,29 @@ export function DirectChatThreadView({
         </View>
       ) : session?.canSend ? (
         <View className="border-t border-border px-md pt-sm" style={{ paddingBottom: insets.bottom + Spacing.sm }}>
-          {imagePickerError && (
-            <Text accessibilityLiveRegion="polite" className="mb-sm text-body-md text-destructive">
-              {imagePickerError.message}
-            </Text>
-          )}
-          {imageDraft && (
-            <ChatImagePreview
-              draft={imageDraft}
-              retryAfterSeconds={imageRetryAfterSeconds ?? null}
-              onRemove={onRemoveImage}
-              onSend={onSendImage}
-              onRetry={onRetryImage}
-            />
-          )}
-          <View className="mb-sm flex-row">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isSending || imageDraft !== null}
-              onPress={(): void => {
-                void onPickImage();
-              }}
-              accessibilityHint="Opens the existing photo library for one image"
-            >
-              Add image
-            </Button>
-          </View>
+          {imageDraft && <ChatImagePreview draft={imageDraft} onRemove={onRemoveImage} />}
           <Text nativeID="direct-chat-composer-label" className="mb-xs font-inter-semibold text-label-md">
             Message
           </Text>
           <View className="flex-row items-end gap-sm">
+            <IconButton
+              accessibilityLabel="Add image"
+              accessibilityHint="Opens the existing photo library to select one image"
+              disabled={isSending || imageDraft !== null}
+              onPress={(): void => {
+                void onPickImage();
+              }}
+              size="md"
+              variant="default"
+            >
+              {ImagePlus ? (
+                <ImagePlus size={20} color={Colors[theme].foreground} />
+              ) : (
+                <Text accessible={false} className="text-lg text-foreground">
+                  ＋
+                </Text>
+              )}
+            </IconButton>
             <TextInput
               accessibilityLabel="Message"
               accessibilityHint="Enter a direct message"
@@ -501,10 +557,19 @@ export function DirectChatThreadView({
             />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Send message"
-              accessibilityState={{ disabled: isSending || draftText.trim().length === 0, busy: isSending }}
-              disabled={isSending || draftText.trim().length === 0}
+              accessibilityLabel={imageDraft ? 'Send image' : 'Send message'}
+              accessibilityHint={imageDraft ? 'Sends the selected image as a separate chat message' : undefined}
+              accessibilityState={{ disabled: sendDisabled, busy: isSending }}
+              disabled={sendDisabled}
               onPress={(): void => {
+                if (imageDraft) {
+                  if (imageDraft.status === 'retryable-failure') {
+                    void onRetryImage();
+                  } else if (imageDraft.status === 'ready') {
+                    void onSendImage();
+                  }
+                  return;
+                }
                 const content: string = draftText;
                 setDraftText('');
                 void onSend(content);

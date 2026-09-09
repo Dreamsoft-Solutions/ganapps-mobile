@@ -10,12 +10,12 @@ import type { FriendRequestDirection } from '@/types/friends.types';
 import { formatFriendCode, formatFriendRetryWarning, getFriendErrorMessage } from '@/utils/friends';
 
 /**
- * Event Chat list tab.
+ * Friends and Chat hub.
  *
  * The list is intentionally server-owned: it never fabricates rows from Ganap
  * details and never fetches history for each row.
  *
- * @returns The Event Chat list screen.
+ * @returns The Friends and Chat screen.
  */
 export default function ChatScreen(): ReactElement {
   const router = useRouter();
@@ -172,7 +172,11 @@ export default function ChatScreen(): ReactElement {
         setRequestNotice(null);
       }}
       onOpenSummary={(summary: ChatConversationSummary): void => {
-        if (summary.type === 'EVENT') router.push(Routes.eventChat(summary.ganapId));
+        if (summary.type === 'EVENT') {
+          router.push(Routes.eventChat(summary.ganapId));
+          return;
+        }
+        router.push(Routes.directChat(summary.conversationId));
       }}
       onOpenProfile={(userId: string): void => router.push(Routes.friendProfile(userId))}
       onOpenSettings={(): void => router.push(Routes.friendSettings)}

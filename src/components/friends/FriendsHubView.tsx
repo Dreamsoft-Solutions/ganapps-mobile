@@ -136,7 +136,7 @@ function ChatSummaryRow({ summary, onOpen }: { summary: ChatConversationSummary;
             </Text>
           </View>
         )}
-        <MessageCircle size={16} color={Colors[theme].primary} />
+        <MessageCircle className="ml-sm" size={16} color={Colors[theme].primary} />
       </Card>
     </Pressable>
   );
@@ -255,6 +255,7 @@ function SegmentControl({
   onChange: (value: string) => void;
   label: string;
 }): ReactElement {
+  const theme = useResolvedTheme();
   return (
     <View accessibilityRole="tablist" accessibilityLabel={label} className="mb-md flex-row rounded-lg bg-muted p-xs">
       {options.map((option: { value: string; label: string }): ReactElement => {
@@ -266,9 +267,20 @@ function SegmentControl({
             accessibilityLabel={option.label}
             accessibilityState={{ selected }}
             onPress={(): void => onChange(option.value)}
-            className={`flex-1 items-center rounded-md px-sm py-sm ${selected ? 'bg-card shadow-sm' : ''}`}
+            className="flex-1 items-center rounded-md px-sm py-sm"
+            style={
+              selected
+                ? {
+                    backgroundColor: Colors[theme].card,
+                    boxShadow: '0px 1px 2px 0px rgba(0, 0, 0, 0.05)',
+                  }
+                : undefined
+            }
           >
-            <Text className={`text-label-md ${selected ? 'text-primary' : 'text-muted-foreground'}`}>
+            <Text
+              className="text-label-md"
+              style={{ color: selected ? Colors[theme].primary : Colors[theme]['muted-foreground'] }}
+            >
               {option.label}
             </Text>
           </Pressable>
