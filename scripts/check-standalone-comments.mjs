@@ -78,7 +78,7 @@ function languageFor(path) {
   }
 
   if (name === '.env' || name.startsWith('.env.')) {
-    return 'hash';
+    return undefined;
   }
 
   return LANGUAGE_EXTENSIONS.get(extname(normalized));

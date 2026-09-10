@@ -92,6 +92,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "eas:build": "eas build",
+    "eas-build-post-install": "node scripts/check-play-release.cjs",
+    "check:play-release": "node --env-file-if-exists=.env scripts/check-play-release.cjs --production",
+    "test:play-release": "node --test scripts/play-release.test.cjs",
     "eas:preview": "eas build --platform all --profile preview",
     "prepare": "husky",
     "reset-project": "node ./scripts/reset-project.js"
