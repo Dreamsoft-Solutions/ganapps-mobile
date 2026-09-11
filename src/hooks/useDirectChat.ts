@@ -4,8 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { BLOCKED_USERS_PAGE_SIZE, moderationAPI } from '@/api/endpoints/moderation';
 import {
   type MarkDirectReadVariables,
-  type SendDirectMessageByFriendVariables,
-  type SendDirectMessageVariables,
   useMarkDirectReadMutation,
   useSendDirectImageByFriendMutation,
   useSendDirectImageMutation,
@@ -362,56 +360,59 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
 
   useEffect((): (() => void) | undefined => {
     if (!conversationId || !canRead || accessLost || !enabled) return undefined;
-    const unsubscribe: () => void = chatSocketClient.subscribeDirect(conversationId, (event: ChatSocketEvent): void => {
-      if (event.type === 'message') {
-        const incoming: ChatMessage = event.message;
-        if (incoming.conversationId !== conversationId || isUserBlocked(queryClient, incoming.senderId)) return;
-        queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
-          chatQueryKeys.directMessages(conversationId),
-          (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => upsertMessageInPages(data, incoming),
-        );
-        queryClient.setQueryData<InfiniteData<ChatConversationSummaryPage, ChatPageParam>>(
-          chatQueryKeys.directSummaries(),
-          (data: InfiniteData<ChatConversationSummaryPage, ChatPageParam> | undefined) =>
-            patchSummaryForMessage(data, incoming, currentUserId !== incoming.senderId && !focused),
-        );
-        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.directSummaries() });
-        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
-        return;
-      }
-      if (event.type === 'message-reaction') {
-        const reaction = event.event;
-        if (reaction.conversationId !== conversationId) return;
-        queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
-          chatQueryKeys.directMessages(conversationId),
-          (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) =>
-            patchMessageInPages(
-              data,
-              conversationId,
-              reaction.messageId,
-              (message: ChatMessage): ChatMessage => ({
-                ...message,
-                reactionSummary: {
-                  total: reaction.counts.reduce((total: number, entry): number => total + entry.count, 0),
-                  counts: reaction.counts,
-                  myReaction: reaction.myReaction,
-                },
-              }),
-            ),
-        );
-        return;
-      }
-      if (event.type === 'message-unsent') {
-        if (event.event.conversationId !== conversationId) return;
-        queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
-          chatQueryKeys.directMessages(conversationId),
-          (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => markMessageUnsent(data, event.event),
-        );
-        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.directSummaries() });
-        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
-        return;
-      }
-      if (event.type !== 'read' || event.receipt.userId === currentUserId) return;
+    function handleMessage(event: Extract<ChatSocketEvent, { type: 'message' }>): void {
+      const incoming: ChatMessage = event.message;
+      if (incoming.conversationId !== conversationId || isUserBlocked(queryClient, incoming.senderId)) return;
+      queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
+        chatQueryKeys.directMessages(conversationId),
+        (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => upsertMessageInPages(data, incoming),
+      );
+      queryClient.setQueryData<InfiniteData<ChatConversationSummaryPage, ChatPageParam>>(
+        chatQueryKeys.directSummaries(),
+        (data: InfiniteData<ChatConversationSummaryPage, ChatPageParam> | undefined) =>
+          patchSummaryForMessage(data, incoming, currentUserId !== incoming.senderId && !focused),
+      );
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.directSummaries() });
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
+      return;
+    }
+
+    function handleReaction(event: Extract<ChatSocketEvent, { type: 'message-reaction' }>): void {
+      const reaction = event.event;
+      if (reaction.conversationId !== conversationId) return;
+      queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
+        chatQueryKeys.directMessages(conversationId),
+        (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) =>
+          patchMessageInPages(
+            data,
+            conversationId,
+            reaction.messageId,
+            (message: ChatMessage): ChatMessage => ({
+              ...message,
+              reactionSummary: {
+                total: reaction.counts.reduce((total: number, entry): number => total + entry.count, 0),
+                counts: reaction.counts,
+                myReaction: reaction.myReaction,
+              },
+            }),
+          ),
+      );
+      return;
+    }
+
+    function handleUnsent(event: Extract<ChatSocketEvent, { type: 'message-unsent' }>): void {
+      if (event.event.conversationId !== conversationId) return;
+      queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
+        chatQueryKeys.directMessages(conversationId),
+        (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => markMessageUnsent(data, event.event),
+      );
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.directSummaries() });
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
+      return;
+    }
+
+    function handleRead(event: Extract<ChatSocketEvent, { type: 'read' }>): void {
+      if (event.receipt.userId === currentUserId) return;
       const seenAt: string | null = getSeenTimestamp(event.receipt);
       const messages: ChatMessage[] = messagesRef.current;
       const through: ChatMessage | undefined = messages.find(
@@ -430,6 +431,22 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
         );
         void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
       }
+    }
+
+    const unsubscribe: () => void = chatSocketClient.subscribeDirect(conversationId, (event: ChatSocketEvent): void => {
+      if (event.type === 'message') {
+        handleMessage(event);
+        return;
+      }
+      if (event.type === 'message-reaction') {
+        handleReaction(event);
+        return;
+      }
+      if (event.type === 'message-unsent') {
+        handleUnsent(event);
+        return;
+      }
+      if (event.type === 'read') handleRead(event);
     });
     chatSocketClient.setDirectFocus(conversationId, focused);
     return (): void => {
@@ -488,10 +505,11 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
 
   const saveFailedDraft = useCallback(
     (
-      variables: SendDirectMessageByFriendVariables | SendDirectMessageVariables,
+      variables: Pick<DirectFailedDraft, 'clientMessageId' | 'content'>,
       target: DirectFailedDraft['target'],
-      error: Error,
+      error: unknown,
     ): void => {
+      if (!(error instanceof Error) || !isChatNetworkError(error)) return;
       setFailedDraftMap(
         (current: Record<string, DirectFailedDraft>): Record<string, DirectFailedDraft> => ({
           ...current,
@@ -516,6 +534,13 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
     });
   }, []);
 
+  const rememberConversation = useCallback(
+    (message: ChatMessage): void => {
+      if (!conversationId && message.conversationId) setCreatedConversationId(message.conversationId);
+    },
+    [conversationId],
+  );
+
   const submitMessage = useCallback(
     async (
       content: string,
@@ -533,16 +558,10 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
           target.type === 'conversation'
             ? await sendMutation.mutateAsync({ conversationId: target.id, clientMessageId, content })
             : await sendByFriendMutation.mutateAsync({ friendUserId: target.id, clientMessageId, content });
-        if (!conversationId && result.conversationId) setCreatedConversationId(result.conversationId);
+        rememberConversation(result);
         clearFailedDraft(clientMessageId);
       } catch (error) {
-        if (error instanceof Error && isChatNetworkError(error)) {
-          const variables: SendDirectMessageByFriendVariables | SendDirectMessageVariables =
-            target.type === 'conversation'
-              ? { conversationId: target.id, clientMessageId, content }
-              : { friendUserId: target.id, clientMessageId, content };
-          saveFailedDraft(variables, target, error);
-        }
+        saveFailedDraft({ clientMessageId, content }, target, error);
       } finally {
         inFlightIds.current.delete(clientMessageId);
       }
@@ -553,6 +572,7 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
       clearFailedDraft,
       conversationId,
       friendUserId,
+      rememberConversation,
       saveFailedDraft,
       sendByFriendMutation,
       sendMutation,
@@ -586,17 +606,6 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
     if (!canSend || accessLost || imageDraft || sendImageMutation.isPending || sendImageByFriendMutation.isPending)
       return;
     setImagePickerError(null);
-    let permissionResult: ImagePicker.MediaLibraryPermissionResponse;
-    try {
-      permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    } catch {
-      setImagePickerError(new Error('Unable to open your photo library.'));
-      return;
-    }
-    if (!permissionResult.granted) {
-      setImagePickerError(new Error('Photo access is required to add an image.'));
-      return;
-    }
     try {
       const result: ImagePicker.ImagePickerResult =
         await ImagePicker.launchImageLibraryAsync(CHAT_IMAGE_PICKER_OPTIONS);
@@ -618,6 +627,21 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
     setImageDraft(null);
     setImagePickerError(null);
   }, [imageDraft?.status]);
+
+  const clearImageDraft = useCallback((clientMessageId: string): void => {
+    setImageDraft((current): import('@/types/chat.types').ChatImageDraft | null =>
+      current?.clientMessageId === clientMessageId ? null : current,
+    );
+  }, []);
+
+  const reconcileReusedImage = useCallback(
+    async (clientMessageId: string): Promise<void> => {
+      if (conversationId) await messagesQuery.refetch().catch((): void => {});
+      clearImageDraft(clientMessageId);
+      setImagePickerError(new Error('This image could not be sent. Choose it again.'));
+    },
+    [clearImageDraft, conversationId, messagesQuery.refetch],
+  );
 
   const submitImage = useCallback(
     async (draft: import('@/types/chat.types').ChatImageDraft): Promise<void> => {
@@ -644,19 +668,13 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
                 clientMessageId: draft.clientMessageId,
                 file: draft.asset,
               });
-        if (!conversationId && result.conversationId) setCreatedConversationId(result.conversationId);
-        setImageDraft((current): import('@/types/chat.types').ChatImageDraft | null =>
-          current?.clientMessageId === draft.clientMessageId ? null : current,
-        );
+        rememberConversation(result);
+        clearImageDraft(draft.clientMessageId);
         setImagePickerError(null);
       } catch (caughtError: unknown) {
         const error: Error = normalizeCaughtError(caughtError);
         if (getChatImageErrorCode(error) === 'CLIENT_MESSAGE_ID_REUSED') {
-          if (conversationId) await messagesQuery.refetch().catch((): void => {});
-          setImageDraft((current): import('@/types/chat.types').ChatImageDraft | null =>
-            current?.clientMessageId === draft.clientMessageId ? null : current,
-          );
-          setImagePickerError(new Error('This image could not be sent. Choose it again.'));
+          await reconcileReusedImage(draft.clientMessageId);
         } else {
           setImageDraft((current): import('@/types/chat.types').ChatImageDraft | null =>
             updateImageDraftAfterFailure(current, draft, error),
@@ -669,9 +687,11 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
     [
       accessLost,
       canSend,
+      clearImageDraft,
       conversationId,
       friendUserId,
-      messagesQuery.refetch,
+      reconcileReusedImage,
+      rememberConversation,
       sendImageByFriendMutation,
       sendImageMutation,
     ],
