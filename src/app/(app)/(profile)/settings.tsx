@@ -6,6 +6,7 @@ import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { Empty } from '@/components/common/Empty';
 import { ErrorView } from '@/components/common/Error';
+import { LegalLinks } from '@/components/common/LegalLinks';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { useUnblockUserMutation } from '@/hooks/mutations/useModerationMutation';
@@ -27,6 +28,10 @@ const THEME_OPTIONS: ThemeOption[] = [
   { mode: 'system', label: 'System', icon: Monitor },
 ];
 
+/**
+ * Displays appearance, policy links, account deletion, and blocked users.
+ * @returns The account settings screen.
+ */
 export default function SettingsScreen(): ReactElement {
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
@@ -67,6 +72,13 @@ export default function SettingsScreen(): ReactElement {
             </Pressable>
           );
         })}
+      </View>
+
+      <View className="mt-xl">
+        <Text className="mb-sm font-inter-semibold text-headline-sm" accessibilityRole="header">
+          Account and privacy
+        </Text>
+        <LegalLinks includeDeletion />
       </View>
 
       <View className="mt-xl">
