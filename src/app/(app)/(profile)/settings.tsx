@@ -9,6 +9,7 @@ import { ErrorView } from '@/components/common/Error';
 import { LegalLinks } from '@/components/common/LegalLinks';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
+import { DeleteAccountForm } from '@/components/forms/DeleteAccountForm';
 import { useUnblockUserMutation } from '@/hooks/mutations/useModerationMutation';
 import { useBlockedUsersQuery } from '@/hooks/queries/useModerationQuery';
 import { type ThemeMode, useThemeStore } from '@/store/theme.store';
@@ -78,7 +79,10 @@ export default function SettingsScreen(): ReactElement {
         <Text className="mb-sm font-inter-semibold text-headline-sm" accessibilityRole="header">
           Account and privacy
         </Text>
-        <LegalLinks includeDeletion />
+        <LegalLinks />
+        <View className="mt-sm">
+          <DeleteAccountForm />
+        </View>
       </View>
 
       <View className="mt-xl">

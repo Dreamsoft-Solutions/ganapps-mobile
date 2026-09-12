@@ -1,9 +1,11 @@
-import type { UseMutationResult } from '@tanstack/react-query';
+import { type UseMutationResult, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback } from 'react';
 import { Routes } from '@/constants/routes';
 import { useAuthStore } from '@/store/auth.store';
 import type {
+  DeleteAccountInput,
+  DeleteAccountResponse,
   GoogleAuthRequestDto,
   GoogleAuthResponse,
   LoginDto,
@@ -15,6 +17,7 @@ import type {
 } from '@/types/auth.types';
 import type { User } from '@/types/user.types';
 import {
+  useDeleteAccountMutation,
   useGoogleLoginMutation,
   useLoginMutation,
   useLogoutMutation,
@@ -25,6 +28,7 @@ import {
 } from './mutations/useAuthMutation';
 import { useAuthQuery } from './queries/useAuthQuery';
 
+/** Authenticated user state and account actions, including destructive session completion. */
 export interface UseAuthResult {
   user: User | null;
   token: string | null;
@@ -34,6 +38,7 @@ export interface UseAuthResult {
   register: (dto: RegisterDto) => Promise<void>;
   googleLogin: (dto: GoogleAuthRequestDto) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: (input: DeleteAccountInput) => Promise<void>;
   verifyEmail: (dto: VerifyEmailRequest) => Promise<void>;
   resendVerification: () => Promise<void>;
   updateProfile: (dto: UpdateProfileRequest | FormData) => Promise<void>;
@@ -43,13 +48,19 @@ export interface UseAuthResult {
   registerMutation: UseMutationResult<RegisterResponse, Error, RegisterDto>;
   googleLoginMutation: UseMutationResult<GoogleAuthResponse, Error, GoogleAuthRequestDto>;
   logoutMutation: UseMutationResult<void, Error, void>;
+  deleteAccountMutation: UseMutationResult<DeleteAccountResponse, Error, DeleteAccountInput>;
   verifyEmailMutation: UseMutationResult<User, Error, VerifyEmailRequest>;
   resendVerificationMutation: UseMutationResult<{ message: string }, Error, void>;
   updateProfileMutation: UseMutationResult<User, Error, UpdateProfileRequest | FormData>;
 }
 
+/**
+ * Combines auth queries and mutations and owns their navigation side effects.
+ * @returns User state, mutation state, and account actions.
+ */
 export function useAuth(): UseAuthResult {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const { isLoading: userLoading, error: userError } = useAuthQuery();
@@ -58,6 +69,7 @@ export function useAuth(): UseAuthResult {
   const registerMutation = useRegisterMutation();
   const googleLoginMutation = useGoogleLoginMutation();
   const logoutMutation = useLogoutMutation();
+  const deleteAccountMutation = useDeleteAccountMutation();
   const verifyEmailMutation = useVerifyEmailMutation();
   const resendVerificationMutation = useResendVerificationMutation();
   const updateProfileMutation = useUpdateProfileMutation();
@@ -91,6 +103,19 @@ export function useAuth(): UseAuthResult {
     router.replace(Routes.auth.login);
   }, [logoutMutation, router]);
 
+  const deleteAccount = useCallback(
+    async (input: DeleteAccountInput): Promise<void> => {
+      const result = await deleteAccountMutation.mutateAsync(input);
+      if (result.status !== 'DELETED' && result.status !== 'ALREADY_DELETED') {
+        throw new Error('Account deletion could not be confirmed. Please try again.');
+      }
+      queryClient.clear();
+      await useAuthStore.getState().clearAuth();
+      router.replace(Routes.auth.login);
+    },
+    [deleteAccountMutation, queryClient, router],
+  );
+
   const verifyEmailAction = useCallback(
     async (dto: VerifyEmailRequest) => {
       await verifyEmailMutation.mutateAsync(dto);
@@ -119,6 +144,7 @@ export function useAuth(): UseAuthResult {
     register,
     googleLogin,
     logout,
+    deleteAccount,
     verifyEmail: verifyEmailAction,
     resendVerification,
     updateProfile: updateProfileAction,
@@ -128,6 +154,7 @@ export function useAuth(): UseAuthResult {
     registerMutation,
     googleLoginMutation,
     logoutMutation,
+    deleteAccountMutation,
     verifyEmailMutation,
     resendVerificationMutation,
     updateProfileMutation,
