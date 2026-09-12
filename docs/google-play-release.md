@@ -1,6 +1,6 @@
 # Google Play release readiness
 
-Reviewed against `../Google_Play_Publishing_Requirements.docx` on September 10, 2026.
+Reviewed against `../Google_Play_Publishing_Requirements.docx` on September 12, 2026.
 The repository changes prepare the Android release; they do not establish publication readiness.
 Do not submit until the unresolved items below have evidence.
 
@@ -11,7 +11,7 @@ Do not submit until the unresolved items below have evidence.
 - The installed React Native 0.86 Android version catalog specifies compile/target SDK 36. No SDK override or dependency upgrade is needed. Verify the final AAB manifest independently.
 - Production disables local cleartext traffic and environment feature-flag overrides, and selects `mobile_prod` Remote Config.
 - The Android production EAS post-install check rejects missing/insecure public URLs, local API hosts, non-production flags, missing public Mapbox tokens, and missing Android Firebase/OAuth configuration. It validates configuration shape, not service ownership, availability, or the correct signing fingerprint.
-- Login and Settings expose Terms and Privacy Policy. Settings exposes **Delete account**, opening the configured public deletion request resource. This only opens a request page; it neither deletes data nor claims deletion succeeded.
+- Login and Settings expose Terms and Privacy Policy. Settings exposes **Delete account**, opening the configured public deletion request resource. The web resource is implemented at `/delete-account`: it requires web sign-in, confirms the exact deletion phrase, and submits through the authenticated server deletion contract. The mobile screen still only opens the resource; it does not claim deletion succeeded.
 - Avatar and chat image selection use Expo's system picker without asking for broad photo-library access. QR image selection already used this path.
 - Android manifest merge rules remove microphone, overlay, broad media, and legacy shared-storage permissions. Camera access remains for QR scanning; notification permission remains managed by the notification SDK.
 
@@ -35,14 +35,22 @@ eas project:info
 Run these from `ganapps-mobile`. Do not create a replacement project or change
 the registered application ID to bypass the access issue. Keep credentials out of chat.
 
-### Deletion request option
+### Deletion request resource
 
-Google explicitly permits a public deletion resource with a customer-service email
-or request form, linked from inside the app. This can avoid building an automatic
-deletion endpoint initially. It still requires a monitored inbox, requester verification,
-actual deletion of associated data and provider-held copies, and disclosed retention.
-The operator must confirm who handles requests and the fulfilment/retention policy
-before this is presented as an available service.
+The public `/delete-account` route in `ganapps-web` accepts deletion requests from
+account holders outside the mobile app. It verifies account ownership through web
+sign-in, requires the exact confirmation phrase, forwards the request to the
+authenticated server deletion transaction, and shows success only after the server
+returns `DELETED` or `ALREADY_DELETED`. The request uses an idempotency key so an
+explicit retry cannot create a second deletion request.
+
+Before release, deploy the route at a public HTTPS address, set
+`EXPO_PUBLIC_ACCOUNT_DELETION_URL` to that exact address, and verify the complete
+request from an external browser and a Play-installed build. The operator must also
+confirm the monitored support path, requester-fulfilment ownership, provider-side
+cleanup, the server's token-revocation protection for deletion replays, and the
+approved lawful-retention wording. Do not present the service as available until
+those production checks pass.
 See [Google's deletion resource requirements](https://support.google.com/googleplay/android-developer/answer/13327111).
 
 ### Environment values
@@ -62,7 +70,7 @@ Set these in the EAS **production** environment before building:
 The production profile supplies `APP_ENV=production`, `EXPO_PUBLIC_FEATURE_FLAG_ENV_OVERRIDE=false`, and `EXPO_PUBLIC_FEATURE_FLAG_REMOTE_CONFIG_PARAMETER=mobile_prod`.
 Public Expo variables are bundled into the app: never put private keys, service-account credentials, or Mapbox `sk.` tokens in them.
 
-**Deletion is unresolved:** the inspected mobile/server code contains no account-deletion API. The owner must supply a working request service and approved retention rules, or authorize a defined server deletion contract. A page describing deletion without accepting requests is insufficient. The service must verify the requester, delete associated data, and disclose any justified retention. Do not treat logout, blocking, deactivation, or removing SecureStore tokens as account deletion.
+**Deletion is implemented in repository code but not release-verified:** the mobile app opens the public web resource, the web resource verifies a signed-in account and submits the server deletion contract, and the server records the deletion transaction. The owner must still deploy and exercise the route, verify provider-side cleanup and associated-data handling, and approve the lawful-retention rules and wording. A page describing deletion without accepting requests is insufficient. Do not treat logout, blocking, deactivation, or removing SecureStore tokens as account deletion.
 
 **Privacy is unresolved:** obtain approved policy copy and support/privacy contact information. Verify the actual deployed pages without authentication; do not ship placeholders. The build check deliberately blocks production when URLs are absent. Providing syntactically valid URLs alone does not resolve these requirements.
 
