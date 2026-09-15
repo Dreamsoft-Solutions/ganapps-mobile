@@ -46,8 +46,24 @@ export function DeleteAccountForm(): ReactElement {
   const isConfirmed: boolean = confirmationPhrase.trim() === 'DELETE MY ACCOUNT';
   const isRefused: boolean = error?.errorCode === ErrorCodes.SUPERADMIN_ACCOUNT_CANNOT_BE_DELETED;
 
+  function resetAttempt(): void {
+    methods.reset({ confirmationPhrase: '' });
+    setStep('explain');
+    setError(null);
+    idempotencyKey.current = null;
+    deleteAccountMutation.reset();
+  }
+
+  function open(): void {
+    if (isPending) return;
+    resetAttempt();
+    setVisible(true);
+  }
+
   function close(): void {
-    if (!submitting.current) setVisible(false);
+    if (isPending || submitting.current) return;
+    setVisible(false);
+    resetAttempt();
   }
 
   async function submit(data: DeleteAccountFormData): Promise<void> {
@@ -70,7 +86,7 @@ export function DeleteAccountForm(): ReactElement {
       <Button
         variant="destructive"
         accessibilityHint="Opens confirmation for irreversible account deletion"
-        onPress={(): void => setVisible(true)}
+        onPress={open}
       >
         Delete account
       </Button>
@@ -128,6 +144,7 @@ export function DeleteAccountForm(): ReactElement {
                   )}
                   <Button
                     variant="destructive"
+                    accessibilityHint="Permanently deactivates and anonymises your account"
                     disabled={!isConfirmed || isPending || isRefused}
                     loading={isPending}
                     onPress={methods.handleSubmit(submit)}

@@ -18,6 +18,21 @@ function firstParam(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
 }
 
+function getRouteFriend(
+  userId: string,
+  username: string,
+  displayName: string,
+  displayPicture: string,
+): DirectChatFriendSummary | null {
+  if (!userId || (!username && !displayName)) return null;
+  return {
+    userId,
+    username,
+    displayName: displayName || username,
+    displayPicture: displayPicture || null,
+  };
+}
+
 /**
  * Focused Direct Chat route. `conversation-id=new` is the profile entry point:
  * it keeps the friend target while allowing the first send to create the server
@@ -46,15 +61,12 @@ export default function DirectChatThreadScreen(): ReactElement {
     () => summariesQuery.summaries.find((item) => item.conversationId === conversationId),
     [conversationId, summariesQuery.summaries],
   );
-  const routeFriend: DirectChatFriendSummary | null =
-    routeFriendUserId && (routeFriendUsername || routeFriendDisplayName)
-      ? {
-          userId: routeFriendUserId,
-          username: routeFriendUsername,
-          displayName: routeFriendDisplayName || routeFriendUsername,
-          displayPicture: routeFriendDisplayPicture || null,
-        }
-      : null;
+  const routeFriend: DirectChatFriendSummary | null = getRouteFriend(
+    routeFriendUserId,
+    routeFriendUsername,
+    routeFriendDisplayName,
+    routeFriendDisplayPicture,
+  );
   const friend: DirectChatFriendSummary | null = summary?.friend ?? routeFriend;
   const friendUserId: string | undefined = friend?.userId ?? (routeFriendUserId || undefined);
   const [focused, setFocused] = useState<boolean>(false);

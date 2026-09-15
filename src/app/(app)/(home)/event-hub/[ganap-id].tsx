@@ -111,8 +111,6 @@ function EligibleEventHub({
           reaction,
         });
       } catch {
-        // The global error policy stays quiet for engagement mutations; keep
-        // the Event Hub usable and explain the failed acknowledgement locally.
         showToast('error', 'Acknowledgement could not be saved.');
       } finally {
         setAnnouncementReactionPendingId(null);
@@ -205,8 +203,6 @@ export default function EventHubScreen(): ReactElement {
   }
 
   function handleOpenChat(): void {
-    // Event Hub is mounted only after the local REGISTERED/ATTENDED guard;
-    // the thread still resolves server-authoritative capability on open.
     router.push(Routes.eventChat(ganapId));
   }
 

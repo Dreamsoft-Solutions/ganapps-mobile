@@ -280,8 +280,6 @@ export function useUnblockUserMutation(): UseMutationResult<void, Error, Unblock
         queryClient.invalidateQueries({ queryKey: friendsQueryKeys.profile(userId), refetchType: 'all' }),
         queryClient.invalidateQueries({ queryKey: friendsQueryKeys.presence(), refetchType: 'all' }),
         queryClient.invalidateQueries({ queryKey: friendsQueryKeys.going(), refetchType: 'all' }),
-        // Mark history stale without rebuilding a focused thread. The next
-        // open fetches the visibility the server grants after unblocking.
         queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventMessagesRoot(), refetchType: 'none' }),
         queryClient.invalidateQueries({ queryKey: chatQueryKeys.directMessagesRoot(), refetchType: 'none' }),
       ]);
