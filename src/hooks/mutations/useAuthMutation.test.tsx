@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 import { Pressable, Text } from 'react-native';
@@ -65,6 +65,23 @@ function DeleteAccountProbe(): ReactElement {
   );
 }
 
+/** Small mutation probe used to verify a failed deletion is not retried. */
+function DeleteAccountFailureProbe(): ReactElement {
+  const mutation = useDeleteAccountMutation();
+
+  return (
+    <Pressable
+      onPress={(): void => {
+        void mutation
+          .mutateAsync({ confirmationPhrase: 'DELETE MY ACCOUNT', idempotencyKey: 'delete-key' })
+          .catch((): undefined => undefined);
+      }}
+    >
+      <Text>{mutation.isError ? `failed-${mutation.failureCount}` : 'idle'}</Text>
+    </Pressable>
+  );
+}
+
 beforeEach((): void => {
   mockLogout.mockReset().mockResolvedValue(undefined);
   mockDeleteAccount.mockReset().mockResolvedValue({
@@ -74,6 +91,10 @@ beforeEach((): void => {
   });
   mockRevoke.mockReset().mockReturnValue(new Promise<void>(() => {}));
   mockClearAuth.mockReset().mockResolvedValue(undefined);
+});
+
+afterEach((): void => {
+  onlineManager.setOnline(true);
 });
 
 describe('useLogoutMutation push-token cleanup', (): void => {
@@ -111,6 +132,42 @@ describe('useDeleteAccountMutation', (): void => {
       expect(getByText('deleted')).toBeTruthy();
     });
     expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+    expect(mockDeleteAccount).toHaveBeenCalledWith('DELETE MY ACCOUNT', 'delete-key');
+    queryClient.clear();
+  });
+
+  it('does not retry a failed deletion mutation', async (): Promise<void> => {
+    mockDeleteAccount.mockRejectedValue(new Error('transport unavailable'));
+    const queryClient = new QueryClient({ defaultOptions: { mutations: { gcTime: 0 } } });
+    const { getByText } = await render(
+      <QueryClientProvider client={queryClient}>
+        <DeleteAccountFailureProbe />
+      </QueryClientProvider>,
+    );
+
+    await fireEvent.press(getByText('idle'));
+
+    await waitFor((): void => {
+      expect(getByText('failed-1')).toBeTruthy();
+    });
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+    queryClient.clear();
+  });
+
+  it('runs the deletion mutation while offline', async (): Promise<void> => {
+    onlineManager.setOnline(false);
+    const queryClient = new QueryClient({ defaultOptions: { mutations: { gcTime: 0 } } });
+    const { getByText } = await render(
+      <QueryClientProvider client={queryClient}>
+        <DeleteAccountProbe />
+      </QueryClientProvider>,
+    );
+
+    await fireEvent.press(getByText('idle'));
+
+    await waitFor((): void => {
+      expect(getByText('deleted')).toBeTruthy();
+    });
     expect(mockDeleteAccount).toHaveBeenCalledWith('DELETE MY ACCOUNT', 'delete-key');
     queryClient.clear();
   });

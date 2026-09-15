@@ -51,6 +51,7 @@
     "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.10.0",
+    "socket.io-client": "^4.8.3",
     "supercluster": "^7.1.5",
     "tailwindcss": "^3.4.19",
     "zod": "^4.4.3",
@@ -91,6 +92,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "eas:build": "eas build",
+    "eas-build-post-install": "node scripts/check-play-release.cjs",
+    "check:play-release": "node --env-file-if-exists=.env scripts/check-play-release.cjs --production",
+    "test:play-release": "node --test scripts/play-release.test.cjs",
     "eas:preview": "eas build --platform all --profile preview",
     "prepare": "husky",
     "reset-project": "node ./scripts/reset-project.js"

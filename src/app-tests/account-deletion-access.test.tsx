@@ -3,6 +3,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
 import SettingsScreen from '@/app/(app)/(profile)/settings';
 import VerifyEmailScreen from '@/app/verify-email';
+import type { DeleteAccountInput } from '@/types/auth.types';
 
 interface MockDeleteAccountMutation {
   error: Error | null;
@@ -11,10 +12,27 @@ interface MockDeleteAccountMutation {
 }
 
 interface MockAuthResult {
-  deleteAccount: (confirmationPhrase: string) => Promise<void>;
+  deleteAccount: (input: DeleteAccountInput) => Promise<void>;
   deleteAccountMutation: MockDeleteAccountMutation;
   resendVerification: () => Promise<void>;
   resendVerificationMutation: { isPending: boolean };
+}
+
+interface MockBlockedUsersQuery {
+  blockedUsers: [];
+  error: Error | null;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  isLoading: boolean;
+  fetchNextPage: () => Promise<unknown>;
+  refetch: () => Promise<unknown>;
+}
+
+interface MockUnblockMutation {
+  error: Error | null;
+  isPending: boolean;
+  mutateAsync: (input: { userId: string }) => Promise<void>;
+  variables?: { userId: string };
 }
 
 interface MockThemeState {
@@ -34,6 +52,22 @@ const mockAuth: MockAuthResult = {
   resendVerificationMutation: { isPending: false },
 };
 
+const mockBlockedUsersQuery: MockBlockedUsersQuery = {
+  blockedUsers: [],
+  error: null,
+  hasNextPage: false,
+  isFetchingNextPage: false,
+  isLoading: false,
+  fetchNextPage: jest.fn<MockBlockedUsersQuery['fetchNextPage']>().mockResolvedValue(undefined),
+  refetch: jest.fn<MockBlockedUsersQuery['refetch']>().mockResolvedValue(undefined),
+};
+
+const mockUnblockMutation: MockUnblockMutation = {
+  error: null,
+  isPending: false,
+  mutateAsync: jest.fn<MockUnblockMutation['mutateAsync']>().mockResolvedValue(undefined),
+};
+
 function mockUseAuth(): MockAuthResult {
   return mockAuth;
 }
@@ -43,6 +77,12 @@ function mockUseThemeStore(selector: (state: MockThemeState) => unknown): unknow
 }
 
 jest.mock('@/hooks/useAuth', () => ({ useAuth: mockUseAuth }));
+jest.mock('@/hooks/queries/useModerationQuery', () => ({
+  useBlockedUsersQuery: (): MockBlockedUsersQuery => mockBlockedUsersQuery,
+}));
+jest.mock('@/hooks/mutations/useModerationMutation', () => ({
+  useUnblockUserMutation: (): MockUnblockMutation => mockUnblockMutation,
+}));
 jest.mock('@/store/theme.store', () => ({ useThemeStore: mockUseThemeStore }));
 jest.mock('@/hooks/useResolvedTheme', () => ({ useResolvedTheme: (): 'light' => 'light' }));
 jest.mock('@/components/forms/VerifyEmailForm', () => ({
@@ -69,6 +109,9 @@ beforeEach((): void => {
   mockDeleteAccountMutation.error = null;
   mockDeleteAccountMutation.isPending = false;
   mockDeleteAccountMutation.reset = jest.fn<() => void>();
+  mockUnblockMutation.error = null;
+  mockUnblockMutation.isPending = false;
+  mockUnblockMutation.variables = undefined;
 });
 
 describe('account deletion entry points', (): void => {

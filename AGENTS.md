@@ -464,7 +464,7 @@ in `docs/DESIGN.md`. Read it before adding new UI. Key rules:
 - **No hardcoded colors** — use semantic Tailwind tokens (`primary`,
   `secondary`, `muted`, `foreground`, etc.).
 - **Light and dark themes are first-class** — colors are CSS variables that swap
-  under the `.dark` class.
+  under NativeWind's active color scheme.
 - **Compose with primitives** — screens are built from `components/common/`;
   one-off styles are avoided in favor of new variants.
 
@@ -507,15 +507,15 @@ in `src/global.css`. `docs/DESIGN.md` holds the full table with both values.
 | `destructive` / `destructive-foreground` | Errors, destructive actions |
 | `border`, `input`, `ring` | Borders, input borders, focus rings |
 
-Because they are CSS variables, these swap under `.dark` automatically — never hardcode a
-color. The one sanctioned exception is category-tag and third-party brand colors, which use
+Because they are CSS variables, these swap under NativeWind's active color scheme — never
+hardcode a color. The one sanctioned exception is category-tag and third-party brand colors, which use
 Tailwind primitives; `docs/DESIGN.md` explains why.
 
 Outside a `className` — RN props like `ActivityIndicator`'s `color` or `shadowColor` — read
 `Colors[theme]` from `src/constants/theme.ts`, where `theme` comes from
 `useResolvedTheme()`. **Never call `useColorScheme()` directly**: it reports the device
 scheme and ignores an explicit light/dark preference, desynchronising the component from the
-`.dark` class `ThemeProvider` applies.
+NativeWind color scheme that `ThemeProvider` controls.
 
 The `lynx-*` Material Design 3 palette was removed in DS-16. It was pre-Ganapps branding,
 36 of its 47 tokens were dead, and its values were static hex, so nothing using it could

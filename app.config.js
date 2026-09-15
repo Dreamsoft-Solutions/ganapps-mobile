@@ -50,7 +50,7 @@ const googleClientConfiguration = getGoogleClientConfiguration();
 
 module.exports = {
   expo: {
-    name: 'ganapps-mobile',
+    name: 'Ganapps',
     slug: 'dreamsoft-cpu',
     version: '1.0.0',
     orientation: 'portrait',
@@ -64,12 +64,23 @@ module.exports = {
     },
     android: {
       package: 'com.ganapps.app',
+      versionCode: 1,
       googleServicesFile,
+      blockedPermissions: [
+        'android.permission.SYSTEM_ALERT_WINDOW',
+        'android.permission.RECORD_AUDIO',
+        'android.permission.READ_MEDIA_IMAGES',
+        'android.permission.READ_MEDIA_VIDEO',
+        'android.permission.READ_MEDIA_AUDIO',
+        'android.permission.READ_EXTERNAL_STORAGE',
+        'android.permission.WRITE_EXTERNAL_STORAGE',
+      ],
       adaptiveIcon: {
         backgroundColor: '#22C55E',
         foregroundImage: './assets/brand/ganap-logo-1.png',
       },
       predictiveBackGestureEnabled: false,
+      usesCleartextTraffic: process.env.APP_ENV === 'local',
     },
     web: {
       output: 'static',
@@ -122,6 +133,7 @@ module.exports = {
           // expo-camera writes its default NSMicrophoneUsageDescription and the app asks
           // for a permission it never uses, which App Review rejects under 5.1.1.
           microphonePermission: false,
+          recordAudioAndroid: false,
         },
       ],
       [

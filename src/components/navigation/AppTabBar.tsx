@@ -37,7 +37,7 @@ const TAB_ROUTES: TabRoute[] = [
     ),
   },
   { key: 'events', name: '(ganaps)', label: 'My Events', icon: Calendar },
-  { key: 'chat', name: '(chat)', label: 'Chat', icon: MessageCircle },
+  { key: 'chat', name: '(chat)', label: 'Friends', icon: MessageCircle },
   {
     key: 'profile',
     name: '(profile)',

@@ -79,4 +79,40 @@ describe('parseApiError', (): void => {
 
     expect(error.message).toBe('An unexpected error occurred');
   });
+
+  it('preserves a positive media Retry-After value from the envelope or header', (): void => {
+    const error = parseApiError(
+      axiosError({
+        status: 503,
+        data: {
+          success: false,
+          statusCode: 503,
+          errorCode: ErrorCodes.MEDIA_CAPACITY_EXCEEDED,
+          message: 'Media pipeline is busy',
+          details: { retryAfterSeconds: 2 },
+          timestamp: 'now',
+        },
+      }),
+    );
+
+    expect(error.retryAfterSeconds).toBe(2);
+  });
+
+  it('ignores non-positive Retry-After values', (): void => {
+    const error = parseApiError(
+      axiosError({
+        status: 503,
+        data: {
+          success: false,
+          statusCode: 503,
+          errorCode: ErrorCodes.MEDIA_CAPACITY_EXCEEDED,
+          message: 'Media pipeline is busy',
+          details: { retryAfterSeconds: 0 },
+          timestamp: 'now',
+        },
+      }),
+    );
+
+    expect(error.retryAfterSeconds).toBeUndefined();
+  });
 });

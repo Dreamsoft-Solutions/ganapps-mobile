@@ -18,6 +18,20 @@ import type { User } from '@/types/user.types';
 import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
 import { authQueryKeys } from '../queries/useAuthQuery';
 
+/**
+ * Submits an online deletion attempt without automatic retries or selective invalidation.
+ * @returns The deletion mutation; the aggregated auth handler owns session cleanup.
+ */
+export function useDeleteAccountMutation(): UseMutationResult<DeleteAccountResponse, Error, DeleteAccountInput> {
+  return useMutation<DeleteAccountResponse, Error, DeleteAccountInput>({
+    mutationFn: (input: DeleteAccountInput): Promise<DeleteAccountResponse> =>
+      authAPI.deleteAccount(input.confirmationPhrase, input.idempotencyKey),
+    retry: false,
+    networkMode: 'always',
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
+  });
+}
+
 export function useLoginMutation(): UseMutationResult<TokenResponse, Error, LoginDto> {
   const queryClient = useQueryClient();
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -78,20 +92,6 @@ export function useLogoutMutation(): UseMutationResult<void, Error, void> {
       clearAuth();
       queryClient.clear();
     },
-  });
-}
-
-/**
- * Creates the account-deletion mutation. Cache and auth cleanup stay with the
- * aggregated auth action so the terminal response can be handled atomically.
- *
- * @returns A typed TanStack mutation for the online deletion request.
- */
-export function useDeleteAccountMutation(): UseMutationResult<DeleteAccountResponse, Error, DeleteAccountInput> {
-  return useMutation<DeleteAccountResponse, Error, DeleteAccountInput>({
-    mutationFn: (input: DeleteAccountInput): Promise<DeleteAccountResponse> =>
-      authAPI.deleteAccount(input.confirmationPhrase, input.idempotencyKey),
-    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }
 

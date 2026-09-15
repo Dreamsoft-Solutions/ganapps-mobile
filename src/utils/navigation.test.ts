@@ -14,4 +14,8 @@ describe('app tab bar route policy', (): void => {
   it('hides the tab bar for the Event Hub route', (): void => {
     expect(shouldHideAppTabBar(['(app)', '(home)', 'event-hub', '[ganap-id]'])).toBe(true);
   });
+
+  it('hides the tab bar for a focused Event Chat thread', (): void => {
+    expect(shouldHideAppTabBar(['(app)', '(chat)', 'event-chat', '[ganap-id]'])).toBe(true);
+  });
 });

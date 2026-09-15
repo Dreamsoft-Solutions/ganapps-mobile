@@ -3,6 +3,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 import { View as MockView, type StyleProp, type ViewStyle } from 'react-native';
 import { Colors } from '@/constants/theme';
+import type { FriendUserSummary } from '@/types/friends.types';
 import type { GanapAnnouncement, GanapDetail } from '@/types/ganap.types';
 import { formatDateTime } from '@/utils/formatting';
 import type { GanapScheduleModel } from '@/utils/ganap-detail';
@@ -95,6 +96,20 @@ const schedule: GanapScheduleModel = {
   timeLabel: '10:00 AM – 1:00 PM',
 };
 
+const attendingFriend: FriendUserSummary = {
+  userId: 'friend_1',
+  username: 'ana.cruz',
+  displayName: 'Ana Cruz',
+  displayPicture: 'https://example.com/ana.jpg',
+};
+
+const secondAttendingFriend: FriendUserSummary = {
+  userId: 'friend_2',
+  username: 'ben.santos',
+  displayName: 'Ben Santos',
+  displayPicture: null,
+};
+
 const reminderAnnouncement: GanapAnnouncement = {
   id: 'announcement_1',
   ganapId: 'ganap_1',
@@ -147,10 +162,15 @@ function buildProps(overrides: Partial<EventHubViewProps> = {}): EventHubViewPro
     isFetchNextPageError: false,
     accessLost: false,
     isRefreshing: false,
+    friendsGoing: [],
+    isFriendsGoingLoading: false,
+    friendsGoingError: null,
+    hasMoreFriendsGoing: false,
     onBack: (): void => {},
     onShare: (): void => {},
     onRefresh: async (): Promise<void> => {},
     onRetryAnnouncements: (): void => {},
+    onRetryFriendsGoing: (): void => {},
     onRetryNextPage: (): void => {},
     onLoadMore: (): void => {},
     scanState: 'hidden',
@@ -210,6 +230,17 @@ describe('EventHubView header', (): void => {
 
     expect(chat.props.accessibilityState.disabled).toBe(true);
   });
+
+  it('opens Event Chat when the eligible route supplies the navigation callback', async (): Promise<void> => {
+    const onOpenChat = jest.fn<() => void>();
+    const screen = await render(<EventHubView {...buildProps({ onOpenChat })} />);
+    const chat = screen.getByRole('button', { name: 'Event chat' });
+
+    expect(chat.props.accessibilityState.disabled).toBe(false);
+    await fireEvent.press(chat);
+
+    expect(onOpenChat).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('EventHubView event summary', (): void => {
@@ -235,11 +266,46 @@ describe('EventHubView event summary', (): void => {
     expect(className).not.toMatch(/bg-[a-z-]+\/\d/);
   });
 
-  it('renders no participant images or avatar stack anywhere in the hub', async (): Promise<void> => {
+  it('shows privacy-filtered friends who are going with names and avatars', async (): Promise<void> => {
+    const screen = await render(
+      <EventHubView {...buildProps({ friendsGoing: [attendingFriend, secondAttendingFriend] })} />,
+    );
+
+    expect(screen.getByText('Friends going')).toBeTruthy();
+    expect(screen.getByText('Ana Cruz and 1 friend are going')).toBeTruthy();
+    expect(screen.getByTestId('participant-avatar-stack')).toBeTruthy();
+    expect(screen.getAllByTestId('expo-image')).toHaveLength(1);
+    expect(screen.getByText('BS')).toBeTruthy();
+  });
+
+  it('explains when no friends have shared Going visibility', async (): Promise<void> => {
     const screen = await render(<EventHubView {...buildProps()} />);
 
-    expect(screen.queryAllByTestId('expo-image')).toHaveLength(0);
+    expect(screen.getByText('No friends have shared that they are going.')).toBeTruthy();
     expect(screen.queryByTestId('participant-avatar-stack')).toBeNull();
+  });
+
+  it('shows a quiet loading state while friend activity resolves', async (): Promise<void> => {
+    const screen = await render(<EventHubView {...buildProps({ isFriendsGoingLoading: true })} />);
+
+    expect(screen.getByText('Checking your friends…')).toBeTruthy();
+    expect(screen.queryByText('No friends have shared that they are going.')).toBeNull();
+  });
+
+  it('keeps friend activity failure local and retryable', async (): Promise<void> => {
+    const onRetryFriendsGoing = jest.fn<() => void>();
+    const screen = await render(
+      <EventHubView
+        {...buildProps({
+          friendsGoingError: new Error('Network request failed'),
+          onRetryFriendsGoing,
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Friends activity is unavailable.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
+    expect(onRetryFriendsGoing).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to location-unavailable copy when the Ganap has no address', async (): Promise<void> => {

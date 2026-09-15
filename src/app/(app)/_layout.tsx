@@ -7,6 +7,7 @@ import { Loading } from '@/components/common/Loading';
 import { AppTabBar, BAR_HEIGHT } from '@/components/navigation/AppTabBar';
 import { Routes } from '@/constants/routes';
 import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
+import { startFriendPresenceHeartbeat } from '@/services/friend-presence.service';
 import {
   completePendingNotification,
   getPendingNotificationTarget,
@@ -78,6 +79,11 @@ export default function AppLayout(): ReactElement {
   useEffect((): (() => void) | undefined => {
     if (!isVerifiedUserReady || user?.id === undefined) return undefined;
     return startAndroidPushTokenSync();
+  }, [isVerifiedUserReady, user?.id]);
+
+  useEffect((): (() => void) | undefined => {
+    if (!isVerifiedUserReady || user?.id === undefined) return undefined;
+    return startFriendPresenceHeartbeat();
   }, [isVerifiedUserReady, user?.id]);
 
   if (isLoading) {

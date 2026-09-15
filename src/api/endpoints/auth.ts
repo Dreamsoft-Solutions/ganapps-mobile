@@ -1,3 +1,4 @@
+import type { AxiosResponse } from 'axios';
 import type {
   DeleteAccountResponse,
   GoogleAuthRequestDto,
@@ -13,7 +14,23 @@ import type {
 import type { User } from '@/types/user.types';
 import axiosInstance from '../axios-instance';
 
+/** Version-free authentication endpoints using the shared envelope-aware client. */
 export const authAPI = {
+  /**
+   * Deletes the current account or recovers the result of a prior attempt.
+   * @param confirmationPhrase - Exact user-entered confirmation after trimming.
+   * @param idempotencyKey - Stable key reused for explicit retries.
+   * @returns Confirmed deletion metadata.
+   * @throws A parsed API error retaining the server status and error code.
+   */
+  deleteAccount: (confirmationPhrase: string, idempotencyKey: string): Promise<DeleteAccountResponse> =>
+    axiosInstance
+      .delete<DeleteAccountResponse>('/auth/me', {
+        data: { confirmationPhrase },
+        headers: { 'Idempotency-Key': idempotencyKey },
+      })
+      .then((res: AxiosResponse<DeleteAccountResponse>): DeleteAccountResponse => res.data),
+
   login: (dto: LoginDto): Promise<TokenResponse> =>
     axiosInstance.post<TokenResponse>('/auth/login', dto).then((res) => res.data),
 
@@ -24,21 +41,6 @@ export const authAPI = {
     axiosInstance.post<void>('/auth/logout', { refreshToken }).then((res) => res.data),
 
   getMe: (): Promise<User> => axiosInstance.get<User>('/auth/me').then((res) => res.data),
-
-  /**
-   * Permanently deactivates the authenticated account.
-   *
-   * @param confirmationPhrase - The exact phrase confirmed by the User.
-   * @param idempotencyKey - Stable key reused when an ambiguous request is retried.
-   * @returns The server's terminal deletion disposition.
-   */
-  deleteAccount: (confirmationPhrase: string, idempotencyKey: string): Promise<DeleteAccountResponse> =>
-    axiosInstance
-      .delete<DeleteAccountResponse>('/auth/me', {
-        data: { confirmationPhrase },
-        headers: { 'Idempotency-Key': idempotencyKey },
-      })
-      .then((res) => res.data),
 
   refreshToken: (dto: RefreshRequest): Promise<TokenResponse> =>
     axiosInstance.post<TokenResponse>('/auth/refresh', dto).then((res) => res.data),

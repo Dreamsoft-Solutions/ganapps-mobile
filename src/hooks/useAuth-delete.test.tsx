@@ -6,37 +6,39 @@ import { Routes } from '@/constants/routes';
 import type { DeleteAccountInput, DeleteAccountResponse } from '@/types/auth.types';
 import type { UseAuthResult } from './useAuth';
 
-const mockDeleteAccount =
-  jest.fn<
-    (
-      confirmationPhrase: string,
-      idempotencyKey: string,
-    ) => Promise<{
-      status: DeleteAccountResponse['status'];
-      deletedAt: string;
-      firebaseIdentityDeletion: DeleteAccountResponse['firebaseIdentityDeletion'];
-    }>
-  >();
 const mockClearAuth = jest.fn<() => Promise<void>>();
 const mockReplace = jest.fn<(href: unknown) => void>();
-const mockUseAuthStore = (
-  selector: (state: {
-    token: string | null;
-    user: { isVerified: boolean } | null;
-    clearAuth: () => Promise<void>;
-  }) => unknown,
-): unknown => selector({ token: 'access-token', user: { isVerified: true }, clearAuth: mockClearAuth });
+
+interface MockAuthState {
+  token: string | null;
+  user: { isVerified: boolean } | null;
+  clearAuth: () => Promise<void>;
+}
+
+const mockAuthState: MockAuthState = {
+  token: 'access-token',
+  user: { isVerified: true },
+  clearAuth: mockClearAuth,
+};
+
+const mockUseAuthStore = Object.assign(
+  (selector: (state: MockAuthState) => unknown): unknown => selector(mockAuthState),
+  { getState: (): MockAuthState => mockAuthState },
+);
 
 const mockDeleteMutation = {
-  mutateAsync: jest.fn(
-    async (input: DeleteAccountInput): Promise<DeleteAccountResponse> =>
-      mockDeleteAccount(input.confirmationPhrase, input.idempotencyKey),
-  ),
+  mutateAsync: jest.fn<(input: DeleteAccountInput) => Promise<DeleteAccountResponse>>(),
   isPending: false,
-  error: null,
+  error: null as Error | null,
   reset: jest.fn<() => void>(),
 };
 const mockIdleMutation = { isPending: false, error: null };
+
+const deletedResponse: DeleteAccountResponse = {
+  status: 'DELETED',
+  deletedAt: '2026-09-03T00:00:00.000Z',
+  firebaseIdentityDeletion: 'QUEUED',
+};
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace }),
@@ -67,7 +69,7 @@ async function renderProbe(queryClient: QueryClient): Promise<RenderHookResult<U
 }
 
 beforeEach((): void => {
-  mockDeleteAccount.mockReset();
+  mockDeleteMutation.mutateAsync.mockReset().mockResolvedValue(deletedResponse);
   mockClearAuth.mockReset().mockResolvedValue(undefined);
   mockReplace.mockReset();
   mockDeleteMutation.error = null;
@@ -77,11 +79,6 @@ beforeEach((): void => {
 describe('useAuth account deletion', (): void => {
   it('clears query/auth state before replacing the route after a terminal result', async (): Promise<void> => {
     const events: string[] = [];
-    mockDeleteAccount.mockResolvedValue({
-      status: 'DELETED',
-      deletedAt: '2026-09-03T00:00:00.000Z',
-      firebaseIdentityDeletion: 'QUEUED',
-    });
     mockClearAuth.mockImplementation(async (): Promise<void> => {
       events.push('auth-clear');
     });
@@ -96,16 +93,21 @@ describe('useAuth account deletion', (): void => {
     const { result } = await renderProbe(queryClient);
 
     await act(async (): Promise<void> => {
-      await result.current.deleteAccount('DELETE MY ACCOUNT');
+      await result.current.deleteAccount({ confirmationPhrase: 'DELETE MY ACCOUNT', idempotencyKey: 'attempt-1' });
     });
 
+    expect(mockDeleteMutation.mutateAsync).toHaveBeenCalledWith({
+      confirmationPhrase: 'DELETE MY ACCOUNT',
+      idempotencyKey: 'attempt-1',
+    });
     expect(clear).toHaveBeenCalledTimes(1);
     expect(events).toEqual(['query-clear', 'auth-clear', 'route-replace']);
     expect(mockReplace).toHaveBeenCalledWith(Routes.auth.login);
   });
 
-  it('reuses the same idempotency key when an ambiguous request is retried', async (): Promise<void> => {
-    mockDeleteAccount
+  it('retains auth and query state after a failed request until an explicit same-key retry succeeds', async (): Promise<void> => {
+    const input: DeleteAccountInput = { confirmationPhrase: 'DELETE MY ACCOUNT', idempotencyKey: 'attempt-2' };
+    mockDeleteMutation.mutateAsync
       .mockRejectedValueOnce(Object.assign(new Error('Network Error'), { errorCode: 'NETWORK_ERROR' }))
       .mockResolvedValueOnce({
         status: 'ALREADY_DELETED',
@@ -113,15 +115,25 @@ describe('useAuth account deletion', (): void => {
         firebaseIdentityDeletion: 'NOT_LINKED',
       });
     const queryClient = new QueryClient();
+    const clear = jest.spyOn(queryClient, 'clear').mockImplementation((): void => undefined);
     const { result } = await renderProbe(queryClient);
 
     await act(async (): Promise<void> => {
-      await expect(result.current.deleteAccount('DELETE MY ACCOUNT')).rejects.toThrow('Network Error');
-      await result.current.deleteAccount('DELETE MY ACCOUNT');
+      await expect(result.current.deleteAccount(input)).rejects.toThrow('Network Error');
     });
 
-    expect(mockDeleteAccount).toHaveBeenCalledTimes(2);
-    expect(mockDeleteAccount.mock.calls[0]?.[1]).toBeTruthy();
-    expect(mockDeleteAccount.mock.calls[1]?.[1]).toBe(mockDeleteAccount.mock.calls[0]?.[1]);
+    expect(clear).not.toHaveBeenCalled();
+    expect(mockClearAuth).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    await act(async (): Promise<void> => {
+      await result.current.deleteAccount(input);
+    });
+
+    expect(mockDeleteMutation.mutateAsync).toHaveBeenNthCalledWith(1, input);
+    expect(mockDeleteMutation.mutateAsync).toHaveBeenNthCalledWith(2, input);
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(mockClearAuth).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith(Routes.auth.login);
   });
 });

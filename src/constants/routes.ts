@@ -1,4 +1,7 @@
 import type { Href } from 'expo-router';
+import type { DirectChatFriendSummary } from '@/types/direct-chat.types';
+
+type DirectChatRouteFriend = Pick<DirectChatFriendSummary, 'userId' | 'username' | 'displayName' | 'displayPicture'>;
 
 /**
  * Shape of {@link Routes}.
@@ -33,6 +36,11 @@ export interface RouteTable {
   ganapDetail: (ganapId: string) => Href;
   ganapRegistration: (ganapId: string) => Href;
   eventHub: (ganapId: string) => Href;
+  eventChat: (ganapId: string) => Href;
+  friendProfile: (userId: string) => Href;
+  friendSettings: Href;
+  directChat: (conversationId: string) => Href;
+  directChatForFriend: (friend: DirectChatRouteFriend) => Href;
   attendanceScan: (ganapId: string) => Href;
   ganapFeedback: (ganapId: string) => Href;
 }
@@ -123,6 +131,61 @@ export const Routes: RouteTable = {
   eventHub: (ganapId: string): Href => ({
     pathname: '/(app)/(home)/event-hub/[ganap-id]',
     params: { 'ganap-id': ganapId },
+  }),
+
+  /**
+   * Builds the href for an Event Chat thread.
+   *
+   * @param ganapId - Value for the `[ganap-id]` segment of the chat thread route.
+   * @returns An href targeting the Ganap's Event Chat thread.
+   */
+  eventChat: (ganapId: string): Href => ({
+    pathname: '/(app)/(chat)/event-chat/[ganap-id]',
+    params: { 'ganap-id': ganapId },
+  }),
+
+  /**
+   * Builds the href for a relationship-scoped Friend profile.
+   *
+   * @param userId - User identifier for the `[user-id]` profile route.
+   * @returns An href targeting the Friend profile screen.
+   */
+  friendProfile: (userId: string): Href => ({
+    pathname: '/(app)/(chat)/friend-profile/[user-id]',
+    params: { 'user-id': userId },
+  }),
+
+  /** Href for the Friends privacy settings screen. */
+  friendSettings: { pathname: '/(app)/(chat)/friend-settings' },
+  /**
+   * Builds an href for an existing canonical Direct Chat conversation.
+   *
+   * @param conversationId - Canonical Direct conversation id
+   * @returns An href targeting the Direct Chat thread
+   */
+  directChat: (conversationId: string): Href => ({
+    pathname: '/(app)/(chat)/direct-chat/[conversation-id]',
+    params: { 'conversation-id': conversationId },
+  }),
+
+  /**
+   * Builds the lazy Direct Chat entry point from an accepted friend's profile.
+   *
+   * The `new` marker is route-local only; the client does not create a server
+   * conversation until the first successful send.
+   *
+   * @param friend - Accepted friend's safe identity for the new thread header
+   * @returns An href targeting the lazy Direct Chat composer
+   */
+  directChatForFriend: (friend: DirectChatRouteFriend): Href => ({
+    pathname: '/(app)/(chat)/direct-chat/[conversation-id]',
+    params: {
+      'conversation-id': 'new',
+      'friend-user-id': friend.userId,
+      'friend-username': friend.username,
+      'friend-display-name': friend.displayName,
+      'friend-display-picture': friend.displayPicture ?? '',
+    },
   }),
 
   /**
