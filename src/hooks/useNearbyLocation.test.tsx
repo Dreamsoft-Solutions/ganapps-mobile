@@ -404,3 +404,79 @@ describe('useNearbyLocation position freshness', (): void => {
     expect(mockGetCurrentCoords).not.toHaveBeenCalled();
   });
 });
+
+describe('useNearbyLocation revoked grant', (): void => {
+  it('drops the filter and shows the denied state when the grant is revoked while backgrounded', async (): Promise<void> => {
+    mockGetPermissionStatus.mockResolvedValue(GRANTED_FULL);
+    const { result } = await renderHook(() => useNearbyLocation());
+    await waitFor((): void => {
+      expect(result.current.coords).toEqual(ILOILO);
+    });
+    await act(async (): Promise<void> => {
+      result.current.toggle();
+    });
+    await waitFor((): void => {
+      expect(result.current.isActive).toBe(true);
+    });
+
+    mockGetPermissionStatus.mockResolvedValue(DENIED_FINAL);
+    mockGetCurrentCoords.mockClear();
+    await act(async (): Promise<void> => {
+      emitAppState('active');
+    });
+
+    await waitFor((): void => {
+      expect(result.current.isDisabled).toBe(true);
+    });
+    expect(result.current.isActive).toBe(false);
+    expect(result.current.coords).toBeNull();
+    expect(result.current.errorMessage).toBeNull();
+    expect(mockGetCurrentCoords).not.toHaveBeenCalled();
+  });
+
+  it('reconciles a revoked grant when a position read fails mid-session', async (): Promise<void> => {
+    mockGetPermissionStatus.mockResolvedValue(GRANTED_FULL);
+    const { result } = await renderHook(() => useNearbyLocation());
+    await waitFor((): void => {
+      expect(result.current.coords).toEqual(ILOILO);
+    });
+    await act(async (): Promise<void> => {
+      result.current.toggle();
+    });
+    await waitFor((): void => {
+      expect(result.current.isActive).toBe(true);
+    });
+
+    mockGetCurrentCoords.mockRejectedValue(new Error('denied'));
+    mockGetPermissionStatus.mockResolvedValue(DENIED_FINAL);
+    await act(async (): Promise<void> => {
+      await result.current.refresh();
+    });
+
+    await waitFor((): void => {
+      expect(result.current.isDisabled).toBe(true);
+    });
+    expect(result.current.isActive).toBe(false);
+    expect(result.current.coords).toBeNull();
+    expect(result.current.errorMessage).toBeNull();
+  });
+
+  it('keeps the generic error when the read fails but the grant is intact', async (): Promise<void> => {
+    mockGetPermissionStatus.mockResolvedValue(GRANTED_FULL);
+    const { result } = await renderHook(() => useNearbyLocation());
+    await waitFor((): void => {
+      expect(result.current.coords).toEqual(ILOILO);
+    });
+
+    mockGetCurrentCoords.mockRejectedValue(new Error('no fix'));
+    await act(async (): Promise<void> => {
+      await result.current.refresh();
+    });
+
+    await waitFor((): void => {
+      expect(result.current.errorMessage).not.toBeNull();
+    });
+    expect(result.current.isDisabled).toBe(false);
+    expect(result.current.coords).toEqual(ILOILO);
+  });
+});

@@ -36,6 +36,29 @@ export function useNearbyLocation(): UseNearbyLocationResult {
   const latestPermissionRef = useRef<LocationPermissionState | null>(null);
   latestPermissionRef.current = permission;
 
+  /**
+   * Re-reads the OS grant and reconciles local state with it.
+   *
+   * The grant is not ours to cache: it can be revoked in Settings at any point,
+   * including while the app is backgrounded. Whenever that turns out to have
+   * happened, the filter and the cached position are dropped rather than left
+   * pointed at a coordinate we can no longer refresh.
+   *
+   * @returns The freshly read permission state, or `null` once unmounted
+   */
+  const syncPermission = useCallback(async (): Promise<LocationPermissionState | null> => {
+    const status = await getPermissionStatus(); // never prompts
+    if (!isMountedRef.current) return null;
+    setPermission(status);
+    latestPermissionRef.current = status;
+    if (!status.granted) {
+      setIsActive(false);
+      setCoords(null);
+      setErrorMessage(null);
+    }
+    return status;
+  }, []);
+
   const loadCoords = useCallback(async (): Promise<Coords | null> => {
     try {
       const next = await getCurrentCoords();
@@ -44,25 +67,26 @@ export function useNearbyLocation(): UseNearbyLocationResult {
       setErrorMessage(null);
       return next;
     } catch {
+      if (!isMountedRef.current) return null;
+      const status = await syncPermission(); // a revoked grant surfaces here as a failed read
+      if (status && !status.granted) return null;
       if (isMountedRef.current) setErrorMessage(LOCATION_ERROR_MESSAGE);
       return null;
     }
-  }, []);
+  }, [syncPermission]);
 
   useEffect((): (() => void) => {
     isMountedRef.current = true;
 
     void (async (): Promise<void> => {
-      const status = await getPermissionStatus(); // never prompts
-      if (!isMountedRef.current) return;
-      setPermission(status);
-      if (status.granted) await loadCoords();
+      const status = await syncPermission();
+      if (status?.granted) await loadCoords();
     })();
 
     return (): void => {
       isMountedRef.current = false;
     };
-  }, [loadCoords]);
+  }, [loadCoords, syncPermission]);
 
   const toggle = useCallback((): void => {
     if (isActive) {
@@ -98,12 +122,15 @@ export function useNearbyLocation(): UseNearbyLocationResult {
   useEffect((): (() => void) => {
     const subscription = AppState.addEventListener('change', (state: AppStateStatus): void => {
       if (state !== 'active') return; // foreground sampling, see ADR 0003
-      if (!latestPermissionRef.current?.granted) return;
-      void loadCoords();
+      void (async (): Promise<void> => {
+        const status = await syncPermission(); // the grant can change while backgrounded
+        if (!status?.granted) return;
+        await loadCoords();
+      })();
     });
 
     return (): void => subscription.remove();
-  }, [loadCoords]);
+  }, [loadCoords, syncPermission]);
 
   const dismissPriming = useCallback((): void => {
     setIsPrimingVisible(false);
