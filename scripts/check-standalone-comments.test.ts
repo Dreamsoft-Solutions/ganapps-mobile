@@ -82,6 +82,20 @@ function runCheck(staged: Files, options: ScenarioOptions = {}): CheckResult {
 }
 
 describe('standalone comment checker', () => {
+  it('allows documentation in environment files without exempting shell scripts', () => {
+    const result = runCheck({
+      '.env': '# Local environment\nAPP_ENV=local\n',
+      '.env.example': '# Public HTTPS pages, required in the EAS production environment.\nPRIVACY_URL=\n',
+      'config/.env.production': '# Production configuration\nAPP_ENV=production\n',
+      'scripts/env.sh': '# explain\nvalue=1\n',
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain('scripts/env.sh:1: # explain');
+    expect(result.stdout).not.toContain('.env');
+    expect(result.stderr).toBe('');
+  });
+
   it('exits zero without output for comment-free staged code', () => {
     const result = runCheck({ 'src/example.ts': 'const value = 1;\n' });
 

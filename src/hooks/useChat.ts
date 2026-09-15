@@ -333,57 +333,72 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
   useEffect((): (() => void) | undefined => {
     if (!sessionQuery.data || !canRead || accessLost) return;
     const conversationId: string = sessionQuery.data.conversationId;
+    function handleMessage(event: Extract<ChatSocketEvent, { type: 'message' }>): void {
+      const incoming: ChatMessage = event.message;
+      if (incoming.conversationId !== conversationId) return;
+      if (isUserBlocked(queryClient, incoming.senderId)) return;
+      queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
+        chatQueryKeys.eventMessages(ganapId),
+        (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => upsertMessageInPages(data, incoming),
+      );
+      queryClient.setQueryData<InfiniteData<EventChatSummaryPage, ChatPageParam>>(
+        chatQueryKeys.eventList(),
+        (data: InfiniteData<EventChatSummaryPage, ChatPageParam> | undefined) =>
+          patchSummaryForMessage(data, incoming, userId !== null && incoming.senderId !== userId),
+      );
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
+      return;
+    }
+
+    function handleReaction(event: Extract<ChatSocketEvent, { type: 'message-reaction' }>): void {
+      const reaction = event.event;
+      if (reaction.conversationId !== conversationId) return;
+      queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
+        chatQueryKeys.eventMessages(ganapId),
+        (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) =>
+          patchMessageInPages(
+            data,
+            conversationId,
+            reaction.messageId,
+            (message: ChatMessage): ChatMessage => ({
+              ...message,
+              reactionSummary: {
+                total: reaction.counts.reduce((total: number, entry): number => total + entry.count, 0),
+                counts: reaction.counts,
+                myReaction: reaction.myReaction,
+              },
+            }),
+          ),
+      );
+      return;
+    }
+
+    function handleUnsent(event: Extract<ChatSocketEvent, { type: 'message-unsent' }>): void {
+      if (event.event.conversationId !== conversationId) return;
+      queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
+        chatQueryKeys.eventMessages(ganapId),
+        (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => markMessageUnsent(data, event.event),
+      );
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
+      return;
+    }
+
     const unsubscribe: () => void = chatSocketClient.subscribe(
       conversationId,
       sessionQuery.data.ganapId,
       (event: ChatSocketEvent): void => {
         if (event.type === 'message') {
-          const incoming: ChatMessage = event.message;
-          if (incoming.conversationId !== conversationId) return;
-          if (isUserBlocked(queryClient, incoming.senderId)) return;
-          queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
-            chatQueryKeys.eventMessages(ganapId),
-            (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => upsertMessageInPages(data, incoming),
-          );
-          queryClient.setQueryData<InfiniteData<EventChatSummaryPage, ChatPageParam>>(
-            chatQueryKeys.eventList(),
-            (data: InfiniteData<EventChatSummaryPage, ChatPageParam> | undefined) =>
-              patchSummaryForMessage(data, incoming, userId !== null && incoming.senderId !== userId),
-          );
-          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
-          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
+          handleMessage(event);
           return;
         }
         if (event.type === 'message-reaction') {
-          const reaction = event.event;
-          if (reaction.conversationId !== conversationId) return;
-          queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
-            chatQueryKeys.eventMessages(ganapId),
-            (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) =>
-              patchMessageInPages(
-                data,
-                conversationId,
-                reaction.messageId,
-                (message: ChatMessage): ChatMessage => ({
-                  ...message,
-                  reactionSummary: {
-                    total: reaction.counts.reduce((total: number, entry): number => total + entry.count, 0),
-                    counts: reaction.counts,
-                    myReaction: reaction.myReaction,
-                  },
-                }),
-              ),
-          );
+          handleReaction(event);
           return;
         }
         if (event.type === 'message-unsent') {
-          if (event.event.conversationId !== conversationId) return;
-          queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
-            chatQueryKeys.eventMessages(ganapId),
-            (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => markMessageUnsent(data, event.event),
-          );
-          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
-          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
+          handleUnsent(event);
           return;
         }
         if (event.type === 'read' && event.receipt.userId === userId) {
@@ -519,18 +534,6 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
   const pickImage = useCallback(async (): Promise<void> => {
     if (!sessionQuery.data?.canSend || accessLost || imageDraft || sendImageMutation.isPending) return;
     setImagePickerError(null);
-
-    let permissionResult: ImagePicker.MediaLibraryPermissionResponse;
-    try {
-      permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    } catch {
-      setImagePickerError(new Error('Unable to open your photo library.'));
-      return;
-    }
-    if (!permissionResult.granted) {
-      setImagePickerError(new Error('Photo access is required to add an image.'));
-      return;
-    }
 
     try {
       const result: ImagePicker.ImagePickerResult =

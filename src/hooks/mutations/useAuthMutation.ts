@@ -3,6 +3,8 @@ import { authAPI } from '@/api/endpoints/auth';
 import { revokeRegisteredAndroidPushToken } from '@/services/push-notification.service';
 import { useAuthStore } from '@/store/auth.store';
 import type {
+  DeleteAccountInput,
+  DeleteAccountResponse,
   GoogleAuthRequestDto,
   GoogleAuthResponse,
   LoginDto,
@@ -15,6 +17,20 @@ import type {
 import type { User } from '@/types/user.types';
 import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
 import { authQueryKeys } from '../queries/useAuthQuery';
+
+/**
+ * Submits an online deletion attempt without automatic retries or selective invalidation.
+ * @returns The deletion mutation; the aggregated auth handler owns session cleanup.
+ */
+export function useDeleteAccountMutation(): UseMutationResult<DeleteAccountResponse, Error, DeleteAccountInput> {
+  return useMutation<DeleteAccountResponse, Error, DeleteAccountInput>({
+    mutationFn: (input: DeleteAccountInput): Promise<DeleteAccountResponse> =>
+      authAPI.deleteAccount(input.confirmationPhrase, input.idempotencyKey),
+    retry: false,
+    networkMode: 'always',
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
+  });
+}
 
 export function useLoginMutation(): UseMutationResult<TokenResponse, Error, LoginDto> {
   const queryClient = useQueryClient();

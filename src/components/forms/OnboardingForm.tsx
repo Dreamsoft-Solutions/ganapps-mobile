@@ -53,11 +53,6 @@ export function OnboardingForm(): ReactElement {
   const submitError = updateProfileMutation.error;
 
   const pickAvatar = useCallback(async (): Promise<void> => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      return;
-    }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: 'images',
       allowsEditing: true,
