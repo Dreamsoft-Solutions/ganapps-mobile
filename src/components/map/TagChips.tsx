@@ -14,6 +14,15 @@ interface TagChipsProps {
   onToggleNearby: () => void;
 }
 
+/**
+ * Nearby filter chip alongside the horizontal list of category tag chips.
+ *
+ * Nearby is a filter rather than a category, so it sits in its own divided
+ * section and stacks on a selected tag instead of replacing it.
+ *
+ * @param props - Available tags, current selection, and the tag and Nearby handlers
+ * @returns The chip row
+ */
 export function TagChips({
   tags,
   selectedTag,

@@ -8,6 +8,17 @@ interface ReducedAccuracyNoticeProps {
   onDismiss: () => void;
 }
 
+/**
+ * Targeted notice for users who granted location with Precise Location off.
+ *
+ * iOS blurs the position to a 1-5 km region in that mode, which is the same
+ * order as the distance between Iloilo districts, so results can be wrong with
+ * nothing else to signal it. Shown only to affected users; the caller is
+ * responsible for not rendering it to denied users, who also read as reduced.
+ *
+ * @param props - Visibility and the settings and dismiss handlers
+ * @returns The notice, or `null` when not applicable
+ */
 export function ReducedAccuracyNotice({
   visible,
   onOpenSettings,

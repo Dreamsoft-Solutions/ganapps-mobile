@@ -14,6 +14,19 @@ export const NEARBY_RADIUS_KM = 2;
 
 export const USER_ZOOM = 13.4;
 
+/**
+ * Ground distance spanned by a viewport at a given Mapbox zoom.
+ *
+ * Mapbox measures zoom against 512 point tiles, and a degree of longitude
+ * narrows with latitude, so both are factored in rather than assumed. Used to
+ * prove USER_ZOOM still clears MIN_VISIBLE_SPAN_KM on the narrowest supported
+ * screen. See ADR 0003.
+ *
+ * @param zoom - Mapbox zoom level
+ * @param latitudeDeg - Latitude the viewport is centred on, in degrees
+ * @param viewportPoints - Viewport width in points
+ * @returns The visible ground distance in kilometres
+ */
 export function visibleGroundDistanceKm(zoom: number, latitudeDeg: number, viewportPoints: number): number {
   const worldPoints = TILE_SIZE_POINTS * 2 ** zoom;
   const circumferenceAtLatitude = EARTH_CIRCUMFERENCE_M * Math.cos((latitudeDeg * Math.PI) / 180);

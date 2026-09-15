@@ -9,6 +9,15 @@ interface LocationPrimingSheetProps {
   onDismiss: () => void;
 }
 
+/**
+ * In-app explanation shown before the system location dialog.
+ *
+ * iOS grants exactly one prompt, so this sheet is what protects that single
+ * attempt: confirming here is the only path that spends it.
+ *
+ * @param props - Visibility and the confirm and dismiss handlers
+ * @returns The priming sheet
+ */
 export function LocationPrimingSheet({ visible, onConfirm, onDismiss }: LocationPrimingSheetProps): ReactElement {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>

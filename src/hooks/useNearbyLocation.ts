@@ -10,6 +10,7 @@ import {
 
 const LOCATION_ERROR_MESSAGE = 'Could not read your location. Check that location services are on, then try again.';
 
+/** Everything the map tab needs to drive the Nearby filter. */
 export interface UseNearbyLocationResult {
   isActive: boolean;
   isDisabled: boolean;
@@ -25,6 +26,16 @@ export interface UseNearbyLocationResult {
   openSettings: () => Promise<void>;
 }
 
+/**
+ * Owns the location grant, the device position, and the Nearby filter state.
+ *
+ * Nothing here prompts on mount: the single iOS dialog is spent only from
+ * confirmPriming, behind the priming sheet. The grant is re-read rather than
+ * cached, so revoking it in Settings surfaces as the denied state instead of a
+ * generic read failure. See ADR 0003.
+ *
+ * @returns Filter state, the current coordinates, and the actions the map binds to
+ */
 export function useNearbyLocation(): UseNearbyLocationResult {
   const [permission, setPermission] = useState<LocationPermissionState | null>(null);
   const [coords, setCoords] = useState<Coords | null>(null);

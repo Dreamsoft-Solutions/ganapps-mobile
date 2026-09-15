@@ -37,6 +37,15 @@ const CITY_ZOOM = 12;
 const MAP_OVERLAY_TOP = 132; // see ADR 0003
 const MAP_OVERLAY_BOTTOM = 96;
 
+/**
+ * Home screen for authenticated users.
+ *
+ * Full-screen Mapbox map of discoverable Ganaps across Iloilo City, with a
+ * floating search bar, category chips, the Nearby distance filter, and a
+ * selected-event card.
+ *
+ * @returns The map home screen
+ */
 export default function HomeScreen(): ReactElement {
   const router = useRouter();
   const insets = useSafeAreaInsets();

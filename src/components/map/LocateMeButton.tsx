@@ -8,6 +8,15 @@ interface LocateMeButtonProps {
   onPress: () => void;
 }
 
+/**
+ * Floating control that recentres the map on the user.
+ *
+ * Stays visible without permission, since tapping it is one of the two ways a
+ * user reaches the priming sheet.
+ *
+ * @param props - The press handler
+ * @returns The locate-me button
+ */
 export function LocateMeButton({ onPress }: LocateMeButtonProps): ReactElement {
   const theme = useResolvedTheme();
 
