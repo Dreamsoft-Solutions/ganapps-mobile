@@ -97,6 +97,7 @@ module.exports = {
           locationWhenInUsePermission: 'Ganapps uses your location to show events happening near you in Iloilo City.',
           locationAlwaysAndWhenInUsePermission: false,
           locationAlwaysPermission: false,
+          motionUsagePermission: false,
         },
       ],
       [
