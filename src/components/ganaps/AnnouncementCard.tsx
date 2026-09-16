@@ -1,16 +1,22 @@
 import { BellRing, Megaphone, RefreshCw } from 'lucide-react-native';
 import type { ComponentType, ReactElement } from 'react';
 import { View } from 'react-native';
+import { MessageReactionBar } from '@/components/chat/MessageReactionBar';
 import { Avatar } from '@/components/common/Avatar';
 import { Card } from '@/components/common/Card';
 import { Text } from '@/components/common/Text';
 import { Colors, type ThemeColor } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import type { ReactionType } from '@/types/chat.types';
 import type { AnnouncementType, GanapAnnouncement } from '@/types/ganap.types';
 import { formatDateTime } from '@/utils/formatting';
 
 interface AnnouncementCardProps {
   announcement: GanapAnnouncement;
+  /** Sets or removes the attendee's acknowledgement reaction. */
+  onReaction?: (reaction: ReactionType | null) => void;
+  /** Whether this announcement reaction is being reconciled. */
+  reactionPending?: boolean;
 }
 
 /** Icon props accepted by the lucide icons used for announcement types. */
@@ -74,7 +80,11 @@ const announcementTypeConfig: Record<AnnouncementType, AnnouncementTypeConfig> =
  * @param props - The announcement to present.
  * @returns An announcement card.
  */
-export function AnnouncementCard({ announcement }: AnnouncementCardProps): ReactElement {
+export function AnnouncementCard({
+  announcement,
+  onReaction = (): void => {},
+  reactionPending = false,
+}: AnnouncementCardProps): ReactElement {
   const config: AnnouncementTypeConfig = announcementTypeConfig[announcement.type];
   const TypeIcon: ComponentType<AnnouncementIconProps> = config.Icon;
   const title: string | null = announcement.title?.trim() || null;
@@ -106,6 +116,13 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps): React
       {title && <Text className="mt-sm font-inter-semibold text-headline-sm">{title}</Text>}
 
       <Text className="mt-sm text-body-md">{announcement.content}</Text>
+
+      <MessageReactionBar
+        summary={announcement.reactionSummary}
+        containerLabel="Announcement acknowledgement"
+        isPending={reactionPending}
+        onSelect={onReaction}
+      />
     </Card>
   );
 }

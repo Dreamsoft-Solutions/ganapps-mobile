@@ -7,6 +7,7 @@ import type { ReactElement } from 'react';
 import { Pressable as MockPressable, Text as MockText, View as MockView, Share } from 'react-native';
 import type { EventHubViewProps } from '@/components/ganaps/EventHubView';
 import { Routes } from '@/constants/routes';
+import type { FriendGoingRecord } from '@/types/friends.types';
 import type {
   FormBlock,
   FormBlockScope,
@@ -27,6 +28,7 @@ const mockParams: { 'ganap-id': string } = { 'ganap-id': 'g1' };
 
 const mockDetailRefetch = jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined);
 const mockAnnouncementsRefetch = jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined);
+const mockFriendsGoingRefetch = jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined);
 const mockFetchNextPage = jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined);
 const mockEventHubView = jest.fn<(props: EventHubViewProps) => ReactElement>();
 
@@ -126,6 +128,18 @@ let mockAnnouncementsState: {
   hasLostAccess: boolean;
 };
 
+let mockFriendsGoingState: {
+  going: FriendGoingRecord[];
+  isLoading: boolean;
+  error: Error | null;
+  hasNextPage: boolean;
+  refetch: typeof mockFriendsGoingRefetch;
+};
+
+const mockUseFriendGoingQuery = jest.fn(
+  (_enabled: boolean, _ganapId?: string): typeof mockFriendsGoingState => mockFriendsGoingState,
+);
+
 const mockUseGanapAnnouncements = jest.fn(
   (_ganapId: string, _isEligible: boolean): typeof mockAnnouncementsState => mockAnnouncementsState,
 );
@@ -188,6 +202,11 @@ jest.mock('@/hooks/queries/useGanapsQuery', () => ({
     mockUseFormBlocksQuery(ganapId, scope),
 }));
 
+jest.mock('@/hooks/queries/useFriendsQuery', () => ({
+  useFriendGoingQuery: (enabled: boolean, ganapId?: string): typeof mockFriendsGoingState =>
+    mockUseFriendGoingQuery(enabled, ganapId),
+}));
+
 jest.mock('@/hooks/useGanapAnnouncements', () => ({
   useGanapAnnouncements: (ganapId: string, isEligible: boolean): typeof mockAnnouncementsState =>
     mockUseGanapAnnouncements(ganapId, isEligible),
@@ -234,6 +253,31 @@ function resetStates(): void {
     isFetchingNextPage: false,
     isFetchNextPageError: false,
     hasLostAccess: false,
+  };
+  mockFriendsGoingState = {
+    going: [
+      {
+        id: 'registration_friend_1',
+        createdAt: '2026-08-02T00:00:00.000Z',
+        user: {
+          userId: 'friend_1',
+          username: 'ana.cruz',
+          displayName: 'Ana Cruz',
+          displayPicture: null,
+        },
+        ganap: {
+          ganapId: 'g1',
+          title: 'Coffee & Code',
+          startDate: '2026-08-08T02:00:00.000Z',
+          endDate: '2026-08-08T05:00:00.000Z',
+          status: 'GOING',
+        },
+      },
+    ],
+    isLoading: false,
+    error: null,
+    hasNextPage: false,
+    refetch: mockFriendsGoingRefetch,
   };
   mockFormBlocksState = {
     data: [],
@@ -298,6 +342,7 @@ describe('Event Hub route detail states', (): void => {
     expect(screen.getByText('Loading')).toBeTruthy();
     expect(mockUseGanapAnnouncements).not.toHaveBeenCalled();
     expect(mockUseFormBlocksQuery).not.toHaveBeenCalled();
+    expect(mockUseFriendGoingQuery).not.toHaveBeenCalled();
   });
 
   it('renders a retryable error when detail fails', async (): Promise<void> => {
@@ -373,6 +418,7 @@ describe('Event Hub route eligibility guard', (): void => {
     await renderRoute();
 
     expect(mockUseGanapAnnouncements).toHaveBeenCalledWith('g1', true);
+    expect(mockUseFriendGoingQuery).toHaveBeenCalledWith(true, 'g1');
     expect(mockEventHubView).toHaveBeenCalled();
     expect(mockUseFormBlocksQuery).toHaveBeenCalledWith('g1', 'POST_ATTENDANCE');
   });
@@ -392,6 +438,9 @@ describe('Event Hub route loaded behavior', (): void => {
     expect(props.isFetchingNextPage).toBe(false);
     expect(props.isFetchNextPageError).toBe(false);
     expect(props.accessLost).toBe(false);
+    expect(props.friendsGoing).toEqual([mockFriendsGoingState.going[0]?.user]);
+    expect(props.isFriendsGoingLoading).toBe(false);
+    expect(props.friendsGoingError).toBeNull();
   });
 
   it('returns to the same Event Details route rather than an untrusted history entry', async (): Promise<void> => {
@@ -458,6 +507,7 @@ describe('Event Hub route loaded behavior', (): void => {
     await waitFor((): void => {
       expect(refetchDetail).toHaveBeenCalledTimes(1);
       expect(refetchAnnouncements).toHaveBeenCalledTimes(1);
+      expect(mockFriendsGoingRefetch).toHaveBeenCalledTimes(1);
       expect(latestViewProps().isRefreshing).toBe(true);
     });
 

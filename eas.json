@@ -1,10 +1,14 @@
 {
   "cli": {
-    "version": ">= 5.0.0"
+    "version": ">= 5.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "preview": {
       "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_FEATURE_FLAG_REMOTE_CONFIG_PARAMETER": "mobile_dev"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -12,7 +16,18 @@
         "simulator": true
       }
     },
-    "production": {}
+    "production": {
+      "environment": "production",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "APP_ENV": "production",
+        "EXPO_PUBLIC_FEATURE_FLAG_ENV_OVERRIDE": "false",
+        "EXPO_PUBLIC_FEATURE_FLAG_REMOTE_CONFIG_PARAMETER": "mobile_prod"
+      }
+    }
   },
   "submit": {
     "production": {}

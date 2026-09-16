@@ -6,8 +6,10 @@ import { Loading } from '@/components/common/Loading';
 import { EventDetailView } from '@/components/ganaps/EventDetailView';
 import { Routes } from '@/constants/routes';
 import { useBusinessDetailQuery } from '@/hooks/queries/useBusinessesQuery';
+import { useFriendGoingQuery } from '@/hooks/queries/useFriendsQuery';
 import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { useGanaps } from '@/hooks/useGanaps';
+import type { FriendGoingRecord, FriendUserSummary } from '@/types/friends.types';
 import type { GanapAction, GanapActionConfirmation } from '@/utils/ganap-detail';
 import {
   buildGanapShareMessage,
@@ -26,6 +28,7 @@ export default function GanapDetailScreen(): ReactElement {
   const router = useRouter();
   const { data: ganap, isLoading, isRefetching, error, refetch } = useGanapDetailQuery(ganapId);
   const businessQuery = useBusinessDetailQuery(ganap?.businessId);
+  const friendsGoingQuery = useFriendGoingQuery(true, ganapId);
   const { join, leave, toggleLike, toggleSave, isJoining, isLeaving, isTogglingLike, isTogglingSave } = useGanaps();
 
   if (isLoading) return <Loading />;
@@ -35,6 +38,9 @@ export default function GanapDetailScreen(): ReactElement {
   const schedule = getGanapScheduleModel(ganap.startDate, ganap.endDate);
   const capacity = getGanapCapacityModel(ganap);
   const actionModel = getGanapActionModel(ganap, new Date());
+  const friendsGoing: FriendUserSummary[] = friendsGoingQuery.going
+    .filter((record: FriendGoingRecord): boolean => record.ganap.ganapId === ganap.id)
+    .map((record: FriendGoingRecord): FriendUserSummary => record.user);
 
   const handleShare = async (): Promise<void> => {
     const message = buildGanapShareMessage(ganap, schedule);
@@ -90,10 +96,14 @@ export default function GanapDetailScreen(): ReactElement {
       isPrimaryPending={isJoining || isLeaving}
       isLikePending={isTogglingLike}
       isSavePending={isTogglingSave}
-      isRefreshing={isRefetching}
+      friendsGoing={friendsGoing}
+      isFriendsGoingLoading={friendsGoingQuery.isLoading}
+      friendsGoingError={friendsGoingQuery.error}
+      hasMoreFriendsGoing={Boolean(friendsGoingQuery.hasNextPage)}
+      isRefreshing={isRefetching || friendsGoingQuery.isRefetching}
       onBack={(): void => router.back()}
       onRefresh={async (): Promise<void> => {
-        await refetch();
+        await Promise.all([refetch(), friendsGoingQuery.refetch()]);
       }}
       onShare={handleShare}
       onToggleLike={(): Promise<void> => toggleLike({ ganapId: ganap.id, isLiked: ganap.isLiked ?? false })}

@@ -21,7 +21,7 @@ function announceToast(item: ToastItem): void {
  * Overlay that renders the active toasts below the top safe area.
  *
  * Mount once in the root layout, inside the `ThemeProvider` and above the
- * navigator, so toasts float over every screen and follow the `.dark` class.
+ * navigator, so toasts float over every screen and follow the active NativeWind color scheme.
  * Newly added toasts are announced to the screen reader, since a dynamically
  * mounted element that disappears after a few seconds would otherwise be
  * missed entirely.

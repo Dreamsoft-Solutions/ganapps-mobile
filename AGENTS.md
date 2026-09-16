@@ -139,7 +139,7 @@ in `docs/DESIGN.md`. Read it before adding new UI. Key rules:
 - **No hardcoded colors** — use semantic Tailwind tokens (`primary`,
   `secondary`, `muted`, `foreground`, etc.).
 - **Light and dark themes are first-class** — colors are CSS variables that swap
-  under the `.dark` class.
+  under NativeWind's active color scheme.
 - **Compose with primitives** — screens are built from `components/common/`;
   one-off styles are avoided in favor of new variants.
 

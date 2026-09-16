@@ -2,6 +2,19 @@ import { z } from 'zod';
 import type { FormBlock, FormOption, RegistrationFormData } from '@/types/ganap.types';
 import { getScaleOptions, getTextConfiguration } from './registration-form';
 
+/** Irreversible account deletion requires this exact phrase after trimming. */
+export const deleteAccountSchema = z.object({
+  confirmationPhrase: z
+    .string()
+    .trim()
+    .refine((value: string): boolean => value === 'DELETE MY ACCOUNT', {
+      message: 'Enter DELETE MY ACCOUNT exactly.',
+    }),
+});
+
+/** Typed confirmation field for the account deletion form. */
+export type DeleteAccountFormData = z.infer<typeof deleteAccountSchema>;
+
 /** Identifier for one password checklist rule. */
 export type PasswordRequirementId = 'length' | 'uppercase' | 'lowercase' | 'digit' | 'punctuation';
 
@@ -170,6 +183,81 @@ function isEmptyAnswer(block: FormBlock, value: unknown): boolean {
   return value === null;
 }
 
+function validateTextAnswer(block: FormBlock, value: unknown, context: z.RefinementCtx): void {
+  if (typeof value !== 'string') {
+    addRegistrationIssue(context, block.id, 'Enter a valid answer');
+    return;
+  }
+
+  const maxLength: number | undefined = getTextConfiguration(block).maxLength;
+  if (maxLength !== undefined && value.length > maxLength) {
+    addRegistrationIssue(context, block.id, 'Answer is too long');
+  }
+}
+
+function validateChoiceAnswer(block: FormBlock, value: unknown, context: z.RefinementCtx): void {
+  const optionIds: Set<string> = new Set(block.options.map((option: FormOption): string => option.id));
+
+  if (block.allowMultiple) {
+    if (!Array.isArray(value)) {
+      addRegistrationIssue(context, block.id, 'Choose valid options');
+      return;
+    }
+
+    if (value.some((optionId: unknown): boolean => typeof optionId !== 'string' || !optionIds.has(optionId))) {
+      addRegistrationIssue(context, block.id, 'Choose valid options');
+    }
+    return;
+  }
+
+  if (typeof value !== 'string') {
+    addRegistrationIssue(context, block.id, 'Choose a valid option');
+    return;
+  }
+
+  if (value.length > 0 && !optionIds.has(value)) {
+    addRegistrationIssue(context, block.id, 'Choose a valid option');
+  }
+}
+
+function validateScaleAnswer(block: FormBlock, value: unknown, context: z.RefinementCtx): void {
+  if (value === null) {
+    return;
+  }
+
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    addRegistrationIssue(context, block.id, 'Choose a valid scale value');
+    return;
+  }
+
+  if (!getScaleOptions(block).includes(value)) {
+    addRegistrationIssue(context, block.id, 'Choose a valid scale value');
+  }
+}
+
+function validateRegistrationBlock(block: FormBlock, value: unknown, context: z.RefinementCtx): void {
+  if (block.isRequired && isEmptyAnswer(block, value)) {
+    addRegistrationIssue(context, block.id, 'This question is required');
+    return;
+  }
+
+  if (value === undefined) {
+    return;
+  }
+
+  if (block.type === 'TEXT') {
+    validateTextAnswer(block, value, context);
+    return;
+  }
+
+  if (block.type === 'MULTIPLE_CHOICE') {
+    validateChoiceAnswer(block, value, context);
+    return;
+  }
+
+  validateScaleAnswer(block, value, context);
+}
+
 /**
  * Creates validation rules from organizer-defined registration blocks.
  *
@@ -181,67 +269,7 @@ export function createRegistrationFormSchema(
 ): z.ZodType<RegistrationFormData, RegistrationFormData> {
   return registrationFormBaseSchema.superRefine((data: RegistrationFormData, context: z.RefinementCtx): void => {
     for (const block of blocks) {
-      const value: unknown = data.answers[block.id];
-
-      if (block.isRequired && isEmptyAnswer(block, value)) {
-        addRegistrationIssue(context, block.id, 'This question is required');
-        continue;
-      }
-
-      if (value === undefined) {
-        continue;
-      }
-
-      if (block.type === 'TEXT') {
-        if (typeof value !== 'string') {
-          addRegistrationIssue(context, block.id, 'Enter a valid answer');
-          continue;
-        }
-
-        const maxLength: number | undefined = getTextConfiguration(block).maxLength;
-        if (maxLength !== undefined && value.length > maxLength) {
-          addRegistrationIssue(context, block.id, 'Answer is too long');
-        }
-        continue;
-      }
-
-      if (block.type === 'MULTIPLE_CHOICE') {
-        const optionIds: Set<string> = new Set(block.options.map((option: FormOption): string => option.id));
-
-        if (block.allowMultiple) {
-          if (!Array.isArray(value)) {
-            addRegistrationIssue(context, block.id, 'Choose valid options');
-            continue;
-          }
-
-          if (value.some((optionId: string) => !optionIds.has(optionId))) {
-            addRegistrationIssue(context, block.id, 'Choose valid options');
-          }
-        } else {
-          if (typeof value !== 'string') {
-            addRegistrationIssue(context, block.id, 'Choose a valid option');
-            continue;
-          }
-
-          if (value.length > 0 && !optionIds.has(value)) {
-            addRegistrationIssue(context, block.id, 'Choose a valid option');
-          }
-        }
-        continue;
-      }
-
-      if (value === null) {
-        continue;
-      }
-
-      if (typeof value !== 'number' || !Number.isFinite(value)) {
-        addRegistrationIssue(context, block.id, 'Choose a valid scale value');
-        continue;
-      }
-
-      if (!getScaleOptions(block).includes(value)) {
-        addRegistrationIssue(context, block.id, 'Choose a valid scale value');
-      }
+      validateRegistrationBlock(block, data.answers[block.id], context);
     }
   });
 }

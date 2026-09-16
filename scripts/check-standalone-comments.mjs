@@ -78,7 +78,7 @@ function languageFor(path) {
   }
 
   if (name === '.env' || name.startsWith('.env.')) {
-    return 'hash';
+    return undefined;
   }
 
   return LANGUAGE_EXTENSIONS.get(extname(normalized));
@@ -402,7 +402,7 @@ function isExempt(comment, line, language) {
   const text = cleanCommentText(comment.text);
   const trimmed = text.trimStart();
 
-  if (language === 'typescript' && comment.kind === 'block' && trimmed.startsWith('/**')) {
+  if (language === 'typescript' && comment.kind === 'block' && text.startsWith('/**')) {
     return true;
   }
 

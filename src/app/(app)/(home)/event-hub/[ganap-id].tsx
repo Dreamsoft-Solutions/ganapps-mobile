@@ -8,9 +8,14 @@ import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { EventHubView } from '@/components/ganaps/EventHubView';
 import { Routes } from '@/constants/routes';
+import { useAnnouncementReactionMutation } from '@/hooks/mutations/useChatEngagementMutation';
+import { useFriendGoingQuery } from '@/hooks/queries/useFriendsQuery';
 import { useFormBlocksQuery, useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { type UseGanapAnnouncementsResult, useGanapAnnouncements } from '@/hooks/useGanapAnnouncements';
-import type { FormBlock, GanapDetail, RegistrationStatus } from '@/types/ganap.types';
+import { showToast } from '@/store/toast.store';
+import type { ReactionType } from '@/types/chat.types';
+import type { FriendGoingRecord, FriendUserSummary } from '@/types/friends.types';
+import type { FormBlock, GanapAnnouncement, GanapDetail, RegistrationStatus } from '@/types/ganap.types';
 import { type AttendanceScanState, getAttendanceScanState } from '@/utils/attendance';
 import { canAccessEventHub } from '@/utils/event-hub';
 import { type FeedbackRowState, getFeedbackRowState } from '@/utils/feedback';
@@ -23,6 +28,8 @@ interface EventHubUnavailableProps {
 interface EligibleEventHubProps {
   ganap: GanapDetail;
   onBack: () => void;
+  /** Navigates to the Event Chat thread for this Ganap. */
+  onOpenChat: () => void;
   /** Refetches the Event Details query shared with the Hub refresh gesture. */
   onRefreshDetail: () => Promise<void>;
   /** Navigates to the attendance scanner; forwarded from the outer screen. */
@@ -66,34 +73,60 @@ function EventHubUnavailable({ onBack }: EventHubUnavailableProps): ReactElement
 function EligibleEventHub({
   ganap,
   onBack,
+  onOpenChat,
   onRefreshDetail,
   onScanAttendance,
   onGiveFeedback,
 }: EligibleEventHubProps): ReactElement {
   const announcements: UseGanapAnnouncementsResult = useGanapAnnouncements(ganap.id, true);
+  const friendsGoingQuery = useFriendGoingQuery(true, ganap.id);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const schedule: GanapScheduleModel = getGanapScheduleModel(ganap.startDate, ganap.endDate);
   const accessLost: boolean = announcements.hasLostAccess;
   const scanState: AttendanceScanState = getAttendanceScanState(ganap, new Date());
   const formBlocksQuery: UseQueryResult<FormBlock[], Error> = useFormBlocksQuery(ganap.id, 'POST_ATTENDANCE');
+  const announcementReactionMutation = useAnnouncementReactionMutation();
+  const [announcementReactionPendingId, setAnnouncementReactionPendingId] = useState<string | null>(null);
   const feedbackState: FeedbackRowState = getFeedbackRowState(
     ganap,
     formBlocksQuery.data,
     announcements.hasLostAccess || formBlocksQuery.isLoading || formBlocksQuery.error !== null,
   );
+  const friendsGoing: FriendUserSummary[] = friendsGoingQuery.going
+    .filter((record: FriendGoingRecord): boolean => record.ganap.ganapId === ganap.id)
+    .map((record: FriendGoingRecord): FriendUserSummary => record.user);
 
   async function handleShare(): Promise<void> {
     await Share.share({ message: buildGanapShareMessage(ganap, schedule), title: ganap.title });
   }
 
+  const handleAnnouncementReaction = useCallback(
+    async (announcement: GanapAnnouncement, reaction: ReactionType | null): Promise<void> => {
+      if (!announcement.reactionSummary || announcementReactionMutation.isPending) return;
+      setAnnouncementReactionPendingId(announcement.id);
+      try {
+        await announcementReactionMutation.mutateAsync({
+          ganapId: ganap.id,
+          announcementId: announcement.id,
+          reaction,
+        });
+      } catch {
+        showToast('error', 'Acknowledgement could not be saved.');
+      } finally {
+        setAnnouncementReactionPendingId(null);
+      }
+    },
+    [announcementReactionMutation, ganap.id],
+  );
+
   const handleRefresh = useCallback(async (): Promise<void> => {
     setIsRefreshing(true);
     try {
-      await Promise.all([onRefreshDetail(), announcements.refetch()]);
+      await Promise.all([onRefreshDetail(), announcements.refetch(), friendsGoingQuery.refetch()]);
     } finally {
       setIsRefreshing(false);
     }
-  }, [announcements.refetch, onRefreshDetail]);
+  }, [announcements.refetch, friendsGoingQuery.refetch, onRefreshDetail]);
 
   return (
     <EventHubView
@@ -108,12 +141,20 @@ function EligibleEventHub({
       isFetchNextPageError={!accessLost && announcements.isFetchNextPageError}
       accessLost={accessLost}
       isRefreshing={isRefreshing}
+      friendsGoing={accessLost ? [] : friendsGoing}
+      isFriendsGoingLoading={!accessLost && friendsGoingQuery.isLoading}
+      friendsGoingError={accessLost ? null : friendsGoingQuery.error}
+      hasMoreFriendsGoing={!accessLost && Boolean(friendsGoingQuery.hasNextPage)}
       scanState={scanState}
       onBack={onBack}
       onShare={handleShare}
+      onOpenChat={onOpenChat}
       onRefresh={handleRefresh}
       onRetryAnnouncements={(): void => {
         void announcements.refetch();
+      }}
+      onRetryFriendsGoing={(): void => {
+        void friendsGoingQuery.refetch();
       }}
       onRetryNextPage={(): void => {
         void announcements.fetchNextPage();
@@ -124,6 +165,8 @@ function EligibleEventHub({
       onScanAttendance={onScanAttendance}
       feedbackState={feedbackState}
       onGiveFeedback={onGiveFeedback}
+      onAnnouncementReaction={handleAnnouncementReaction}
+      announcementReactionPendingId={announcementReactionPendingId}
     />
   );
 }
@@ -159,6 +202,10 @@ export default function EventHubScreen(): ReactElement {
     router.push(Routes.ganapFeedback(ganapId));
   }
 
+  function handleOpenChat(): void {
+    router.push(Routes.eventChat(ganapId));
+  }
+
   if (detail.isLoading) return <Loading />;
   if (detail.error) return <ErrorView error={detail.error} onRetry={(): void => void detail.refetch()} />;
   if (!detail.data) return <ErrorView error={new Error('Event not found')} />;
@@ -170,6 +217,7 @@ export default function EventHubScreen(): ReactElement {
     <EligibleEventHub
       ganap={detail.data}
       onBack={handleBack}
+      onOpenChat={handleOpenChat}
       onRefreshDetail={async (): Promise<void> => {
         await detail.refetch();
       }}

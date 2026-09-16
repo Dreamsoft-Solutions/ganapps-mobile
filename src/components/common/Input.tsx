@@ -21,6 +21,7 @@ interface InputProps {
   iconRight?: ReactNode;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   autoCorrect?: boolean;
+  editable?: boolean;
   multiline?: boolean;
   numberOfLines?: number;
   maxLength?: number;
@@ -29,7 +30,7 @@ interface InputProps {
 /**
  * Form input primitive integrated with react-hook-form.
  *
- * @param props - Input configuration, including optional right icon and label hint slots.
+ * @param props - Input configuration, editability, and optional right icon and label hint slots.
  * @returns A labeled input field with inline validation errors.
  */
 export function Input({
@@ -42,6 +43,7 @@ export function Input({
   iconRight,
   autoCapitalize,
   autoCorrect,
+  editable,
   multiline,
   numberOfLines,
   maxLength,
@@ -84,6 +86,8 @@ export function Input({
               keyboardType={keyboardType}
               autoCapitalize={autoCapitalize}
               autoCorrect={autoCorrect}
+              editable={editable}
+              accessibilityLabel={label}
               multiline={multiline}
               numberOfLines={numberOfLines}
               maxLength={maxLength}

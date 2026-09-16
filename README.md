@@ -1,8 +1,8 @@
 # Ganapps Mobile
 
-The React Native app for **Ganapps**, an event discovery platform for **Iloilo City**.
-Users browse events on a map or feed, register, join the event chat, check in by scanning
-the organizer's QR code, and leave feedback afterwards.
+The React Native app for **Ganapps**, a campus event discovery platform for Central
+Philippine University. Students browse events on a map or feed, register, join the event
+chat, check in by scanning the organizer's QR code, and leave feedback afterwards.
 
 This repo is one of three:
 

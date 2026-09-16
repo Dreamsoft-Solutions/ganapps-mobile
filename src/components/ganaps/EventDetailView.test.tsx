@@ -4,6 +4,7 @@ import type { ComponentProps, ReactElement, ReactNode } from 'react';
 import { Text as MockText, View as MockView, type StyleProp, type ViewStyle } from 'react-native';
 import { Colors } from '@/constants/theme';
 import type { BusinessDetail } from '@/types/business.types';
+import type { FriendUserSummary } from '@/types/friends.types';
 import type { GanapDetail } from '@/types/ganap.types';
 import type { GanapActionModel, GanapCapacityModel, GanapScheduleModel } from '@/utils/ganap-detail';
 
@@ -58,7 +59,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 jest.mock('@/components/common/Avatar', () => ({
-  Avatar: (): null => null,
+  Avatar: ({ name }: { name?: string }): ReactElement => <MockView testID={`avatar-${name ?? 'unknown'}`} />,
 }));
 
 jest.mock('@/components/common/Card', () => ({
@@ -176,10 +177,126 @@ const actionModel: GanapActionModel = {
   secondary: null,
 };
 
-const defaultRefreshProps: { isRefreshing: boolean; onRefresh: () => Promise<void> } = {
+const defaultRefreshProps: {
+  isRefreshing: boolean;
+  onRefresh: () => Promise<void>;
+  friendsGoing: FriendUserSummary[];
+  isFriendsGoingLoading: boolean;
+  friendsGoingError: Error | null;
+  hasMoreFriendsGoing: boolean;
+} = {
   isRefreshing: false,
   onRefresh: async (): Promise<void> => {},
-} satisfies { isRefreshing: boolean; onRefresh: () => Promise<void> };
+  friendsGoing: [],
+  isFriendsGoingLoading: false,
+  friendsGoingError: null,
+  hasMoreFriendsGoing: false,
+};
+
+describe('EventDetailView friends going', (): void => {
+  const friend: FriendUserSummary = {
+    userId: 'friend_1',
+    username: 'ana.cruz',
+    displayName: 'Ana Cruz',
+    displayPicture: null,
+  };
+
+  it('renders privacy-filtered friend names and avatars inside the attendance card', async (): Promise<void> => {
+    const screen = await render(
+      <EventDetailView
+        {...defaultRefreshProps}
+        ganap={ganap}
+        business={business}
+        capacity={capacity}
+        schedule={schedule}
+        actionModel={actionModel}
+        friendsGoing={[friend]}
+        isPrimaryPending={false}
+        isLikePending={false}
+        isSavePending={false}
+        onBack={(): void => {}}
+        onShare={(): void => {}}
+        onToggleLike={(): void => {}}
+        onToggleSave={(): void => {}}
+        onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
+      />,
+    );
+
+    expect(screen.getByTestId('event-detail-friends-going')).toBeTruthy();
+    expect(screen.getByText('Ana Cruz is going')).toBeTruthy();
+    expect(screen.getByTestId('avatar-Ana Cruz')).toBeTruthy();
+  });
+
+  it('keeps loading, empty, and error copy subordinate to attendance details', async (): Promise<void> => {
+    const loadingScreen = await render(
+      <EventDetailView
+        {...defaultRefreshProps}
+        ganap={ganap}
+        business={business}
+        capacity={capacity}
+        schedule={schedule}
+        actionModel={actionModel}
+        isFriendsGoingLoading
+        isPrimaryPending={false}
+        isLikePending={false}
+        isSavePending={false}
+        onBack={(): void => {}}
+        onShare={(): void => {}}
+        onToggleLike={(): void => {}}
+        onToggleSave={(): void => {}}
+        onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
+      />,
+    );
+    expect(loadingScreen.getByText('Checking your friends…')).toBeTruthy();
+    await loadingScreen.unmount();
+
+    const emptyScreen = await render(
+      <EventDetailView
+        {...defaultRefreshProps}
+        ganap={ganap}
+        business={business}
+        capacity={capacity}
+        schedule={schedule}
+        actionModel={actionModel}
+        isPrimaryPending={false}
+        isLikePending={false}
+        isSavePending={false}
+        onBack={(): void => {}}
+        onShare={(): void => {}}
+        onToggleLike={(): void => {}}
+        onToggleSave={(): void => {}}
+        onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
+      />,
+    );
+    expect(emptyScreen.getByText('No friends have shared that they are going.')).toBeTruthy();
+    await emptyScreen.unmount();
+
+    const errorScreen = await render(
+      <EventDetailView
+        {...defaultRefreshProps}
+        ganap={ganap}
+        business={business}
+        capacity={capacity}
+        schedule={schedule}
+        actionModel={actionModel}
+        friendsGoingError={new Error('Friends query failed')}
+        isPrimaryPending={false}
+        isLikePending={false}
+        isSavePending={false}
+        onBack={(): void => {}}
+        onShare={(): void => {}}
+        onToggleLike={(): void => {}}
+        onToggleSave={(): void => {}}
+        onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
+      />,
+    );
+    expect(errorScreen.getByText('Friends activity is unavailable.')).toBeTruthy();
+  });
+});
 
 describe('EventDetailView refresh', (): void => {
   it('binds pull-to-refresh to the detail query state and callback', async (): Promise<void> => {

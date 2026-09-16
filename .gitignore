@@ -49,6 +49,3 @@ example
 # generated native folders
 /ios
 /android
-
-# JetBrains / Android Studio
-.idea/

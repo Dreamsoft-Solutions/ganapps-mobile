@@ -1,5 +1,18 @@
 import type { User } from './user.types';
 
+/** Exact confirmation and stable replay key for one account deletion attempt. */
+export interface DeleteAccountInput {
+  confirmationPhrase: string;
+  idempotencyKey: string;
+}
+
+/** Completed account deletion metadata returned by the server. */
+export interface DeleteAccountResponse {
+  status: 'DELETED' | 'ALREADY_DELETED';
+  deletedAt: string;
+  firebaseIdentityDeletion: 'QUEUED' | 'NOT_LINKED';
+}
+
 export interface LoginDto {
   email: string;
   password: string;

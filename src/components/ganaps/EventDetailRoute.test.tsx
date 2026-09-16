@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import { render } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 import { View as MockView } from 'react-native';
+import type { FriendGoingRecord } from '@/types/friends.types';
 import type { GanapDetail } from '@/types/ganap.types';
 
 const mockParams: { 'ganap-id': string } = { 'ganap-id': 'ganap_1' };
@@ -12,6 +13,7 @@ const mockRouter = {
   push: jest.fn<(href: unknown) => void>(),
 };
 const mockDetailRefetch = jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined);
+const mockFriendsGoingRefetch = jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined);
 const mockEventDetailView = jest.fn<(props: Record<string, unknown>) => ReactElement>();
 
 const ganap: GanapDetail = {
@@ -53,6 +55,19 @@ let mockDetailState: {
   refetch: typeof mockDetailRefetch;
 };
 
+let mockFriendsGoingState: {
+  going: FriendGoingRecord[];
+  isLoading: boolean;
+  isRefetching: boolean;
+  error: Error | null;
+  hasNextPage: boolean;
+  refetch: typeof mockFriendsGoingRefetch;
+};
+type UseFriendGoingQueryMock = (enabled: boolean, ganapId?: string) => typeof mockFriendsGoingState;
+const mockUseFriendGoingQuery = jest.fn<UseFriendGoingQueryMock>(
+  (_enabled: boolean, _ganapId?: string): typeof mockFriendsGoingState => mockFriendsGoingState,
+);
+
 jest.mock('expo-router', () => ({
   useLocalSearchParams: (): typeof mockParams => mockParams,
   useRouter: (): typeof mockRouter => mockRouter,
@@ -72,6 +87,11 @@ jest.mock('@/components/common/Loading', () => ({
 
 jest.mock('@/hooks/queries/useGanapsQuery', () => ({
   useGanapDetailQuery: (): typeof mockDetailState => mockDetailState,
+}));
+
+jest.mock('@/hooks/queries/useFriendsQuery', () => ({
+  useFriendGoingQuery: (enabled: boolean, ganapId?: string): typeof mockFriendsGoingState =>
+    mockUseFriendGoingQuery(enabled, ganapId),
 }));
 
 jest.mock('@/hooks/queries/useBusinessesQuery', () => ({
@@ -121,6 +141,32 @@ function resetState(): void {
     isRefetching: false,
     refetch: mockDetailRefetch,
   };
+  mockFriendsGoingState = {
+    going: [
+      {
+        id: 'going_1',
+        createdAt: '2026-08-02T00:00:00.000Z',
+        user: {
+          userId: 'friend_1',
+          username: 'ana.cruz',
+          displayName: 'Ana Cruz',
+          displayPicture: null,
+        },
+        ganap: {
+          ganapId: 'ganap_1',
+          title: 'Test Event',
+          startDate: ganap.startDate,
+          endDate: ganap.endDate ?? null,
+          status: 'GOING',
+        },
+      },
+    ],
+    isLoading: false,
+    isRefetching: false,
+    error: null,
+    hasNextPage: false,
+    refetch: mockFriendsGoingRefetch,
+  };
   mockEventDetailView.mockImplementation((): ReactElement => <MockView testID="event-detail-view" />);
 }
 
@@ -146,5 +192,34 @@ describe('Event Details route refresh', (): void => {
     expect(onRefresh).toBeDefined();
     await onRefresh?.();
     expect(mockDetailRefetch).toHaveBeenCalledTimes(1);
+    expect(mockFriendsGoingRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('requests privacy-filtered Going data for the displayed Ganap', async (): Promise<void> => {
+    await render(<GanapDetailScreen />);
+
+    const props = latestViewProps();
+
+    expect(mockUseFriendGoingQuery).toHaveBeenCalledWith(true, 'ganap_1');
+    expect(props.friendsGoing).toEqual([mockFriendsGoingState.going[0]?.user]);
+    expect(props.friendsGoingError).toBeNull();
+    expect(mockFriendsGoingState.going[0]?.ganap.ganapId).toBe('ganap_1');
+  });
+
+  it('forwards focused Going loading and error state without disturbing attendance data', async (): Promise<void> => {
+    mockFriendsGoingState.going = [];
+    mockFriendsGoingState.isLoading = true;
+
+    await render(<GanapDetailScreen />);
+
+    expect(latestViewProps().friendsGoing).toEqual([]);
+    expect(latestViewProps().isFriendsGoingLoading).toBe(true);
+
+    mockFriendsGoingState.isLoading = false;
+    mockFriendsGoingState.error = new Error('Friends activity unavailable');
+    await render(<GanapDetailScreen />);
+
+    expect(latestViewProps().friendsGoing).toEqual([]);
+    expect((latestViewProps().friendsGoingError as Error).message).toBe('Friends activity unavailable');
   });
 });

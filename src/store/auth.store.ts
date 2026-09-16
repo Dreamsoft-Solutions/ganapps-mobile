@@ -14,6 +14,7 @@ interface AuthState {
   hydrate: () => Promise<void>;
 }
 
+/** In-memory session state with explicit encrypted token persistence. */
 export const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
   expiresAt: null,
@@ -30,9 +31,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setUser: (user: User): void => set({ user }),
 
+  /**
+   * Disables authenticated queries immediately and removes all persisted tokens.
+   * @returns Completion of secure token removal.
+   * @throws When the encrypted storage cannot remove a token.
+   */
   clearAuth: async (): Promise<void> => {
-    await secureStorage.clearTokens();
     set({ token: null, expiresAt: null, user: null });
+    await secureStorage.clearTokens();
   },
 
   hydrate: async (): Promise<void> => {

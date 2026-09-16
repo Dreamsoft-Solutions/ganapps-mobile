@@ -9,6 +9,7 @@ import { Button } from '@/components/common/Button';
 import { Divider } from '@/components/common/Divider';
 import { IconButton } from '@/components/common/IconButton';
 import { Input } from '@/components/common/Input';
+import { LegalLinks } from '@/components/common/LegalLinks';
 import { Text } from '@/components/common/Text';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
@@ -50,6 +51,28 @@ function GoogleIcon(): ReactElement {
 
 interface PasswordChecklistProps {
   password: string;
+}
+
+function PasswordVisibilityToggle({
+  visible,
+  onPress,
+  label,
+}: {
+  visible: boolean;
+  onPress: () => void;
+  label: string;
+}): ReactElement {
+  const color: string = Colors[useResolvedTheme()]['muted-foreground'];
+  return (
+    <IconButton
+      onPress={onPress}
+      accessibilityLabel={`${visible ? 'Hide' : 'Show'} ${label}`}
+      size="sm"
+      variant="ghost"
+    >
+      {visible ? <EyeOff size={18} color={color} /> : <Eye size={18} color={color} />}
+    </IconButton>
+  );
 }
 
 /**
@@ -95,7 +118,6 @@ export function LoginForm(): ReactElement {
 
   const isLogin = mode === 'login';
   const schema = isLogin ? loginSchema : registerSchema;
-  const mutedColor = Colors[useResolvedTheme()]['muted-foreground'];
   const googleAuthEnabled = useFeatureFlag('feature_google_auth');
 
   const methods = useForm<LoginFormData | RegisterFormData>({
@@ -106,8 +128,7 @@ export function LoginForm(): ReactElement {
       ...(isLogin ? {} : { username: '', confirmPassword: '' }),
     },
   });
-  const watchedPassword: unknown = methods.watch('password');
-  const passwordValue: string = typeof watchedPassword === 'string' ? watchedPassword : '';
+  const passwordValue: string = methods.watch('password');
 
   const toggleMode = useCallback(() => {
     setMode((previous) => (previous === 'login' ? 'signup' : 'login'));
@@ -169,25 +190,19 @@ export function LoginForm(): ReactElement {
   }, [googleLogin]);
 
   const passwordToggle = (
-    <IconButton
+    <PasswordVisibilityToggle
       onPress={(): void => setShowPassword((previous: boolean): boolean => !previous)}
-      accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-      size="sm"
-      variant="ghost"
-    >
-      {showPassword ? <EyeOff size={18} color={mutedColor} /> : <Eye size={18} color={mutedColor} />}
-    </IconButton>
+      visible={showPassword}
+      label="password"
+    />
   );
 
   const confirmPasswordToggle = (
-    <IconButton
+    <PasswordVisibilityToggle
       onPress={(): void => setShowConfirmPassword((previous: boolean): boolean => !previous)}
-      accessibilityLabel={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
-      size="sm"
-      variant="ghost"
-    >
-      {showConfirmPassword ? <EyeOff size={18} color={mutedColor} /> : <Eye size={18} color={mutedColor} />}
-    </IconButton>
+      visible={showConfirmPassword}
+      label="confirm password"
+    />
   );
 
   return (
@@ -279,6 +294,7 @@ export function LoginForm(): ReactElement {
         <Text className="text-muted-foreground text-label-sm text-center mt-4 px-2">
           By continuing, you agree to our Terms and Privacy Policy.
         </Text>
+        <LegalLinks />
       </View>
     </FormProvider>
   );

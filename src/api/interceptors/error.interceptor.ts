@@ -24,9 +24,20 @@ function processQueue(error: unknown, token: string | null): void {
   failedQueue = [];
 }
 
+/** Normalizes API failures and refreshes retryable authenticated requests. */
 export const errorInterceptor = {
+  /**
+   * Handles a failed request while keeping account deletion retries explicit.
+   * @param error - Axios rejection carrying the request and optional response.
+   * @returns A retried response for eligible requests.
+   * @throws The parsed API error when the request cannot be retried.
+   */
   onRejected: async (error: AxiosError): Promise<AxiosResponse> => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+    if (originalRequest?.method === 'delete' && originalRequest.url === '/auth/me') {
+      return Promise.reject(parseApiError(error));
+    }
 
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       const refreshToken = await secureStorage.getRefreshToken();

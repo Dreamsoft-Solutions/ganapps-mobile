@@ -49,3 +49,6 @@ jobs:
 
       - name: Test
         run: npm run test
+
+      - name: Test Play release safeguards
+        run: npm run test:play-release
