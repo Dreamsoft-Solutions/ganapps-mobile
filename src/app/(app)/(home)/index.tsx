@@ -1,19 +1,23 @@
-import Mapbox, { Camera, type MapState, MapView } from '@rnmapbox/maps';
+import Mapbox, { Camera, LocationPuck, type MapState, MapView } from '@rnmapbox/maps';
 import { useRouter } from 'expo-router';
 import type { ComponentRef, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { ClusterEventsSheet, type ClusterZoomTarget } from '@/components/map/ClusterEventsSheet';
 import { ClusteredGanapMarkers } from '@/components/map/ClusteredGanapMarkers';
+import { LocateMeButton } from '@/components/map/LocateMeButton';
+import { LocationPrimingSheet } from '@/components/map/LocationPrimingSheet';
 import { MapSearchBar } from '@/components/map/MapSearchBar';
+import { ReducedAccuracyNotice } from '@/components/map/ReducedAccuracyNotice';
 import { SelectedGanapCard } from '@/components/map/SelectedGanapCard';
 import { TagChips } from '@/components/map/TagChips';
 import { Routes } from '@/constants/routes';
 import { useGanapsMap } from '@/hooks/useGanapsMap';
+import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
 import {
   createGanapClusterIndex,
@@ -24,27 +28,57 @@ import {
   type MapViewport,
   mapStateToViewport,
 } from '@/utils/map-clustering';
+import { USER_ZOOM } from '@/utils/map-viewport';
 
 const MAPBOX_TOKEN: string = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
 
-const CPU_CENTER: [number, number] = [122.5489, 10.7313];
-const INITIAL_ZOOM = 15.5;
+const ILOILO_CITY_CENTER: [number, number] = [122.5621, 10.7202];
+const CITY_ZOOM = 12;
+const MAP_OVERLAY_TOP = 132; // see ADR 0003
+const MAP_OVERLAY_BOTTOM = 96;
 
 /**
  * Home screen for authenticated users.
  *
- * Displays a full-screen Mapbox map of discoverable Ganaps around CPU with a
- * floating search bar, category chips, and a selected-event card.
+ * Full-screen Mapbox map of discoverable Ganaps across Iloilo City, with a
+ * floating search bar, category chips, the Nearby distance filter, and a
+ * selected-event card.
  *
- * @returns The map home screen.
+ * @returns The map home screen
  */
 export default function HomeScreen(): ReactElement {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { items, tags, search, setSearch, tag, setTag, isLoading, isError, error, refetch } = useGanapsMap();
+  const {
+    items,
+    tags,
+    search,
+    setSearch,
+    tag,
+    setTag,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isNearbyActive,
+    isNearbyDisabled,
+    toggleNearby,
+    refreshLocation,
+    userCoords,
+    isPrimingVisible,
+    confirmPriming,
+    dismissPriming,
+    isAccuracyNoticeVisible,
+    dismissAccuracyNotice,
+    openLocationSettings,
+    locationErrorMessage,
+  } = useGanapsMap();
 
   const cameraRef = useRef<ComponentRef<typeof Camera>>(null);
+  const hasCentredOnUser = useRef<boolean>(false);
+  const wasNearbyActive = useRef<boolean>(false);
   const [viewport, setViewport] = useState<MapViewport>(DEFAULT_MAP_VIEWPORT);
+  const [isMapReady, setIsMapReady] = useState<boolean>(false);
   const [selectedGanap, setSelectedGanap] = useState<GanapListItem | null>(null);
   const [selectedCluster, setSelectedCluster] = useState<GanapClusterFeature | null>(null);
   const [selectedClusterIndex, setSelectedClusterIndex] = useState<GanapClusterIndex | null>(null);
@@ -63,6 +97,51 @@ export default function HomeScreen(): ReactElement {
     if (MAPBOX_TOKEN) {
       void Mapbox.setAccessToken(MAPBOX_TOKEN);
     }
+  }, []);
+
+  const centreOnUser = useCallback(
+    (coords: Coords): void => {
+      cameraRef.current?.setCamera({
+        centerCoordinate: [coords.longitude, coords.latitude],
+        zoomLevel: USER_ZOOM,
+        animationDuration: 500,
+        padding: {
+          paddingTop: insets.top + MAP_OVERLAY_TOP,
+          paddingBottom: MAP_OVERLAY_BOTTOM,
+          paddingLeft: 0,
+          paddingRight: 0,
+        },
+      });
+    },
+    [insets.top],
+  );
+
+  useEffect((): void => {
+    if (!isMapReady || !userCoords || hasCentredOnUser.current) return; // see ADR 0003
+    hasCentredOnUser.current = true;
+    centreOnUser(userCoords);
+  }, [centreOnUser, isMapReady, userCoords]);
+
+  useEffect((): void => {
+    const turnedOn = isNearbyActive && !wasNearbyActive.current;
+    wasNearbyActive.current = isNearbyActive;
+    if (!turnedOn || !userCoords) return;
+    centreOnUser(userCoords);
+  }, [centreOnUser, isNearbyActive, userCoords]);
+
+  const handleLocateMe = useCallback((): void => {
+    void (async (): Promise<void> => {
+      const fresh = await refreshLocation();
+      if (fresh) {
+        centreOnUser(fresh);
+        return;
+      }
+      if (!userCoords) toggleNearby();
+    })();
+  }, [centreOnUser, refreshLocation, toggleNearby, userCoords]);
+
+  const handleMapReady = useCallback((): void => {
+    setIsMapReady(true);
   }, []);
 
   const handleMapIdle = useCallback((state: MapState): void => {
@@ -129,8 +208,10 @@ export default function HomeScreen(): ReactElement {
         attributionEnabled
         logoEnabled
         onMapIdle={handleMapIdle}
+        onDidFinishLoadingMap={handleMapReady}
       >
-        <Camera ref={cameraRef} centerCoordinate={CPU_CENTER} zoomLevel={INITIAL_ZOOM} animationMode="none" />
+        <Camera ref={cameraRef} centerCoordinate={ILOILO_CITY_CENTER} zoomLevel={CITY_ZOOM} animationMode="none" />
+        {userCoords !== null && <LocationPuck puckBearing="heading" puckBearingEnabled />}
         <ClusteredGanapMarkers
           features={visibleFeatures}
           onGanapPress={handleGanapPress}
@@ -142,8 +223,56 @@ export default function HomeScreen(): ReactElement {
         <View className="mx-4">
           <MapSearchBar value={search} onChangeText={setSearch} />
         </View>
-        <TagChips tags={tags} selectedTag={tag} onSelectTag={setTag} />
+        <TagChips
+          tags={tags}
+          selectedTag={tag}
+          onSelectTag={setTag}
+          isNearbyActive={isNearbyActive}
+          isNearbyDisabled={isNearbyDisabled}
+          onToggleNearby={toggleNearby}
+        />
+        <ReducedAccuracyNotice
+          visible={isAccuracyNoticeVisible}
+          onOpenSettings={(): void => {
+            void openLocationSettings();
+          }}
+          onDismiss={dismissAccuracyNotice}
+        />
+        {isNearbyDisabled && (
+          <View className="mx-4 mt-2 rounded-md bg-card border border-border p-sm gap-1">
+            <Text className="text-label-md text-card-foreground">Location is off</Text>
+            <Text className="text-body-md text-muted-foreground">
+              Turn on location for Ganapps in Settings to filter events near you. Everything else on the map still
+              works.
+            </Text>
+            <Pressable
+              onPress={(): void => {
+                void openLocationSettings();
+              }}
+              accessibilityRole="button"
+            >
+              <Text className="text-label-md text-primary">Open Settings</Text>
+            </Pressable>
+          </View>
+        )}
+        {locationErrorMessage !== null && (
+          <View className="mx-4 mt-2 rounded-md bg-card border border-border p-sm">
+            <Text className="text-body-md text-muted-foreground">{locationErrorMessage}</Text>
+          </View>
+        )}
       </View>
+
+      <View className="absolute right-4" style={{ bottom: 96 }} pointerEvents="box-none">
+        <LocateMeButton onPress={handleLocateMe} />
+      </View>
+
+      <LocationPrimingSheet
+        visible={isPrimingVisible}
+        onConfirm={(): void => {
+          void confirmPriming();
+        }}
+        onDismiss={dismissPriming}
+      />
 
       <ClusterEventsSheet
         cluster={activeCluster}

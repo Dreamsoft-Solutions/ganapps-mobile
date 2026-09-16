@@ -3,6 +3,7 @@ import type { MapState } from '@rnmapbox/maps';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
 import type { UseGanapsMapResult } from '@/hooks/useGanapsMap';
+import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
 import {
   createGanapClusterIndex,
@@ -72,6 +73,7 @@ jest.mock('lucide-react-native', () => {
     LucideProvider: ({ children }: { children?: ReactNode }): ReactElement =>
       React.createElement(React.Fragment, null, children),
     X: (): null => null,
+    LocateFixed: (): null => null,
   };
 });
 
@@ -97,7 +99,17 @@ jest.mock('@/components/map/GanapMapPin', () => ({
   },
 }));
 jest.mock('@/components/map/MapSearchBar', () => ({ MapSearchBar: (): null => null }));
-jest.mock('@/components/map/TagChips', () => ({ TagChips: (): null => null }));
+jest.mock('@/components/map/TagChips', () => ({
+  TagChips: ({ onToggleNearby }: { onToggleNearby: () => void }): ReactElement => {
+    const React = require('react') as typeof import('react');
+    const ReactNative = require('react-native') as typeof import('react-native');
+    return React.createElement(ReactNative.Pressable, {
+      accessibilityRole: 'switch',
+      accessibilityLabel: 'Show events near me',
+      onPress: onToggleNearby,
+    });
+  },
+}));
 jest.mock('@/components/map/SelectedGanapCard', () => ({
   SelectedGanapCard: ({ ganap, onPress }: { ganap: GanapListItem; onPress: () => void }): ReactElement => {
     const React = require('react') as typeof import('react');
@@ -140,7 +152,7 @@ function ganap(id: string, longitude: number, latitude: number): GanapListItem {
   };
 }
 
-function mapHookResult(items: GanapListItem[]): UseGanapsMapResult {
+function mapHookResult(items: GanapListItem[], overrides: Partial<UseGanapsMapResult> = {}): UseGanapsMapResult {
   return {
     items,
     tags: [],
@@ -152,6 +164,19 @@ function mapHookResult(items: GanapListItem[]): UseGanapsMapResult {
     isError: false,
     error: null,
     refetch: jest.fn<UseGanapsMapResult['refetch']>(),
+    isNearbyActive: false,
+    isNearbyDisabled: false,
+    toggleNearby: jest.fn(),
+    refreshLocation: jest.fn<() => Promise<Coords | null>>(),
+    userCoords: null,
+    isPrimingVisible: false,
+    confirmPriming: jest.fn<() => Promise<void>>(),
+    dismissPriming: jest.fn(),
+    isAccuracyNoticeVisible: false,
+    dismissAccuracyNotice: jest.fn(),
+    openLocationSettings: jest.fn<() => Promise<void>>(),
+    locationErrorMessage: null,
+    ...overrides,
   };
 }
 
@@ -274,5 +299,15 @@ describe('home map clustering integration', (): void => {
     await screen.rerender(<HomeScreen />);
 
     expect(screen.queryByTestId('cluster-events-sheet')).toBeNull();
+  });
+
+  it('toggles Nearby from the filter row', async (): Promise<void> => {
+    const toggleNearby = jest.fn();
+    mockUseGanapsMap.mockReturnValue(mapHookResult([], { toggleNearby }));
+
+    const { getByLabelText } = await render(<HomeScreen />);
+    fireEvent.press(getByLabelText('Show events near me'));
+
+    expect(toggleNearby).toHaveBeenCalledTimes(1);
   });
 });

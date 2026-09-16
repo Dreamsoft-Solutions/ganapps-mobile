@@ -47,3 +47,4 @@ and leave it in place.
 
 - [ADR 0001: Type-Checked Route Table Using Object-Form Hrefs](0001-type-checked-route-table.md)
 - [ADR 0002: Static Framework Linkage for iOS](0002-ios-static-framework-linkage.md)
+- [ADR 0003: Nearby Location Sampling and Map Camera Constraints](0003-nearby-location-and-map-camera.md)

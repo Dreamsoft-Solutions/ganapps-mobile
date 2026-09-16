@@ -2,9 +2,12 @@ import { keepPreviousData, type UseQueryResult, useQuery } from '@tanstack/react
 import { useCallback, useMemo, useState } from 'react';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { CursorPage } from '@/api/types/api-response';
-import type { GanapListItem } from '@/types/ganap.types';
+import type { Coords } from '@/services/location.service';
+import type { GanapListItem, GanapListParams } from '@/types/ganap.types';
+import { NEARBY_RADIUS_KM } from '@/utils/map-viewport';
 import { ganapQueryKeys } from './queries/useGanapsQuery';
 import { useDebouncedValue } from './useDebouncedValue';
+import { useNearbyLocation } from './useNearbyLocation';
 
 export interface UseGanapsMapFilters {
   search: string;
@@ -22,6 +25,18 @@ export interface UseGanapsMapResult {
   isError: boolean;
   error: Error | null;
   refetch: UseQueryResult<CursorPage<GanapListItem>, Error>['refetch'];
+  isNearbyActive: boolean;
+  isNearbyDisabled: boolean;
+  toggleNearby: () => void;
+  refreshLocation: () => Promise<Coords | null>;
+  userCoords: Coords | null;
+  isPrimingVisible: boolean;
+  confirmPriming: () => Promise<void>;
+  dismissPriming: () => void;
+  isAccuracyNoticeVisible: boolean;
+  dismissAccuracyNotice: () => void;
+  openLocationSettings: () => Promise<void>;
+  locationErrorMessage: string | null;
 }
 
 const MAP_LIMIT = 100;
@@ -49,16 +64,24 @@ export function useGanapsMap(): UseGanapsMapResult {
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const trimmedSearch = debouncedSearch.trim() || undefined;
 
+  const nearby = useNearbyLocation();
+  const geo: Pick<GanapListParams, 'lat' | 'long' | 'radius'> =
+    nearby.isActive && nearby.coords
+      ? { lat: nearby.coords.latitude, long: nearby.coords.longitude, radius: NEARBY_RADIUS_KM }
+      : {};
+
   const query = useQuery<CursorPage<GanapListItem>, Error>({
     queryKey: ganapQueryKeys.list({
       search: trimmedSearch,
       tag: tag ?? undefined,
+      ...geo,
     }),
     queryFn: (): Promise<CursorPage<GanapListItem>> =>
       ganapsAPI.list({
         search: trimmedSearch,
         tag: tag ?? undefined,
         limit: MAP_LIMIT,
+        ...geo,
       }),
     // Without this a filter change empties `data`, so `isLoading` flips true and
     // the screen swaps the whole MapView for a spinner — tearing down the native
@@ -112,5 +135,17 @@ export function useGanapsMap(): UseGanapsMapResult {
     isError: query.isError,
     error: query.error,
     refetch: query.refetch,
+    isNearbyActive: nearby.isActive,
+    isNearbyDisabled: nearby.isDisabled,
+    toggleNearby: nearby.toggle,
+    refreshLocation: nearby.refresh,
+    userCoords: nearby.coords,
+    isPrimingVisible: nearby.isPrimingVisible,
+    confirmPriming: nearby.confirmPriming,
+    dismissPriming: nearby.dismissPriming,
+    isAccuracyNoticeVisible: nearby.isAccuracyNoticeVisible,
+    dismissAccuracyNotice: nearby.dismissAccuracyNotice,
+    openLocationSettings: nearby.openSettings,
+    locationErrorMessage: nearby.errorMessage,
   };
 }
