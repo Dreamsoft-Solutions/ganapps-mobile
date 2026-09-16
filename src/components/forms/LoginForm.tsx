@@ -232,6 +232,7 @@ export function LoginForm(): ReactElement {
           name="password"
           label="Password"
           placeholder={isLogin ? 'Min. 8 characters' : '8-128 characters'}
+          autoCapitalize="none"
           secureTextEntry={!showPassword}
           iconRight={passwordToggle}
           maxLength={isLogin ? undefined : PASSWORD_POLICY.maxLength}
@@ -244,6 +245,7 @@ export function LoginForm(): ReactElement {
             name="confirmPassword"
             label="Confirm Password"
             placeholder="Re-enter your password"
+            autoCapitalize="none"
             secureTextEntry={!showConfirmPassword}
             iconRight={confirmPasswordToggle}
           />
