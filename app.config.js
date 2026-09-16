@@ -52,7 +52,7 @@ module.exports = {
   expo: {
     name: 'Ganapps',
     slug: 'dreamsoft-cpu',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/brand/ganap-logo-1.png',
     scheme: 'ganappsmobile',
