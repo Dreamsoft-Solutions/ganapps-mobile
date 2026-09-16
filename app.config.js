@@ -64,7 +64,7 @@ module.exports = {
     },
     android: {
       package: 'com.ganapps.app',
-      versionCode: 1,
+      versionCode: 2,
       googleServicesFile,
       blockedPermissions: [
         'android.permission.SYSTEM_ALERT_WINDOW',
