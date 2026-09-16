@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { test } = require('node:test');
 const { validatePlayEnvironment } = require('./check-play-release.cjs');
+const { applyLocalReleaseSigning } = require('../plugins/with-local-android-release-signing');
 
 const valid = {
   APP_ENV: 'production',
@@ -47,4 +48,29 @@ test('production uses an incremented store bundle and blocks unused sensitive pe
     assert.ok(android.blockedPermissions.includes(`android.permission.${permission}`));
   }
   assert.equal(plugins.find((plugin) => plugin[0] === 'expo-camera')[1].recordAudioAndroid, false);
+});
+
+test('local release signing is opt-in and never falls back to the debug key', () => {
+  const generatedGradle = `
+android {
+  signingConfigs {
+    debug {
+      storeFile file('debug.keystore')
+    }
+  }
+  buildTypes {
+    release {
+      signingConfig signingConfigs.debug
+    }
+  }
+}
+`;
+
+  const configuredGradle = applyLocalReleaseSigning(generatedGradle);
+
+  assert.match(configuredGradle, /GANAPPS_RELEASE_STORE_FILE/);
+  assert.match(configuredGradle, /signingConfig signingConfigs\.release/);
+  assert.match(configuredGradle, /signingConfig = null/);
+  assert.doesNotMatch(configuredGradle, /release\s*\{\s*signingConfig signingConfigs\.debug/);
+  assert.equal(applyLocalReleaseSigning(configuredGradle), configuredGradle);
 });

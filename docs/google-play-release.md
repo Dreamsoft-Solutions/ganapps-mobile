@@ -17,6 +17,33 @@ Do not submit until the unresolved items below have evidence.
 
 ## Required configuration and services
 
+### Local Android release signing
+
+The generated Android template must never use `debug.keystore` for a release build. The
+local release config reads the upload keystore from Gradle project properties, while EAS
+Build continues to use its managed release credentials.
+
+Create or obtain the upload keystore once, then set these variables in the PowerShell
+session used for the build. The values are intentionally not stored in the repository:
+
+```powershell
+$env:ORG_GRADLE_PROJECT_GANAPPS_RELEASE_STORE_FILE = 'C:\keys\ganapps-upload.jks'
+$env:ORG_GRADLE_PROJECT_GANAPPS_RELEASE_STORE_PASSWORD = '<keystore-password>'
+$env:ORG_GRADLE_PROJECT_GANAPPS_RELEASE_KEY_ALIAS = '<key-alias>'
+$env:ORG_GRADLE_PROJECT_GANAPPS_RELEASE_KEY_PASSWORD = '<key-password>'
+
+cd android
+.\gradlew.bat app:bundleRelease
+```
+
+If no upload keystore exists yet, generate one with `keytool` and keep the file and
+passwords backed up securely. For a Play App Signing app, this is the upload key; Google
+Play signs the delivered APKs with the app-signing key. Never reuse `android/app/debug.keystore`.
+
+The build now fails closed when those four local properties are absent instead of producing
+a debug-signed release artifact. Run `npx expo prebuild --no-install` after a fresh checkout
+or any native regeneration so the config plugin reapplies the release signing guard.
+
 ### Expo account access
 
 On September 10, 2026, `eas whoami` reported `lump1a`, but `eas project:info`

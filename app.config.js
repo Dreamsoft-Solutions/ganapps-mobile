@@ -149,6 +149,7 @@ module.exports = {
           microphonePermission: false,
         },
       ],
+      './plugins/with-local-android-release-signing',
     ],
     experiments: {
       typedRoutes: true,
