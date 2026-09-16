@@ -1,0 +1,8 @@
+{
+  "*.{ts,tsx,js}": [
+    "biome check --write --no-errors-on-unmatched",
+    "biome lint --only=complexity/noExcessiveCognitiveComplexity --error-on-warnings",
+    "biome format --write"
+  ],
+  "*.{json,css}": ["biome format --write"]
+}

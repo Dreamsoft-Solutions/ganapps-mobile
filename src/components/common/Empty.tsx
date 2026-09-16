@@ -1,0 +1,17 @@
+import type { ReactElement } from 'react';
+import { View } from 'react-native';
+import { Text } from './Text';
+
+interface EmptyProps {
+  message: string;
+  icon?: string;
+}
+
+export function Empty({ message, icon }: EmptyProps): ReactElement {
+  return (
+    <View className="flex-1 items-center justify-center p-xl">
+      {icon && <Text className="text-4xl mb-md">{icon}</Text>}
+      <Text className="text-muted-foreground text-body-lg text-center">{message}</Text>
+    </View>
+  );
+}

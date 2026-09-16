@@ -1,0 +1,765 @@
+import { io } from 'socket.io-client';
+import { API_BASE_URL } from '@/api/config';
+import { chatAPI } from '@/api/endpoints/chat';
+import { useAuthStore } from '@/store/auth.store';
+import type { ChatMessage, ChatMessageMedia, ChatReadResult, ReactionCount, ReactionType } from '@/types/chat.types';
+
+/** Connection states exposed to Event Chat screens. */
+export type ChatConnectionState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'error';
+
+/** Read event shape emitted by the `/chat` namespace. */
+export interface ChatSocketReadReceipt {
+  conversationId: string;
+  throughMessageId: string;
+  userId: string;
+  /** Event Chat's committed read timestamp, when supplied by the server. */
+  readAt?: string;
+  /** Direct Chat's committed Seen timestamp, when supplied by the server. */
+  seenAt?: string;
+}
+
+/** Moderation event emitted when a message is hidden for this User. */
+export interface ChatSocketMessageHiddenEvent {
+  conversationId: string;
+  messageId: string;
+}
+
+/** Access event emitted when the current User can no longer read an Event Chat. */
+export interface ChatSocketAccessRevokedEvent {
+  conversationId: string;
+  /** Event Chat identity; Direct Chat revocation events do not have a Ganap id. */
+  ganapId?: string;
+}
+
+/** Aggregate event emitted when a visible message reaction changes. */
+export interface ChatSocketMessageReactionEvent {
+  conversationId: string;
+  messageId: string;
+  counts: ReactionCount[];
+  myReaction: ReactionType | null;
+}
+
+/** Tombstone event emitted when a visible message is unsent. */
+export interface ChatSocketMessageUnsentEvent {
+  conversationId: string;
+  messageId: string;
+  type: 'UNSENT';
+  unsentAt: string;
+}
+
+/** Minimal process-wide event that marks one summary feed as stale. */
+export interface ChatSocketSummaryChangedEvent {
+  conversationId: string;
+}
+
+/** Events delivered to one conversation listener. */
+export type ChatSocketEvent =
+  | { type: 'message'; message: ChatMessage }
+  | { type: 'read'; receipt: ChatSocketReadReceipt }
+  | { type: 'message-reaction'; event: ChatSocketMessageReactionEvent }
+  | { type: 'message-unsent'; event: ChatSocketMessageUnsentEvent }
+  | { type: 'message-hidden'; event: ChatSocketMessageHiddenEvent }
+  | { type: 'access-revoked'; event: ChatSocketAccessRevokedEvent };
+
+/** Moderation-only events delivered by the process-wide socket listener. */
+export type ChatSocketModerationEvent =
+  | { type: 'message-hidden'; event: ChatSocketMessageHiddenEvent }
+  | { type: 'access-revoked'; event: ChatSocketAccessRevokedEvent };
+
+/** Listener invoked for canonical Event Chat socket events. */
+export type ChatSocketListener = (event: ChatSocketEvent) => void;
+
+/** Listener invoked for moderation events, including conversations not focused in a screen. */
+export type ChatSocketModerationListener = (event: ChatSocketModerationEvent) => void;
+
+/** Listener invoked when an authorized conversation summary may have changed. */
+export type ChatSocketSummaryListener = (event: ChatSocketSummaryChangedEvent) => void;
+
+interface RoomSubscription {
+  kind: 'event' | 'direct';
+  ganapId?: string;
+  listeners: Set<ChatSocketListener>;
+}
+
+interface TicketCache {
+  ticket: string;
+  expiresAt: number;
+}
+
+export interface ChatSocketLike {
+  auth: unknown;
+  connected: boolean;
+  connect: () => void;
+  disconnect: (close?: boolean) => void;
+  emit: (...args: unknown[]) => boolean;
+  on: (event: string, listener: (...args: unknown[]) => void) => ChatSocketLike;
+  off: (event: string, listener?: (...args: unknown[]) => void) => ChatSocketLike;
+  removeAllListeners: () => ChatSocketLike;
+}
+
+/** Factory signature exposed for deterministic lifecycle tests. */
+export type ChatSocketFactory = (
+  url: string,
+  options: { autoConnect: false; transports: ['websocket']; reconnection: false },
+) => ChatSocketLike;
+
+const INITIAL_RECONNECT_DELAY_MS = 500;
+const MAX_RECONNECT_DELAY_MS = 10_000;
+const MAX_SEEN_MESSAGE_IDS = 5_000;
+
+/**
+ * Builds the namespace URL from the same origin as the REST API.
+ *
+ * The API base already contains `/api/v1`; Socket.IO's namespace is rooted at
+ * `/chat`, not under the REST prefix.
+ *
+ * @param apiBaseUrl - REST base URL
+ * @returns Namespace URL without credentials
+ */
+export function buildChatSocketUrl(apiBaseUrl: string = API_BASE_URL): string {
+  const origin: string = apiBaseUrl.replace(/\/api(?:\/v\d+)?\/?$/, '').replace(/\/$/, '');
+  return `${origin}/chat`;
+}
+
+function isChatMessage(value: unknown): value is ChatMessage {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatMessage>;
+  const hasMessageIdentity: boolean =
+    typeof candidate.id === 'string' &&
+    typeof candidate.conversationId === 'string' &&
+    typeof candidate.senderId === 'string' &&
+    typeof candidate.senderUsername === 'string' &&
+    (typeof candidate.senderDisplayPicture === 'string' || candidate.senderDisplayPicture === null) &&
+    typeof candidate.sentAt === 'string';
+  if (!hasMessageIdentity) return false;
+  if (candidate.type === 'TEXT') return typeof candidate.content === 'string' && candidate.media == null;
+  if (candidate.type === 'UNSENT') {
+    return (typeof candidate.content === 'string' || candidate.content === null) && candidate.media == null;
+  }
+  return candidate.type === 'IMAGE' && candidate.content === null && isChatMessageMedia(candidate.media);
+}
+
+function isChatMessageMedia(value: unknown): value is ChatMessageMedia {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatMessageMedia>;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.url === 'string' &&
+    candidate.mimeType === 'image/webp' &&
+    typeof candidate.bytes === 'number' &&
+    Number.isFinite(candidate.bytes) &&
+    candidate.bytes >= 0 &&
+    typeof candidate.width === 'number' &&
+    Number.isFinite(candidate.width) &&
+    candidate.width > 0 &&
+    typeof candidate.height === 'number' &&
+    Number.isFinite(candidate.height) &&
+    candidate.height > 0
+  );
+}
+
+function isReadReceipt(value: unknown): value is ChatSocketReadReceipt {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatSocketReadReceipt>;
+  return (
+    typeof candidate.conversationId === 'string' &&
+    typeof candidate.throughMessageId === 'string' &&
+    typeof candidate.userId === 'string' &&
+    (typeof candidate.readAt === 'string' || typeof candidate.seenAt === 'string')
+  );
+}
+
+function isMessageHiddenEvent(value: unknown): value is ChatSocketMessageHiddenEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatSocketMessageHiddenEvent>;
+  return typeof candidate.conversationId === 'string' && typeof candidate.messageId === 'string';
+}
+
+function isReactionType(value: unknown): value is ReactionType {
+  return value === 'HEART' || value === 'LAUGH' || value === 'THUMBS_UP' || value === 'SAD' || value === 'ANGRY';
+}
+
+function isMessageReactionEvent(value: unknown): value is ChatSocketMessageReactionEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatSocketMessageReactionEvent>;
+  if (typeof candidate.conversationId !== 'string' || typeof candidate.messageId !== 'string') return false;
+  if (!Array.isArray(candidate.counts) || candidate.counts.length !== 5) return false;
+  const counts: unknown[] = candidate.counts;
+  if (
+    !counts.every((entry: unknown): boolean => {
+      if (typeof entry !== 'object' || entry === null) return false;
+      const count = entry as Partial<ReactionCount>;
+      return (
+        isReactionType(count.type) &&
+        typeof count.count === 'number' &&
+        Number.isInteger(count.count) &&
+        count.count >= 0
+      );
+    })
+  ) {
+    return false;
+  }
+  return candidate.myReaction === null || isReactionType(candidate.myReaction);
+}
+
+function isMessageUnsentEvent(value: unknown): value is ChatSocketMessageUnsentEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatSocketMessageUnsentEvent>;
+  return (
+    typeof candidate.conversationId === 'string' &&
+    typeof candidate.messageId === 'string' &&
+    candidate.type === 'UNSENT' &&
+    typeof candidate.unsentAt === 'string'
+  );
+}
+
+function isSummaryChangedEvent(value: unknown): value is ChatSocketSummaryChangedEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatSocketSummaryChangedEvent>;
+  return typeof candidate.conversationId === 'string' && candidate.conversationId.length > 0;
+}
+
+function isAccessRevokedEvent(value: unknown): value is ChatSocketAccessRevokedEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatSocketAccessRevokedEvent>;
+  return typeof candidate.conversationId === 'string';
+}
+
+function isSocketAuthError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const candidate = error as { message?: unknown; data?: unknown; status?: unknown };
+  const message: string = typeof candidate.message === 'string' ? candidate.message.toLowerCase() : '';
+  return (
+    candidate.status === 401 ||
+    message.includes('unauthorized') ||
+    message.includes('authentication') ||
+    message.includes('ticket') ||
+    (typeof candidate.data === 'object' &&
+      candidate.data !== null &&
+      'errorCode' in candidate.data &&
+      candidate.data.errorCode === 'UNAUTHORIZED')
+  );
+}
+
+/**
+ * Owns the process-wide `/chat` Socket.IO connection and room subscriptions.
+ *
+ * REST remains the only mobile send/read transport. This client only joins
+ * readable rooms and forwards committed server events to focused screens.
+ */
+export class ChatSocketClient {
+  private readonly socketFactory: ChatSocketFactory;
+  private socket: ChatSocketLike | null = null;
+  private ticketCache: TicketCache | null = null;
+  private readonly rooms = new Map<string, RoomSubscription>();
+  private readonly stateListeners = new Set<(state: ChatConnectionState) => void>();
+  private readonly moderationListeners = new Set<ChatSocketModerationListener>();
+  private readonly summaryListeners = new Set<ChatSocketSummaryListener>();
+  private readonly seenMessageIds = new Set<string>();
+  private readonly joinedConversationIds = new Set<string>();
+  private readonly hiddenMessageKeys = new Set<string>();
+  private readonly focusedDirectConversationIds = new Set<string>();
+  private connectionState: ChatConnectionState = 'idle';
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempt = 0;
+  private connectionPromise: Promise<void> | null = null;
+  private intentionalDisconnect = false;
+  private beforeJoin: (() => Promise<void>) | null = null;
+  private joinAfterRefreshPromise: Promise<void> | null = null;
+
+  /**
+   * Creates a client. The factory is injectable to keep lifecycle tests fully
+   * deterministic without constructing a native WebSocket.
+   *
+   * @param socketFactory - Optional Socket.IO factory
+   */
+  public constructor(
+    socketFactory: ChatSocketFactory = (
+      url: string,
+      options: { autoConnect: false; transports: ['websocket']; reconnection: false },
+    ): ChatSocketLike => io(url, options) as unknown as ChatSocketLike,
+  ) {
+    this.socketFactory = socketFactory;
+  }
+
+  /** Current connection state. */
+  public getConnectionState(): ChatConnectionState {
+    return this.connectionState;
+  }
+
+  /**
+   * Subscribes to connection-state changes.
+   *
+   * @param listener - State listener
+   * @returns Cleanup function
+   */
+  public onConnectionStateChange(listener: (state: ChatConnectionState) => void): () => void {
+    this.stateListeners.add(listener);
+    return (): void => {
+      this.stateListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Subscribes to moderation events independently of focused room listeners.
+   *
+   * @param listener - Callback for hidden-message and access-revoked events
+   * @returns Cleanup function
+   */
+  public onModerationEvent(listener: ChatSocketModerationListener): () => void {
+    this.moderationListeners.add(listener);
+    return (): void => {
+      this.moderationListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Subscribes to authorized summary invalidation events without joining a
+   * conversation room.
+   *
+   * @param listener - Callback for one changed conversation
+   * @returns Cleanup function
+   */
+  public onSummaryChange(listener: ChatSocketSummaryListener): () => void {
+    this.summaryListeners.add(listener);
+    if (useAuthStore.getState().token) void this.ensureConnected();
+    return (): void => {
+      this.summaryListeners.delete(listener);
+      if (this.rooms.size === 0 && this.summaryListeners.size === 0) this.disconnect('no-subscribers');
+    };
+  }
+
+  /**
+   * Installs the cache-backed block-list refresh that runs before room joins.
+   *
+   * @param refresher - Async callback that refreshes current block state
+   * @returns Cleanup function that only clears this registration
+   */
+  public setBeforeJoin(refresher: (() => Promise<void>) | null): () => void {
+    const previous: (() => Promise<void>) | null = this.beforeJoin;
+    this.beforeJoin = refresher;
+    return (): void => {
+      if (this.beforeJoin === refresher) this.beforeJoin = previous;
+    };
+  }
+
+  /**
+   * Focuses a readable conversation and joins its server room once connected.
+   *
+   * @param conversationId - Conversation room key
+   * @param ganapId - Ganap used by the server's `chat:join` command
+   * @param listener - Screen listener
+   * @returns Cleanup function that decrements the room reference count
+   */
+  public subscribe(conversationId: string, ganapId: string, listener: ChatSocketListener): () => void {
+    return this.subscribeRoom(conversationId, 'event', ganapId, listener);
+  }
+
+  /**
+   * Focuses a Direct Chat room on the process-wide connection.
+   *
+   * @param conversationId - Direct conversation room key
+   * @param listener - Screen listener for canonical server events
+   * @returns Cleanup function that decrements the room reference count
+   */
+  public subscribeDirect(conversationId: string, listener: ChatSocketListener): () => void {
+    return this.subscribeRoom(conversationId, 'direct', undefined, listener);
+  }
+
+  /**
+   * Reports whether a Direct Chat screen is foregrounded to the server.
+   *
+   * The state is retained across reconnects and re-emitted after the room is
+   * rejoined. No message content or bearer token is sent with this event.
+   *
+   * @param conversationId - Direct conversation to mark focused
+   * @param focused - Whether the current screen is foregrounded
+   * @returns Nothing
+   */
+  public setDirectFocus(conversationId: string, focused: boolean): void {
+    if (!conversationId) return;
+    if (focused) this.focusedDirectConversationIds.add(conversationId);
+    else this.focusedDirectConversationIds.delete(conversationId);
+    if (this.socket?.connected && this.joinedConversationIds.has(conversationId)) {
+      this.socket.emit('chat:direct:focus', { conversationId, focused });
+    }
+  }
+
+  private subscribeRoom(
+    conversationId: string,
+    kind: 'event' | 'direct',
+    ganapId: string | undefined,
+    listener: ChatSocketListener,
+  ): () => void {
+    if (!conversationId || (kind === 'event' && !ganapId)) return (): void => {};
+
+    const existing: RoomSubscription | undefined = this.rooms.get(conversationId);
+    const room: RoomSubscription = existing ?? { kind, ganapId, listeners: new Set<ChatSocketListener>() };
+    const hadListeners: boolean = room.listeners.size > 0;
+    if (room.kind !== kind) room.kind = kind;
+    if (ganapId !== undefined) room.ganapId = ganapId;
+    room.listeners.add(listener);
+    this.rooms.set(conversationId, room);
+
+    if (this.socket?.connected && !hadListeners) this.joinRoomWhenReady(conversationId);
+    else if (!this.socket?.connected) void this.ensureConnected();
+
+    let active = true;
+    return (): void => {
+      if (!active) return;
+      active = false;
+      const current: RoomSubscription | undefined = this.rooms.get(conversationId);
+      if (!current) return;
+      current.listeners.delete(listener);
+      if (current.listeners.size > 0) return;
+      if (this.socket?.connected && this.joinedConversationIds.has(conversationId)) {
+        this.emitLeave(current, conversationId);
+      }
+      this.joinedConversationIds.delete(conversationId);
+      this.focusedDirectConversationIds.delete(conversationId);
+      this.rooms.delete(conversationId);
+      if (this.rooms.size === 0 && this.summaryListeners.size === 0) this.disconnect('no-subscribers');
+    };
+  }
+
+  /**
+   * Disconnects and removes every listener/room, used on logout, token loss,
+   * account deletion, and test teardown.
+   *
+   * @returns Nothing
+   */
+  public teardown(): void {
+    this.rooms.clear();
+    this.cancelReconnect();
+    this.ticketCache = null;
+    this.reconnectAttempt = 0;
+    this.intentionalDisconnect = true;
+    this.socket?.removeAllListeners();
+    this.socket?.disconnect(true);
+    this.socket = null;
+    this.connectionPromise = null;
+    this.seenMessageIds.clear();
+    this.hiddenMessageKeys.clear();
+    this.summaryListeners.clear();
+    this.joinedConversationIds.clear();
+    this.focusedDirectConversationIds.clear();
+    this.joinAfterRefreshPromise = null;
+    this.setConnectionState('idle');
+    this.intentionalDisconnect = false;
+  }
+
+  /** Clears the cached ticket without dropping focused room subscriptions. */
+  public invalidateTicket(): void {
+    this.ticketCache = null;
+  }
+
+  /**
+   * Re-evaluates the connection after an app resume or another lifecycle boundary.
+   *
+   * @returns Nothing after any in-flight connection attempt settles
+   */
+  public async ensureConnected(): Promise<void> {
+    if (!useAuthStore.getState().token || (this.rooms.size === 0 && this.summaryListeners.size === 0)) return;
+    if (this.socket?.connected || this.connectionPromise) return;
+
+    this.connectionPromise = this.connect().finally((): void => {
+      this.connectionPromise = null;
+    });
+    await this.connectionPromise;
+  }
+
+  private async connect(): Promise<void> {
+    if (!useAuthStore.getState().token || (this.rooms.size === 0 && this.summaryListeners.size === 0)) return;
+    this.setConnectionState(this.reconnectAttempt > 0 ? 'reconnecting' : 'connecting');
+
+    try {
+      const ticket: string = await this.getValidTicket();
+      if (!useAuthStore.getState().token || (this.rooms.size === 0 && this.summaryListeners.size === 0)) return;
+      this.intentionalDisconnect = false;
+      if (!this.socket) this.createSocket();
+      if (!this.socket) return;
+      this.socket.auth = { ticket };
+      this.socket.connect();
+    } catch (error) {
+      if (isSocketAuthError(error)) this.invalidateTicket();
+      this.setConnectionState('error');
+      this.scheduleReconnect();
+    }
+  }
+
+  private async getValidTicket(): Promise<string> {
+    const now: number = Date.now();
+    if (this.ticketCache && now < this.ticketCache.expiresAt) return this.ticketCache.ticket;
+    const response: { ticket: string; expiresIn: number } = await chatAPI.getSocketTicket();
+    const expiresInMs: number = Math.max(0, response.expiresIn * 1000);
+    this.ticketCache = { ticket: response.ticket, expiresAt: now + expiresInMs };
+    return response.ticket;
+  }
+
+  private createSocket(): void {
+    const socket: ChatSocketLike = this.socketFactory(buildChatSocketUrl(), {
+      autoConnect: false,
+      transports: ['websocket'],
+      reconnection: false,
+    });
+    this.socket = socket;
+    socket.on('connect', this.handleConnect);
+    socket.on('disconnect', this.handleDisconnect);
+    socket.on('connect_error', this.handleConnectError);
+    socket.on('chat:message:new', this.handleMessage);
+    socket.on('chat:message:read', this.handleRead);
+    socket.on('chat:message:reaction', this.handleMessageReaction);
+    socket.on('chat:message:unsent', this.handleMessageUnsent);
+    socket.on('chat:summary:changed', this.handleSummaryChanged);
+    socket.on('chat:message:hidden', this.handleMessageHidden);
+    socket.on('chat:access:revoked', this.handleAccessRevoked);
+  }
+
+  private readonly handleConnect = (): void => {
+    this.reconnectAttempt = 0;
+    this.cancelReconnect();
+    this.setConnectionState('connected');
+    if (!this.beforeJoin) {
+      this.joinRoomsNow();
+      return;
+    }
+    const joinPromise: Promise<void> = this.joinRoomsAfterBlockRefresh();
+    this.joinAfterRefreshPromise = joinPromise;
+    void joinPromise.finally((): void => {
+      if (this.joinAfterRefreshPromise === joinPromise) this.joinAfterRefreshPromise = null;
+    });
+  };
+
+  private async joinRoomsAfterBlockRefresh(): Promise<void> {
+    try {
+      await this.beforeJoin?.();
+    } catch (_error) {
+      // A block-list refresh is advisory for the socket. REST history remains
+      // authoritative and the next foreground query reconciles the cache.
+    }
+    if (!this.socket?.connected) return;
+    this.joinRoomsNow();
+  }
+
+  private joinRoomsNow(): void {
+    if (!this.socket?.connected) return;
+    this.rooms.forEach((_room: RoomSubscription, conversationId: string): void => {
+      this.joinRoomIfNeeded(conversationId);
+    });
+  }
+
+  private joinRoomWhenReady(conversationId: string): void {
+    const pendingRefresh: Promise<void> | null = this.joinAfterRefreshPromise;
+    if (pendingRefresh) {
+      void pendingRefresh.then((): void => {
+        const room: RoomSubscription | undefined = this.rooms.get(conversationId);
+        if (room && this.socket?.connected) this.joinRoomIfNeeded(conversationId);
+      });
+      return;
+    }
+    this.joinRoomIfNeeded(conversationId);
+  }
+
+  private joinRoomIfNeeded(conversationId: string): void {
+    if (this.joinedConversationIds.has(conversationId)) return;
+    const room: RoomSubscription | undefined = this.rooms.get(conversationId);
+    if (room) this.joinRoom(conversationId, room);
+  }
+
+  private readonly handleDisconnect = (): void => {
+    this.joinedConversationIds.clear();
+    this.joinAfterRefreshPromise = null;
+    if (
+      this.intentionalDisconnect ||
+      (this.rooms.size === 0 && this.summaryListeners.size === 0) ||
+      !useAuthStore.getState().token
+    ) {
+      this.setConnectionState('disconnected');
+      return;
+    }
+    this.setConnectionState('reconnecting');
+    this.scheduleReconnect();
+  };
+
+  private readonly handleConnectError = (error: unknown): void => {
+    if (isSocketAuthError(error)) this.invalidateTicket();
+    this.setConnectionState('error');
+    if (!this.intentionalDisconnect) this.scheduleReconnect();
+  };
+
+  private readonly handleMessage = (value: unknown): void => {
+    if (!isChatMessage(value)) return;
+    const seenKey: string = `${value.conversationId}:${value.id}`;
+    if (this.hiddenMessageKeys.has(seenKey)) return;
+    if (this.seenMessageIds.has(seenKey)) return;
+    this.seenMessageIds.add(seenKey);
+    if (this.seenMessageIds.size > MAX_SEEN_MESSAGE_IDS) {
+      const oldest: string | undefined = this.seenMessageIds.values().next().value;
+      if (oldest) this.seenMessageIds.delete(oldest);
+    }
+    const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
+    if (room?.kind === 'direct' && value.conversationType !== 'DIRECT') return;
+    if (room?.kind === 'event' && value.conversationType === 'DIRECT') return;
+    room?.listeners.forEach((listener: ChatSocketListener): void => {
+      listener({ type: 'message', message: value });
+    });
+  };
+
+  private readonly handleRead = (value: unknown): void => {
+    if (!isReadReceipt(value)) return;
+    const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
+    room?.listeners.forEach((listener: ChatSocketListener): void => {
+      listener({ type: 'read', receipt: value });
+    });
+  };
+
+  private readonly handleMessageReaction = (value: unknown): void => {
+    if (!isMessageReactionEvent(value)) return;
+    const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
+    room?.listeners.forEach((listener: ChatSocketListener): void => {
+      listener({ type: 'message-reaction', event: value });
+    });
+  };
+
+  private readonly handleMessageUnsent = (value: unknown): void => {
+    if (!isMessageUnsentEvent(value)) return;
+    const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
+    room?.listeners.forEach((listener: ChatSocketListener): void => {
+      listener({ type: 'message-unsent', event: value });
+    });
+  };
+
+  private readonly handleSummaryChanged = (value: unknown): void => {
+    if (!isSummaryChangedEvent(value)) return;
+    this.summaryListeners.forEach((listener: ChatSocketSummaryListener): void => {
+      listener(value);
+    });
+  };
+
+  private readonly handleMessageHidden = (value: unknown): void => {
+    if (!isMessageHiddenEvent(value)) return;
+    const hiddenKey: string = `${value.conversationId}:${value.messageId}`;
+    this.hiddenMessageKeys.add(hiddenKey);
+    if (this.hiddenMessageKeys.size > MAX_SEEN_MESSAGE_IDS) {
+      const oldest: string | undefined = this.hiddenMessageKeys.values().next().value;
+      if (oldest) this.hiddenMessageKeys.delete(oldest);
+    }
+    const event: ChatSocketModerationEvent = { type: 'message-hidden', event: value };
+    const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
+    room?.listeners.forEach((listener: ChatSocketListener): void => {
+      listener({ type: 'message-hidden', event: value });
+    });
+    this.moderationListeners.forEach((listener: ChatSocketModerationListener): void => {
+      listener(event);
+    });
+  };
+
+  private readonly handleAccessRevoked = (value: unknown): void => {
+    if (!isAccessRevokedEvent(value)) return;
+    const event: ChatSocketModerationEvent = { type: 'access-revoked', event: value };
+    const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
+    room?.listeners.forEach((listener: ChatSocketListener): void => {
+      listener({ type: 'access-revoked', event: value });
+    });
+    // Tear down the room at the transport boundary as soon as the server
+    // revokes access. Screen-level cleanup still removes its query caches.
+    this.leaveConversation(value.conversationId);
+    this.moderationListeners.forEach((listener: ChatSocketModerationListener): void => {
+      listener(event);
+    });
+  };
+
+  /**
+   * Leaves a conversation after a server access-revocation event.
+   *
+   * @param conversationId - Conversation whose room must be closed
+   */
+  public leaveConversation(conversationId: string): void {
+    const room: RoomSubscription | undefined = this.rooms.get(conversationId);
+    if (!room) return;
+    if (this.socket?.connected && this.joinedConversationIds.has(conversationId)) {
+      this.emitLeave(room, conversationId);
+    }
+    this.joinedConversationIds.delete(conversationId);
+    this.focusedDirectConversationIds.delete(conversationId);
+    this.rooms.delete(conversationId);
+    if (this.rooms.size === 0 && this.summaryListeners.size === 0) this.disconnect('access-revoked');
+  }
+
+  private joinRoom(conversationId: string, room: RoomSubscription): void {
+    if (room.kind === 'direct') {
+      this.socket?.emit('chat:direct:join', { conversationId });
+      if (this.focusedDirectConversationIds.has(conversationId)) {
+        this.socket?.emit('chat:direct:focus', { conversationId, focused: true });
+      }
+    } else if (room.ganapId) {
+      this.socket?.emit('chat:join', { ganapId: room.ganapId });
+    }
+    this.joinedConversationIds.add(conversationId);
+  }
+
+  private emitLeave(room: RoomSubscription, conversationId: string): void {
+    this.socket?.emit(room.kind === 'direct' ? 'chat:direct:leave' : 'chat:leave', { conversationId });
+  }
+
+  private scheduleReconnect(): void {
+    if (
+      this.reconnectTimer ||
+      (this.rooms.size === 0 && this.summaryListeners.size === 0) ||
+      !useAuthStore.getState().token
+    )
+      return;
+    const delay: number = Math.min(INITIAL_RECONNECT_DELAY_MS * 2 ** this.reconnectAttempt, MAX_RECONNECT_DELAY_MS);
+    this.reconnectAttempt = Math.min(this.reconnectAttempt + 1, 8);
+    this.reconnectTimer = setTimeout((): void => {
+      this.reconnectTimer = null;
+      void this.ensureConnected();
+    }, delay);
+  }
+
+  private cancelReconnect(): void {
+    if (!this.reconnectTimer) return;
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+  }
+
+  private disconnect(_reason: string): void {
+    this.cancelReconnect();
+    this.intentionalDisconnect = true;
+    this.socket?.disconnect(true);
+    this.socket = null;
+    this.ticketCache = null;
+    this.reconnectAttempt = 0;
+    this.joinedConversationIds.clear();
+    this.focusedDirectConversationIds.clear();
+    this.joinAfterRefreshPromise = null;
+    this.setConnectionState('disconnected');
+    this.intentionalDisconnect = false;
+  }
+
+  private setConnectionState(state: ChatConnectionState): void {
+    if (this.connectionState === state) return;
+    this.connectionState = state;
+    this.stateListeners.forEach((listener: (next: ChatConnectionState) => void): void => {
+      listener(state);
+    });
+  }
+}
+
+/** Singleton shared by every Event Chat screen in this process. */
+export const chatSocketClient = new ChatSocketClient();
+
+/** Alias retained for domain callers that prefer a service-shaped name. */
+export const chatSocketService: ChatSocketClient = chatSocketClient;
+
+// Token loss is the one lifecycle boundary that can happen outside a chat
+// screen. Listening here guarantees logout/account deletion tears down rooms
+// even if the route tree is still mounted for a render. Access-token rotation
+// is deliberately left connected: refresh keeps the same authenticated user,
+// and tearing down here would discard focused room subscriptions.
+useAuthStore.subscribe((state, previous): void => {
+  if (state.token === null && previous.token !== null) chatSocketClient.teardown();
+});
+
+/** Type-only reference keeps the read response contract discoverable to consumers. */
+export type ChatSocketReadResponse = ChatReadResult;

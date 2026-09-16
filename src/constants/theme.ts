@@ -1,65 +1,79 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
-import '@/global.css';
-
-import { Platform } from 'react-native';
-
 export const Colors = {
   light: {
-    text: '#000000',
     background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    foreground: '#000000',
+    card: '#ffffff',
+    'card-foreground': '#000000',
+    popover: '#ffffff',
+    'popover-foreground': '#000000',
+    primary: '#22c55e',
+    'primary-foreground': '#ffffff',
+    like: '#dc2626',
+    save: '#a16207',
+    secondary: '#1f2937',
+    'secondary-foreground': '#ffffff',
+    muted: '#f4f4f5',
+    'muted-foreground': '#6b7280',
+    accent: '#f4f4f5',
+    'accent-foreground': '#1f2937',
+    destructive: '#ef4444',
+    'destructive-foreground': '#ffffff',
+    info: '#dbeafe',
+    'info-foreground': '#1e40af',
+    warning: '#fef3c7',
+    'warning-foreground': '#78350f',
+    notice: '#ede9fe',
+    'notice-foreground': '#5b21b6',
+    border: '#d1d5db',
+    input: '#d1d5db',
+    ring: '#22c55e',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    background: '#09090b',
+    foreground: '#fafafa',
+    card: '#18181b',
+    'card-foreground': '#fafafa',
+    popover: '#18181b',
+    'popover-foreground': '#fafafa',
+    primary: '#22c55e',
+    'primary-foreground': '#ffffff',
+    like: '#f87171',
+    save: '#facc15',
+    secondary: '#1f2937',
+    'secondary-foreground': '#fafafa',
+    muted: '#27272a',
+    'muted-foreground': '#a1a1aa',
+    accent: '#27272a',
+    'accent-foreground': '#fafafa',
+    destructive: '#b91c1c',
+    'destructive-foreground': '#fafafa',
+    info: '#172554',
+    'info-foreground': '#93c5fd',
+    warning: '#451a03',
+    'warning-foreground': '#fcd34d',
+    notice: '#2e1065',
+    'notice-foreground': '#c4b5fd',
+    border: '#27272a',
+    input: '#27272a',
+    ring: '#22c55e',
   },
 } as const;
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
-
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
-  },
-});
+export type ThemeColor = keyof typeof Colors.light;
 
 export const Spacing = {
-  half: 2,
-  one: 4,
-  two: 8,
-  three: 16,
-  four: 24,
-  five: 32,
-  six: 64,
+  base: 4,
+  xs: 8,
+  sm: 12,
+  md: 16,
+  lg: 24,
+  xl: 32,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
+export const BorderRadius = {
+  sm: 4,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  full: 9999,
+} as const;

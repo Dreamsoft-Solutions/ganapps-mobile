@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# Claude Code — personal settings, not shared
+.claude/settings.local.json
+
 # Expo
 .expo/
 dist/
@@ -31,7 +34,12 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+
+# Firebase app config — obtain from the Firebase console, never commit
+google-services.json
+GoogleService-Info.plist
 
 # typescript
 *.tsbuildinfo
