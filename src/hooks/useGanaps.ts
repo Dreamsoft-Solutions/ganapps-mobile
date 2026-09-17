@@ -1,5 +1,6 @@
 import {
   type InfiniteData,
+  keepPreviousData,
   type UseInfiniteQueryResult,
   type UseMutateAsyncFunction,
   useInfiniteQuery,
@@ -15,7 +16,7 @@ import {
   useLikeGanapMutation,
   useSaveGanapMutation,
 } from './mutations/useGanapMutation';
-import { ganapQueryKeys } from './queries/useGanapsQuery';
+import { type GanapListFilters, ganapQueryKeys } from './queries/useGanapsQuery';
 
 /** One page of the public Ganap list. */
 type GanapPage = CursorPage<GanapListItem>;
@@ -62,9 +63,15 @@ export interface UseGanapsResult {
  * Pages by cursor, not offset — the server returns `nextCursor` and this hook
  * feeds it back as `cursor`.
  *
+ * Filters live in the query key rather than being applied to fetched pages, so
+ * each combination is its own cache entry: paging within a filter never resets,
+ * and returning to a filter restores the pages already scrolled. Client-side
+ * filtering would only ever see the rows already loaded.
+ *
+ * @param filters - Active discovery filters; omitted means the whole catalogue
  * @returns Flattened items, paging state, and the four student actions
  */
-export function useGanaps(): UseGanapsResult {
+export function useGanaps(filters?: GanapListFilters): UseGanapsResult {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } = useInfiniteQuery<
     GanapPage,
     Error,
@@ -72,11 +79,20 @@ export function useGanaps(): UseGanapsResult {
     readonly unknown[],
     string | undefined
   >({
-    queryKey: ganapQueryKeys.infiniteList(),
+    queryKey: ganapQueryKeys.infiniteList(filters),
     queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
-      ganapsAPI.list({ cursor: pageParam, limit: PAGE_SIZE }),
+      ganapsAPI.list({ ...filters, cursor: pageParam, limit: PAGE_SIZE }),
     getNextPageParam: getNextGanapPageParam,
     initialPageParam: undefined,
+    /**
+     * Without this a filter change empties `data`, so `isLoading` flips true and
+     * the sheet swaps the list for a spinner. Holding the previous pages keeps
+     * `isLoading` true only for the very first load.
+     */
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 1,
   });
 
   const joinMutation = useJoinGanapMutation();
