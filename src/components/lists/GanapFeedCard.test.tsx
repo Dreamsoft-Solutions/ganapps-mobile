@@ -110,6 +110,21 @@ describe('GanapFeedCard', () => {
     expect(screen.getByTestId('ganap-feed-card-cover-placeholder')).toBeTruthy();
   });
 
+  it('sizes the poster with a style, not a className expo-image would drop', async (): Promise<void> => {
+    /**
+     * This app registers cssInterop only for SafeAreaView, so NativeWind drops a
+     * className on expo-image without erroring and the poster collapses to
+     * nothing. The size has to reach the image as a real style.
+     */
+    const screen = await render(
+      <GanapFeedCard ganap={ganap({ coverImage: 'https://example.test/cover.jpg' })} onPress={jest.fn()} />,
+    );
+
+    const poster = screen.getByLabelText('Weekend Acoustic Jam event poster');
+
+    expect(poster.props.style).toEqual({ width: '100%', height: '100%' });
+  });
+
   it('shows the end time so an evening reads as one sitting', async (): Promise<void> => {
     const screen = await render(
       <GanapFeedCard

@@ -9,6 +9,15 @@ import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { GanapListItem } from '@/types/ganap.types';
 import { formatFeedEventTimeRange } from '@/utils/formatting';
 
+/**
+ * Fills the sized wrapper around the poster.
+ *
+ * A plain style rather than a className: `expo-image` is third-party and this
+ * app registers `cssInterop` only for `SafeAreaView`, so NativeWind drops a
+ * className on it silently and the image collapses to nothing.
+ */
+const POSTER_FILL = { width: '100%', height: '100%' } as const;
+
 export interface GanapFeedCardProps {
   ganap: GanapListItem;
   onPress: () => void;
@@ -58,21 +67,20 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
     >
       <Card className="mb-sm">
         <View className="flex-row gap-sm">
-          {ganap.coverImage ? (
-            <Image
-              source={{ uri: ganap.coverImage }}
-              contentFit="cover"
-              className="h-32 w-24 rounded-lg bg-muted"
-              accessibilityLabel={`${ganap.title} event poster`}
-            />
-          ) : (
-            <View
-              testID="ganap-feed-card-cover-placeholder"
-              className="h-32 w-24 items-center justify-center rounded-lg bg-muted"
-            >
-              <Calendar size={26} color={subdued} />
-            </View>
-          )}
+          <View className="h-32 w-24 overflow-hidden rounded-lg bg-muted">
+            {ganap.coverImage ? (
+              <Image
+                source={{ uri: ganap.coverImage }}
+                contentFit="cover"
+                style={POSTER_FILL}
+                accessibilityLabel={`${ganap.title} event poster`}
+              />
+            ) : (
+              <View testID="ganap-feed-card-cover-placeholder" className="h-full w-full items-center justify-center">
+                <Calendar size={26} color={subdued} />
+              </View>
+            )}
+          </View>
 
           <View className="min-w-0 flex-1">
             {category && (
