@@ -100,7 +100,7 @@ describe('GanapFeedCard', () => {
       <GanapFeedCard ganap={ganap({ coverImage: 'https://example.test/cover.jpg' })} onPress={jest.fn()} />,
     );
 
-    expect(screen.getByLabelText('Weekend Acoustic Jam event image')).toBeTruthy();
+    expect(screen.getByLabelText('Weekend Acoustic Jam event poster')).toBeTruthy();
     expect(screen.queryByTestId('ganap-feed-card-cover-placeholder')).toBeNull();
   });
 
@@ -108,6 +108,26 @@ describe('GanapFeedCard', () => {
     const screen = await render(<GanapFeedCard ganap={ganap({ coverImage: null })} onPress={jest.fn()} />);
 
     expect(screen.getByTestId('ganap-feed-card-cover-placeholder')).toBeTruthy();
+  });
+
+  it('shows the end time so an evening reads as one sitting', async (): Promise<void> => {
+    const screen = await render(
+      <GanapFeedCard
+        ganap={ganap({
+          startDate: new Date('2026-09-19T21:00:00').toISOString(),
+          endDate: new Date('2026-09-20T05:00:00').toISOString(),
+        })}
+        onPress={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/9:00 PM – 5:00 AM/)).toBeTruthy();
+  });
+
+  it('shows the start alone when the organizer left the end open', async (): Promise<void> => {
+    const screen = await render(<GanapFeedCard ganap={ganap({ endDate: null })} onPress={jest.fn()} />);
+
+    expect(screen.queryByText(/–/)).toBeNull();
   });
 
   it('calls onPress when the card is tapped', async (): Promise<void> => {

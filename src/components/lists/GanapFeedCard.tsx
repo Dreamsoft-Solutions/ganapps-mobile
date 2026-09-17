@@ -7,7 +7,7 @@ import { Text } from '@/components/common/Text';
 import { Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { GanapListItem } from '@/types/ganap.types';
-import { formatFeedEventDate } from '@/utils/formatting';
+import { formatFeedEventTimeRange } from '@/utils/formatting';
 
 export interface GanapFeedCardProps {
   ganap: GanapListItem;
@@ -17,11 +17,20 @@ export interface GanapFeedCardProps {
 /**
  * One event in the feed sheet.
  *
+ * Poster-led: local event posters carry the title, line-up and pricing as
+ * artwork, so the image is information rather than decoration. The tile is 3:4
+ * because those posters are overwhelmingly portrait — a landscape crop slices
+ * the title off the top and the date block off the bottom, which is exactly
+ * what the competitor cards this was measured against do. Portrait also keeps
+ * three or four events readable at the sheet's half snap, where a full-width
+ * poster would leave one.
+ *
  * Ported from the MagicPath `Ganapps – Map Home` design. Three of the fields
  * that design draws do not exist on the public list response, so each degrades
  * rather than being faked: no organization logo (initial letter instead), no
  * verified badge, and no attendee cap (a bare count, never `9/15`). Likes are
- * hardcoded to zero server-side and are deliberately absent.
+ * hardcoded to zero server-side and are deliberately absent, and there is no
+ * price field on the model at all.
  *
  * @param props - The event to render and the tap handler
  * @returns A pressable event card
@@ -48,48 +57,52 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
       className="active:opacity-80"
     >
       <Card className="mb-sm">
-        {category && (
-          <View testID="ganap-feed-card-category" className="mb-xs self-start rounded-full bg-muted px-sm py-1">
-            <Text className="font-inter-bold text-label-md uppercase text-primary">{category}</Text>
-          </View>
-        )}
-
-        <View className="flex-row items-start gap-sm">
+        <View className="flex-row gap-sm">
           {ganap.coverImage ? (
             <Image
               source={{ uri: ganap.coverImage }}
               contentFit="cover"
-              className="h-16 w-16 rounded-lg bg-muted"
-              accessibilityLabel={`${ganap.title} event image`}
+              className="h-32 w-24 rounded-lg bg-muted"
+              accessibilityLabel={`${ganap.title} event poster`}
             />
           ) : (
             <View
               testID="ganap-feed-card-cover-placeholder"
-              className="h-16 w-16 items-center justify-center rounded-lg bg-muted"
+              className="h-32 w-24 items-center justify-center rounded-lg bg-muted"
             >
-              <Calendar size={22} color={subdued} />
+              <Calendar size={26} color={subdued} />
             </View>
           )}
 
-          <Text className="flex-1 font-inter-bold text-body-xl text-foreground" numberOfLines={2}>
-            {ganap.title}
-          </Text>
-        </View>
+          <View className="min-w-0 flex-1">
+            {category && (
+              <View testID="ganap-feed-card-category" className="mb-xs self-start rounded-full bg-muted px-sm py-1">
+                <Text className="font-inter-bold text-label-md uppercase text-primary">{category}</Text>
+              </View>
+            )}
 
-        <View className="mt-xs gap-1">
-          <View className="flex-row items-center gap-xs">
-            <Clock size={16} color={accent} />
-            <Text className="text-body-md text-muted-foreground">{formatFeedEventDate(ganap.startDate)}</Text>
+            <Text className="font-inter-bold text-body-xl text-foreground" numberOfLines={2}>
+              {ganap.title}
+            </Text>
+
+            <View className="mt-xs gap-1">
+              <View className="flex-row items-start gap-xs">
+                <Clock size={16} color={accent} />
+                <Text className="flex-1 text-body-md text-muted-foreground" numberOfLines={2}>
+                  {formatFeedEventTimeRange(ganap.startDate, ganap.endDate)}
+                </Text>
+              </View>
+
+              {address && (
+                <View testID="ganap-feed-card-location" className="flex-row items-start gap-xs">
+                  <MapPin size={16} color={accent} />
+                  <Text className="flex-1 text-body-md text-muted-foreground" numberOfLines={2}>
+                    {address}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
-
-          {address && (
-            <View testID="ganap-feed-card-location" className="flex-row items-center gap-xs">
-              <MapPin size={16} color={accent} />
-              <Text className="flex-1 text-body-md text-muted-foreground" numberOfLines={1}>
-                {address}
-              </Text>
-            </View>
-          )}
         </View>
 
         <View className="mt-sm flex-row items-center justify-between border-t border-border pt-sm">

@@ -64,3 +64,34 @@ export function formatFeedEventDate(date: string | Date, now: Date = new Date())
   }
   return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${time}`;
 }
+
+/**
+ * Formats a Ganap's start and end for a feed card.
+ *
+ * An event that runs under a day reads as one sitting, so only the end *time*
+ * is appended — a night that crosses midnight stays "9:00 PM – 5:00 AM" rather
+ * than dragging tomorrow's date into a single evening. Anything longer is a
+ * genuinely multi-day event, where the end date is the part that matters.
+ *
+ * @param start - ISO start date or Date instance
+ * @param end - ISO end date, Date instance, or null when the organizer left it open
+ * @param now - The moment to compare against; defaults to the current time. Injected by tests
+ * @returns A label such as `Today, 8:00 PM – 11:00 PM`
+ */
+export function formatFeedEventTimeRange(
+  start: string | Date,
+  end: string | Date | null | undefined,
+  now: Date = new Date(),
+): string {
+  const startLabel: string = formatFeedEventDate(start, now);
+  if (end === null || end === undefined) return startLabel;
+
+  const startDate: Date = typeof start === 'string' ? new Date(start) : start;
+  const endDate: Date = typeof end === 'string' ? new Date(end) : end;
+  const spansMoreThanADay: boolean = endDate.getTime() - startDate.getTime() > DAY_MS;
+
+  if (spansMoreThanADay) return `${startLabel} – ${formatFeedEventDate(endDate, now)}`;
+
+  const endTime: string = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${startLabel} – ${endTime}`;
+}
