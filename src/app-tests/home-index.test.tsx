@@ -1,6 +1,7 @@
 import { describe, expect, jest } from '@jest/globals';
 import { fireEvent, render } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
+import type { UseGanapDiscoveryResult } from '@/hooks/useGanapDiscovery';
 import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
 
@@ -9,29 +10,20 @@ interface MarkerProps {
   children?: ReactNode;
 }
 
-interface MockMapState {
-  items: GanapListItem[];
-  tags: string[];
-  search: string;
-  setSearch: (value: string) => void;
-  tag: string | null;
-  setTag: (value: string | null) => void;
-  isLoading: boolean;
-  isError: boolean;
-  error: Error | null;
-  refetch: () => Promise<unknown>;
-  userCoords: Coords | null;
-}
+/**
+ * Typed against the real hook result, not a hand-rolled shape: the previous
+ * local interface let the screen's contract drift without failing type-check.
+ */
+type MockMapState = UseGanapDiscoveryResult;
 
 interface MockCameraStop {
   centerCoordinate: [number, number];
   zoomLevel: number;
 }
 
-interface SelectedGanapCardProps {
-  ganap: GanapListItem;
-  onClose: () => void;
-  onPress: () => void;
+interface GanapFeedSheetStubProps {
+  selectedGanap: GanapListItem | null;
+  onSelectGanap: (ganap: GanapListItem) => void;
 }
 
 const mockCapturedAnchors: Array<{ x: number; y: number }> = [];
@@ -59,21 +51,53 @@ const mockGanap: GanapListItem = {
   createdAt: '2026-08-01T00:00:00.000Z',
 };
 const mockMapState: MockMapState = {
-  items: [mockGanap],
-  tags: [],
+  filters: {},
   search: '',
   setSearch: jest.fn<(value: string) => void>(),
   tag: null,
   setTag: jest.fn<(value: string | null) => void>(),
-  isLoading: false,
-  isError: false,
-  error: null,
-  refetch: jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined),
-  userCoords: null,
+  tags: [],
+  map: {
+    items: [mockGanap],
+    isLoading: false,
+    isError: false,
+    error: null,
+    refetch: jest.fn<MockMapState['map']['refetch']>(),
+  },
+  feed: {
+    items: [mockGanap],
+    isLoading: false,
+    error: null,
+    hasNextPage: false,
+    fetchNextPage: jest.fn<MockMapState['feed']['fetchNextPage']>(),
+    isFetchingNextPage: false,
+    join: jest.fn<MockMapState['feed']['join']>(),
+    leave: jest.fn<MockMapState['feed']['leave']>(),
+    toggleLike: jest.fn<MockMapState['feed']['toggleLike']>(),
+    toggleSave: jest.fn<MockMapState['feed']['toggleSave']>(),
+    isJoining: false,
+    isLeaving: false,
+    isTogglingLike: false,
+    isTogglingSave: false,
+  },
+  nearby: {
+    isActive: false,
+    isDisabled: false,
+    coords: null,
+    isPrimingVisible: false,
+    isAccuracyNoticeVisible: false,
+    errorMessage: null,
+    toggle: jest.fn(),
+    refresh: jest.fn<() => Promise<Coords | null>>(),
+    confirmPriming: jest.fn<() => Promise<void>>(),
+    dismissPriming: jest.fn(),
+    dismissAccuracyNotice: jest.fn(),
+    openSettings: jest.fn<() => Promise<void>>(),
+  },
 };
 const mockSetCamera = jest.fn<(stop: MockCameraStop) => void>();
-const mockUseGanapsMap = jest.fn<() => MockMapState>(() => mockMapState);
-const mockSelectedGanapCard = jest.fn<(props: SelectedGanapCardProps) => ReactElement>();
+const mockUseGanapDiscovery = jest.fn<() => MockMapState>(() => mockMapState);
+const mockGanapFeedSheet = jest.fn<(props: GanapFeedSheetStubProps) => ReactElement>();
 
 jest.mock('lucide-react-native', () => {
   const React = require('react') as typeof import('react');
@@ -128,8 +152,8 @@ jest.mock('react-native-safe-area-context', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useGanapsMap', () => ({
-  useGanapsMap: (): MockMapState => mockUseGanapsMap(),
+jest.mock('@/hooks/useGanapDiscovery', () => ({
+  useGanapDiscovery: (): MockMapState => mockUseGanapDiscovery(),
 }));
 
 jest.mock('@/components/map/MapSearchBar', () => {
@@ -157,19 +181,29 @@ jest.mock('@/components/map/GanapMapPin', () => {
   };
 });
 
-jest.mock('@/components/map/SelectedGanapCard', () => {
+jest.mock('@/components/map/GanapFeedSheet', () => {
   const React = require('react') as typeof import('react');
-  const { Pressable, Text } = require('react-native') as typeof import('react-native');
-  mockSelectedGanapCard.mockImplementation(
-    ({ ganap, onPress }: SelectedGanapCardProps): ReactElement =>
+  const { Pressable, Text, View } = require('react-native') as typeof import('react-native');
+  mockGanapFeedSheet.mockImplementation(
+    ({ selectedGanap, onSelectGanap }: GanapFeedSheetStubProps): ReactElement =>
       React.createElement(
-        Pressable,
-        { testID: 'selected-ganap-card', accessibilityRole: 'button', onPress },
-        React.createElement(Text, null, ganap.title),
+        View,
+        { testID: 'ganap-feed-sheet' },
+        selectedGanap
+          ? React.createElement(
+              Pressable,
+              {
+                testID: 'selected-ganap-card',
+                accessibilityRole: 'button',
+                onPress: (): void => onSelectGanap(selectedGanap),
+              },
+              React.createElement(Text, null, selectedGanap.title),
+            )
+          : null,
       ),
   );
   return {
-    SelectedGanapCard: (props: SelectedGanapCardProps): ReactElement => mockSelectedGanapCard(props),
+    GanapFeedSheet: (props: GanapFeedSheetStubProps): ReactElement => mockGanapFeedSheet(props),
   };
 });
 
@@ -204,22 +238,22 @@ const HomeScreen = require('@/app/(app)/(home)/index').default as () => ReactEle
 describe('Home map event markers', (): void => {
   beforeEach((): void => {
     mockCapturedAnchors.length = 0;
-    mockSelectedGanapCard.mockClear();
+    mockGanapFeedSheet.mockClear();
     mockRouter.push.mockClear();
     mockSetCamera.mockClear();
-    mockMapState.isLoading = false;
-    mockMapState.userCoords = null;
+    mockMapState.map.isLoading = false;
+    mockMapState.nearby.coords = null;
   });
 
   it('centres on the user when the position arrives while the events query is still loading', async (): Promise<void> => {
-    mockMapState.isLoading = true;
-    mockMapState.userCoords = { latitude: 10.71, longitude: 122.55 };
+    mockMapState.map.isLoading = true;
+    mockMapState.nearby.coords = { latitude: 10.71, longitude: 122.55 };
 
     const screen = await render(<HomeScreen />);
 
     expect(mockSetCamera).not.toHaveBeenCalled();
 
-    mockMapState.isLoading = false;
+    mockMapState.map.isLoading = false;
     await screen.rerender(<HomeScreen />);
 
     expect(mockSetCamera).toHaveBeenCalledTimes(1);
@@ -239,8 +273,8 @@ describe('Home map event markers', (): void => {
     await fireEvent.press(screen.getByTestId('ganap-map-pin-child'));
 
     expect(screen.getByTestId('selected-ganap-card')).toBeTruthy();
-    const selectedCardProps = mockSelectedGanapCard.mock.calls.at(-1)?.[0];
-    expect(selectedCardProps?.ganap).toBe(mockGanap);
+    const sheetProps = mockGanapFeedSheet.mock.calls.at(-1)?.[0];
+    expect(sheetProps?.selectedGanap).toBe(mockGanap);
     expect(screen.getByText(mockGanap.title)).toBeTruthy();
   });
 });

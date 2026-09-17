@@ -7,19 +7,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
-import { ClusterEventsSheet, type ClusterZoomTarget } from '@/components/map/ClusterEventsSheet';
 import { ClusteredGanapMarkers } from '@/components/map/ClusteredGanapMarkers';
+import { GanapFeedSheet } from '@/components/map/GanapFeedSheet';
 import { LocateMeButton } from '@/components/map/LocateMeButton';
 import { LocationPrimingSheet } from '@/components/map/LocationPrimingSheet';
 import { MapSearchBar } from '@/components/map/MapSearchBar';
 import { ReducedAccuracyNotice } from '@/components/map/ReducedAccuracyNotice';
-import { SelectedGanapCard } from '@/components/map/SelectedGanapCard';
 import { TagChips } from '@/components/map/TagChips';
 import { Routes } from '@/constants/routes';
-import { useGanapsMap } from '@/hooks/useGanapsMap';
+import { useGanapDiscovery } from '@/hooks/useGanapDiscovery';
 import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
+import { FEED_SHEET_PEEK_HEIGHT } from '@/utils/feed-sheet';
 import {
+  type ClusterZoomTarget,
   createGanapClusterIndex,
   DEFAULT_MAP_VIEWPORT,
   type GanapClusterFeature,
@@ -28,14 +29,20 @@ import {
   type MapViewport,
   mapStateToViewport,
 } from '@/utils/map-clustering';
-import { USER_ZOOM } from '@/utils/map-viewport';
+import { MAP_OVERLAY_TOP, USER_ZOOM } from '@/utils/map-viewport';
 
 const MAPBOX_TOKEN: string = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
 
 const ILOILO_CITY_CENTER: [number, number] = [122.5621, 10.7202];
 const CITY_ZOOM = 12;
-const MAP_OVERLAY_TOP = 132; // see ADR 0003
-const MAP_OVERLAY_BOTTOM = 96;
+/**
+ * How much of the map the feed sheet covers at rest.
+ *
+ * Camera padding and anything floating over the map both have to clear it. The
+ * tab bar is not included: a custom `tabBar` is a flex sibling of the screens
+ * container, so this screen already ends at the top of the bar.
+ */
+const MAP_OVERLAY_BOTTOM: number = FEED_SHEET_PEEK_HEIGHT;
 
 /**
  * Home screen for authenticated users.
@@ -49,30 +56,19 @@ const MAP_OVERLAY_BOTTOM = 96;
 export default function HomeScreen(): ReactElement {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const {
-    items,
-    tags,
-    search,
-    setSearch,
-    tag,
-    setTag,
-    isLoading,
-    isError,
-    error,
-    refetch,
-    isNearbyActive,
-    isNearbyDisabled,
-    toggleNearby,
-    refreshLocation,
-    userCoords,
-    isPrimingVisible,
-    confirmPriming,
-    dismissPriming,
-    isAccuracyNoticeVisible,
-    dismissAccuracyNotice,
-    openLocationSettings,
-    locationErrorMessage,
-  } = useGanapsMap();
+  const discovery = useGanapDiscovery();
+  const { search, setSearch, tag, setTag, tags, map, feed, nearby } = discovery;
+  const { items, isLoading, isError, error, refetch } = map;
+  const userCoords = nearby.coords;
+  const isNearbyActive: boolean = nearby.isActive;
+  const hasActiveFilters: boolean =
+    tag !== null || discovery.filters.search !== undefined || discovery.filters.radius !== undefined;
+  /**
+   * Whether a radius actually reached the server, which is not the same as the
+   * chip being on: the position can still be resolving. The title follows what
+   * was queried rather than what the chip says.
+   */
+  const isNearbyApplied: boolean = discovery.filters.radius !== undefined;
 
   const cameraRef = useRef<ComponentRef<typeof Camera>>(null);
   const hasCentredOnUser = useRef<boolean>(false);
@@ -87,6 +83,7 @@ export default function HomeScreen(): ReactElement {
   const visibleFeatures = useMemo(() => getVisibleMapFeatures(clusterIndex, viewport), [clusterIndex, viewport]);
 
   useEffect((): void => {
+    setSelectedGanap(null);
     setSelectedCluster(null);
     setSelectedClusterIndex(null);
   }, [clusterIndex]);
@@ -131,14 +128,14 @@ export default function HomeScreen(): ReactElement {
 
   const handleLocateMe = useCallback((): void => {
     void (async (): Promise<void> => {
-      const fresh = await refreshLocation();
+      const fresh = await nearby.refresh();
       if (fresh) {
         centreOnUser(fresh);
         return;
       }
-      if (!userCoords) toggleNearby();
+      if (!userCoords) nearby.toggle();
     })();
-  }, [centreOnUser, refreshLocation, toggleNearby, userCoords]);
+  }, [centreOnUser, nearby.refresh, nearby.toggle, userCoords]);
 
   const handleMapReady = useCallback((): void => {
     setIsMapReady(true);
@@ -167,18 +164,35 @@ export default function HomeScreen(): ReactElement {
     [clusterIndex],
   );
 
-  const handleClusterClose = useCallback((): void => {
+  const handleClearSelection = useCallback((): void => {
+    setSelectedGanap(null);
     setSelectedCluster(null);
     setSelectedClusterIndex(null);
   }, []);
 
-  const handleClusterZoomIn = useCallback((target: ClusterZoomTarget): void => {
-    cameraRef.current?.setCamera({
-      centerCoordinate: target.coordinate,
-      zoomLevel: target.zoom,
-      animationDuration: 300,
-    });
-  }, []);
+  const handleOpenGanap = useCallback(
+    (ganap: GanapListItem): void => {
+      router.push(Routes.ganapDetail(ganap.id));
+    },
+    [router],
+  );
+
+  const handleClusterZoomIn = useCallback(
+    (target: ClusterZoomTarget): void => {
+      cameraRef.current?.setCamera({
+        centerCoordinate: target.coordinate,
+        zoomLevel: target.zoom,
+        animationDuration: 300,
+        padding: {
+          paddingTop: insets.top + MAP_OVERLAY_TOP,
+          paddingBottom: MAP_OVERLAY_BOTTOM,
+          paddingLeft: 0,
+          paddingRight: 0,
+        },
+      });
+    },
+    [insets.top],
+  );
 
   if (!MAPBOX_TOKEN) {
     return (
@@ -192,7 +206,7 @@ export default function HomeScreen(): ReactElement {
   }
 
   if (isLoading) {
-    return <Loading message="Finding events nearby..." />;
+    return <Loading message="Finding events..." />;
   }
 
   if (isError) {
@@ -227,18 +241,18 @@ export default function HomeScreen(): ReactElement {
           tags={tags}
           selectedTag={tag}
           onSelectTag={setTag}
-          isNearbyActive={isNearbyActive}
-          isNearbyDisabled={isNearbyDisabled}
-          onToggleNearby={toggleNearby}
+          isNearbyActive={nearby.isActive}
+          isNearbyDisabled={nearby.isDisabled}
+          onToggleNearby={nearby.toggle}
         />
         <ReducedAccuracyNotice
-          visible={isAccuracyNoticeVisible}
+          visible={nearby.isAccuracyNoticeVisible}
           onOpenSettings={(): void => {
-            void openLocationSettings();
+            void nearby.openSettings();
           }}
-          onDismiss={dismissAccuracyNotice}
+          onDismiss={nearby.dismissAccuracyNotice}
         />
-        {isNearbyDisabled && (
+        {nearby.isDisabled && (
           <View className="mx-4 mt-2 rounded-md bg-card border border-border p-sm gap-1">
             <Text className="text-label-md text-card-foreground">Location is off</Text>
             <Text className="text-body-md text-muted-foreground">
@@ -247,7 +261,7 @@ export default function HomeScreen(): ReactElement {
             </Text>
             <Pressable
               onPress={(): void => {
-                void openLocationSettings();
+                void nearby.openSettings();
               }}
               accessibilityRole="button"
             >
@@ -255,42 +269,37 @@ export default function HomeScreen(): ReactElement {
             </Pressable>
           </View>
         )}
-        {locationErrorMessage !== null && (
+        {nearby.errorMessage !== null && (
           <View className="mx-4 mt-2 rounded-md bg-card border border-border p-sm">
-            <Text className="text-body-md text-muted-foreground">{locationErrorMessage}</Text>
+            <Text className="text-body-md text-muted-foreground">{nearby.errorMessage}</Text>
           </View>
         )}
       </View>
 
-      <View className="absolute right-4" style={{ bottom: 96 }} pointerEvents="box-none">
+      <View className="absolute right-4" style={{ bottom: MAP_OVERLAY_BOTTOM + 12 }} pointerEvents="box-none">
         <LocateMeButton onPress={handleLocateMe} />
       </View>
 
       <LocationPrimingSheet
-        visible={isPrimingVisible}
+        visible={nearby.isPrimingVisible}
         onConfirm={(): void => {
-          void confirmPriming();
+          void nearby.confirmPriming();
         }}
-        onDismiss={dismissPriming}
+        onDismiss={nearby.dismissPriming}
       />
 
-      <ClusterEventsSheet
-        cluster={activeCluster}
-        index={clusterIndex}
-        onClose={handleClusterClose}
-        onSelectGanap={handleGanapPress}
-        onZoomIn={handleClusterZoomIn}
+      <GanapFeedSheet
+        feed={feed}
+        hasActiveFilters={hasActiveFilters}
+        isNearbyApplied={isNearbyApplied}
+        topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+        selectedGanap={selectedGanap}
+        selectedCluster={activeCluster}
+        clusterIndex={clusterIndex}
+        onSelectGanap={handleOpenGanap}
+        onClearSelection={handleClearSelection}
+        onZoomToCluster={handleClusterZoomIn}
       />
-
-      {selectedGanap && (
-        <View className="absolute bottom-4 left-0 right-0" pointerEvents="box-none">
-          <SelectedGanapCard
-            ganap={selectedGanap}
-            onClose={(): void => setSelectedGanap(null)}
-            onPress={(): void => router.push(Routes.ganapDetail(selectedGanap.id))}
-          />
-        </View>
-      )}
     </View>
   );
 }
