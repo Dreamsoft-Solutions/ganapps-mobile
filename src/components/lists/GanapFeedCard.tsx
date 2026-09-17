@@ -26,13 +26,19 @@ export interface GanapFeedCardProps {
 /**
  * One event in the feed sheet.
  *
- * Poster-led: local event posters carry the title, line-up and pricing as
- * artwork, so the image is information rather than decoration. The tile is 3:4
- * because those posters are overwhelmingly portrait — a landscape crop slices
- * the title off the top and the date block off the bottom, which is exactly
- * what the competitor cards this was measured against do. Portrait also keeps
- * three or four events readable at the sheet's half snap, where a full-width
- * poster would leave one.
+ * Image-led: the cover carries most of what makes an event recognisable, so it
+ * leads rather than decorating.
+ *
+ * The tile is square on purpose. Organizers upload a mix — venue photography,
+ * scene shots, and square logos — and a square is the only shape that treats all
+ * three tolerably: a landscape photo keeps its subject under a centre crop, a
+ * logo sits as drawn, and a portrait poster loses less than a landscape crop
+ * would take. It also lands near the height of the metadata beside it, so the
+ * two columns finish together instead of one hanging past the other.
+ *
+ * A tile rather than a full-width banner because this feed lives in a sheet over
+ * a map: density is what makes dragging the sheet open worth doing, and a
+ * full-width image leaves roughly one event per screen.
  *
  * Ported from the MagicPath `Ganapps – Map Home` design. Three of the fields
  * that design draws do not exist on the public list response, so each degrades
@@ -67,7 +73,7 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
     >
       <Card className="mb-sm">
         <View className="flex-row gap-sm">
-          <View className="h-32 w-24 overflow-hidden rounded-lg bg-muted">
+          <View className="h-28 w-28 overflow-hidden rounded-lg bg-muted">
             {ganap.coverImage ? (
               <Image
                 source={{ uri: ganap.coverImage }}
