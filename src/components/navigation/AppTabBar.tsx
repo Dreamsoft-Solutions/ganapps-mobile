@@ -61,6 +61,15 @@ export const BAR_HEIGHT: number = 72;
  * user's avatar anchors the Profile tab, both framed by a primary border when
  * active.
  *
+ * The surface colour and the hairline live on the outer wrapper so they cover
+ * the safe-area inset too. Painting only the {@link BAR_HEIGHT} row leaves the
+ * home-indicator strip transparent, which shows as an unfinished band of
+ * whatever is behind the bar.
+ *
+ * The hairline is a border rather than a shadow because this is chrome docked
+ * against scrolling content, not a floating surface — the same treatment the
+ * chat composers and form footers use.
+ *
  * @param props - React Navigation bottom tab bar props.
  * @returns The tab bar.
  */
@@ -70,8 +79,8 @@ export function AppTabBar({ state, navigation }: BottomTabBarProps): ReactElemen
   const theme = useResolvedTheme();
 
   return (
-    <View style={{ paddingBottom: insets.bottom }}>
-      <View className="flex-row items-end bg-card" style={{ height: BAR_HEIGHT }}>
+    <View className="border-t border-border bg-card" style={{ paddingBottom: insets.bottom }}>
+      <View className="flex-row items-end" style={{ height: BAR_HEIGHT }}>
         {TAB_ROUTES.map((tab: TabRoute, index: number): ReactNode => {
           const Icon: LucideIcon | undefined = tab.icon;
           const isActive: boolean = state.index === index;
