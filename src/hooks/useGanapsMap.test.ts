@@ -1,16 +1,14 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { renderHook, waitFor } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
 import { createElement } from 'react';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { CursorPage } from '@/api/types/api-response';
-import type { Coords } from '@/services/location.service';
 import type { GanapListItem, GanapListParams } from '@/types/ganap.types';
-import { ganapQueryKeys } from './queries/useGanapsQuery';
+import { type GanapListFilters, ganapQueryKeys } from './queries/useGanapsQuery';
 import { useGanaps } from './useGanaps';
 import { useGanapsMap } from './useGanapsMap';
-import type { UseNearbyLocationResult } from './useNearbyLocation';
 
 jest.mock('expo-sqlite', () => ({
   openDatabaseSync: (): Record<string, unknown> => ({}),
@@ -27,32 +25,6 @@ jest.mock('@/api/endpoints/ganaps', () => ({
 }));
 
 const mockedList = jest.mocked(ganapsAPI.list);
-
-const mockUseNearbyLocation = jest.fn<() => UseNearbyLocationResult>();
-
-jest.mock('./useNearbyLocation', () => ({
-  useNearbyLocation: (): UseNearbyLocationResult => mockUseNearbyLocation(),
-}));
-
-const ILOILO = { latitude: 10.72, longitude: 122.56 };
-
-function nearbyState(overrides: Partial<UseNearbyLocationResult>): UseNearbyLocationResult {
-  return {
-    isActive: false,
-    isDisabled: false,
-    coords: null,
-    isPrimingVisible: false,
-    isAccuracyNoticeVisible: false,
-    errorMessage: null,
-    toggle: jest.fn(),
-    refresh: jest.fn<() => Promise<Coords | null>>(),
-    confirmPriming: jest.fn<() => Promise<void>>(),
-    dismissPriming: jest.fn(),
-    dismissAccuracyNotice: jest.fn(),
-    openSettings: jest.fn<() => Promise<void>>(),
-    ...overrides,
-  };
-}
 
 /** Builds a Ganap list item carrying only the fields the hook reads. */
 function ganapWithTags(id: string, tags: string[]): GanapListItem {
@@ -103,8 +75,6 @@ const UNFILTERED: GanapListItem[] = [
   ganapWithTags('choir-night', ['music']),
 ];
 
-const ALL_TAGS: string[] = ['music', 'sports', 'tech'];
-
 /** Makes the mocked endpoint filter like the server, so narrowing is real. */
 function respondByFilter(): void {
   mockedList.mockImplementation(async (params?: GanapListParams): Promise<CursorPage<GanapListItem>> => {
@@ -124,7 +94,7 @@ function respondByFilter(): void {
 describe('useGanapsMap', () => {
   beforeEach((): void => {
     mockedList.mockReset();
-    mockUseNearbyLocation.mockReturnValue(nearbyState({}));
+    respondByFilter();
   });
 
   // The hook sets gcTime to 10 minutes, so without this the cache keeps a timer
@@ -134,138 +104,74 @@ describe('useGanapsMap', () => {
     testClient = null;
   });
 
-  it('keeps the full tag set when a tag filter narrows the items', async (): Promise<void> => {
-    respondByFilter();
-
+  it('requests one large page so clustering sees the whole viewport', async (): Promise<void> => {
     const { result, unmount } = await renderHook(() => useGanapsMap(), { wrapper: createWrapper() });
 
-    await waitFor((): void => expect(result.current.tags).toEqual(ALL_TAGS));
+    await waitFor((): void => expect(result.current.items).toHaveLength(2));
+    expect(mockedList).toHaveBeenLastCalledWith({ limit: 100 });
+    await unmount();
+  });
 
-    await act(async (): Promise<void> => {
-      result.current.setTag('sports');
+  it('passes the filters it is given straight through to the server', async (): Promise<void> => {
+    const { result, unmount } = await renderHook(
+      () => useGanapsMap({ tag: 'sports', lat: 10.72, long: 122.56, radius: 2 }),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor((): void =>
+      expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['sportsfest']),
+    );
+    expect(mockedList).toHaveBeenLastCalledWith({
+      tag: 'sports',
+      lat: 10.72,
+      long: 122.56,
+      radius: 2,
+      limit: 100,
     });
-
-    await waitFor((): void =>
-      expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['sportsfest']),
-    );
-    expect(result.current.tags).toEqual(ALL_TAGS);
     await unmount();
   });
 
-  it('keeps the full tag set when a search filter narrows the items', async (): Promise<void> => {
-    respondByFilter();
-
-    const { result, unmount } = await renderHook(() => useGanapsMap(), { wrapper: createWrapper() });
-
-    await waitFor((): void => expect(result.current.tags).toEqual(ALL_TAGS));
-
-    await act(async (): Promise<void> => {
-      result.current.setSearch('sportsfest');
-    });
-
-    await waitFor((): void =>
-      expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['sportsfest']),
-    );
-    // The chip row must not collapse to the search-narrowed vocabulary.
-    expect(result.current.tags).toEqual(ALL_TAGS);
-    await unmount();
-  });
-
-  it('issues one request for a burst of keystrokes rather than one per character', async (): Promise<void> => {
-    respondByFilter();
-
-    const { result, unmount } = await renderHook(() => useGanapsMap(), { wrapper: createWrapper() });
-    await waitFor((): void => expect(result.current.tags).toEqual(ALL_TAGS));
-
-    const callsAfterMount: number = mockedList.mock.calls.length;
-
-    for (const value of ['s', 'sp', 'spo', 'sport', 'sportsfest']) {
-      await act(async (): Promise<void> => {
-        result.current.setSearch(value);
-      });
-    }
-
-    await waitFor((): void =>
-      expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['sportsfest']),
-    );
-
-    expect(mockedList.mock.calls.length - callsAfterMount).toBe(1);
-    expect(mockedList).toHaveBeenLastCalledWith({ search: 'sportsfest', limit: 100 });
-    await unmount();
-  });
-
-  it('keeps the map page separate from the infinite browse query', async (): Promise<void> => {
-    respondByFilter();
-
+  it('keeps the map page under a different key from the infinite browse query', async (): Promise<void> => {
     const wrapper = createWrapper();
-    const map = await renderHook(() => useGanapsMap(), { wrapper });
 
-    await waitFor((): void => expect(map.result.current.tags).toEqual(ALL_TAGS));
+    const map = await renderHook(() => useGanapsMap({ tag: 'sports' }), { wrapper });
+    await waitFor((): void => expect(map.result.current.items).toHaveLength(1));
 
-    const events = await renderHook(() => useGanaps(), { wrapper });
+    const feed = await renderHook(() => useGanaps({ tag: 'sports' }), { wrapper });
+    await waitFor((): void => expect(feed.result.current.isLoading).toBe(false));
 
-    await waitFor((): void => expect(events.result.current.items).toHaveLength(UNFILTERED.length));
-    expect(events.result.current.hasNextPage).toBe(false);
+    const sizes = mockedList.mock.calls.map((call): number | undefined => call[0]?.limit);
+    expect(sizes).toContain(100);
+    expect(sizes).toContain(20);
 
     await map.unmount();
-    await events.unmount();
+    await feed.unmount();
+  });
+
+  it('holds the previous page on screen while a filter change loads', async (): Promise<void> => {
+    const { result, rerender, unmount } = await renderHook(
+      ({ filters }: { filters: GanapListFilters }) => useGanapsMap(filters),
+      { wrapper: createWrapper(), initialProps: { filters: { tag: 'sports' } as GanapListFilters } },
+    );
+
+    await waitFor((): void =>
+      expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['sportsfest']),
+    );
+
+    await rerender({ filters: { tag: 'music' } });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['sportsfest']);
+
+    await waitFor((): void =>
+      expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['choir-night']),
+    );
+    await unmount();
   });
 });
 
-describe('useGanapsMap geo parameters', (): void => {
-  beforeEach((): void => {
-    mockedList.mockReset();
-  });
-
-  afterEach((): void => {
-    testClient?.clear();
-    testClient = null;
-  });
-
-  it('sends no geo parameters while Nearby is off', async (): Promise<void> => {
-    respondByFilter();
-    mockUseNearbyLocation.mockReturnValue(nearbyState({ isActive: false, coords: ILOILO }));
-
-    const { unmount } = await renderHook(() => useGanapsMap(), { wrapper: createWrapper() });
-
-    await waitFor((): void => {
-      expect(mockedList).toHaveBeenCalled();
-    });
-    const params = mockedList.mock.calls[0]?.[0] ?? {};
-    expect(params.lat).toBeUndefined();
-    expect(params.long).toBeUndefined();
-    expect(params.radius).toBeUndefined();
-    await unmount();
-  });
-
-  it('sends all three geo parameters together while Nearby is on', async (): Promise<void> => {
-    respondByFilter();
-    mockUseNearbyLocation.mockReturnValue(nearbyState({ isActive: true, coords: ILOILO }));
-
-    const { unmount } = await renderHook(() => useGanapsMap(), { wrapper: createWrapper() });
-
-    await waitFor((): void => {
-      expect(mockedList).toHaveBeenCalledWith(expect.objectContaining({ lat: 10.72, long: 122.56, radius: 2 }));
-    });
-    await unmount();
-  });
-
-  it('sends no geo parameters when Nearby is on but coords are missing', async (): Promise<void> => {
-    respondByFilter();
-    mockUseNearbyLocation.mockReturnValue(nearbyState({ isActive: true, coords: null }));
-
-    const { unmount } = await renderHook(() => useGanapsMap(), { wrapper: createWrapper() });
-
-    await waitFor((): void => {
-      expect(mockedList).toHaveBeenCalled();
-    });
-    const params = mockedList.mock.calls[0]?.[0] ?? {};
-    expect(params.lat).toBeUndefined();
-    expect(params.radius).toBeUndefined();
-    await unmount();
-  });
-
-  it('varies the query key by geo so a toggle refetches', (): void => {
+describe('ganapQueryKeys', (): void => {
+  it('varies the map key by geo so a Nearby toggle refetches', (): void => {
     const off = ganapQueryKeys.list({ search: undefined, tag: undefined });
     const on = ganapQueryKeys.list({ search: undefined, tag: undefined, lat: 10.72, long: 122.56, radius: 2 });
 

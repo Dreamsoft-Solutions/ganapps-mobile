@@ -14,6 +14,12 @@ export const CLUSTER_MIN_POINTS: number = 2;
 export type MapCoordinate = [longitude: number, latitude: number];
 export type MapBounds = [west: number, south: number, east: number, north: number];
 
+/** Where and how far to move the camera when expanding a cluster. */
+export interface ClusterZoomTarget {
+  readonly coordinate: MapCoordinate;
+  readonly zoom: number;
+}
+
 export interface MapViewport {
   readonly bounds: MapBounds;
   readonly zoom: number;
@@ -158,11 +164,27 @@ export function getFeatureCoordinate(feature: GanapMapFeature): MapCoordinate | 
   return toMapCoordinate(feature.geometry.coordinates);
 }
 
-/** Resolves every Ganap leaf so duplicate coordinates remain selectable. */
+/**
+ * Resolves every Ganap leaf so duplicate coordinates remain selectable.
+ *
+ * Returns an empty array when the cluster does not belong to this index.
+ * Supercluster throws `No cluster with the specified id` in that case, which
+ * during a render takes the whole screen down. A caller holding a cluster from a
+ * replaced index is a transient state worth surviving, not crashing on — it
+ * renders as an empty group instead.
+ *
+ * @param index - The cluster index to resolve against
+ * @param cluster - The cluster whose leaves are wanted
+ * @returns The Ganaps in the cluster, or an empty array if it is not in the index
+ */
 export function getClusterLeaves(index: GanapClusterIndex, cluster: GanapClusterFeature): GanapListItem[] {
-  return index
-    .getLeaves(cluster.properties.cluster_id, Number.POSITIVE_INFINITY, 0)
-    .map((feature: GanapPointFeature): GanapListItem => feature.properties.ganap);
+  try {
+    return index
+      .getLeaves(cluster.properties.cluster_id, Number.POSITIVE_INFINITY, 0)
+      .map((feature: GanapPointFeature): GanapListItem => feature.properties.ganap);
+  } catch {
+    return [];
+  }
 }
 
 /** Resolves the zoom at which Supercluster expands the selected cluster. */

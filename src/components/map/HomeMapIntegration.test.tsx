@@ -2,24 +2,29 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, jest } from '@je
 import type { MapState } from '@rnmapbox/maps';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
-import type { UseGanapsMapResult } from '@/hooks/useGanapsMap';
+import { Routes } from '@/constants/routes';
+import type { UseGanapDiscoveryResult } from '@/hooks/useGanapDiscovery';
 import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
+import { FEED_SHEET_PEEK_HEIGHT } from '@/utils/feed-sheet';
 import {
+  type ClusterZoomTarget,
   createGanapClusterIndex,
   type GanapClusterFeature,
+  type GanapClusterIndex,
   getClusterExpansionZoom,
   getFeatureCoordinate,
   getVisibleMapFeatures,
   isClusterFeature,
   normalizeClusterZoom,
 } from '@/utils/map-clustering';
+import { MAP_OVERLAY_TOP } from '@/utils/map-viewport';
 
 const mockMapProps: Array<{ onMapIdle?: (state: MapState) => void }> = [];
 const mockMarkerProps: Array<{ anchor?: { x: number; y: number }; allowOverlap?: boolean }> = [];
 const mockSetCamera =
   jest.fn<(config: { centerCoordinate: [number, number]; zoomLevel: number; animationDuration: number }) => void>();
-const mockUseGanapsMap = jest.fn<() => UseGanapsMapResult>();
+const mockUseGanapDiscovery = jest.fn<() => UseGanapDiscoveryResult>();
 const mockRouterPush = jest.fn<(href: unknown) => void>();
 
 jest.mock('@rnmapbox/maps', () => {
@@ -90,7 +95,7 @@ jest.mock('react-native-safe-area-context', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useGanapsMap', () => ({ useGanapsMap: mockUseGanapsMap }));
+jest.mock('@/hooks/useGanapDiscovery', () => ({ useGanapDiscovery: mockUseGanapDiscovery }));
 jest.mock('@/components/map/GanapMapPin', () => ({
   GanapMapPin: ({ ganap }: { ganap: GanapListItem }): ReactElement => {
     const React = require('react') as typeof import('react');
@@ -110,22 +115,71 @@ jest.mock('@/components/map/TagChips', () => ({
     });
   },
 }));
-jest.mock('@/components/map/SelectedGanapCard', () => ({
-  SelectedGanapCard: ({ ganap, onPress }: { ganap: GanapListItem; onPress: () => void }): ReactElement => {
+// The sheet's own rendering is covered by its unit tests; here it stands in as
+// the single bottom surface so the screen's wiring can be asserted. The zoom
+// target comes from the real resolver, so the camera assertion stays honest.
+jest.mock('@/components/map/GanapFeedSheet', () => ({
+  GanapFeedSheet: ({
+    selectedGanap,
+    selectedCluster,
+    clusterIndex,
+    onSelectGanap,
+    onClearSelection,
+    onZoomToCluster,
+  }: GanapFeedSheetStubProps): ReactElement => {
     const React = require('react') as typeof import('react');
     const ReactNative = require('react-native') as typeof import('react-native');
+    const clustering = require('@/utils/map-clustering') as typeof import('@/utils/map-clustering');
+    const sheet = require('@/utils/feed-sheet') as typeof import('@/utils/feed-sheet');
+
+    const leaves: GanapListItem[] =
+      selectedCluster === null ? [] : clustering.getClusterLeaves(clusterIndex, selectedCluster);
+    const shown: GanapListItem[] = selectedCluster !== null ? leaves : selectedGanap ? [selectedGanap] : [];
+
     return React.createElement(
-      ReactNative.Pressable,
-      {
-        testID: 'selected-ganap-card',
+      ReactNative.View,
+      { testID: selectedCluster !== null ? 'feed-sheet-cluster-mode' : 'ganap-feed-sheet' },
+      ...shown.map(
+        (item: GanapListItem): ReactElement =>
+          React.createElement(
+            ReactNative.Pressable,
+            {
+              key: item.id,
+              testID: `feed-sheet-card-${item.id}`,
+              accessibilityRole: 'button',
+              accessibilityLabel: `Open event details for ${item.title}`,
+              onPress: (): void => onSelectGanap(item),
+            },
+            React.createElement(ReactNative.Text, null, item.title),
+          ),
+      ),
+      selectedCluster !== null
+        ? React.createElement(ReactNative.Pressable, {
+            accessibilityRole: 'button',
+            accessibilityLabel: 'Zoom in to this area',
+            onPress: (): void => {
+              const target = sheet.resolveClusterZoomTarget(clusterIndex, selectedCluster);
+              if (target !== null) onZoomToCluster(target);
+            },
+          })
+        : null,
+      React.createElement(ReactNative.Pressable, {
         accessibilityRole: 'button',
-        accessibilityLabel: `Open event details for ${ganap.title}`,
-        onPress,
-      },
-      React.createElement(ReactNative.Text, null, ganap.title),
+        accessibilityLabel: 'Show all events',
+        onPress: onClearSelection,
+      }),
     );
   },
 }));
+
+interface GanapFeedSheetStubProps {
+  selectedGanap: GanapListItem | null;
+  selectedCluster: GanapClusterFeature | null;
+  clusterIndex: GanapClusterIndex;
+  onSelectGanap: (ganap: GanapListItem) => void;
+  onClearSelection: () => void;
+  onZoomToCluster: (target: ClusterZoomTarget) => void;
+}
 
 let HomeScreen: typeof import('@/app/(app)/(home)/index').default;
 const previousMapboxToken: string | undefined = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
@@ -152,31 +206,55 @@ function ganap(id: string, longitude: number, latitude: number): GanapListItem {
   };
 }
 
-function mapHookResult(items: GanapListItem[], overrides: Partial<UseGanapsMapResult> = {}): UseGanapsMapResult {
+function mapHookResult(
+  items: GanapListItem[],
+  overrides: Partial<UseGanapDiscoveryResult['nearby']> = {},
+): UseGanapDiscoveryResult {
   return {
-    items,
-    tags: [],
+    filters: {},
     search: '',
     setSearch: jest.fn(),
     tag: null,
     setTag: jest.fn(),
-    isLoading: false,
-    isError: false,
-    error: null,
-    refetch: jest.fn<UseGanapsMapResult['refetch']>(),
-    isNearbyActive: false,
-    isNearbyDisabled: false,
-    toggleNearby: jest.fn(),
-    refreshLocation: jest.fn<() => Promise<Coords | null>>(),
-    userCoords: null,
-    isPrimingVisible: false,
-    confirmPriming: jest.fn<() => Promise<void>>(),
-    dismissPriming: jest.fn(),
-    isAccuracyNoticeVisible: false,
-    dismissAccuracyNotice: jest.fn(),
-    openLocationSettings: jest.fn<() => Promise<void>>(),
-    locationErrorMessage: null,
-    ...overrides,
+    tags: [],
+    map: {
+      items,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: jest.fn<UseGanapDiscoveryResult['map']['refetch']>(),
+    },
+    feed: {
+      items,
+      isLoading: false,
+      error: null,
+      hasNextPage: false,
+      fetchNextPage: jest.fn<UseGanapDiscoveryResult['feed']['fetchNextPage']>(),
+      isFetchingNextPage: false,
+      join: jest.fn<UseGanapDiscoveryResult['feed']['join']>(),
+      leave: jest.fn<UseGanapDiscoveryResult['feed']['leave']>(),
+      toggleLike: jest.fn<UseGanapDiscoveryResult['feed']['toggleLike']>(),
+      toggleSave: jest.fn<UseGanapDiscoveryResult['feed']['toggleSave']>(),
+      isJoining: false,
+      isLeaving: false,
+      isTogglingLike: false,
+      isTogglingSave: false,
+    },
+    nearby: {
+      isActive: false,
+      isDisabled: false,
+      coords: null,
+      isPrimingVisible: false,
+      isAccuracyNoticeVisible: false,
+      errorMessage: null,
+      toggle: jest.fn(),
+      refresh: jest.fn<() => Promise<Coords | null>>(),
+      confirmPriming: jest.fn<() => Promise<void>>(),
+      dismissPriming: jest.fn(),
+      dismissAccuracyNotice: jest.fn(),
+      openSettings: jest.fn<() => Promise<void>>(),
+      ...overrides,
+    },
   };
 }
 
@@ -205,7 +283,7 @@ async function triggerIdle(state: MapState): Promise<void> {
 }
 
 async function renderHome(items: GanapListItem[]): Promise<Awaited<ReturnType<typeof render>>> {
-  mockUseGanapsMap.mockReturnValue(mapHookResult(items));
+  mockUseGanapDiscovery.mockReturnValue(mapHookResult(items));
   return render(<HomeScreen />);
 }
 
@@ -228,7 +306,7 @@ beforeEach((): void => {
   mockMarkerProps.length = 0;
   mockSetCamera.mockClear();
   mockRouterPush.mockClear();
-  mockUseGanapsMap.mockReset();
+  mockUseGanapDiscovery.mockReset();
 });
 
 describe('home map clustering integration', (): void => {
@@ -242,7 +320,8 @@ describe('home map clustering integration', (): void => {
     expect(mockMarkerProps).toContainEqual({ anchor: { x: 0.5, y: 1 }, allowOverlap: true });
 
     await fireEvent.press(screen.getByRole('button', { name: 'Open event Event single' }));
-    expect(screen.getByTestId('selected-ganap-card')).toBeTruthy();
+    // The tapped pin becomes the sheet's selection rather than a card of its own.
+    expect(screen.getByTestId('feed-sheet-card-single')).toBeTruthy();
   });
 
   it('uses onMapIdle bounds and floored zoom to expose a cluster, list leaves, and zoom to expansion', async (): Promise<void> => {
@@ -262,27 +341,38 @@ describe('home map clustering integration', (): void => {
     const clusterButton = screen.getByRole('button', { name: 'Open group of 2 events' });
     expect(clusterButton).toBeTruthy();
     await fireEvent.press(clusterButton);
-    expect(screen.getByTestId('cluster-events-sheet')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Open event Event one' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Open event Event two' })).toBeTruthy();
+    expect(screen.getByTestId('feed-sheet-cluster-mode')).toBeTruthy();
+    expect(screen.getByTestId('feed-sheet-card-one')).toBeTruthy();
+    expect(screen.getByTestId('feed-sheet-card-two')).toBeTruthy();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Zoom in' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Zoom in to this area' }));
     expect(mockSetCamera).toHaveBeenCalledWith({
       centerCoordinate: getFeatureCoordinate(expectedCluster),
       zoomLevel: getClusterExpansionZoom(expectedIndex, expectedCluster),
       animationDuration: 300,
+      /**
+       * Padded so the expanded cluster centres in the map the user can see,
+       * rather than behind the search bar or the feed sheet.
+       */
+      padding: {
+        paddingTop: MAP_OVERLAY_TOP,
+        paddingBottom: FEED_SHEET_PEEK_HEIGHT,
+        paddingLeft: 0,
+        paddingRight: 0,
+      },
     });
   });
 
-  it('selects a leaf from the sheet through the existing selected-Ganap card flow', async (): Promise<void> => {
+  it('opens the detail screen when a leaf is tapped in the sheet', async (): Promise<void> => {
     const items: GanapListItem[] = [ganap('one', 122.5489, 10.7313), ganap('two', 122.5489, 10.7313)];
     const screen = await renderHome(items);
     await triggerIdle(idleState(0));
     await fireEvent.press(screen.getByRole('button', { name: 'Open group of 2 events' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Open event Event two' }));
+    await fireEvent.press(screen.getByTestId('feed-sheet-card-two'));
 
-    expect(screen.getByTestId('selected-ganap-card')).toBeTruthy();
-    expect(screen.getByText('Event two')).toBeTruthy();
+    // Every card tap navigates now, including a cluster leaf — the sheet is the
+    // detail surface, so there is nothing further to select in place.
+    expect(mockRouterPush).toHaveBeenCalledWith(Routes.ganapDetail('two'));
   });
 
   it('closes a selected cluster safely when the map dataset replaces its index', async (): Promise<void> => {
@@ -293,17 +383,17 @@ describe('home map clustering integration', (): void => {
     const screen = await renderHome(initialItems);
     await triggerIdle(idleState(0));
     await fireEvent.press(screen.getByRole('button', { name: 'Open group of 2 events' }));
-    expect(screen.getByTestId('cluster-events-sheet')).toBeTruthy();
+    expect(screen.getByTestId('feed-sheet-cluster-mode')).toBeTruthy();
 
-    mockUseGanapsMap.mockReturnValue(mapHookResult([ganap('replacement', 122.5489, 10.7313)]));
+    mockUseGanapDiscovery.mockReturnValue(mapHookResult([ganap('replacement', 122.5489, 10.7313)]));
     await screen.rerender(<HomeScreen />);
 
-    expect(screen.queryByTestId('cluster-events-sheet')).toBeNull();
+    expect(screen.queryByTestId('feed-sheet-cluster-mode')).toBeNull();
   });
 
   it('toggles Nearby from the filter row', async (): Promise<void> => {
     const toggleNearby = jest.fn();
-    mockUseGanapsMap.mockReturnValue(mapHookResult([], { toggleNearby }));
+    mockUseGanapDiscovery.mockReturnValue(mapHookResult([], { toggle: toggleNearby }));
 
     const { getByLabelText } = await render(<HomeScreen />);
     fireEvent.press(getByLabelText('Show events near me'));

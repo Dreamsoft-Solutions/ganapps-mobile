@@ -158,3 +158,21 @@ describe('map clustering utility', (): void => {
     ).toEqual(DEFAULT_MAP_VIEWPORT);
   });
 });
+
+describe('getClusterLeaves resilience', () => {
+  it('returns an empty array for a cluster that is not in the index', () => {
+    /**
+     * Supercluster throws rather than returning nothing, which during a render
+     * takes the screen down. Holding a cluster from a replaced index is a
+     * transient state the UI should survive.
+     */
+    const populated = createGanapClusterIndex([ganap('a', 122.5489, 10.7313), ganap('b', 122.5489, 10.7313)]);
+    const cluster = getVisibleMapFeatures(populated, {
+      bounds: [-180, -85.051129, 180, 85.051129],
+      zoom: 0,
+    }).find(isClusterFeature);
+    if (cluster === undefined) throw new Error('Expected a cluster fixture');
+
+    expect(getClusterLeaves(createGanapClusterIndex([]), cluster)).toEqual([]);
+  });
+});
