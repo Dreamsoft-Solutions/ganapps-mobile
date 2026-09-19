@@ -49,3 +49,4 @@ and leave it in place.
 - [ADR 0002: Static Framework Linkage for iOS](0002-ios-static-framework-linkage.md)
 - [ADR 0003: Nearby Location Sampling and Map Camera Constraints](0003-nearby-location-and-map-camera.md)
 - [ADR 0004: Event Feed Lives in a Bottom Sheet on the Map Tab](0004-event-feed-bottom-sheet.md)
+- [ADR 0005: iOS and Android UI Each Follow Their Own Platform Guidelines](0005-platform-design-guidelines.md)

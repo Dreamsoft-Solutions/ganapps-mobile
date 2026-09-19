@@ -130,6 +130,9 @@ Before changing primitives or forms, read their prop, variant, and composition r
 - **No emojis** in UI text, labels, or error messages.
 - **Icons** — `lucide-react-native` for all iconography.
 - **Spacing** — use the Tailwind scale in `docs/DESIGN.md` (`p-md`, `gap-lg`), not raw pixel values.
+- **Platform guidelines** — iOS follows Apple's Human Interface Guidelines; Android follows
+  the Android design guidelines. Both bind navigation, touch targets, text scaling, and
+  accessibility. See [Platform conventions](docs/DESIGN.md#platform-conventions).
 
 ## Design System
 
