@@ -175,7 +175,7 @@ describe('EventChatThreadView', (): void => {
     expect(onSend).not.toHaveBeenCalled();
     expect(onRemoveImage).toHaveBeenCalledTimes(1);
     expect(input.props.value).toBe('Keep this text');
-    expect(screen.getByLabelText('Remove image').props.hitSlop).toEqual({ top: 8, right: 8, bottom: 8, left: 8 });
+    expect(screen.getByLabelText('Remove image').props.hitSlop).toEqual({ top: 10, right: 10, bottom: 10, left: 10 });
     expect(screen.queryByText('Ready to send')).toBeNull();
     expect(screen.queryByText('Checking image…')).toBeNull();
     expect(screen.getAllByLabelText('Send image')).toHaveLength(1);

@@ -444,7 +444,7 @@ export function EventChatThreadView({
               editable={!isSending}
               placeholder="Write a message"
               placeholderTextColor={Colors[theme]['muted-foreground']}
-              className="max-h-32 min-h-12 flex-1 rounded-lg border border-input bg-background px-md py-sm text-body-md text-foreground"
+              className="max-h-32 min-h-touch flex-1 rounded-lg border border-input bg-background px-md py-sm text-body-md text-foreground"
             />
             <Pressable
               accessibilityRole="button"
@@ -465,7 +465,7 @@ export function EventChatThreadView({
                 setDraftText('');
                 void onSend(content);
               }}
-              className="h-12 w-12 items-center justify-center rounded-full bg-primary disabled:opacity-50"
+              className="h-touch w-touch items-center justify-center rounded-full bg-primary disabled:opacity-50"
             >
               {isSending ? (
                 <ActivityIndicator color={Colors[theme]['primary-foreground']} />

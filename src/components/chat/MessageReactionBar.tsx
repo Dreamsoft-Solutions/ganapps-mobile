@@ -48,7 +48,7 @@ export function MessageReactionBar({
             accessibilityState={{ selected, disabled: isPending, busy: isPending }}
             disabled={isPending}
             onPress={(): void => onSelect(selected ? null : option.value)}
-            className={`${presentation === 'tray' ? 'flex-1' : ''} min-h-11 min-w-11 flex-row items-center justify-center rounded-full border px-xs py-xs ${
+            className={`${presentation === 'tray' ? 'flex-1' : ''} min-h-touch min-w-touch flex-row items-center justify-center rounded-full border px-xs py-xs ${
               selected ? 'border-primary bg-muted' : 'border-border bg-background'
             }`}
           >
