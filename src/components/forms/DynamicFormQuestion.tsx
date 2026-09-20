@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react-native';
 import { Circle, CircleCheck, Square, SquareCheck } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import type { ControllerFieldState, ControllerRenderProps, FieldPath } from 'react-hook-form';
@@ -74,6 +75,24 @@ function optionPressHandler(
   };
 }
 
+/**
+ * Picks the control glyph for a choice option.
+ *
+ * Multi-answer blocks read as checkboxes and single-answer blocks as radios, so
+ * the glyph depends on the block's arity as well as the option's state.
+ *
+ * @param allowMultiple - Whether the block accepts more than one answer.
+ * @param checked - Whether this option is currently selected.
+ * @returns The icon component for that combination.
+ */
+function choiceIcon(allowMultiple: boolean, checked: boolean): LucideIcon {
+  if (allowMultiple) {
+    return checked ? SquareCheck : Square;
+  }
+
+  return checked ? CircleCheck : Circle;
+}
+
 function renderChoiceOptions(
   field: ControllerRenderProps<RegistrationFormData, FieldPath<RegistrationFormData>>,
   block: FormBlock,
@@ -88,7 +107,7 @@ function renderChoiceOptions(
     <View className="gap-xs">
       {options.map((option: FormOption): ReactElement => {
         const checked: boolean = block.allowMultiple ? selectedIds.includes(option.id) : value === option.id;
-        const Icon = block.allowMultiple ? (checked ? SquareCheck : Square) : checked ? CircleCheck : Circle;
+        const Icon: LucideIcon = choiceIcon(Boolean(block.allowMultiple), checked);
 
         return (
           <Pressable
@@ -96,7 +115,7 @@ function renderChoiceOptions(
             accessibilityRole={block.allowMultiple ? 'checkbox' : 'radio'}
             accessibilityLabel={option.label}
             accessibilityState={{ checked }}
-            className={`min-h-11 min-w-11 flex-row items-center gap-xs rounded-lg border px-md py-sm active:opacity-70 ${
+            className={`min-h-touch min-w-touch flex-row items-center gap-xs rounded-lg border px-md py-sm active:opacity-70 ${
               checked ? 'border-primary bg-primary/10' : 'border-input bg-background'
             }`}
             onPress={optionPressHandler(field, block, option)}
@@ -140,7 +159,7 @@ function renderScaleOptions(
               accessibilityRole="radio"
               accessibilityLabel={String(option)}
               accessibilityState={{ checked }}
-              className={`min-h-11 min-w-11 items-center justify-center rounded-lg border px-sm py-sm active:opacity-70 ${
+              className={`min-h-touch min-w-touch items-center justify-center rounded-lg border px-sm py-sm active:opacity-70 ${
                 checked ? 'border-primary bg-primary/10' : 'border-input bg-background'
               }`}
               onPress={(): void => field.onChange(option)}
@@ -169,7 +188,7 @@ function renderQuestionControl(
         accessibilityHint="Enter your answer"
         autoCapitalize="sentences"
         autoCorrect
-        className={`min-h-11 rounded-lg border border-input bg-background px-md py-sm text-body-lg text-foreground ${
+        className={`min-h-touch rounded-lg border border-input bg-background px-md py-sm text-body-lg text-foreground ${
           isMultilineText(block) ? 'min-h-24' : ''
         }`}
         maxLength={textConfiguration.maxLength}

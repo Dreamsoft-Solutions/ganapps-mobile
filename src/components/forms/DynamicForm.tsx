@@ -89,7 +89,7 @@ export function DynamicForm({
               accessibilityRole="button"
               accessibilityLabel="Go back"
               accessibilityHint="Returns to event details"
-              className="min-h-11 min-w-11 items-center justify-center rounded-full active:opacity-70"
+              className="min-h-touch min-w-touch items-center justify-center rounded-full active:opacity-70"
               onPress={onBack}
             >
               <ArrowLeft size={24} className="text-foreground" />
