@@ -70,6 +70,13 @@ export const BAR_HEIGHT: number = 72;
  * against scrolling content, not a floating surface — the same treatment the
  * chat composers and form footers use.
  *
+ * The icon slot keeps a numeric-scale `h-11`, which looks like a touch-target
+ * violation and is not: the slot is a `View`, and the `Pressable` around it
+ * fills a {@link BAR_HEIGHT} row at `flex-1`, so each tab accepts presses
+ * across 72dp and a fifth of the screen. Growing the slot would only push the
+ * label down. DS-119 audited this row and left it, which is also why it does
+ * not use the `touch` token the real targets moved to.
+ *
  * @param props - React Navigation bottom tab bar props.
  * @returns The tab bar.
  */
