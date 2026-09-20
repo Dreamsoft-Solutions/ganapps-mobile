@@ -208,7 +208,6 @@ function EventDetailHero({
         style={{ top: insetsTop + 8 }}
       >
         <IconButton
-          size="lg"
           variant="default"
           accessibilityLabel="Go back"
           accessibilityHint="Returns to the previous screen"
@@ -219,7 +218,6 @@ function EventDetailHero({
 
         <View className="flex-row gap-sm">
           <IconButton
-            size="lg"
             variant="default"
             accessibilityLabel="Share event"
             accessibilityHint="Opens the device share sheet"
@@ -230,7 +228,6 @@ function EventDetailHero({
             <Share2 size={22} className="text-foreground" />
           </IconButton>
           <IconButton
-            size="lg"
             variant="default"
             selected={isLiked}
             disabled={isLikePending}
@@ -242,7 +239,6 @@ function EventDetailHero({
             <Heart size={22} color={likeColor} fill={isLiked ? likeColor : 'none'} />
           </IconButton>
           <IconButton
-            size="lg"
             variant="default"
             selected={isSaved}
             disabled={isSavePending}
