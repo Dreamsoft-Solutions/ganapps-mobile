@@ -1,5 +1,6 @@
-import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
+import { type InfiniteData, type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
+import type { PaginatedResponse } from '@/api/types/api-response';
 import { enqueueOutbox } from '@/services/sync.service';
 import type {
   CheckInResult,
@@ -10,6 +11,7 @@ import type {
   SubmitFeedbackResponse,
   SubmitFormAnswersInput,
 } from '@/types/ganap.types';
+import type { SavedGanap } from '@/types/profile.types';
 import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
 import { ganapQueryKeys } from '../queries/useGanapsQuery';
 import { profileQueryKeys } from '../queries/useProfileQuery';
@@ -159,25 +161,91 @@ export function useLikeGanapMutation(): UseMutationResult<void, Error, ToggleLik
   });
 }
 
+type SavedGanapPage = PaginatedResponse<SavedGanap>;
+type SavedGanapsData = InfiniteData<SavedGanapPage, number>;
+
+/** Saved-list cache entries captured before an optimistic unsave. */
+export interface SaveMutationContext {
+  previousSaved: Array<[readonly unknown[], SavedGanapsData | undefined]>;
+}
+
+/**
+ * Drops one Ganap from every page of a cached saved-Ganap list.
+ *
+ * @param data - The cached infinite query data.
+ * @param ganapId - Id of the Ganap to remove.
+ * @returns The data without that Ganap, with page totals decremented.
+ */
+function removeSavedGanap(data: SavedGanapsData, ganapId: string): SavedGanapsData {
+  let removed = false;
+  const pages: SavedGanapPage[] = data.pages.map((page: SavedGanapPage): SavedGanapPage => {
+    const items: SavedGanap[] = page.items.filter((item: SavedGanap): boolean => item.id !== ganapId);
+    if (items.length !== page.items.length) removed = true;
+    return { ...page, items };
+  });
+
+  if (!removed) return data;
+
+  return {
+    ...data,
+    pages: pages.map(
+      (page: SavedGanapPage): SavedGanapPage => ({
+        ...page,
+        pagination: { ...page.pagination, total: Math.max(0, page.pagination.total - 1) },
+      }),
+    ),
+  };
+}
+
 /**
  * Toggles the current user's save on a Ganap.
  *
+ * An unsave removes the row from the cached saved list before the request
+ * settles. A server rejection restores it; a transport failure keeps it removed
+ * and queues the unsave for replay, since the user's intent is recorded and
+ * will reach the server.
+ *
  * @returns The mutation, taking the Ganap id and its current saved state
  */
-export function useSaveGanapMutation(): UseMutationResult<void, Error, ToggleSaveVariables> {
+export function useSaveGanapMutation(): UseMutationResult<void, Error, ToggleSaveVariables, SaveMutationContext> {
   const queryClient = useQueryClient();
 
-  return useMutation<void, Error, ToggleSaveVariables>({
+  return useMutation<void, Error, ToggleSaveVariables, SaveMutationContext>({
     mutationFn: ({ ganapId, isSaved }: ToggleSaveVariables): Promise<void> =>
       isSaved ? ganapsAPI.unsave(ganapId) : ganapsAPI.save(ganapId),
+    onMutate: async ({ ganapId, isSaved }: ToggleSaveVariables): Promise<SaveMutationContext> => {
+      if (!isSaved) return { previousSaved: [] };
+
+      await queryClient.cancelQueries({ queryKey: profileQueryKeys.savedGanapsRoot() });
+      const previousSaved = queryClient.getQueriesData<SavedGanapsData>({
+        queryKey: profileQueryKeys.savedGanapsRoot(),
+      });
+      queryClient.setQueriesData<SavedGanapsData>(
+        { queryKey: profileQueryKeys.savedGanapsRoot() },
+        (data: SavedGanapsData | undefined): SavedGanapsData | undefined =>
+          data === undefined ? undefined : removeSavedGanap(data, ganapId),
+      );
+
+      return { previousSaved };
+    },
     onSuccess: (_result: unknown, { ganapId }: ToggleSaveVariables): void => {
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });
     },
-    onError: (error: Error, { ganapId, isSaved }: ToggleSaveVariables): void => {
+    onError: (
+      error: Error,
+      { ganapId, isSaved }: ToggleSaveVariables,
+      context: SaveMutationContext | undefined,
+    ): void => {
       if (shouldQueueForReplay(error)) {
         void enqueueOutbox('ganap', isSaved ? 'unsave' : 'save', { ganapId });
+        return;
       }
+
+      context?.previousSaved.forEach(([key, data]: [readonly unknown[], SavedGanapsData | undefined]): void => {
+        queryClient.setQueryData(key, data);
+      });
     },
   });
 }
