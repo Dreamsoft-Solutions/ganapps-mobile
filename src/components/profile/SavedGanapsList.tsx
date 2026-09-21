@@ -12,6 +12,7 @@ import { SavedGanapCard } from './SavedGanapCard';
 
 const SAVED_PAGE_SIZE: number = 20;
 
+/** Props for {@link SavedGanapsList}. */
 export interface SavedGanapsListProps {
   contentTopPadding: number;
   contentBottomPadding: number;
