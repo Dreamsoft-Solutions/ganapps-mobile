@@ -81,3 +81,27 @@ describe('profileAPI.listJoinedGanaps', () => {
     expect(captured[0].params).toEqual({ skip: 0, take: 20, search: 'design', time: 'PAST' });
   });
 });
+
+describe('profileAPI.listSavedGanaps', () => {
+  it('targets the versioned saved Ganap profile path', async () => {
+    axiosInstance.defaults.adapter = envelopeAdapter({
+      items: [],
+      pagination: { total: 0, skip: 0, take: 20, pages: 0 },
+    });
+
+    await profileAPI.listSavedGanaps({ skip: 20, take: 10 });
+
+    expect(requestedUrl(captured[0])).toContain('/api/v1/profile/me/saved-ganaps');
+    expect(captured[0].params).toEqual({ skip: 20, take: 10 });
+  });
+
+  it('returns the unwrapped paginated payload', async () => {
+    const page = {
+      items: [{ id: 'ganap_1', title: 'Campus Day', savedAt: '2026-09-01T00:00:00.000Z' }],
+      pagination: { total: 1, skip: 0, take: 20, pages: 1 },
+    };
+    axiosInstance.defaults.adapter = envelopeAdapter(page);
+
+    await expect(profileAPI.listSavedGanaps()).resolves.toEqual(page);
+  });
+});
