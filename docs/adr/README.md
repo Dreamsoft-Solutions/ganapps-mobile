@@ -43,6 +43,34 @@ What follows from this — what it enables, what it costs, what now has to stay 
 Superseding an ADR does not mean deleting it: mark the old one `Superseded by ADR NNNN`
 and leave it in place.
 
+## Amending one
+
+Superseding is for a decision that changed. Most edits are not that: the decision stands and a
+consequence moved — work it deferred got done, or a cost it predicted never landed. Amend those
+in place.
+
+| Section | Amend it? |
+|---|---|
+| Context | No. It records the situation that forced the decision. Rewriting it to match what is true now hides what the call was actually made on |
+| Decision | Wording only. A decision that genuinely changed is a new ADR — see superseding above |
+| Alternatives Considered | No, for the same reason as Context |
+| Consequences | Yes. This is the section that predicts, so it is the one that goes stale |
+
+Two rules for the amendment itself:
+
+- **Name what closed it.** "DS-119 closed it" is an amendment; "this is now handled" is a claim.
+  A reader should be able to find the change that discharged the consequence.
+- **Leave `**Date:**` and `**Status:**` alone.** They describe the decision, not the file. An
+  ADR amended next year still records a decision made this one, and an ADR whose consequences
+  have all landed is still `Accepted`.
+
+Don't add a changelog section to the ADR. `git log -p docs/adr/NNNN-*.md` is the changelog, and
+a hand-maintained one decays the same way the stale consequence did.
+
+ADR 0005's `Button size="sm"` consequence is the worked example: it deferred a code change,
+DS-119 made it, and the bullet now records the outcome — while the Context above it still
+describes the gap that prompted the rule in the first place.
+
 ## Index
 
 - [ADR 0001: Type-Checked Route Table Using Object-Form Hrefs](0001-type-checked-route-table.md)

@@ -393,7 +393,6 @@ function EventHubTopBar({ insetsTop, theme, onBack, onShare, onOpenChat }: Event
         </View>
 
         <IconButton
-          size="lg"
           variant="default"
           accessibilityLabel="Go back"
           accessibilityHint="Returns to Event Details"
@@ -404,7 +403,6 @@ function EventHubTopBar({ insetsTop, theme, onBack, onShare, onOpenChat }: Event
 
         <View className="flex-row gap-sm">
           <IconButton
-            size="lg"
             variant="default"
             accessibilityLabel="Share event"
             accessibilityHint="Opens the device share sheet"
@@ -415,7 +413,6 @@ function EventHubTopBar({ insetsTop, theme, onBack, onShare, onOpenChat }: Event
             <Share2 size={18} color={Colors[theme].foreground} />
           </IconButton>
           <IconButton
-            size="lg"
             variant="default"
             disabled={!onOpenChat}
             accessibilityLabel={onOpenChat ? 'Event chat' : 'Event chat coming soon'}

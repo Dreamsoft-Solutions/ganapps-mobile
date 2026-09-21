@@ -73,9 +73,20 @@ The rule is placed by reach, not by topic:
 
 - Touch targets clear 48dp everywhere rather than branching, which makes iOS controls 4pt
   larger than HIG requires. Accepted: a branch per control costs more than the 4pt.
-- `Button` `size="sm"` is now a documented gap rather than an accident. It stays in the API —
-  it is used where the element is not a primary target — but it needs a `hitSlop` or a caller
-  who knows. That is a code change this ADR does not make.
+- `Button` `size="sm"` was a documented gap when this was written. DS-119 closed it. It stays
+  in the API — it marks secondary actions in dense rows, where 48dp would crowd the layout —
+  and reaches the minimum with 9dp of `hitSlop` rather than growing; `IconButton` `size="sm"`
+  does the same with 10dp. Neither changed visually. `Button` `size="md"` turned out to be
+  short too and now carries a `min-h-touch` floor, which makes the default button 6dp taller
+  than it was. `IconButton` lost its `lg`: once `md` cleared 48dp the two rendered identically.
+
+- **Clearing 48dp costs a dedicated token, because the Tailwind scale lies here.** NativeWind
+  resolves `1rem` to 14px rather than 16, so `w-12` renders 42dp, not the 48dp its name
+  implies. DS-119 was first written against the documented scale and shipped targets at 42dp
+  that its own tests reported as 48dp; measuring a control on a device is what caught it. Touch
+  targets now size from a `touch` token declared in literal px, and the primitives' tests
+  resolve sizes from the real Tailwind theme instead of recomputing the scale. The rule this
+  leaves behind: a size that has to be exact is not safe on the numeric scale.
 - Text scales with the system setting because React Native leaves `allowFontScaling` on and
   nothing in `src/` turns it off. Keeping that true is now a rule, and layouts are expected to
   survive enlarged text — which no current test asserts and no screen has been audited for.

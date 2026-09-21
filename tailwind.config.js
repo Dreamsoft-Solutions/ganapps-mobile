@@ -73,6 +73,13 @@ module.exports = {
         'label-sm': ['11px', { lineHeight: '14px', fontWeight: '500' }],
       },
       spacing: {
+        /**
+         * Literal px, deliberately. NativeWind substitutes 14px for 1rem, so the
+         * default numeric scale renders 0.875x its Tailwind value -- w-12 is 42dp,
+         * not 48dp. A touch target must clear 48dp exactly (ADR 0005), so it reads
+         * its size from here rather than from that scale. See DS-119.
+         */
+        touch: '48px',
         base: '4px',
         xs: '8px',
         sm: '12px',

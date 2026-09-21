@@ -31,7 +31,7 @@ export function FieldHint({ accessibilityLabel, message, title }: FieldHintProps
         accessibilityLabel={accessibilityLabel}
         accessibilityHint={isOpen ? 'Hides these requirements' : 'Shows these requirements'}
         accessibilityState={{ expanded: isOpen }}
-        hitSlop={8}
+        hitSlop={14}
         className="h-6 w-6 items-center justify-center rounded-full active:bg-accent"
       >
         <CircleHelp size={16} color={mutedColor} />

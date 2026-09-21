@@ -67,11 +67,41 @@ not only a polish one.
 The reasoning behind binding both, and behind the affordance/ornament split, is in
 [ADR 0005](adr/0005-platform-design-guidelines.md).
 
-### Known gap
+### The numeric scale is not the size you think it is
 
-`Button` `size="sm"` is `px-3 py-2` over a 20px line height, so it measures about 36px tall —
-under both minimums. Reach for `md` or larger when the control is a real touch target, or give
-`sm` a `hitSlop`.
+**NativeWind resolves `1rem` to 14px, not 16.** That is its own default
+(`inlineRem = 14`), and `metro.config.js` does not override it. Every class on
+Tailwind's default numeric scale therefore renders at 0.875x its documented value:
+
+| Class | Tailwind says | Renders here |
+|---|---|---|
+| `w-12` / `h-12` | 48 | **42dp** |
+| `w-11` / `h-11` | 44 | 38.5dp |
+| `w-8` / `h-8` | 32 | 28dp |
+| `py-3` | 12 | 10.5dp |
+
+The named tokens in `tailwind.config.js` — `xs`, `sm`, `md`, `lg`, `xl`, `touch` — are
+declared in literal px and are **not** affected. `gap-sm` really is 12dp.
+
+**So a touch target never sizes itself from the numeric scale.** Use the `touch` token:
+`w-touch`, `h-touch`, `min-w-touch`, `min-h-touch` all resolve to exactly 48dp. DS-119
+shipped `w-12` believing it was 48dp; it measured 42dp on a device.
+
+### Small variants reach the floor with slop
+
+`Button` `size="sm"` renders about 31.5dp tall and `IconButton` `size="sm"` 28dp square.
+Both mark secondary actions in dense rows where 48dp would crowd the layout, so both
+reach the minimum with `hitSlop` instead of growing — 9dp and 10dp per edge. `Button`
+`size="md"` cannot reach it on padding alone either, so it carries `min-h-touch`.
+
+The arithmetic lives in `buttonSizeTargets` and `iconButtonSizeStyles` beside each
+primitive. Their tests resolve it against the real Tailwind theme via
+`utils/tailwind-metrics.ts` rather than recomputing the scale, so a variant that lands
+under 48dp fails the suite — and so does one whose declared size stops matching the
+class it ships.
+
+Building a raw `Pressable` instead? It answers to the same floor. `hitSlop` is the tool
+when the control must stay visually small, and it is counted on both edges.
 
 ## Color tokens
 

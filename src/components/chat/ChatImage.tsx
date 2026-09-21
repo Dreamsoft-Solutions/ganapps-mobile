@@ -84,7 +84,7 @@ export function ChatImagePreview({ draft, onRemove }: ChatImagePreviewProps): Re
         accessibilityHint="Removes the selected image"
         accessibilityState={{ disabled: isChecking }}
         disabled={isChecking}
-        hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+        hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
         onPress={onRemove}
         style={{
           position: 'absolute',

@@ -23,7 +23,7 @@ export function LocateMeButton({ onPress }: LocateMeButtonProps): ReactElement {
   return (
     <Pressable
       onPress={onPress}
-      className="h-11 w-11 items-center justify-center rounded-full bg-card border border-border shadow"
+      className="h-touch w-touch items-center justify-center rounded-full bg-card border border-border shadow"
       accessibilityRole="button"
       accessibilityLabel="Centre the map on my location"
     >
