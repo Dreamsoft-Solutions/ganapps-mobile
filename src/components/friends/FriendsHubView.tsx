@@ -20,6 +20,7 @@ import { Empty } from '@/components/common/Empty';
 import { ErrorView } from '@/components/common/Error';
 import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
+import { SegmentControl } from '@/components/common/SegmentControl';
 import { Text } from '@/components/common/Text';
 import { Colors, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
@@ -241,52 +242,6 @@ function RequestRow({
         </View>
       )}
     </Card>
-  );
-}
-
-function SegmentControl({
-  value,
-  options,
-  onChange,
-  label,
-}: {
-  value: string;
-  options: ReadonlyArray<{ value: string; label: string }>;
-  onChange: (value: string) => void;
-  label: string;
-}): ReactElement {
-  const theme = useResolvedTheme();
-  return (
-    <View accessibilityRole="tablist" accessibilityLabel={label} className="mb-md flex-row rounded-lg bg-muted p-xs">
-      {options.map((option: { value: string; label: string }): ReactElement => {
-        const selected: boolean = option.value === value;
-        return (
-          <Pressable
-            key={option.value}
-            accessibilityRole="tab"
-            accessibilityLabel={option.label}
-            accessibilityState={{ selected }}
-            onPress={(): void => onChange(option.value)}
-            className="flex-1 items-center rounded-md px-sm py-sm"
-            style={
-              selected
-                ? {
-                    backgroundColor: Colors[theme].card,
-                    boxShadow: '0px 1px 2px 0px rgba(0, 0, 0, 0.05)',
-                  }
-                : undefined
-            }
-          >
-            <Text
-              className="text-label-md"
-              style={{ color: selected ? Colors[theme].primary : Colors[theme]['muted-foreground'] }}
-            >
-              {option.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
   );
 }
 
@@ -579,7 +534,7 @@ function RequestSegment({
           { value: 'incoming', label: 'Incoming' },
           { value: 'outgoing', label: 'Outgoing' },
         ]}
-        onChange={(value: string): void => onRequestDirectionChange(value as FriendRequestDirection)}
+        onChange={(value: FriendRequestDirection): void => onRequestDirectionChange(value)}
       />
       {requests.length === 0 ? (
         <Empty message={emptyMessage} />
@@ -748,7 +703,7 @@ export function FriendsHubView({
             { value: 'friends', label: 'Friends' },
             { value: 'requests', label: 'Requests' },
           ]}
-          onChange={(value: string): void => onSegmentChange(value as FriendsHubViewSegment)}
+          onChange={(value: FriendsHubViewSegment): void => onSegmentChange(value)}
         />
         <SegmentContent
           segment={segment}
