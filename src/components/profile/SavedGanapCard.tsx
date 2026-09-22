@@ -11,6 +11,15 @@ import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { GanapStatus } from '@/types/ganap.types';
 import type { SavedGanap } from '@/types/profile.types';
 
+/**
+ * Fill the thumbnail as a real style object, not a class.
+ *
+ * `expo-image` registers no `cssInterop`, so it drops a `className` silently
+ * and the image collapses to nothing. Same fix DS-44 applied to the feed
+ * poster; see `GanapFeedCard.POSTER_FILL`.
+ */
+const THUMBNAIL_FILL = { width: '100%', height: '100%' } as const;
+
 const STATUS_LABELS: Partial<Record<GanapStatus, string>> = {
   ONGOING: 'In progress',
   COMPLETED: 'Ended',
@@ -52,7 +61,7 @@ export function SavedGanapCard({ ganap, onPress, onUnsave }: SavedGanapCardProps
           {coverImage ? (
             <Image
               source={{ uri: coverImage }}
-              className="h-full w-full"
+              style={THUMBNAIL_FILL}
               contentFit="cover"
               accessibilityLabel={`${ganap.title} event image`}
             />
