@@ -28,20 +28,20 @@ rather than sharing copies.
 `BUNDLE_ID: com.ganapps.app`, `PROJECT_ID: ganapps`, `IS_SIGNIN_ENABLED: true`. Earlier
 revisions of this file said the iOS app was unregistered; that was wrong.
 
-iOS prebuild needs a third thing: a secret Mapbox token with `DOWNLOADS:READ` scope in
-`~/.netrc`, under `machine api.mapbox.com`. `@rnmapbox/maps` fetches the Mapbox iOS SDK from a
-private registry at `pod install` time, so without it `pod install` fails and no iOS build is
-possible. This is separate from `EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN` in `.env`, which is the
-public `pk.` runtime token. Never put the secret token in `.env` — the `EXPO_PUBLIC_` prefix
-bundles it into the shipped binary.
+**No secret Mapbox token should be needed to build.** Earlier revisions of this file (and
+DS-88, DS-101) required a `DOWNLOADS:READ` token in `~/.netrc` for `pod install`. As of
+2026-09-23, Mapbox serves the iOS SDK archives (`MapboxCoreMaps` 11.23.1, `MapboxCommon`
+24.23.1) and the Android Maven artifacts without authentication, and `rnmapbox-maps.podspec`
+itself marks the download token as deprecated. That is checked against the download URLs, not
+yet against an EAS cloud build — DS-101 stays open until the first one confirms it. A leftover
+`machine api.mapbox.com` entry in `~/.netrc` is harmless.
 
-**This is configured and no longer a blocker** (DS-88, done). Earlier revisions of this file
-said no iOS build was possible; that stopped being true on 2026-08-31. The token is per
-developer and is never shared — each person generates their own in the Mapbox account page and
-writes their own `~/.netrc`.
+The only Mapbox credential the app uses is `EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN`, the public `pk.`
+runtime token. Never give a secret `sk.` token the `EXPO_PUBLIC_` prefix — that bundles it into
+the shipped binary.
 
-`npx expo prebuild -p ios --no-install` skips CocoaPods and works without the Mapbox token,
-which is enough to regenerate and inspect `ios/ganappsmobile/Info.plist`.
+`npx expo prebuild -p ios --no-install` skips CocoaPods, which is enough to regenerate and
+inspect `ios/Ganapps/Info.plist`.
 
 `android.package` and `ios.bundleIdentifier` are both **`com.ganapps.app`**, matching the
 Android app AJ registered in the production Firebase project (confirmed with him — it is not a
@@ -111,5 +111,31 @@ destination at all and `expo run:ios` fails with `Unable to find a destination m
 provided destination specifier`, which reads like a device-selection bug rather than a missing
 multi-GB download. None of this needs an Apple Developer Program membership — the simulator
 signs locally; the membership matters only for TestFlight and App Store submission.
+
+### EAS cloud builds for iOS
+
+`eas.json` has two store-signed iOS profiles. Both auto-increment the build number from the
+same remote counter and pin the Xcode 26.6 image:
+
+| Profile | EAS environment | API and Remote Config | Use |
+|---|---|---|---|
+| `testflight` | `preview` | dev API, `mobile_dev` | Internal TestFlight — `eas build -p ios --profile testflight --auto-submit` |
+| `production` | `production` | production API, `mobile_prod` | App Store release |
+
+A `testflight` build is never the one submitted for App Review — it talks to the dev API.
+
+The EAS environment a profile reads must hold everything the local `.env` and gitignored files
+provide, because neither reaches the build worker:
+
+- **`GOOGLE_SERVICE_INFO_PLIST`** — a *file* variable holding `GoogleService-Info.plist`.
+  Without it `app.config.js` falls back to `./GoogleService-Info.plist`, which is gitignored
+  and never uploaded, and the React Native Firebase plugin fails prebuild with
+  "GoogleService-Info.plist doesn't exist". Android preview builds never needed it, so the
+  `preview` environment may not have it yet (DS-86).
+- Every `EXPO_PUBLIC_*` variable in `.env.example`, with `EXPO_PUBLIC_API_URL` set to the API
+  that profile targets.
+
+`testflight`'s Android block builds an internal APK without bumping the version code, so
+forgetting `-p ios` cannot produce a dev-API Play Store bundle.
 
 ---
