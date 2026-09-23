@@ -91,6 +91,16 @@ module.exports = {
       favicon: './assets/images/favicon.png',
     },
     plugins: [
+      [
+        'expo-build-properties', // see docs/adr/0002
+        {
+          ios: {
+            useFrameworks: 'static',
+            usePrecompiledModules: false,
+            forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBRemoteConfig', 'RNFBAnalytics'],
+          },
+        },
+      ],
       'expo-router',
       [
         'expo-location',
