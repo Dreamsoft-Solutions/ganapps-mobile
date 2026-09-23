@@ -43,6 +43,7 @@ npx expo customize tsconfig.json
 
 # Build (EAS)
 eas build --profile preview     # Preview build (Android APK / iOS sim)
+eas build -p ios --profile testflight --auto-submit  # Internal TestFlight build, dev API
 eas build --profile production  # Production build
 
 # Lint & Format (Biome)

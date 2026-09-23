@@ -60,6 +60,9 @@ module.exports = {
     ios: {
       icon: './assets/brand/ganap-logo-1.png',
       bundleIdentifier: 'com.ganapps.app',
+      config: {
+        usesNonExemptEncryption: false,
+      },
       googleServicesFile: googleServiceInfoPlist,
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
