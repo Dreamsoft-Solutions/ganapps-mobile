@@ -9,7 +9,9 @@ type BuildPropertiesIos = {
 
 type PluginEntry = string | [string, { ios?: BuildPropertiesIos }?];
 
-type AppConfig = { expo: { plugins: PluginEntry[] } };
+type AppConfig = {
+  expo: { plugins: PluginEntry[]; ios: { config?: { usesNonExemptEncryption?: boolean } } };
+};
 
 type PackageManifest = { dependencies: Record<string, string> };
 
@@ -48,5 +50,11 @@ describe('iOS static framework linkage (ADR 0002)', () => {
 
     expect(firebasePods.length).toBeGreaterThan(0);
     expect(buildPropertiesIos()?.forceStaticLinking).toEqual(expect.arrayContaining(firebasePods));
+  });
+});
+
+describe('App Store export compliance (DS-91)', () => {
+  it('declares that the app uses only exempt encryption', () => {
+    expect(expo.ios.config?.usesNonExemptEncryption).toBe(false);
   });
 });
