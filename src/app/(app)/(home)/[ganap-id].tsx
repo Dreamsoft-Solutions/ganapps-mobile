@@ -1,11 +1,14 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
 import { useCallback } from 'react';
-import { Alert, BackHandler, Share } from 'react-native';
+import { Alert, BackHandler, Share, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { EventDetailView } from '@/components/ganaps/EventDetailView';
 import { Routes } from '@/constants/routes';
+import { Spacing } from '@/constants/theme';
 import { useBusinessDetailQuery } from '@/hooks/queries/useBusinessesQuery';
 import { useFriendGoingQuery } from '@/hooks/queries/useFriendsQuery';
 import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
@@ -27,6 +30,7 @@ import {
 export default function GanapDetailScreen(): ReactElement {
   const { 'ganap-id': ganapId, returnTo } = useLocalSearchParams<{ 'ganap-id': string; returnTo?: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const isMyEventsOrigin: boolean = returnTo === 'my-events';
   const { data: ganap, isLoading, isRefetching, error, refetch } = useGanapDetailQuery(ganapId);
   const businessQuery = useBusinessDetailQuery(ganap?.businessId);
@@ -49,6 +53,28 @@ export default function GanapDetailScreen(): ReactElement {
     router.replace(Routes.app.home);
   }, [isMyEventsOrigin, router]);
 
+  const myEventsBackControl: ReactElement | null = isMyEventsOrigin ? (
+    <View className="px-md" style={{ paddingTop: insets.top + Spacing.sm }}>
+      <Button variant="outline" onPress={handleBack} accessibilityHint="Returns to My Events">
+        Back to My Events
+      </Button>
+    </View>
+  ) : null;
+
+  const renderFallbackState = (content: ReactElement): ReactElement => (
+    <>
+      {screenOptions}
+      {isMyEventsOrigin ? (
+        <View className="flex-1 bg-background">
+          {myEventsBackControl}
+          {content}
+        </View>
+      ) : (
+        content
+      )}
+    </>
+  );
+
   useFocusEffect(
     useCallback((): (() => void) => {
       const subscription = BackHandler.addEventListener('hardwareBackPress', (): boolean => {
@@ -62,30 +88,15 @@ export default function GanapDetailScreen(): ReactElement {
   );
 
   if (isLoading) {
-    return (
-      <>
-        {screenOptions}
-        <Loading />
-      </>
-    );
+    return renderFallbackState(<Loading />);
   }
 
   if (error) {
-    return (
-      <>
-        {screenOptions}
-        <ErrorView error={error} onRetry={(): void => void refetch()} />
-      </>
-    );
+    return renderFallbackState(<ErrorView error={error} onRetry={(): void => void refetch()} />);
   }
 
   if (!ganap) {
-    return (
-      <>
-        {screenOptions}
-        <ErrorView error={new Error('Event not found')} />
-      </>
-    );
+    return renderFallbackState(<ErrorView error={new Error('Event not found')} />);
   }
 
   const schedule = getGanapScheduleModel(ganap.startDate, ganap.endDate);
