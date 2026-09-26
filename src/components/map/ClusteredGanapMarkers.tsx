@@ -71,7 +71,7 @@ function renderEventMarker(
       <Pressable
         testID={`map-event-marker-${ganap.id}`}
         accessibilityRole="button"
-        accessibilityLabel={`Open event ${ganap.title}`}
+        accessibilityLabel={ganap.isSaved ? `Open saved event ${ganap.title}` : `Open event ${ganap.title}`}
         accessibilityHint="Shows event details"
         onPress={(): void => onPress(ganap)}
       >
