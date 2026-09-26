@@ -4,24 +4,29 @@ import { useCallback } from 'react';
 import { Routes } from '@/constants/routes';
 import { useAuthStore } from '@/store/auth.store';
 import type {
+  CompletePasswordResetDto,
   DeleteAccountInput,
   DeleteAccountResponse,
   GoogleAuthRequestDto,
   GoogleAuthResponse,
   LoginDto,
+  PasswordResetResponse,
   RegisterDto,
   RegisterResponse,
+  RequestPasswordResetDto,
   TokenResponse,
   UpdateProfileRequest,
   VerifyEmailRequest,
 } from '@/types/auth.types';
 import type { User } from '@/types/user.types';
 import {
+  useCompletePasswordResetMutation,
   useDeleteAccountMutation,
   useGoogleLoginMutation,
   useLoginMutation,
   useLogoutMutation,
   useRegisterMutation,
+  useRequestPasswordResetMutation,
   useResendVerificationMutation,
   useUpdateProfileMutation,
   useVerifyEmailMutation,
@@ -35,6 +40,8 @@ export interface UseAuthResult {
   isLoading: boolean;
   error: Error | null;
   login: (dto: LoginDto) => Promise<void>;
+  requestPasswordReset: (dto: RequestPasswordResetDto) => Promise<PasswordResetResponse>;
+  completePasswordReset: (dto: CompletePasswordResetDto) => Promise<PasswordResetResponse>;
   register: (dto: RegisterDto) => Promise<void>;
   googleLogin: (dto: GoogleAuthRequestDto) => Promise<void>;
   logout: () => Promise<void>;
@@ -45,6 +52,8 @@ export interface UseAuthResult {
   isAuthenticated: boolean;
   isVerified: boolean;
   loginMutation: UseMutationResult<TokenResponse, Error, LoginDto>;
+  requestPasswordResetMutation: UseMutationResult<PasswordResetResponse, Error, RequestPasswordResetDto>;
+  completePasswordResetMutation: UseMutationResult<PasswordResetResponse, Error, CompletePasswordResetDto>;
   registerMutation: UseMutationResult<RegisterResponse, Error, RegisterDto>;
   googleLoginMutation: UseMutationResult<GoogleAuthResponse, Error, GoogleAuthRequestDto>;
   logoutMutation: UseMutationResult<void, Error, void>;
@@ -66,6 +75,8 @@ export function useAuth(): UseAuthResult {
   const { isLoading: userLoading, error: userError } = useAuthQuery();
 
   const loginMutation = useLoginMutation();
+  const requestPasswordResetMutation = useRequestPasswordResetMutation();
+  const completePasswordResetMutation = useCompletePasswordResetMutation();
   const registerMutation = useRegisterMutation();
   const googleLoginMutation = useGoogleLoginMutation();
   const logoutMutation = useLogoutMutation();
@@ -80,6 +91,16 @@ export function useAuth(): UseAuthResult {
       router.replace(Routes.app.home);
     },
     [loginMutation, router],
+  );
+
+  const requestPasswordReset = useCallback(
+    (dto: RequestPasswordResetDto): Promise<PasswordResetResponse> => requestPasswordResetMutation.mutateAsync(dto),
+    [requestPasswordResetMutation],
+  );
+
+  const completePasswordReset = useCallback(
+    (dto: CompletePasswordResetDto): Promise<PasswordResetResponse> => completePasswordResetMutation.mutateAsync(dto),
+    [completePasswordResetMutation],
   );
 
   const register = useCallback(
@@ -141,6 +162,8 @@ export function useAuth(): UseAuthResult {
     isLoading: userLoading || loginMutation.isPending || registerMutation.isPending || googleLoginMutation.isPending,
     error: userError,
     login,
+    requestPasswordReset,
+    completePasswordReset,
     register,
     googleLogin,
     logout,
@@ -151,6 +174,8 @@ export function useAuth(): UseAuthResult {
     isAuthenticated: !!token,
     isVerified: user?.isVerified ?? false,
     loginMutation,
+    requestPasswordResetMutation,
+    completePasswordResetMutation,
     registerMutation,
     googleLoginMutation,
     logoutMutation,

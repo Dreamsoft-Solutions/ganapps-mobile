@@ -145,12 +145,16 @@ export interface ChatMessagesPage {
 export interface EventChatSummaryPage {
   items: EventChatSummary[];
   nextCursor: string | null;
+  /** Optional during the additive server rollout; present on current server responses. */
+  hasUnreadMessages?: boolean;
 }
 
 /** Cursor page returned by the mixed Event/Direct summary endpoint. */
 export interface ChatConversationSummaryPage {
   items: ChatConversationSummary[];
   nextCursor: string | null;
+  /** Optional during the additive server rollout; present on current server responses. */
+  hasUnreadMessages?: boolean;
 }
 
 /** Socket ticket used for authenticating the `/chat` namespace. */

@@ -24,7 +24,7 @@ export default function ChatScreen(): ReactElement {
   const [isCodeOpen, setIsCodeOpen] = useState<boolean>(false);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState<boolean>(false);
   const [requestNotice, setRequestNotice] = useState<string | null>(null);
-  const friends = useFriends({ segment, requestDirection, codeOpen: isCodeOpen });
+  const friends = useFriends({ segment, requestDirection, codeOpen: isCodeOpen, addFriendOpen: isAddFriendOpen });
 
   const handleOpenCode = (): void => {
     setRequestNotice(null);
@@ -81,7 +81,7 @@ export default function ChatScreen(): ReactElement {
       setRequestNotice(
         result.status === 'ACCEPTED' || result.status === 'AUTO_ACCEPTED'
           ? 'Friend request accepted.'
-          : 'Friend request sent.',
+          : 'Friend request sent',
       );
     } catch (error: unknown) {
       const normalized: Error = error instanceof Error ? error : new Error('Unable to send friend request.');
@@ -146,6 +146,8 @@ export default function ChatScreen(): ReactElement {
       friends={friends.friends}
       presence={friends.presence}
       requests={friends.requests}
+      outgoingRequests={friends.outgoingRequests}
+      isLoadingOutgoingRequests={friends.isLoadingOutgoingRequests}
       isLoading={friends.isLoading}
       error={friends.error}
       isRefreshing={activeQuery.isRefetching || friends.presenceQuery.isRefetching}
