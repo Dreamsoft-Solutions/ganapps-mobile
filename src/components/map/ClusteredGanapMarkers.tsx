@@ -27,7 +27,7 @@ function renderClusterMarker(
 ): ReactElement {
   const clusterId: number = feature.properties.cluster_id;
   const count: number = feature.properties.point_count;
-  const label: string = `Open group of ${count} events`;
+  const label: string = `Zoom to group of ${count} events`;
 
   return (
     <MarkerView
@@ -41,7 +41,7 @@ function renderClusterMarker(
         testID={`map-cluster-marker-${clusterId}`}
         accessibilityRole="button"
         accessibilityLabel={label}
-        accessibilityHint="Opens the events in this group"
+        accessibilityHint="Zooms in until the events separate into individual map pins"
         onPress={(): void => onPress(feature)}
         className="h-14 min-w-14 items-center justify-center rounded-full border-2 border-primary-foreground bg-primary px-3"
       >

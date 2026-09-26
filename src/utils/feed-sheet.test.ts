@@ -30,17 +30,17 @@ describe('resolveFeedSheetMode', () => {
     });
   });
 
-  it('opens to half when a cluster is selected', () => {
+  it('keeps the cluster leaf list at the peek so expanded map pins stay visible', () => {
     expect(resolveFeedSheetMode({ selectedGanap: null, selectedCluster: CLUSTER })).toEqual({
       mode: 'cluster',
-      snapIndex: 1,
+      snapIndex: 0,
     });
   });
 
   it('lets a cluster win over a stale pin selection', () => {
     expect(resolveFeedSheetMode({ selectedGanap: GANAP, selectedCluster: CLUSTER })).toEqual({
       mode: 'cluster',
-      snapIndex: 1,
+      snapIndex: 0,
     });
   });
 });

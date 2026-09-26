@@ -298,11 +298,11 @@ describe('GanapFeedSheet cluster mode', () => {
     expect(screen.getByText('Event leaf-b')).toBeTruthy();
   });
 
-  it('opens to the half snap rather than the peek', async (): Promise<void> => {
+  it('keeps the cluster leaf list at the peek so expanded map pins stay visible', async (): Promise<void> => {
     const { index, cluster } = clusterFixture();
     await renderSheet({ selectedCluster: cluster, clusterIndex: index });
 
-    expect(mockSnapToIndex).toHaveBeenLastCalledWith(1);
+    expect(mockSnapToIndex).toHaveBeenLastCalledWith(0);
   });
 
   it('zooms to the cluster and clears it, so the sheet stops listing a group that dissolved', async (): Promise<void> => {
