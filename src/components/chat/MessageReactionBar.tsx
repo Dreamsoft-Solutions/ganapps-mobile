@@ -8,9 +8,10 @@ import { CHAT_REACTION_OPTIONS, getReactionAccessibilityLabel } from '@/utils/ch
 export interface MessageReactionBarProps {
   summary?: ReactionSummary | null;
   isPending?: boolean;
+  isDisabled?: boolean;
   containerLabel?: string;
-  /** Inline rows are retained for announcement surfaces; chat uses the tray. */
-  presentation?: 'inline' | 'tray';
+  /** `summary` shows only reactions with counts; `inline` and `tray` show all choices. */
+  presentation?: 'inline' | 'summary' | 'tray';
   onSelect: (reaction: ReactionType | null) => void;
 }
 
@@ -26,39 +27,53 @@ export interface MessageReactionBarProps {
 export function MessageReactionBar({
   summary,
   isPending = false,
+  isDisabled = false,
   containerLabel = 'Message reactions',
   presentation = 'inline',
   onSelect,
 }: MessageReactionBarProps): ReactElement | null {
   if (summary === undefined || summary === null) return null;
+  const reactions: { option: (typeof CHAT_REACTION_OPTIONS)[number]; count: number }[] = CHAT_REACTION_OPTIONS.map(
+    (
+      option: (typeof CHAT_REACTION_OPTIONS)[number],
+    ): { option: (typeof CHAT_REACTION_OPTIONS)[number]; count: number } => ({
+      option,
+      count: summary.counts.find((entry) => entry.type === option.value)?.count ?? 0,
+    }),
+  ).filter(
+    (reaction: { option: (typeof CHAT_REACTION_OPTIONS)[number]; count: number }): boolean =>
+      presentation !== 'summary' || reaction.count > 0,
+  );
+  if (reactions.length === 0) return null;
   return (
     <View
-      className={`flex-row items-center gap-xs ${presentation === 'tray' ? 'justify-center rounded-full bg-muted px-xs py-xs' : 'mt-xs'}`}
+      className={`flex-row items-center gap-xs ${presentation === 'summary' ? 'flex-wrap' : ''} ${presentation === 'tray' ? 'justify-center rounded-full bg-muted px-xs py-xs' : 'mt-xs'}`}
       accessibilityRole="toolbar"
       accessibilityLabel={containerLabel}
     >
-      {CHAT_REACTION_OPTIONS.map((option): ReactElement => {
-        const selected: boolean = summary.myReaction === option.value;
-        const count: number = summary.counts.find((entry) => entry.type === option.value)?.count ?? 0;
-        return (
-          <Pressable
-            key={option.value}
-            accessibilityRole="button"
-            accessibilityLabel={getReactionAccessibilityLabel(option.value, selected)}
-            accessibilityState={{ selected, disabled: isPending, busy: isPending }}
-            disabled={isPending}
-            onPress={(): void => onSelect(selected ? null : option.value)}
-            className={`${presentation === 'tray' ? 'flex-1' : ''} min-h-touch min-w-touch flex-row items-center justify-center rounded-full border px-xs py-xs ${
-              selected ? 'border-primary bg-muted' : 'border-border bg-background'
-            }`}
-          >
-            <Text accessible={false} className="text-body-md">
-              {option.glyph}
-            </Text>
-            {count > 0 && <Text className="ml-1 text-label-sm text-muted-foreground">{String(count)}</Text>}
-          </Pressable>
-        );
-      })}
+      {reactions.map(
+        ({ option, count }: { option: (typeof CHAT_REACTION_OPTIONS)[number]; count: number }): ReactElement => {
+          const selected: boolean = summary.myReaction === option.value;
+          return (
+            <Pressable
+              key={option.value}
+              accessibilityRole="button"
+              accessibilityLabel={getReactionAccessibilityLabel(option.value, selected)}
+              accessibilityState={{ selected, disabled: isPending || isDisabled, busy: isPending }}
+              disabled={isPending || isDisabled}
+              onPress={(): void => onSelect(selected ? null : option.value)}
+              className={`${presentation === 'tray' ? 'flex-1' : ''} min-h-touch min-w-touch flex-row items-center justify-center rounded-full border px-xs py-xs ${
+                selected ? 'border-primary bg-muted' : 'border-border bg-background'
+              }`}
+            >
+              <Text accessible={false} className="text-body-md">
+                {option.glyph}
+              </Text>
+              {count > 0 && <Text className="ml-1 text-label-sm text-muted-foreground">{String(count)}</Text>}
+            </Pressable>
+          );
+        },
+      )}
     </View>
   );
 }

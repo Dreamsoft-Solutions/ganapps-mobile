@@ -155,6 +155,8 @@ export default function EventChatThreadScreen(): ReactElement {
         onRetryImage={chat.retryImage}
         onRefreshImage={chat.refreshImage}
         onMessageActions={openMessageActions}
+        onMessageReaction={onReaction}
+        reactionPendingMessageId={reactionPendingMessageId}
         accessLost={chat.accessLost}
       />
       <ModerationActionSheet
