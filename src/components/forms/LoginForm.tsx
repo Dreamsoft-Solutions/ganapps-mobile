@@ -1,5 +1,6 @@
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useRouter } from 'expo-router';
 import { Check, Eye, EyeOff } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useCallback, useState } from 'react';
@@ -111,6 +112,7 @@ function PasswordChecklist({ password }: PasswordChecklistProps): ReactElement {
  */
 export function LoginForm(): ReactElement {
   const { login, register, googleLogin, isLoading, loginMutation, registerMutation, googleLoginMutation } = useAuth();
+  const router = useRouter();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -253,7 +255,13 @@ export function LoginForm(): ReactElement {
 
         {isLogin && (
           <View className="flex-row justify-end -mt-2 mb-2">
-            <Text className="text-primary font-inter-semibold text-body-md">Forgot Password?</Text>
+            <Button
+              variant="link"
+              size="sm"
+              onPress={(): void => router.push(Routes.auth.forgotPassword(methods.getValues('email')))}
+            >
+              Forgot Password?
+            </Button>
           </View>
         )}
 
