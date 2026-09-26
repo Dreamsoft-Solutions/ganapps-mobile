@@ -21,8 +21,21 @@ type CheckResult = {
 const checkerPath = join(process.cwd(), 'scripts', 'check-standalone-comments.mjs');
 jest.setTimeout(30_000);
 
+function isolatedGitEnvironment(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  for (const key of Object.keys(env)) {
+    if (/^GIT_/i.test(key)) delete env[key];
+  }
+  return env;
+}
+
 function git(root: string, args: string[]): void {
-  execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  execFileSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    env: isolatedGitEnvironment(),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
 }
 
 function writeFiles(root: string, files: Files): void {
@@ -69,6 +82,7 @@ function runCheck(staged: Files, options: ScenarioOptions = {}): CheckResult {
     const result = spawnSync(process.execPath, [checkerPath], {
       cwd: root,
       encoding: 'utf8',
+      env: isolatedGitEnvironment(),
     });
 
     return {
