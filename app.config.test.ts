@@ -7,7 +7,9 @@ type BuildPropertiesIos = {
   forceStaticLinking?: string[];
 };
 
-type PluginEntry = string | [string, { ios?: BuildPropertiesIos }?];
+type PluginOptions = { ios?: BuildPropertiesIos; motionUsagePermission?: string | false };
+
+type PluginEntry = string | [string, PluginOptions?];
 
 type AppConfig = {
   expo: { plugins: PluginEntry[]; ios: { config?: { usesNonExemptEncryption?: boolean } } };
@@ -21,11 +23,13 @@ const manifest = jest.requireActual<PackageManifest>('./package.json');
 const RNFB_MODULES_DIR = join(__dirname, 'node_modules', '@react-native-firebase');
 const PODSPEC_SUFFIX = '.podspec';
 
+function pluginOptions(name: string): PluginOptions | undefined {
+  const entry = expo.plugins.find((plugin: PluginEntry): boolean => Array.isArray(plugin) && plugin[0] === name);
+  return Array.isArray(entry) ? entry[1] : undefined;
+}
+
 function buildPropertiesIos(): BuildPropertiesIos | undefined {
-  const entry = expo.plugins.find(
-    (plugin: PluginEntry): boolean => Array.isArray(plugin) && plugin[0] === 'expo-build-properties',
-  );
-  return Array.isArray(entry) ? entry[1]?.ios : undefined;
+  return pluginOptions('expo-build-properties')?.ios;
 }
 
 function installedFirebasePods(): string[] {
@@ -56,5 +60,11 @@ describe('iOS static framework linkage (ADR 0002)', () => {
 describe('App Store export compliance (DS-91)', () => {
   it('declares that the app uses only exempt encryption', () => {
     expect(expo.ios.config?.usesNonExemptEncryption).toBe(false);
+  });
+});
+
+describe('iOS purpose strings (DS-144)', () => {
+  it('declares an app-authored motion purpose string, which ITMS-90683 requires because expo-location links CoreMotion', () => {
+    expect(pluginOptions('expo-location')?.motionUsagePermission).toEqual(expect.stringMatching(/^Ganapps /));
   });
 });

@@ -143,4 +143,24 @@ provide, because neither reaches the build worker:
 `testflight`'s Android block builds an internal APK without bumping the version code, so
 forgetting `-p ios` cannot produce a dev-API Play Store bundle.
 
+### iOS purpose strings
+
+Every `NS*UsageDescription` in the generated Info.plist is app-written. `app.config.js` sets
+them through each plugin's options instead of accepting the plugin defaults, which are generic
+("Allow $(PRODUCT_NAME) to…") and a Guideline 5.1.1 risk. Run
+`npx expo config --type introspect` to see the resolved set.
+
+**`NSMotionUsageDescription` must stay, even though Ganapps never uses motion data.**
+`expo-location` compiles `CMMotionActivityManager` code into every build, and it has no iOS
+flag to leave it out. Apple scans the compiled binary and rejects the upload during processing
+with **ITMS-90683** if the key is missing — "while your app might not use these APIs, a
+purpose string is still required". That is what happened to build 3 on 2026-09-25, after
+`motionUsagePermission: false` had removed the key (DS-144). The app never requests motion
+access, so iOS never shows this string, and the App Privacy labels (DS-83) must not declare
+Motion & Fitness data. A test in `app.config.test.ts` fails if the string is removed.
+
+`microphonePermission: false` on `expo-camera` and `expo-image-picker` stays. expo-camera
+contains audio-capture code, but Apple's ITMS-90683 check on build 3 listed only the motion key.
+Re-check the processing email after upgrading either library.
+
 ---

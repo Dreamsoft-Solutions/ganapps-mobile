@@ -111,7 +111,8 @@ module.exports = {
           locationWhenInUsePermission: 'Ganapps uses your location to show events happening near you in Iloilo City.',
           locationAlwaysAndWhenInUsePermission: false,
           locationAlwaysPermission: false,
-          motionUsagePermission: false,
+          motionUsagePermission:
+            'Ganapps does not use motion or fitness data. Its location library includes motion features that Ganapps never turns on.',
         },
       ],
       [
