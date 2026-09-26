@@ -18,6 +18,8 @@ export interface RouteTable {
   /** Screens reachable without a token. */
   auth: {
     login: Href;
+    /** Builds the public password-recovery route with an optional prefilled email. */
+    forgotPassword: (email?: string) => Href;
   };
   /** Root-level, deliberately outside `(auth)`. */
   verifyEmail: Href;
@@ -83,6 +85,10 @@ export const Routes: RouteTable = {
 
   auth: {
     login: { pathname: '/(auth)/login' },
+    forgotPassword: (email?: string): Href =>
+      email
+        ? { pathname: '/(auth)/forgot-password', params: { email } }
+        : { pathname: '/(auth)/forgot-password' },
   },
 
   verifyEmail: { pathname: '/verify-email' },

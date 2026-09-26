@@ -99,6 +99,23 @@ export const loginSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
+/** Validates the email submitted to request a password-reset code. */
+export const requestPasswordResetSchema = z.object({
+  email: z.string().trim().email('Invalid email address'),
+});
+
+/** Validates a reset code and replacement password against signup's password policy. */
+export const completePasswordResetSchema = z
+  .object({
+    code: z.string().length(8, 'Code must be 8 digits').regex(/^\d{8}$/, 'Code must be 8 digits'),
+    password: signupPasswordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((data: { code: string; password: string; confirmPassword: string }) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
 export const USERNAME_POLICY = {
   minLength: 3,
   maxLength: 32,
@@ -152,6 +169,8 @@ export const ratingSchema = z.object({
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;
+export type RequestPasswordResetFormData = z.infer<typeof requestPasswordResetSchema>;
+export type CompletePasswordResetFormData = z.infer<typeof completePasswordResetSchema>;
 export type RegisterFormData = z.infer<typeof registerSchema>;
 export type VerifyEmailFormData = z.infer<typeof verifyEmailSchema>;
 export type OnboardingNamesData = z.infer<typeof onboardingNamesSchema>;
