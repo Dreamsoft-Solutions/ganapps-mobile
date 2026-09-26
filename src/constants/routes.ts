@@ -33,7 +33,7 @@ export interface RouteTable {
   profileEdit: Href;
   profileSettings: Href;
   profileJoined: Href;
-  ganapDetail: (ganapId: string) => Href;
+  ganapDetail: (ganapId: string, returnTo?: 'my-events') => Href;
   ganapRegistration: (ganapId: string) => Href;
   eventHub: (ganapId: string) => Href;
   eventChat: (ganapId: string) => Href;
@@ -104,11 +104,12 @@ export const Routes: RouteTable = {
    *
    * @param ganapId - Value for the `[ganap-id]` segment of
    * `src/app/(app)/(home)/[ganap-id].tsx`.
+   * @param returnTo - Optional My Events destination for the detail screen's back action.
    * @returns An href targeting that event's detail screen.
    */
-  ganapDetail: (ganapId: string): Href => ({
+  ganapDetail: (ganapId: string, returnTo?: 'my-events'): Href => ({
     pathname: '/(app)/(home)/[ganap-id]',
-    params: { 'ganap-id': ganapId },
+    params: returnTo === undefined ? { 'ganap-id': ganapId } : { 'ganap-id': ganapId, returnTo },
   }),
 
   /**
