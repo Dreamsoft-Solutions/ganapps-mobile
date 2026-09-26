@@ -124,6 +124,11 @@ same remote counter and pin the Xcode 26.6 image:
 
 A `testflight` build is never the one submitted for App Review — it talks to the dev API.
 
+`eas.json` requires **eas-cli 24.4.2 or newer** (`cli.version`). Older versions fail the Apple
+sign-in step with "Authentication with Apple Developer Portal failed! iTunes service key is
+empty", after Apple changed its login flow in September 2026 (expo/eas-cli#4392, #4394). Upgrade
+with `npm install -g eas-cli`.
+
 The EAS environment a profile reads must hold everything the local `.env` and gitignored files
 provide, because neither reaches the build worker:
 
