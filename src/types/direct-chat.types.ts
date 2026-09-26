@@ -28,6 +28,8 @@ export type DirectChatConversationSummary = DirectChatSummary;
 export interface DirectChatSummaryPage {
   items: DirectChatSummary[];
   nextCursor: string | null;
+  /** Optional during the additive server rollout; present on current server responses. */
+  hasUnreadMessages?: boolean;
 }
 
 /** Mixed Event/Direct summary row from the server-owned `type=ALL` feed. */
@@ -37,6 +39,8 @@ export type ChatConversationSummary = EventChatSummary | DirectChatSummary;
 export interface ChatConversationSummaryPage {
   items: ChatConversationSummary[];
   nextCursor: string | null;
+  /** Optional during the additive server rollout; present on current server responses. */
+  hasUnreadMessages?: boolean;
 }
 
 /** Server-authoritative capabilities held by a selected Direct thread. */

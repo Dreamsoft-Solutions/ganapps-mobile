@@ -1,6 +1,5 @@
-import { type UseQueryResult, useQueryClient } from '@tanstack/react-query';
+import { type UseQueryResult } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
 import {
   useAcceptFriendRequestMutation,
   useCreateFriendRequestMutation,
@@ -11,7 +10,7 @@ import {
   useUnfriendMutation,
   useUpdateFriendSettingsMutation,
 } from '@/hooks/mutations/useFriendsMutation';
-import { chatQueryKeys, type UseChatSummariesQueryResult, useChatSummariesQuery } from '@/hooks/queries/useChatQuery';
+import { type UseChatSummariesQueryResult, useChatSummariesQuery } from '@/hooks/queries/useChatQuery';
 import {
   type UseFriendGoingQueryResult,
   type UseFriendRequestsQueryResult,
@@ -23,7 +22,6 @@ import {
   useFriendsCodeQuery,
   useFriendsQuery,
 } from '@/hooks/queries/useFriendsQuery';
-import { type ChatConnectionState, chatSocketClient } from '@/services/chat-socket.service';
 import type {
   FriendCode,
   FriendGoingRecord,
@@ -85,7 +83,6 @@ export interface UseFriendsResult {
  * @returns Aggregated Friends state and typed mutation handles
  */
 export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
-  const queryClient = useQueryClient();
   const segment: FriendsHubSegment = options.segment ?? 'chats';
   const requestDirection: FriendRequestDirection = options.requestDirection ?? 'incoming';
   const codeOpen: boolean = options.codeOpen ?? false;
@@ -112,29 +109,6 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
   const regenerateCodeMutation = useRegenerateFriendCodeMutation();
   const unfriendMutation = useUnfriendMutation();
   const updateSettingsMutation = useUpdateFriendSettingsMutation();
-
-  useEffect((): (() => void) | undefined => {
-    if (segment !== 'chats') return undefined;
-    const invalidateSummaries = (): void => {
-      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries(), refetchType: 'active' });
-    };
-    const unsubscribeSummary = chatSocketClient.onSummaryChange((): void => {
-      invalidateSummaries();
-    });
-    const unsubscribeConnection = chatSocketClient.onConnectionStateChange((state: ChatConnectionState): void => {
-      if (state === 'connected') invalidateSummaries();
-    });
-    const appStateSubscription = AppState.addEventListener('change', (state: AppStateStatus): void => {
-      if (state !== 'active') return;
-      invalidateSummaries();
-      void chatSocketClient.ensureConnected();
-    });
-    return (): void => {
-      unsubscribeSummary();
-      unsubscribeConnection();
-      appStateSubscription.remove();
-    };
-  }, [queryClient, segment]);
 
   useEffect((): void => {
     const returnedSession: string | undefined = presenceQuery.data?.screenSession;
