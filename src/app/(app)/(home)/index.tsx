@@ -61,8 +61,12 @@ export default function HomeScreen(): ReactElement {
   const { items, isLoading, isError, error, refetch } = map;
   const userCoords = nearby.coords;
   const isNearbyActive: boolean = nearby.isActive;
+  const hasSearchText: boolean = search.trim().length > 0;
   const hasActiveFilters: boolean =
     tag !== null || discovery.filters.search !== undefined || discovery.filters.radius !== undefined;
+  const isSearchSettled: boolean = search.trim() === (discovery.filters.search ?? '');
+  const hasPendingSearch: boolean = hasSearchText && (!isSearchSettled || map.isFetching);
+  const hasSearchError: boolean = hasSearchText && isSearchSettled && isError;
   /**
    * Whether a radius actually reached the server, which is not the same as the
    * chip being on: the position can still be resolving. The title follows what
@@ -194,6 +198,26 @@ export default function HomeScreen(): ReactElement {
     [insets.top],
   );
 
+  const handleSelectSearchSuggestion = useCallback(
+    (ganap: GanapListItem): void => {
+      setSelectedGanap(null);
+      setSelectedCluster(null);
+      setSelectedClusterIndex(null);
+      cameraRef.current?.setCamera({
+        centerCoordinate: [ganap.locationLong, ganap.locationLat],
+        zoomLevel: USER_ZOOM,
+        animationDuration: 500,
+        padding: {
+          paddingTop: insets.top + MAP_OVERLAY_TOP,
+          paddingBottom: MAP_OVERLAY_BOTTOM,
+          paddingLeft: 0,
+          paddingRight: 0,
+        },
+      });
+    },
+    [insets.top],
+  );
+
   if (!MAPBOX_TOKEN) {
     return (
       <View className="flex-1 items-center justify-center bg-background p-md">
@@ -209,7 +233,7 @@ export default function HomeScreen(): ReactElement {
     return <Loading message="Finding events..." />;
   }
 
-  if (isError) {
+  if (isError && !hasSearchText) {
     return <ErrorView error={error} onRetry={refetch} />;
   }
 
@@ -235,7 +259,14 @@ export default function HomeScreen(): ReactElement {
 
       <View className="absolute left-0 right-0" style={{ top: insets.top + 12 }} pointerEvents="box-none">
         <View className="mx-4">
-          <MapSearchBar value={search} onChangeText={setSearch} />
+          <MapSearchBar
+            value={search}
+            onChangeText={setSearch}
+            suggestions={items}
+            isLoadingSuggestions={hasPendingSearch}
+            isErrorSuggestions={hasSearchError}
+            onSelectSuggestion={handleSelectSearchSuggestion}
+          />
         </View>
         <TagChips
           tags={tags}
