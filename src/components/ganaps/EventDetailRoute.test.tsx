@@ -69,8 +69,23 @@ const mockUseFriendGoingQuery = jest.fn<UseFriendGoingQueryMock>(
 );
 
 jest.mock('expo-router', () => ({
+  Stack: { Screen: (): null => null },
+  useFocusEffect: (): void => {},
   useLocalSearchParams: (): typeof mockParams => mockParams,
   useRouter: (): typeof mockRouter => mockRouter,
+}));
+
+jest.mock('@/components/common/Button', () => ({
+  Button: (): ReactElement => <MockView />,
+}));
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: (): { top: number; bottom: number; left: number; right: number } => ({
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+  }),
 }));
 
 jest.mock('@/components/ganaps/EventDetailView', () => ({

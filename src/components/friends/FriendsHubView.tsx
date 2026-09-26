@@ -381,8 +381,7 @@ function AddFriendModal({
   const sentRequestForTarget: boolean = Boolean(
     target &&
       (outgoingRequests.some(
-        (request: FriendRequestItem): boolean =>
-          request.targetUserId === target.userId && request.status === 'PENDING',
+        (request: FriendRequestItem): boolean => request.targetUserId === target.userId && request.status === 'PENDING',
       ) ||
         (createRequestMutation.data?.targetUserId === target.userId &&
           createRequestMutation.data.status === 'PENDING')),
@@ -661,6 +660,8 @@ export function FriendsHubView({
   friends,
   presence,
   requests,
+  outgoingRequests,
+  isLoadingOutgoingRequests,
   isLoading,
   error,
   isRefreshing,
