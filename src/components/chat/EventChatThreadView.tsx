@@ -361,7 +361,7 @@ export function EventChatThreadView({
             onRetryImageLoad={handleRetryImageLoad}
           />
         )}
-        ListEmptyComponent={<Empty message="No messages yet. Start the conversation." />}
+        ListEmptyComponent={<Empty message="No messages yet. Start the conversation." inverted />}
         ListHeaderComponent={
           hasNextPage ? (
             <View className="items-center py-sm">
