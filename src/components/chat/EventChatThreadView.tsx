@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChatDateSeparator } from '@/components/chat/ChatDateSeparator';
 import { ChatImageBubble, ChatImagePreview } from '@/components/chat/ChatImage';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
@@ -25,6 +26,7 @@ import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { ChatConnectionState } from '@/services/chat-socket.service';
 import { showToast } from '@/store/toast.store';
 import type { ChatImageDraft, ChatMessage, EventChatSession } from '@/types/chat.types';
+import { getChatMessageDateSeparatorLabel } from '@/utils/chat-date-groups';
 import { getChatImageErrorMessage, isChatImageAuthorizationError } from '@/utils/chat-image';
 
 /** Maximum text size accepted by the Event Chat server contract. */
@@ -352,15 +354,21 @@ export function EventChatThreadView({
         data={messages}
         inverted
         keyExtractor={(message: ChatMessage): string => message.id}
-        renderItem={({ item }: { item: ChatMessage }): ReactElement => (
-          <MessageRow
-            message={item}
-            onMessageActions={onMessageActions}
-            imageLoadState={imageLoadStates[item.id] ?? INITIAL_IMAGE_LOAD_STATE}
-            onImageLoadError={handleImageLoadError}
-            onRetryImageLoad={handleRetryImageLoad}
-          />
-        )}
+        renderItem={({ item, index }: { item: ChatMessage; index: number }): ReactElement => {
+          const dateSeparatorLabel: string | null = getChatMessageDateSeparatorLabel(item, messages[index + 1]);
+          return (
+            <View>
+              {dateSeparatorLabel !== null && <ChatDateSeparator label={dateSeparatorLabel} />}
+              <MessageRow
+                message={item}
+                onMessageActions={onMessageActions}
+                imageLoadState={imageLoadStates[item.id] ?? INITIAL_IMAGE_LOAD_STATE}
+                onImageLoadError={handleImageLoadError}
+                onRetryImageLoad={handleRetryImageLoad}
+              />
+            </View>
+          );
+        }}
         ListEmptyComponent={<Empty message="No messages yet. Start the conversation." inverted />}
         ListHeaderComponent={
           hasNextPage ? (

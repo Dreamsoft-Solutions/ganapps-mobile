@@ -107,14 +107,20 @@ export const requestPasswordResetSchema = z.object({
 /** Validates a reset code and replacement password against signup's password policy. */
 export const completePasswordResetSchema = z
   .object({
-    code: z.string().length(8, 'Code must be 8 digits').regex(/^\d{8}$/, 'Code must be 8 digits'),
+    code: z
+      .string()
+      .length(8, 'Code must be 8 digits')
+      .regex(/^\d{8}$/, 'Code must be 8 digits'),
     password: signupPasswordSchema,
     confirmPassword: z.string(),
   })
-  .refine((data: { code: string; password: string; confirmPassword: string }) => data.password === data.confirmPassword, {
-    message: 'Passwords do not match',
-    path: ['confirmPassword'],
-  });
+  .refine(
+    (data: { code: string; password: string; confirmPassword: string }) => data.password === data.confirmPassword,
+    {
+      message: 'Passwords do not match',
+      path: ['confirmPassword'],
+    },
+  );
 
 export const USERNAME_POLICY = {
   minLength: 3,

@@ -2,6 +2,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 import { View as MockView } from 'react-native';
+import type { TestInstance, TestNode } from 'test-renderer';
 import type { FailedDraft } from '@/hooks/useChat';
 import { showToast } from '@/store/toast.store';
 import type { ChatImageDraft, ChatMessage, EventChatSession } from '@/types/chat.types';
@@ -88,6 +89,24 @@ const imageDraft: ChatImageDraft = {
   status: 'ready',
 };
 
+function localTimestamp(hour: number): string {
+  return new Date(2026, 8, 1, hour).toISOString();
+}
+
+function dateLabel(sentAt: string): string {
+  return new Date(sentAt).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+function textContent(instance: TestInstance): string {
+  return instance.children
+    .map((child: TestNode): string => (typeof child === 'string' ? child : textContent(child)))
+    .join('');
+}
+
 function props(
   overrides: Partial<Parameters<typeof EventChatThreadView>[0]> = {},
 ): Parameters<typeof EventChatThreadView>[0] {
@@ -116,6 +135,26 @@ function props(
 describe('EventChatThreadView', (): void => {
   beforeEach((): void => {
     mockedShowToast.mockClear();
+  });
+
+  it('places date labels before each message row so inverted cells show them above the group', async (): Promise<void> => {
+    const newer: ChatMessage = { ...message, id: 'newer', content: 'Newer event message', sentAt: localTimestamp(22) };
+    const older: ChatMessage = { ...message, id: 'older', content: 'Older event message', sentAt: localTimestamp(10) };
+    const screen = await render(<EventChatThreadView {...props({ messages: [newer, older] })} />);
+    const renderedTexts: string[] = screen.container
+      .queryAll((instance: TestInstance): boolean => instance.type === 'Text')
+      .map((instance: TestInstance): string => textContent(instance));
+    const newerIndex: number = renderedTexts.indexOf(newer.content ?? '');
+    const olderIndex: number = renderedTexts.indexOf(older.content ?? '');
+    const separatorIndexes: number[] = renderedTexts
+      .map((text: string, index: number): number => (text === dateLabel(newer.sentAt) ? index : -1))
+      .filter((index: number): boolean => index >= 0);
+
+    expect(newerIndex).toBeGreaterThanOrEqual(0);
+    expect(separatorIndexes).toHaveLength(2);
+    expect(separatorIndexes[0]).toBeLessThan(newerIndex);
+    expect(separatorIndexes[1]).toBeLessThan(olderIndex);
+    screen.unmount();
   });
 
   it('shows the exact read-only copy without an enabled composer or Seen UI', async (): Promise<void> => {

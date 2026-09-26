@@ -86,9 +86,7 @@ export const Routes: RouteTable = {
   auth: {
     login: { pathname: '/(auth)/login' },
     forgotPassword: (email?: string): Href =>
-      email
-        ? { pathname: '/(auth)/forgot-password', params: { email } }
-        : { pathname: '/(auth)/forgot-password' },
+      email ? { pathname: '/(auth)/forgot-password', params: { email } } : { pathname: '/(auth)/forgot-password' },
   },
 
   verifyEmail: { pathname: '/verify-email' },

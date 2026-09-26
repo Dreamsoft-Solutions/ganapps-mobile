@@ -24,12 +24,8 @@ interface PasswordResetFormProps {
  */
 export function PasswordResetForm({ initialEmail }: PasswordResetFormProps): ReactElement {
   const router = useRouter();
-  const {
-    requestPasswordReset,
-    completePasswordReset,
-    requestPasswordResetMutation,
-    completePasswordResetMutation,
-  } = useAuth();
+  const { requestPasswordReset, completePasswordReset, requestPasswordResetMutation, completePasswordResetMutation } =
+    useAuth();
   const [step, setStep] = useState<'request' | 'complete' | 'success'>('request');
   const [email, setEmail] = useState(initialEmail);
   const [confirmationMessage, setConfirmationMessage] = useState('');
@@ -53,9 +49,7 @@ export function PasswordResetForm({ initialEmail }: PasswordResetFormProps): Rea
         requestPasswordResetMutation.reset();
         setStep('complete');
         setConfirmationMessage(result.message);
-      } catch {
-        // The mutation's error is rendered below.
-      }
+      } catch {}
     },
     [requestPasswordReset, requestPasswordResetMutation],
   );
@@ -70,9 +64,7 @@ export function PasswordResetForm({ initialEmail }: PasswordResetFormProps): Rea
         });
         setConfirmationMessage(result.message);
         setStep('success');
-      } catch {
-        // The mutation's error is rendered below.
-      }
+      } catch {}
     },
     [completePasswordReset, email],
   );

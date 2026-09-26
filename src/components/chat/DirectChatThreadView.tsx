@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChatDateSeparator } from '@/components/chat/ChatDateSeparator';
 import { ChatImageBubble, ChatImagePreview } from '@/components/chat/ChatImage';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
@@ -27,6 +28,7 @@ import { showToast } from '@/store/toast.store';
 import type { ChatImageDraft as BaseChatImageDraft, ChatMessage } from '@/types/chat.types';
 import type { DirectChatFriendSummary, DirectChatSession } from '@/types/direct-chat.types';
 import { compareChatMessages } from '@/utils/chat';
+import { getChatMessageDateSeparatorLabel } from '@/utils/chat-date-groups';
 import { getChatImageErrorMessage, isChatImageAuthorizationError } from '@/utils/chat-image';
 
 /** Maximum text size accepted by the Direct Chat server contract. */
@@ -458,18 +460,24 @@ export function DirectChatThreadView({
         data={messages}
         inverted
         keyExtractor={(message: ChatMessage): string => message.id}
-        renderItem={({ item }: { item: ChatMessage }): ReactElement => (
-          <MessageRow
-            message={item}
-            currentUserId={currentUserId}
-            latestOutgoing={latestOutgoing}
-            latestOutgoingSeenAt={latestOutgoingSeenAt}
-            onMessageActions={onMessageActions}
-            imageLoadState={imageLoadStates[item.id] ?? INITIAL_IMAGE_LOAD_STATE}
-            onImageLoadError={handleImageLoadError}
-            onRetryImageLoad={handleRetryImageLoad}
-          />
-        )}
+        renderItem={({ item, index }: { item: ChatMessage; index: number }): ReactElement => {
+          const dateSeparatorLabel: string | null = getChatMessageDateSeparatorLabel(item, messages[index + 1]);
+          return (
+            <View>
+              {dateSeparatorLabel !== null && <ChatDateSeparator label={dateSeparatorLabel} />}
+              <MessageRow
+                message={item}
+                currentUserId={currentUserId}
+                latestOutgoing={latestOutgoing}
+                latestOutgoingSeenAt={latestOutgoingSeenAt}
+                onMessageActions={onMessageActions}
+                imageLoadState={imageLoadStates[item.id] ?? INITIAL_IMAGE_LOAD_STATE}
+                onImageLoadError={handleImageLoadError}
+                onRetryImageLoad={handleRetryImageLoad}
+              />
+            </View>
+          );
+        }}
         ListEmptyComponent={<Empty message="No messages yet. Start the conversation." inverted />}
         ListHeaderComponent={
           hasNextPage ? (
