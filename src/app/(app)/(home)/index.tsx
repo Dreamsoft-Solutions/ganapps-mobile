@@ -18,8 +18,9 @@ import { Routes } from '@/constants/routes';
 import { useGanapDiscovery } from '@/hooks/useGanapDiscovery';
 import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
-import { FEED_SHEET_PEEK_HEIGHT } from '@/utils/feed-sheet';
+import { FEED_SHEET_PEEK_HEIGHT, resolveClusterZoomTarget } from '@/utils/feed-sheet';
 import {
+  CLUSTER_EXPANSION_MAX_ZOOM,
   type ClusterZoomTarget,
   createGanapClusterIndex,
   DEFAULT_MAP_VIEWPORT,
@@ -77,6 +78,8 @@ export default function HomeScreen(): ReactElement {
   const cameraRef = useRef<ComponentRef<typeof Camera>>(null);
   const hasCentredOnUser = useRef<boolean>(false);
   const wasNearbyActive = useRef<boolean>(false);
+  const mapZoomRef = useRef<number>(CITY_ZOOM);
+  const isClusterZoomPendingRef = useRef<boolean>(false);
   const [viewport, setViewport] = useState<MapViewport>(DEFAULT_MAP_VIEWPORT);
   const [isMapReady, setIsMapReady] = useState<boolean>(false);
   const [selectedGanap, setSelectedGanap] = useState<GanapListItem | null>(null);
@@ -146,13 +149,40 @@ export default function HomeScreen(): ReactElement {
   }, []);
 
   const handleMapIdle = useCallback((state: MapState): void => {
+    const zoom: number = state.properties.zoom;
+    mapZoomRef.current = zoom;
+    isClusterZoomPendingRef.current = false;
     setViewport(
       mapStateToViewport({
         bounds: state.properties.bounds,
-        zoom: state.properties.zoom,
+        zoom,
       }),
     );
   }, []);
+
+  const requestClusterZoom = useCallback(
+    (target: ClusterZoomTarget): void => {
+      const camera = cameraRef.current;
+      if (camera === null || isClusterZoomPendingRef.current) return;
+
+      const zoom: number = Math.min(target.zoom, CLUSTER_EXPANSION_MAX_ZOOM);
+      if (zoom <= mapZoomRef.current) return;
+
+      isClusterZoomPendingRef.current = true;
+      camera.setCamera({
+        centerCoordinate: target.coordinate,
+        zoomLevel: zoom,
+        animationDuration: 300,
+        padding: {
+          paddingTop: insets.top + MAP_OVERLAY_TOP,
+          paddingBottom: MAP_OVERLAY_BOTTOM,
+          paddingLeft: 0,
+          paddingRight: 0,
+        },
+      });
+    },
+    [insets.top],
+  );
 
   const handleGanapPress = useCallback((ganap: GanapListItem): void => {
     setSelectedCluster(null);
@@ -162,10 +192,13 @@ export default function HomeScreen(): ReactElement {
 
   const handleClusterPress = useCallback(
     (cluster: GanapClusterFeature): void => {
+      if (isClusterZoomPendingRef.current) return;
       setSelectedCluster(cluster);
       setSelectedClusterIndex(clusterIndex);
+      const target: ClusterZoomTarget | null = resolveClusterZoomTarget(clusterIndex, cluster);
+      if (target !== null) requestClusterZoom(target);
     },
-    [clusterIndex],
+    [clusterIndex, requestClusterZoom],
   );
 
   const handleClearSelection = useCallback((): void => {
@@ -183,19 +216,9 @@ export default function HomeScreen(): ReactElement {
 
   const handleClusterZoomIn = useCallback(
     (target: ClusterZoomTarget): void => {
-      cameraRef.current?.setCamera({
-        centerCoordinate: target.coordinate,
-        zoomLevel: target.zoom,
-        animationDuration: 300,
-        padding: {
-          paddingTop: insets.top + MAP_OVERLAY_TOP,
-          paddingBottom: MAP_OVERLAY_BOTTOM,
-          paddingLeft: 0,
-          paddingRight: 0,
-        },
-      });
+      requestClusterZoom(target);
     },
-    [insets.top],
+    [requestClusterZoom],
   );
 
   const handleSelectSearchSuggestion = useCallback(
@@ -319,18 +342,20 @@ export default function HomeScreen(): ReactElement {
         onDismiss={nearby.dismissPriming}
       />
 
-      <GanapFeedSheet
-        feed={feed}
-        hasActiveFilters={hasActiveFilters}
-        isNearbyApplied={isNearbyApplied}
-        topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
-        selectedGanap={selectedGanap}
-        selectedCluster={activeCluster}
-        clusterIndex={clusterIndex}
-        onSelectGanap={handleOpenGanap}
-        onClearSelection={handleClearSelection}
-        onZoomToCluster={handleClusterZoomIn}
-      />
+      {(selectedGanap !== null || activeCluster !== null) && (
+        <GanapFeedSheet
+          feed={feed}
+          hasActiveFilters={hasActiveFilters}
+          isNearbyApplied={isNearbyApplied}
+          topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+          selectedGanap={selectedGanap}
+          selectedCluster={activeCluster}
+          clusterIndex={clusterIndex}
+          onSelectGanap={handleOpenGanap}
+          onClearSelection={handleClearSelection}
+          onZoomToCluster={handleClusterZoomIn}
+        />
+      )}
     </View>
   );
 }

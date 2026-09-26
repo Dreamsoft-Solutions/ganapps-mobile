@@ -72,7 +72,7 @@ export interface FeedSheetSelection {
  * @returns The mode to render and the snap point to animate to
  */
 export function resolveFeedSheetMode(selection: FeedSheetSelection): FeedSheetState {
-  if (selection.selectedCluster) return { mode: 'cluster', snapIndex: 1 };
+  if (selection.selectedCluster) return { mode: 'cluster', snapIndex: 0 };
   if (selection.selectedGanap) return { mode: 'selected', snapIndex: 0 };
   return { mode: 'browse', snapIndex: 0 };
 }
@@ -81,8 +81,8 @@ export function resolveFeedSheetMode(selection: FeedSheetSelection): FeedSheetSt
  * Where the camera should move to expand a cluster the sheet is showing.
  *
  * Pure so the screen's camera wiring can be asserted without rendering a sheet.
- * Returns `null` when the cluster's geometry does not validate, which makes the
- * zoom action unavailable rather than moving the camera somewhere meaningless.
+ * Returns `null` when the geometry is invalid or the cluster has gone stale,
+ * which makes the zoom action unavailable rather than moving the camera somewhere meaningless.
  *
  * @param index - The cluster index the feature came from
  * @param cluster - The selected cluster
@@ -94,7 +94,11 @@ export function resolveClusterZoomTarget(
 ): ClusterZoomTarget | null {
   const coordinate = getFeatureCoordinate(cluster);
   if (coordinate === null) return null;
-  return { coordinate, zoom: getClusterExpansionZoom(index, cluster) };
+  try {
+    return { coordinate, zoom: getClusterExpansionZoom(index, cluster) };
+  } catch {
+    return null;
+  }
 }
 
 export interface FeedSheetTitleInput {
