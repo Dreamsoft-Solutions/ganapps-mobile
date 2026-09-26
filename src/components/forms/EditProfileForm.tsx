@@ -15,7 +15,7 @@ import { getInterestOptions } from '@/constants/interests';
 import { Routes } from '@/constants/routes';
 import { useUpdateProfileMutation } from '@/hooks/mutations/useAuthMutation';
 import type { User } from '@/types/user.types';
-import { type ProfileFormData, profileSchema } from '@/utils/validation';
+import { PROFILE_FIELD_LIMITS, type ProfileFormData, profileSchema } from '@/utils/validation';
 
 interface EditProfileFormProps {
   user: User;
@@ -120,15 +120,30 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
           <Text className="mt-3 text-body-md text-muted-foreground">Tap to change your photo</Text>
         </View>
 
-        <Input name="firstName" label="First Name" placeholder="Maria" autoCapitalize="words" />
-        <Input name="lastName" label="Last Name" placeholder="Santos" autoCapitalize="words" />
+        <Input
+          name="firstName"
+          label="First Name"
+          placeholder="Maria"
+          autoCapitalize="words"
+          maxLength={PROFILE_FIELD_LIMITS.nameMaxLength}
+          helperText={`Up to ${PROFILE_FIELD_LIMITS.nameMaxLength} characters.`}
+        />
+        <Input
+          name="lastName"
+          label="Last Name"
+          placeholder="Santos"
+          autoCapitalize="words"
+          maxLength={PROFILE_FIELD_LIMITS.nameMaxLength}
+          helperText={`Up to ${PROFILE_FIELD_LIMITS.nameMaxLength} characters.`}
+        />
         <Input
           name="bio"
           label="Bio"
           placeholder="Tell people a little about yourself"
           multiline
           numberOfLines={4}
-          maxLength={280}
+          maxLength={PROFILE_FIELD_LIMITS.bioMaxLength}
+          helperText={`Up to ${PROFILE_FIELD_LIMITS.bioMaxLength} characters.`}
         />
 
         <View>

@@ -103,7 +103,44 @@ jest.mock('@/components/map/GanapMapPin', () => ({
     return React.createElement(ReactNative.View, { testID: `ganap-pin-${ganap.id}` });
   },
 }));
-jest.mock('@/components/map/MapSearchBar', () => ({ MapSearchBar: (): null => null }));
+jest.mock('@/components/map/MapSearchBar', () => {
+  const React = require('react') as typeof import('react');
+  const ReactNative = require('react-native') as typeof import('react-native');
+
+  return {
+    MapSearchBar: ({
+      value,
+      suggestions,
+      isErrorSuggestions,
+      onSelectSuggestion,
+    }: {
+      value: string;
+      suggestions: GanapListItem[];
+      isErrorSuggestions: boolean;
+      onSelectSuggestion: (ganap: GanapListItem) => void;
+    }): ReactElement =>
+      React.createElement(
+        ReactNative.View,
+        { testID: 'map-search-value', accessibilityLabel: `Search: ${value}` },
+        ...(isErrorSuggestions
+          ? [React.createElement(ReactNative.Text, { key: 'search-error' }, "Couldn't load event suggestions.")]
+          : suggestions.map(
+              (suggestion: GanapListItem): ReactElement =>
+                React.createElement(
+                  ReactNative.Pressable,
+                  {
+                    key: suggestion.id,
+                    testID: `map-search-suggestion-${suggestion.id}`,
+                    accessibilityRole: 'button',
+                    accessibilityLabel: suggestion.title,
+                    onPress: (): void => onSelectSuggestion(suggestion),
+                  },
+                  React.createElement(ReactNative.Text, null, suggestion.title),
+                ),
+            )),
+      ),
+  };
+});
 jest.mock('@/components/map/TagChips', () => ({
   TagChips: ({ onToggleNearby }: { onToggleNearby: () => void }): ReactElement => {
     const React = require('react') as typeof import('react');
@@ -220,6 +257,7 @@ function mapHookResult(
     map: {
       items,
       isLoading: false,
+      isFetching: false,
       isError: false,
       error: null,
       refetch: jest.fn<UseGanapDiscoveryResult['map']['refetch']>(),
@@ -399,5 +437,47 @@ describe('home map clustering integration', (): void => {
     fireEvent.press(getByLabelText('Show events near me'));
 
     expect(toggleNearby).toHaveBeenCalledTimes(1);
+  });
+
+  it('centers on a search suggestion while preserving the search text', async (): Promise<void> => {
+    const suggestion = ganap('search-result', 122.572, 10.728);
+    const discovery = mapHookResult([suggestion]);
+    const setSearch = jest.fn<(value: string) => void>();
+    discovery.search = 'developer meetup';
+    discovery.setSearch = setSearch;
+    mockUseGanapDiscovery.mockReturnValue(discovery);
+
+    const screen = await render(<HomeScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: suggestion.title }));
+
+    expect(mockSetCamera).toHaveBeenCalledWith({
+      centerCoordinate: [suggestion.locationLong, suggestion.locationLat],
+      zoomLevel: 13.4,
+      animationDuration: 500,
+      padding: {
+        paddingTop: MAP_OVERLAY_TOP,
+        paddingBottom: FEED_SHEET_PEEK_HEIGHT,
+        paddingLeft: 0,
+        paddingRight: 0,
+      },
+    });
+    expect(setSearch).not.toHaveBeenCalled();
+    expect(screen.getByTestId('map-search-value').props.accessibilityLabel).toBe('Search: developer meetup');
+  });
+
+  it('keeps the map available and reports a failed active search', async (): Promise<void> => {
+    const staleSuggestion = ganap('stale-search-result', 122.572, 10.728);
+    const discovery = mapHookResult([staleSuggestion]);
+    discovery.search = 'developer meetup';
+    discovery.filters = { search: 'developer meetup' };
+    discovery.map.isError = true;
+    mockUseGanapDiscovery.mockReturnValue(discovery);
+
+    const screen = await render(<HomeScreen />);
+
+    expect(screen.getByTestId('mock-camera')).toBeTruthy();
+    expect(screen.getByTestId('map-search-value')).toBeTruthy();
+    expect(screen.getByText("Couldn't load event suggestions.")).toBeTruthy();
+    expect(screen.queryByRole('button', { name: staleSuggestion.title })).toBeNull();
   });
 });

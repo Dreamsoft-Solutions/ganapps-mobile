@@ -99,6 +99,19 @@ Use this map when locating an unfamiliar feature. See [Project Structure](docs/a
 
 Before changing API calls, envelopes, or refresh behavior, read this contract guidance. See [API Layer](docs/agents/implementation-reference.md#api-layer).
 
+## Input length limits
+
+Keep form validation, native `maxLength`, visible help, and server validation aligned. Use these existing limits; do not shorten the User bio to the example values in the DS-140 ticket.
+
+| Field | Limit |
+|---|---:|
+| User first and last names | Up to 64 characters |
+| Username | 3–32 characters |
+| User bio | Up to 280 characters |
+| Registration text answers | Use the maximum configured on the Registration Form block |
+
+Show concise length guidance beside fields where a User could otherwise hit a validation error without warning. Dynamic Registration answers must continue using the server-provided maximum.
+
 ## Module Convention
 
 When adding or changing feature endpoints and hooks, follow the three-layer convention. See [Module Convention](docs/agents/implementation-reference.md#module-convention).

@@ -1,10 +1,11 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { type ReactElement, useCallback, useEffect, useState } from 'react';
 import { EventChatThreadView } from '@/components/chat/EventChatThreadView';
 import { ModerationActionSheet, type ModerationActionTarget } from '@/components/moderation/ModerationActionSheet';
 import { Routes } from '@/constants/routes';
 import { useMessageReactionMutation, useUnsendMessageMutation } from '@/hooks/mutations/useChatEngagementMutation';
 import { useBlockUserMutation, useCreateReportMutation } from '@/hooks/mutations/useModerationMutation';
+import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { useChat } from '@/hooks/useChat';
 import { useAuthStore } from '@/store/auth.store';
 import { showToast } from '@/store/toast.store';
@@ -24,6 +25,8 @@ export default function EventChatThreadScreen(): ReactElement {
   const rawGanapId: string | string[] | undefined = params['ganap-id'];
   const ganapId: string = Array.isArray(rawGanapId) ? (rawGanapId[0] ?? '') : (rawGanapId ?? '');
   const router = useRouter();
+  const { data: ganap } = useGanapDetailQuery(ganapId);
+  const headerTitle: string = ganap?.title?.trim() || 'Event Chat';
   const chat = useChat(ganapId);
   const currentUserId: string | null = useAuthStore((state) => state.user?.id ?? null);
   const reportMutation = useCreateReportMutation();
@@ -125,6 +128,7 @@ export default function EventChatThreadScreen(): ReactElement {
 
   return (
     <>
+      <Stack.Screen options={{ title: headerTitle }} />
       <EventChatThreadView
         session={chat.session}
         messages={chat.messages}

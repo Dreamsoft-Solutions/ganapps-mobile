@@ -48,11 +48,13 @@ jest.mock('@/hooks/queries/useAuthQuery', () => ({
 }));
 jest.mock('@/store/auth.store', () => ({ useAuthStore: mockUseAuthStore }));
 jest.mock('@/hooks/mutations/useAuthMutation', () => ({
+  useCompletePasswordResetMutation: () => mockIdleMutation,
   useDeleteAccountMutation: () => mockDeleteMutation,
   useGoogleLoginMutation: () => mockIdleMutation,
   useLoginMutation: () => mockIdleMutation,
   useLogoutMutation: () => mockIdleMutation,
   useRegisterMutation: () => mockIdleMutation,
+  useRequestPasswordResetMutation: () => mockIdleMutation,
   useResendVerificationMutation: () => mockIdleMutation,
   useUpdateProfileMutation: () => mockIdleMutation,
   useVerifyEmailMutation: () => mockIdleMutation,
