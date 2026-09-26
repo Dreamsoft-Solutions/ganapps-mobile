@@ -12,6 +12,7 @@ import { IconButton } from '@/components/common/IconButton';
 import { Input } from '@/components/common/Input';
 import { LegalLinks } from '@/components/common/LegalLinks';
 import { Text } from '@/components/common/Text';
+import { Routes } from '@/constants/routes';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useFeatureFlag } from '@/hooks/useFeatureFlag';

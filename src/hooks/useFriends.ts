@@ -76,6 +76,12 @@ export interface UseFriendsResult {
   updateSettingsMutation: ReturnType<typeof useUpdateFriendSettingsMutation>;
 }
 
+const shouldLoadOutgoingRequests = (
+  segment: FriendsHubSegment,
+  requestDirection: FriendRequestDirection,
+  addFriendOpen: boolean,
+): boolean => (segment === 'requests' && requestDirection === 'outgoing') || addFriendOpen;
+
 /**
  * Coordinates the Friends hub's server-owned feeds, bounded presence, and social mutations.
  *
@@ -99,7 +105,7 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
   );
   const outgoingQuery: UseFriendRequestsQueryResult = useFriendRequestsQuery(
     'outgoing',
-    (segment === 'requests' && requestDirection === 'outgoing') || addFriendOpen,
+    shouldLoadOutgoingRequests(segment, requestDirection, addFriendOpen),
   );
   const requestsQuery: UseFriendRequestsQueryResult = requestDirection === 'incoming' ? incomingQuery : outgoingQuery;
   const presenceQuery: UseQueryResult<FriendPresenceResponse, Error> = useFriendPresenceQuery(screenSession, true);
