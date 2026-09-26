@@ -216,6 +216,8 @@ export function LoginForm(): ReactElement {
             placeholder="johndoe"
             autoCapitalize="none"
             autoCorrect={false}
+            maxLength={USERNAME_POLICY.maxLength}
+            helperText={`${USERNAME_POLICY.minLength}–${USERNAME_POLICY.maxLength} characters; no spaces.`}
           />
         )}
 

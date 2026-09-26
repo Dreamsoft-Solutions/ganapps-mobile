@@ -104,6 +104,11 @@ export const USERNAME_POLICY = {
   maxLength: 32,
 } as const;
 
+export const PROFILE_FIELD_LIMITS = {
+  nameMaxLength: 64,
+  bioMaxLength: 280,
+} as const;
+
 export const registerSchema = z
   .object({
     username: z
@@ -128,8 +133,22 @@ export const verifyEmailSchema = z.object({
 });
 
 export const onboardingNamesSchema = z.object({
-  firstName: z.string().trim().min(1, 'First name is required').max(64, 'First name must be at most 64 characters'),
-  lastName: z.string().trim().min(1, 'Last name is required').max(64, 'Last name must be at most 64 characters'),
+  firstName: z
+    .string()
+    .trim()
+    .min(1, 'First name is required')
+    .max(
+      PROFILE_FIELD_LIMITS.nameMaxLength,
+      `First name must be at most ${PROFILE_FIELD_LIMITS.nameMaxLength} characters`,
+    ),
+  lastName: z
+    .string()
+    .trim()
+    .min(1, 'Last name is required')
+    .max(
+      PROFILE_FIELD_LIMITS.nameMaxLength,
+      `Last name must be at most ${PROFILE_FIELD_LIMITS.nameMaxLength} characters`,
+    ),
 });
 
 export const onboardingExtrasSchema = z.object({
@@ -140,9 +159,21 @@ export const onboardingExtrasSchema = z.object({
 export const onboardingSchema = onboardingNamesSchema.extend(onboardingExtrasSchema.shape);
 
 export const profileSchema = z.object({
-  firstName: z.string().max(64, 'First name must be at most 64 characters'),
-  lastName: z.string().max(64, 'Last name must be at most 64 characters'),
-  bio: z.string().max(280, 'Bio must be at most 280 characters'),
+  firstName: z
+    .string()
+    .max(
+      PROFILE_FIELD_LIMITS.nameMaxLength,
+      `First name must be at most ${PROFILE_FIELD_LIMITS.nameMaxLength} characters`,
+    ),
+  lastName: z
+    .string()
+    .max(
+      PROFILE_FIELD_LIMITS.nameMaxLength,
+      `Last name must be at most ${PROFILE_FIELD_LIMITS.nameMaxLength} characters`,
+    ),
+  bio: z
+    .string()
+    .max(PROFILE_FIELD_LIMITS.bioMaxLength, `Bio must be at most ${PROFILE_FIELD_LIMITS.bioMaxLength} characters`),
   interests: z.array(z.string()),
 });
 
