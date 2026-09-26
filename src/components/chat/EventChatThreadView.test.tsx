@@ -1,10 +1,10 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render } from '@testing-library/react-native';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { View as MockView } from 'react-native';
 import type { FailedDraft } from '@/hooks/useChat';
 import { showToast } from '@/store/toast.store';
-import type { ChatImageDraft, ChatMessage, EventChatSession } from '@/types/chat.types';
+import type { ChatImageDraft, ChatMessage, EventChatSession, ReactionSummary, ReactionType } from '@/types/chat.types';
 import { EventChatThreadView } from './EventChatThreadView';
 
 jest.mock('lucide-react-native', () => ({
@@ -18,6 +18,16 @@ jest.mock('lucide-react-native', () => ({
 jest.mock('expo-image', () => ({
   Image: (): ReactElement => <MockView testID="avatar-image" />,
 }));
+
+jest.mock('react-native/Libraries/Modal/Modal', () => {
+  const React = require('react') as typeof import('react');
+
+  function MockModal({ visible, children }: { visible: boolean; children: ReactNode }): ReactElement | null {
+    return visible ? React.createElement(React.Fragment, null, children) : null;
+  }
+
+  return { __esModule: true, default: MockModal };
+});
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: (): { top: number; bottom: number; left: number; right: number } => ({
@@ -58,6 +68,21 @@ const message: ChatMessage = {
   content: 'Welcome to the event.',
   type: 'TEXT',
   sentAt: '2026-09-01T00:00:00.000Z',
+};
+
+const reactionSummary: ReactionSummary = {
+  counts: [{ type: 'HEART', count: 2 }],
+  myReaction: 'HEART',
+  total: 2,
+};
+
+const reactedMessage: ChatMessage = { ...message, reactionSummary };
+
+const writableSession: EventChatSession = {
+  ...readOnlySession,
+  capability: 'READ_WRITE',
+  canSend: true,
+  ganapStatus: 'ONGOING',
 };
 
 const imageMessage: ChatMessage = {
@@ -263,6 +288,39 @@ describe('EventChatThreadView', (): void => {
     expect(screen.getByLabelText('Photo sent by Miguel Santos, 1600 by 1200 pixels')).toBeTruthy();
     expect(screen.getByLabelText('Message actions for Miguel Santos')).toBeTruthy();
     expect(screen.queryByLabelText('React with heart')).toBeNull();
+    screen.unmount();
+  });
+
+  it('shows reaction counts inline and dismisses the floating picker from outside the message', async (): Promise<void> => {
+    const onMessageReaction = jest.fn<(selected: ChatMessage, reaction: ReactionType | null) => void>();
+    const screen = await render(
+      <EventChatThreadView {...props({ session: writableSession, messages: [reactedMessage], onMessageReaction })} />,
+    );
+    const messageTarget = screen.getByLabelText('Welcome to the event. from Miguel Santos');
+
+    expect(screen.getByLabelText('Remove heart reaction')).toBeTruthy();
+    expect(screen.getByText('2')).toBeTruthy();
+    expect(screen.getByLabelText('Message reactions').props.className).toContain('flex-wrap');
+    await fireEvent(messageTarget, 'longPress');
+    expect(screen.getByLabelText('Choose a message reaction')).toBeTruthy();
+    expect(screen.getByLabelText('React with angry face')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Dismiss reactions'));
+    expect(screen.queryByLabelText('Choose a message reaction')).toBeNull();
+    screen.unmount();
+  });
+
+  it('keeps read-only reactions disabled without a busy state and directs long press to actions', async (): Promise<void> => {
+    const onMessageActions = jest.fn<(selected: ChatMessage) => void>();
+    const screen = await render(<EventChatThreadView {...props({ messages: [reactedMessage], onMessageActions })} />);
+    const messageTarget = screen.getByLabelText('Welcome to the event. from Miguel Santos');
+
+    expect(messageTarget.props.accessibilityHint).toBe('Long press to open message actions');
+    expect(screen.getByLabelText('Remove heart reaction').props.accessibilityState).toMatchObject({
+      disabled: true,
+      busy: false,
+    });
+    await fireEvent(messageTarget, 'longPress');
+    expect(onMessageActions).toHaveBeenCalledWith(reactedMessage);
     screen.unmount();
   });
 });
