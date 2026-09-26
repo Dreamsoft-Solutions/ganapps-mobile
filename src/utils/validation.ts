@@ -99,9 +99,37 @@ export const loginSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
+/** Validates the email submitted to request a password-reset code. */
+export const requestPasswordResetSchema = z.object({
+  email: z.string().trim().email('Invalid email address'),
+});
+
+/** Validates a reset code and replacement password against signup's password policy. */
+export const completePasswordResetSchema = z
+  .object({
+    code: z
+      .string()
+      .length(8, 'Code must be 8 digits')
+      .regex(/^\d{8}$/, 'Code must be 8 digits'),
+    password: signupPasswordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine(
+    (data: { code: string; password: string; confirmPassword: string }) => data.password === data.confirmPassword,
+    {
+      message: 'Passwords do not match',
+      path: ['confirmPassword'],
+    },
+  );
+
 export const USERNAME_POLICY = {
   minLength: 3,
   maxLength: 32,
+} as const;
+
+export const PROFILE_FIELD_LIMITS = {
+  nameMaxLength: 64,
+  bioMaxLength: 280,
 } as const;
 
 export const registerSchema = z
@@ -128,8 +156,22 @@ export const verifyEmailSchema = z.object({
 });
 
 export const onboardingNamesSchema = z.object({
-  firstName: z.string().trim().min(1, 'First name is required').max(64, 'First name must be at most 64 characters'),
-  lastName: z.string().trim().min(1, 'Last name is required').max(64, 'Last name must be at most 64 characters'),
+  firstName: z
+    .string()
+    .trim()
+    .min(1, 'First name is required')
+    .max(
+      PROFILE_FIELD_LIMITS.nameMaxLength,
+      `First name must be at most ${PROFILE_FIELD_LIMITS.nameMaxLength} characters`,
+    ),
+  lastName: z
+    .string()
+    .trim()
+    .min(1, 'Last name is required')
+    .max(
+      PROFILE_FIELD_LIMITS.nameMaxLength,
+      `Last name must be at most ${PROFILE_FIELD_LIMITS.nameMaxLength} characters`,
+    ),
 });
 
 export const onboardingExtrasSchema = z.object({
@@ -140,9 +182,21 @@ export const onboardingExtrasSchema = z.object({
 export const onboardingSchema = onboardingNamesSchema.extend(onboardingExtrasSchema.shape);
 
 export const profileSchema = z.object({
-  firstName: z.string().max(64, 'First name must be at most 64 characters'),
-  lastName: z.string().max(64, 'Last name must be at most 64 characters'),
-  bio: z.string().max(280, 'Bio must be at most 280 characters'),
+  firstName: z
+    .string()
+    .max(
+      PROFILE_FIELD_LIMITS.nameMaxLength,
+      `First name must be at most ${PROFILE_FIELD_LIMITS.nameMaxLength} characters`,
+    ),
+  lastName: z
+    .string()
+    .max(
+      PROFILE_FIELD_LIMITS.nameMaxLength,
+      `Last name must be at most ${PROFILE_FIELD_LIMITS.nameMaxLength} characters`,
+    ),
+  bio: z
+    .string()
+    .max(PROFILE_FIELD_LIMITS.bioMaxLength, `Bio must be at most ${PROFILE_FIELD_LIMITS.bioMaxLength} characters`),
   interests: z.array(z.string()),
 });
 
@@ -152,6 +206,8 @@ export const ratingSchema = z.object({
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;
+export type RequestPasswordResetFormData = z.infer<typeof requestPasswordResetSchema>;
+export type CompletePasswordResetFormData = z.infer<typeof completePasswordResetSchema>;
 export type RegisterFormData = z.infer<typeof registerSchema>;
 export type VerifyEmailFormData = z.infer<typeof verifyEmailSchema>;
 export type OnboardingNamesData = z.infer<typeof onboardingNamesSchema>;

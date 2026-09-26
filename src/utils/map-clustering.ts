@@ -9,6 +9,8 @@ const DEFAULT_ZOOM: number = 15;
 
 export const CLUSTER_RADIUS_PX: number = 60;
 export const CLUSTER_MAX_ZOOM: number = 16;
+/** Supercluster returns individual points one zoom level above its clustering ceiling. */
+export const CLUSTER_EXPANSION_MAX_ZOOM: number = CLUSTER_MAX_ZOOM + 1;
 export const CLUSTER_MIN_POINTS: number = 2;
 
 export type MapCoordinate = [longitude: number, latitude: number];
@@ -103,10 +105,10 @@ export function toGanapPointFeatures(ganaps: readonly GanapListItem[]): GanapPoi
   return features;
 }
 
-/** Floors and clamps a camera zoom to the integer range accepted by the index. */
+/** Floors and clamps a camera zoom through the level where Supercluster returns every source point. */
 export function normalizeClusterZoom(zoom: number): number {
   if (!Number.isFinite(zoom)) return DEFAULT_ZOOM;
-  return Math.min(CLUSTER_MAX_ZOOM, Math.max(0, Math.floor(zoom)));
+  return Math.min(CLUSTER_EXPANSION_MAX_ZOOM, Math.max(0, Math.floor(zoom)));
 }
 
 /** Converts a Mapbox idle payload into deterministic Supercluster viewport input. */
@@ -187,7 +189,36 @@ export function getClusterLeaves(index: GanapClusterIndex, cluster: GanapCluster
   }
 }
 
-/** Resolves the zoom at which Supercluster expands the selected cluster. */
+/**
+ * Resolves a bounded zoom where every Ganap in the selected cluster is an individual point.
+ *
+ * Supercluster may expand a dense cluster into child clusters first, so this walks the
+ * selected cluster's descendants and takes the deepest expansion zoom. The one-level
+ * allowance above the index ceiling is where Supercluster returns the source points.
+ *
+ * @param index - The index that produced the cluster
+ * @param cluster - The selected cluster
+ * @returns The minimum bounded zoom that resolves all descendant clusters
+ * @throws When the cluster no longer belongs to the supplied index
+ */
 export function getClusterExpansionZoom(index: GanapClusterIndex, cluster: GanapClusterFeature): number {
-  return index.getClusterExpansionZoom(cluster.properties.cluster_id);
+  const pending: GanapClusterFeature[] = [cluster];
+  const visited: Set<number> = new Set();
+  let deepestZoom: number = 0;
+
+  while (pending.length > 0) {
+    const current: GanapClusterFeature | undefined = pending.pop();
+    if (!current) continue;
+
+    const clusterId: number = current.properties.cluster_id;
+    if (visited.has(clusterId)) continue;
+    visited.add(clusterId);
+    deepestZoom = Math.max(deepestZoom, index.getClusterExpansionZoom(clusterId));
+
+    for (const child of index.getChildren(clusterId)) {
+      if (isClusterFeature(child)) pending.push(child);
+    }
+  }
+
+  return Math.min(CLUSTER_EXPANSION_MAX_ZOOM, deepestZoom);
 }

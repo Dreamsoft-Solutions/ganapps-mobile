@@ -59,6 +59,7 @@ export type UseChatSummariesQueryResult = UseInfiniteQueryResult<
   Error
 > & {
   summaries: ChatConversationSummary[];
+  hasUnreadMessages: boolean;
 };
 
 /** Result shape for the Event Chat history query, with flattened server pages. */
@@ -148,7 +149,7 @@ export function useEventChatListQuery(enabled = true): UseEventChatListQueryResu
  * ordering, unread counts, latest-message previews, and read/send capabilities.
  *
  * @param enabled - Optional route/access guard
- * @returns Infinite summary query and flattened rows
+ * @returns Infinite summary query, flattened rows, and all-conversation unread state
  */
 export function useChatSummariesQuery(enabled = true): UseChatSummariesQueryResult {
   const token: string | null = useAuthStore((state) => state.token);
@@ -175,7 +176,8 @@ export function useChatSummariesQuery(enabled = true): UseChatSummariesQueryResu
   });
   const summaries: ChatConversationSummary[] =
     result.data?.pages.flatMap((page: ChatConversationSummaryPage): ChatConversationSummary[] => page.items) ?? [];
-  return { ...result, summaries };
+  const hasUnreadMessages: boolean = result.data?.pages[0]?.hasUnreadMessages ?? false;
+  return { ...result, summaries, hasUnreadMessages };
 }
 
 /** Backwards-readable alias for the Friends hub summary query. */

@@ -113,14 +113,14 @@ describe('ClusteredGanapMarkers', (): void => {
     expect(onGanapPress).toHaveBeenCalledWith(item);
   });
 
-  it('center-anchors an accessible cluster badge and opens its group', async (): Promise<void> => {
+  it('center-anchors an accessible cluster badge and forwards one press for expansion', async (): Promise<void> => {
     const onClusterPress = jest.fn<(value: GanapClusterFeature) => void>();
     const screen = await render(
       <ClusteredGanapMarkers features={[clusterFeature]} onGanapPress={jest.fn()} onClusterPress={onClusterPress} />,
     );
 
     expect(mockMarkerProps).toEqual([{ anchor: { x: 0.5, y: 0.5 }, allowOverlap: true }]);
-    const clusterButton = screen.getByRole('button', { name: 'Open group of 2 events' });
+    const clusterButton = screen.getByRole('button', { name: 'Zoom to group of 2 events' });
     expect(clusterButton.props.testID).toBe('map-cluster-marker-42');
 
     fireEvent.press(clusterButton);

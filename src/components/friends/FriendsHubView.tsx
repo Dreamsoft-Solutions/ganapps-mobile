@@ -45,6 +45,8 @@ export interface FriendsHubViewProps {
   friends: FriendUserSummary[];
   presence: FriendUserSummary[];
   requests: FriendRequestItem[];
+  outgoingRequests: FriendRequestItem[];
+  isLoadingOutgoingRequests: boolean;
   isLoading: boolean;
   error: Error | null;
   isRefreshing: boolean;
@@ -351,6 +353,8 @@ function AddFriendModal({
   visible,
   lookupMutation,
   createRequestMutation,
+  outgoingRequests,
+  isLoadingOutgoingRequests,
   requestNotice,
   onClose,
   onLookup,
@@ -360,6 +364,8 @@ function AddFriendModal({
   visible: boolean;
   lookupMutation: UseMutationResult<FriendUserSummary, Error, string>;
   createRequestMutation: UseMutationResult<FriendRequestResult, Error, string>;
+  outgoingRequests: FriendRequestItem[];
+  isLoadingOutgoingRequests: boolean;
   requestNotice: string | null;
   onClose: () => void;
   onLookup: (code: string) => void | Promise<void>;
@@ -372,6 +378,19 @@ function AddFriendModal({
   const target: FriendUserSummary | undefined = lookupMutation.data;
   const error: Error | null = lookupMutation.error ?? createRequestMutation.error ?? null;
   const normalizedCode: string = code.trim().replace(/[\s-]/g, '').toUpperCase();
+  const sentRequestForTarget: boolean = Boolean(
+    target &&
+      (outgoingRequests.some(
+        (request: FriendRequestItem): boolean => request.targetUserId === target.userId && request.status === 'PENDING',
+      ) ||
+        (createRequestMutation.data?.targetUserId === target.userId &&
+          createRequestMutation.data.status === 'PENDING')),
+  );
+  const acceptedRequestForTarget: boolean = Boolean(
+    target &&
+      createRequestMutation.data?.targetUserId === target.userId &&
+      (createRequestMutation.data.status === 'ACCEPTED' || createRequestMutation.data.status === 'AUTO_ACCEPTED'),
+  );
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView className="flex-1 bg-background" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -439,12 +458,21 @@ function AddFriendModal({
               </Pressable>
               <View className="mt-lg">
                 <Button
-                  disabled={createRequestMutation.isPending}
+                  disabled={
+                    isLoadingOutgoingRequests ||
+                    createRequestMutation.isPending ||
+                    sentRequestForTarget ||
+                    acceptedRequestForTarget
+                  }
                   loading={createRequestMutation.isPending}
                   onPress={(): void => void onSendRequest(normalizedCode)}
                   leftIcon={<UserPlus size={17} />}
                 >
-                  Send friend request
+                  {sentRequestForTarget
+                    ? 'Friend request sent'
+                    : acceptedRequestForTarget
+                      ? 'Friend request accepted'
+                      : 'Send friend request'}
                 </Button>
               </View>
             </Card>
@@ -632,6 +660,8 @@ export function FriendsHubView({
   friends,
   presence,
   requests,
+  outgoingRequests,
+  isLoadingOutgoingRequests,
   isLoading,
   error,
   isRefreshing,
@@ -742,6 +772,8 @@ export function FriendsHubView({
           visible={isAddFriendOpen}
           lookupMutation={lookupMutation}
           createRequestMutation={createRequestMutation}
+          outgoingRequests={outgoingRequests}
+          isLoadingOutgoingRequests={isLoadingOutgoingRequests}
           requestNotice={requestNotice}
           onClose={onCloseAddFriend}
           onLookup={onLookup}

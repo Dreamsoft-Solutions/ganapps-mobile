@@ -11,7 +11,10 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChatDateSeparator } from '@/components/chat/ChatDateSeparator';
 import { ChatImageBubble, ChatImagePreview } from '@/components/chat/ChatImage';
+import { MessageReactionBar } from '@/components/chat/MessageReactionBar';
+import { type MessageReactionAnchor, MessageReactionOverlay } from '@/components/chat/MessageReactionOverlay';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { Empty } from '@/components/common/Empty';
@@ -20,13 +23,20 @@ import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { Colors, Spacing } from '@/constants/theme';
+import { MIN_TOUCH_TARGET } from '@/constants/touch-target';
 import type { DirectFailedDraft } from '@/hooks/useDirectChat';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { ChatConnectionState } from '@/services/chat-socket.service';
 import { showToast } from '@/store/toast.store';
-import type { ChatImageDraft as BaseChatImageDraft, ChatMessage } from '@/types/chat.types';
+import type {
+  ChatImageDraft as BaseChatImageDraft,
+  ChatMessage,
+  ReactionSummary,
+  ReactionType,
+} from '@/types/chat.types';
 import type { DirectChatFriendSummary, DirectChatSession } from '@/types/direct-chat.types';
 import { compareChatMessages } from '@/utils/chat';
+import { getChatMessageDateSeparatorLabel } from '@/utils/chat-date-groups';
 import { getChatImageErrorMessage, isChatImageAuthorizationError } from '@/utils/chat-image';
 import { useChatKeyboardVisible } from './useChatKeyboardVisible';
 
@@ -63,6 +73,10 @@ export interface DirectChatThreadViewProps {
   onRetryImage?: () => void | Promise<void>;
   onRefreshImage?: (messageId: string) => void | Promise<void>;
   onMessageActions?: (message: ChatMessage) => void;
+  /** Sets or removes a reaction on a message. */
+  onMessageReaction?: (message: ChatMessage, reaction: ReactionType | null) => void | Promise<void>;
+  /** Message currently waiting for the server to save a reaction. */
+  reactionPendingMessageId?: string | null;
   accessLost: boolean;
 }
 
@@ -76,6 +90,19 @@ const INITIAL_IMAGE_LOAD_STATE: ImageLoadState = {
   refreshRequested: false,
   loadFailed: false,
   reloadToken: 0,
+};
+
+interface ReactionPickerState {
+  message: ChatMessage;
+  summary: ReactionSummary;
+  anchor: MessageReactionAnchor;
+}
+
+const FALLBACK_REACTION_ANCHOR: MessageReactionAnchor = {
+  x: Spacing.md,
+  y: Spacing.xl + MIN_TOUCH_TARGET,
+  width: MIN_TOUCH_TARGET,
+  height: MIN_TOUCH_TARGET,
 };
 
 function formatMessageTime(sentAt: string): string {
@@ -110,6 +137,10 @@ interface MessageRowProps {
   latestOutgoing: ChatMessage | null;
   latestOutgoingSeenAt: string | null;
   onMessageActions: (message: ChatMessage) => void;
+  onMessageLongPress: (message: ChatMessage, anchor: MessageReactionAnchor, measured: boolean) => void;
+  onMessageReaction?: (message: ChatMessage, reaction: ReactionType | null) => void | Promise<void>;
+  reactionPendingMessageId: string | null;
+  canReact: boolean;
   imageLoadState: ImageLoadState;
   onImageLoadError: (messageId: string, error: string) => void;
   onRetryImageLoad: (messageId: string) => void;
@@ -124,6 +155,8 @@ interface MessageBubbleProps {
   messageLabel: string;
   imageLoadState: ImageLoadState;
   onMessageActions: (message: ChatMessage) => void;
+  onMessageLongPress: (message: ChatMessage, anchor: MessageReactionAnchor, measured: boolean) => void;
+  canReact: boolean;
   onImageLoadError: (messageId: string, error: string) => void;
   onRetryImageLoad: (messageId: string) => void;
 }
@@ -158,14 +191,37 @@ function MessageBubble({
   messageLabel,
   imageLoadState,
   onMessageActions,
+  onMessageLongPress,
+  canReact,
   onImageLoadError,
   onRetryImageLoad,
 }: MessageBubbleProps): ReactElement {
   const bubbleClassName: string = isMine ? 'bg-primary' : 'border border-border bg-card';
+  const messageRef = useRef<View>(null);
+  const reactionSummary: ReactionSummary | null = message.type === 'UNSENT' ? null : (message.reactionSummary ?? null);
+  const canOpenReactionPicker: boolean = canReact && reactionSummary !== null;
+  const accessibilityHint: string = canOpenReactionPicker
+    ? 'Long press to react; use message actions to report, block, or unsend'
+    : 'Long press to open message actions';
+  const handleLongPress = (): void => {
+    if (!canOpenReactionPicker) {
+      onMessageActions(message);
+      return;
+    }
+    const target: View | null = messageRef.current;
+    onMessageLongPress(message, FALLBACK_REACTION_ANCHOR, false);
+    if (!target) {
+      return;
+    }
+    target.measureInWindow((x: number, y: number, width: number, height: number): void => {
+      if (width > 0 && height > 0) onMessageLongPress(message, { x, y, width, height }, true);
+    });
+  };
 
   return (
     <Pressable
-      onLongPress={(): void => onMessageActions(message)}
+      ref={messageRef}
+      onLongPress={handleLongPress}
       onPress={
         media
           ? (): void => {
@@ -176,7 +232,7 @@ function MessageBubble({
       delayLongPress={350}
       accessibilityRole="button"
       accessibilityLabel={messageLabel}
-      accessibilityHint="Long press to open message reactions and actions"
+      accessibilityHint={accessibilityHint}
       className={`min-w-0 rounded-xl px-md py-sm ${bubbleClassName}`}
     >
       {!isMine && <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>}
@@ -203,6 +259,10 @@ function MessageRow({
   latestOutgoing,
   latestOutgoingSeenAt,
   onMessageActions,
+  onMessageLongPress,
+  onMessageReaction,
+  reactionPendingMessageId,
+  canReact,
   imageLoadState,
   onImageLoadError,
   onRetryImageLoad,
@@ -230,8 +290,19 @@ function MessageRow({
             messageLabel={messageLabel}
             imageLoadState={imageLoadState}
             onMessageActions={onMessageActions}
+            onMessageLongPress={onMessageLongPress}
+            canReact={canReact}
             onImageLoadError={onImageLoadError}
             onRetryImageLoad={onRetryImageLoad}
+          />
+          <MessageReactionBar
+            summary={message.type === 'UNSENT' ? null : message.reactionSummary}
+            presentation="summary"
+            isPending={reactionPendingMessageId === message.id}
+            isDisabled={!canReact || reactionPendingMessageId !== null}
+            onSelect={(reaction: ReactionType | null): void => {
+              if (canReact && onMessageReaction) void onMessageReaction(message, reaction);
+            }}
           />
         </View>
         <IconButton
@@ -311,6 +382,8 @@ export function DirectChatThreadView({
   onRetryDraft,
   onDiscardDraft,
   onMessageActions = (): void => {},
+  onMessageReaction,
+  reactionPendingMessageId = null,
   imageDraft = null,
   imagePickerError = null,
   imageRetryAfterSeconds = null,
@@ -327,9 +400,11 @@ export function DirectChatThreadView({
   const composerBottomPadding: number = isKeyboardVisible ? Spacing.sm : insets.bottom + Spacing.sm;
   const [draftText, setDraftText] = useState<string>('');
   const [imageLoadStates, setImageLoadStates] = useState<Record<string, ImageLoadState>>({});
+  const [reactionPicker, setReactionPicker] = useState<ReactionPickerState | null>(null);
   const imageRefreshIds = useRef<Set<string>>(new Set<string>());
   const latestOutgoing: ChatMessage | null = getLatestOutgoing(messages, currentUserId);
   const isReadOnly: boolean = Boolean(session?.canRead && !session.canSend);
+  const canReact: boolean = session?.canSend === true && onMessageReaction !== undefined;
   const canSendImage: boolean =
     imageDraft?.status === 'ready' ||
     (imageDraft?.status === 'retryable-failure' && (imageRetryAfterSeconds ?? 0) <= 0);
@@ -397,6 +472,21 @@ export function DirectChatThreadView({
     });
   }, []);
 
+  const handleMessageLongPress = (message: ChatMessage, anchor: MessageReactionAnchor, measured: boolean): void => {
+    const summary: ReactionSummary | null = message.type === 'UNSENT' ? null : (message.reactionSummary ?? null);
+    if (measured) {
+      setReactionPicker((current: ReactionPickerState | null): ReactionPickerState | null =>
+        current?.message.id === message.id ? { ...current, anchor } : current,
+      );
+      return;
+    }
+    if (!canReact || !summary) {
+      onMessageActions(message);
+      return;
+    }
+    setReactionPicker({ message, summary, anchor });
+  };
+
   if (accessLost) {
     return (
       <View className="flex-1 items-center justify-center bg-background p-xl">
@@ -461,18 +551,28 @@ export function DirectChatThreadView({
         data={messages}
         inverted
         keyExtractor={(message: ChatMessage): string => message.id}
-        renderItem={({ item }: { item: ChatMessage }): ReactElement => (
-          <MessageRow
-            message={item}
-            currentUserId={currentUserId}
-            latestOutgoing={latestOutgoing}
-            latestOutgoingSeenAt={latestOutgoingSeenAt}
-            onMessageActions={onMessageActions}
-            imageLoadState={imageLoadStates[item.id] ?? INITIAL_IMAGE_LOAD_STATE}
-            onImageLoadError={handleImageLoadError}
-            onRetryImageLoad={handleRetryImageLoad}
-          />
-        )}
+        renderItem={({ item, index }: { item: ChatMessage; index: number }): ReactElement => {
+          const dateSeparatorLabel: string | null = getChatMessageDateSeparatorLabel(item, messages[index + 1]);
+          return (
+            <View>
+              {dateSeparatorLabel !== null && <ChatDateSeparator label={dateSeparatorLabel} />}
+              <MessageRow
+                message={item}
+                currentUserId={currentUserId}
+                latestOutgoing={latestOutgoing}
+                latestOutgoingSeenAt={latestOutgoingSeenAt}
+                onMessageActions={onMessageActions}
+                onMessageLongPress={handleMessageLongPress}
+                onMessageReaction={onMessageReaction}
+                reactionPendingMessageId={reactionPendingMessageId}
+                canReact={canReact}
+                imageLoadState={imageLoadStates[item.id] ?? INITIAL_IMAGE_LOAD_STATE}
+                onImageLoadError={handleImageLoadError}
+                onRetryImageLoad={handleRetryImageLoad}
+              />
+            </View>
+          );
+        }}
         ListEmptyComponent={<Empty message="No messages yet. Start the conversation." inverted />}
         ListHeaderComponent={
           hasNextPage ? (
@@ -496,6 +596,22 @@ export function DirectChatThreadView({
         }}
         onEndReachedThreshold={0.2}
       />
+
+      {reactionPicker && onMessageReaction && (
+        <MessageReactionOverlay
+          visible
+          anchor={reactionPicker.anchor}
+          summary={reactionPicker.summary}
+          isPending={reactionPendingMessageId === reactionPicker.message.id}
+          isDisabled={reactionPendingMessageId !== null}
+          onClose={(): void => setReactionPicker(null)}
+          onSelect={(reaction: ReactionType | null): void => {
+            const selectedMessage: ChatMessage = reactionPicker.message;
+            setReactionPicker(null);
+            void onMessageReaction(selectedMessage, reaction);
+          }}
+        />
+      )}
 
       {failedDrafts.length > 0 && (
         <View className="border-t border-border px-md pt-sm">

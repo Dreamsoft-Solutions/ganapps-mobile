@@ -3,13 +3,16 @@ import { authAPI } from '@/api/endpoints/auth';
 import { revokeRegisteredAndroidPushToken } from '@/services/push-notification.service';
 import { useAuthStore } from '@/store/auth.store';
 import type {
+  CompletePasswordResetDto,
   DeleteAccountInput,
   DeleteAccountResponse,
   GoogleAuthRequestDto,
   GoogleAuthResponse,
   LoginDto,
+  PasswordResetResponse,
   RegisterDto,
   RegisterResponse,
+  RequestPasswordResetDto,
   TokenResponse,
   UpdateProfileRequest,
   VerifyEmailRequest,
@@ -55,6 +58,40 @@ export function useRegisterMutation(): UseMutationResult<RegisterResponse, Error
     onSuccess: async (data: RegisterResponse): Promise<void> => {
       await setAuth(data.accessToken, data.refreshToken, data.expiresIn);
     },
+  });
+}
+
+/**
+ * Creates the generic password-reset request mutation.
+ *
+ * @returns A mutation for asking the server to email a reset code.
+ */
+export function useRequestPasswordResetMutation(): UseMutationResult<
+  PasswordResetResponse,
+  Error,
+  RequestPasswordResetDto
+> {
+  return useMutation<PasswordResetResponse, Error, RequestPasswordResetDto>({
+    mutationFn: (dto: RequestPasswordResetDto): Promise<PasswordResetResponse> => authAPI.requestPasswordReset(dto),
+    retry: false,
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
+  });
+}
+
+/**
+ * Creates the password-reset completion mutation.
+ *
+ * @returns A mutation for consuming a code and setting the new password.
+ */
+export function useCompletePasswordResetMutation(): UseMutationResult<
+  PasswordResetResponse,
+  Error,
+  CompletePasswordResetDto
+> {
+  return useMutation<PasswordResetResponse, Error, CompletePasswordResetDto>({
+    mutationFn: (dto: CompletePasswordResetDto): Promise<PasswordResetResponse> => authAPI.completePasswordReset(dto),
+    retry: false,
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }
 

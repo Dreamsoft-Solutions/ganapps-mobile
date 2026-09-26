@@ -15,6 +15,7 @@ interface InputProps {
   name: string;
   label?: string;
   labelHint?: InputHint;
+  helperText?: string;
   placeholder?: string;
   secureTextEntry?: boolean;
   keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'number-pad';
@@ -30,13 +31,14 @@ interface InputProps {
 /**
  * Form input primitive integrated with react-hook-form.
  *
- * @param props - Input configuration, editability, and optional right icon and label hint slots.
+ * @param props - Input configuration, editability, and optional helper text, right icon, and label hint slots.
  * @returns A labeled input field with inline validation errors.
  */
 export function Input({
   name,
   label,
   labelHint,
+  helperText,
   placeholder,
   secureTextEntry,
   keyboardType,
@@ -88,6 +90,7 @@ export function Input({
               autoCorrect={autoCorrect}
               editable={editable}
               accessibilityLabel={label}
+              accessibilityHint={helperText}
               multiline={multiline}
               numberOfLines={numberOfLines}
               maxLength={maxLength}
@@ -98,6 +101,7 @@ export function Input({
             {iconRight && <View className="ml-2">{iconRight}</View>}
           </View>
           {error && <Text className="text-destructive text-body-md mt-1">{error}</Text>}
+          {!error && helperText && <Text className="mt-1 text-label-sm text-muted-foreground">{helperText}</Text>}
         </View>
       )}
     />

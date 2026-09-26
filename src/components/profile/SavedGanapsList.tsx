@@ -47,7 +47,7 @@ export function SavedGanapsList({ contentTopPadding, contentBottomPadding }: Sav
           <SavedGanapCard
             ganap={item}
             onPress={(): void => {
-              router.push(Routes.ganapDetail(item.id));
+              router.push(Routes.ganapDetail(item.id, 'my-events'));
             }}
             onUnsave={(): void => {
               void toggleSave({ ganapId: item.id, isSaved: true });

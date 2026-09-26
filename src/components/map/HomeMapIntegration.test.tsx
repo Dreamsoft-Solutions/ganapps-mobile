@@ -23,7 +23,14 @@ import { MAP_OVERLAY_TOP } from '@/utils/map-viewport';
 const mockMapProps: Array<{ onMapIdle?: (state: MapState) => void }> = [];
 const mockMarkerProps: Array<{ anchor?: { x: number; y: number }; allowOverlap?: boolean }> = [];
 const mockSetCamera =
-  jest.fn<(config: { centerCoordinate: [number, number]; zoomLevel: number; animationDuration: number }) => void>();
+  jest.fn<
+    (config: {
+      centerCoordinate: [number, number];
+      zoomLevel: number;
+      animationDuration: number;
+      padding: { paddingTop: number; paddingBottom: number; paddingLeft: number; paddingRight: number };
+    }) => void
+  >();
 const mockUseGanapDiscovery = jest.fn<() => UseGanapDiscoveryResult>();
 const mockRouterPush = jest.fn<(href: unknown) => void>();
 
@@ -103,7 +110,44 @@ jest.mock('@/components/map/GanapMapPin', () => ({
     return React.createElement(ReactNative.View, { testID: `ganap-pin-${ganap.id}` });
   },
 }));
-jest.mock('@/components/map/MapSearchBar', () => ({ MapSearchBar: (): null => null }));
+jest.mock('@/components/map/MapSearchBar', () => {
+  const React = require('react') as typeof import('react');
+  const ReactNative = require('react-native') as typeof import('react-native');
+
+  return {
+    MapSearchBar: ({
+      value,
+      suggestions,
+      isErrorSuggestions,
+      onSelectSuggestion,
+    }: {
+      value: string;
+      suggestions: GanapListItem[];
+      isErrorSuggestions: boolean;
+      onSelectSuggestion: (ganap: GanapListItem) => void;
+    }): ReactElement =>
+      React.createElement(
+        ReactNative.View,
+        { testID: 'map-search-value', accessibilityLabel: `Search: ${value}` },
+        ...(isErrorSuggestions
+          ? [React.createElement(ReactNative.Text, { key: 'search-error' }, "Couldn't load event suggestions.")]
+          : suggestions.map(
+              (suggestion: GanapListItem): ReactElement =>
+                React.createElement(
+                  ReactNative.Pressable,
+                  {
+                    key: suggestion.id,
+                    testID: `map-search-suggestion-${suggestion.id}`,
+                    accessibilityRole: 'button',
+                    accessibilityLabel: suggestion.title,
+                    onPress: (): void => onSelectSuggestion(suggestion),
+                  },
+                  React.createElement(ReactNative.Text, null, suggestion.title),
+                ),
+            )),
+      ),
+  };
+});
 jest.mock('@/components/map/TagChips', () => ({
   TagChips: ({ onToggleNearby }: { onToggleNearby: () => void }): ReactElement => {
     const React = require('react') as typeof import('react');
@@ -165,7 +209,7 @@ jest.mock('@/components/map/GanapFeedSheet', () => ({
         : null,
       React.createElement(ReactNative.Pressable, {
         accessibilityRole: 'button',
-        accessibilityLabel: 'Show all events',
+        accessibilityLabel: 'Close events list',
         onPress: onClearSelection,
       }),
     );
@@ -220,6 +264,7 @@ function mapHookResult(
     map: {
       items,
       isLoading: false,
+      isFetching: false,
       isError: false,
       error: null,
       refetch: jest.fn<UseGanapDiscoveryResult['map']['refetch']>(),
@@ -324,7 +369,7 @@ describe('home map clustering integration', (): void => {
     expect(screen.getByTestId('feed-sheet-card-single')).toBeTruthy();
   });
 
-  it('uses onMapIdle bounds and floored zoom to expose a cluster, list leaves, and zoom to expansion', async (): Promise<void> => {
+  it('automatically zooms a cluster to its leaf pins and keeps the leaf list at the peek', async (): Promise<void> => {
     const items: GanapListItem[] = [ganap('one', 0, 0), ganap('two', 30, 0)];
     const expectedIndex = createGanapClusterIndex(items);
     const normalizedZoom = normalizeClusterZoom(0.9);
@@ -336,16 +381,21 @@ describe('home map clustering integration', (): void => {
     if (expectedCluster === undefined) throw new Error('Expected cluster fixture');
 
     const screen = await renderHome(items);
+    expect(screen.queryByTestId('ganap-feed-sheet')).toBeNull();
     await triggerIdle(idleState(0.9));
 
-    const clusterButton = screen.getByRole('button', { name: 'Open group of 2 events' });
+    const clusterButton = screen.getByRole('button', { name: 'Zoom to group of 2 events' });
     expect(clusterButton).toBeTruthy();
     await fireEvent.press(clusterButton);
     expect(screen.getByTestId('feed-sheet-cluster-mode')).toBeTruthy();
     expect(screen.getByTestId('feed-sheet-card-one')).toBeTruthy();
     expect(screen.getByTestId('feed-sheet-card-two')).toBeTruthy();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Zoom in to this area' }));
+    await fireEvent.press(screen.getByLabelText('Close events list'));
+    expect(screen.queryByTestId('feed-sheet-cluster-mode')).toBeNull();
+    expect(screen.queryByTestId('ganap-feed-sheet')).toBeNull();
+
+    expect(mockSetCamera).toHaveBeenCalledTimes(1);
     expect(mockSetCamera).toHaveBeenCalledWith({
       centerCoordinate: getFeatureCoordinate(expectedCluster),
       zoomLevel: getClusterExpansionZoom(expectedIndex, expectedCluster),
@@ -367,7 +417,7 @@ describe('home map clustering integration', (): void => {
     const items: GanapListItem[] = [ganap('one', 122.5489, 10.7313), ganap('two', 122.5489, 10.7313)];
     const screen = await renderHome(items);
     await triggerIdle(idleState(0));
-    await fireEvent.press(screen.getByRole('button', { name: 'Open group of 2 events' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Zoom to group of 2 events' }));
     await fireEvent.press(screen.getByTestId('feed-sheet-card-two'));
 
     // Every card tap navigates now, including a cluster leaf — the sheet is the
@@ -382,13 +432,32 @@ describe('home map clustering integration', (): void => {
     ];
     const screen = await renderHome(initialItems);
     await triggerIdle(idleState(0));
-    await fireEvent.press(screen.getByRole('button', { name: 'Open group of 2 events' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Zoom to group of 2 events' }));
     expect(screen.getByTestId('feed-sheet-cluster-mode')).toBeTruthy();
 
     mockUseGanapDiscovery.mockReturnValue(mapHookResult([ganap('replacement', 122.5489, 10.7313)]));
     await screen.rerender(<HomeScreen />);
 
     expect(screen.queryByTestId('feed-sheet-cluster-mode')).toBeNull();
+  });
+
+  it('does not move the camera when a stale cluster press is already at its expansion zoom', async (): Promise<void> => {
+    const items: GanapListItem[] = [ganap('one', 122.5489, 10.7313), ganap('two', 122.5489, 10.7313)];
+    const index = createGanapClusterIndex(items);
+    const cluster: GanapClusterFeature | undefined = getVisibleMapFeatures(index, {
+      bounds: [-180, -85.051129, 180, 85.051129],
+      zoom: 0,
+    }).find(isClusterFeature);
+    if (cluster === undefined) throw new Error('Expected cluster fixture');
+    const expansionZoom = getClusterExpansionZoom(index, cluster);
+    const screen = await renderHome(items);
+    await triggerIdle(idleState(0));
+
+    const staleClusterButton = screen.getByRole('button', { name: 'Zoom to group of 2 events' });
+    await triggerIdle(idleState(expansionZoom));
+    await fireEvent.press(staleClusterButton);
+
+    expect(mockSetCamera).not.toHaveBeenCalled();
   });
 
   it('toggles Nearby from the filter row', async (): Promise<void> => {
@@ -399,5 +468,47 @@ describe('home map clustering integration', (): void => {
     fireEvent.press(getByLabelText('Show events near me'));
 
     expect(toggleNearby).toHaveBeenCalledTimes(1);
+  });
+
+  it('centers on a search suggestion while preserving the search text', async (): Promise<void> => {
+    const suggestion = ganap('search-result', 122.572, 10.728);
+    const discovery = mapHookResult([suggestion]);
+    const setSearch = jest.fn<(value: string) => void>();
+    discovery.search = 'developer meetup';
+    discovery.setSearch = setSearch;
+    mockUseGanapDiscovery.mockReturnValue(discovery);
+
+    const screen = await render(<HomeScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: suggestion.title }));
+
+    expect(mockSetCamera).toHaveBeenCalledWith({
+      centerCoordinate: [suggestion.locationLong, suggestion.locationLat],
+      zoomLevel: 13.4,
+      animationDuration: 500,
+      padding: {
+        paddingTop: MAP_OVERLAY_TOP,
+        paddingBottom: FEED_SHEET_PEEK_HEIGHT,
+        paddingLeft: 0,
+        paddingRight: 0,
+      },
+    });
+    expect(setSearch).not.toHaveBeenCalled();
+    expect(screen.getByTestId('map-search-value').props.accessibilityLabel).toBe('Search: developer meetup');
+  });
+
+  it('keeps the map available and reports a failed active search', async (): Promise<void> => {
+    const staleSuggestion = ganap('stale-search-result', 122.572, 10.728);
+    const discovery = mapHookResult([staleSuggestion]);
+    discovery.search = 'developer meetup';
+    discovery.filters = { search: 'developer meetup' };
+    discovery.map.isError = true;
+    mockUseGanapDiscovery.mockReturnValue(discovery);
+
+    const screen = await render(<HomeScreen />);
+
+    expect(screen.getByTestId('mock-camera')).toBeTruthy();
+    expect(screen.getByTestId('map-search-value')).toBeTruthy();
+    expect(screen.getByText("Couldn't load event suggestions.")).toBeTruthy();
+    expect(screen.queryByRole('button', { name: staleSuggestion.title })).toBeNull();
   });
 });

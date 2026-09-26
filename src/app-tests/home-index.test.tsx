@@ -60,6 +60,7 @@ const mockMapState: MockMapState = {
   map: {
     items: [mockGanap],
     isLoading: false,
+    isFetching: false,
     isError: false,
     error: null,
     refetch: jest.fn<MockMapState['map']['refetch']>(),

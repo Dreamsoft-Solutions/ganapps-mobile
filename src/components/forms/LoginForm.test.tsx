@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
 
 jest.mock(
@@ -66,5 +66,15 @@ describe('LoginForm Google sign-in icon', (): void => {
     fireEvent.press(screen.getByRole('button', { name: 'Sign Up' }));
 
     expect(screen.getByTestId('google-icon').props.children).toBe('google:20');
+  });
+
+  it('caps signup usernames and displays their length guidance', async (): Promise<void> => {
+    const screen = await render(<LoginForm />);
+    fireEvent.press(screen.getByRole('button', { name: 'Sign Up' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Username').props.maxLength).toBe(32);
+    });
+    expect(screen.getByText('3–32 characters; no spaces.')).toBeTruthy();
   });
 });

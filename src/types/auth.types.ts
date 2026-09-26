@@ -18,6 +18,23 @@ export interface LoginDto {
   password: string;
 }
 
+/** Email address submitted to request a password-reset code. */
+export interface RequestPasswordResetDto {
+  email: string;
+}
+
+/** Email, one-time code, and replacement password submitted to complete a reset. */
+export interface CompletePasswordResetDto {
+  email: string;
+  code: string;
+  password: string;
+}
+
+/** Generic confirmation returned by password-reset endpoints. */
+export interface PasswordResetResponse {
+  message: string;
+}
+
 export interface RegisterDto {
   email: string;
   password: string;
