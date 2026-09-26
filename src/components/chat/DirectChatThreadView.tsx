@@ -38,6 +38,7 @@ import type { DirectChatFriendSummary, DirectChatSession } from '@/types/direct-
 import { compareChatMessages } from '@/utils/chat';
 import { getChatMessageDateSeparatorLabel } from '@/utils/chat-date-groups';
 import { getChatImageErrorMessage, isChatImageAuthorizationError } from '@/utils/chat-image';
+import { useChatKeyboardVisible } from './useChatKeyboardVisible';
 
 /** Maximum text size accepted by the Direct Chat server contract. */
 export const DIRECT_CHAT_MAX_MESSAGE_LENGTH = 2_000;
@@ -395,6 +396,8 @@ export function DirectChatThreadView({
 }: DirectChatThreadViewProps): ReactElement {
   const theme = useResolvedTheme();
   const insets = useSafeAreaInsets();
+  const isKeyboardVisible = useChatKeyboardVisible();
+  const composerBottomPadding: number = isKeyboardVisible ? Spacing.sm : insets.bottom + Spacing.sm;
   const [draftText, setDraftText] = useState<string>('');
   const [imageLoadStates, setImageLoadStates] = useState<Record<string, ImageLoadState>>({});
   const [reactionPicker, setReactionPicker] = useState<ReactionPickerState | null>(null);
@@ -508,7 +511,7 @@ export function DirectChatThreadView({
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-background"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior="padding"
       keyboardVerticalOffset={Platform.OS === 'ios' ? Spacing.lg : 0}
     >
       <View
@@ -634,42 +637,49 @@ export function DirectChatThreadView({
           </Text>
         </View>
       ) : session?.canSend ? (
-        <View className="border-t border-border px-md pt-sm" style={{ paddingBottom: insets.bottom + Spacing.sm }}>
+        <View
+          testID="direct-chat-composer"
+          className="border-t border-border px-md pt-sm"
+          style={{ paddingBottom: composerBottomPadding }}
+        >
           {imageDraft && <ChatImagePreview draft={imageDraft} onRemove={onRemoveImage} />}
           <Text nativeID="direct-chat-composer-label" className="mb-xs font-inter-semibold text-label-md">
             Message
           </Text>
           <View className="flex-row items-end gap-sm">
-            <IconButton
-              accessibilityLabel="Add image"
-              accessibilityHint="Opens the existing photo library to select one image"
-              disabled={isSending || imageDraft !== null}
-              onPress={(): void => {
-                void onPickImage();
-              }}
-              size="md"
-              variant="default"
-            >
-              {ImagePlus ? (
-                <ImagePlus size={20} color={Colors[theme].foreground} />
-              ) : (
-                <Text accessible={false} className="text-lg text-foreground">
-                  ＋
-                </Text>
-              )}
-            </IconButton>
+            {draftText.length === 0 && (
+              <IconButton
+                accessibilityLabel="Add image"
+                accessibilityHint="Opens the existing photo library to select one image"
+                disabled={isSending || imageDraft !== null}
+                onPress={(): void => {
+                  void onPickImage();
+                }}
+                size="md"
+                variant="default"
+              >
+                {ImagePlus ? (
+                  <ImagePlus size={20} color={Colors[theme].foreground} />
+                ) : (
+                  <Text accessible={false} className="text-lg text-foreground">
+                    ＋
+                  </Text>
+                )}
+              </IconButton>
+            )}
             <TextInput
               accessibilityLabel="Message"
-              accessibilityHint="Enter a direct message"
+              accessibilityHint="Enter a direct message up to 2,000 characters"
               aria-labelledby="direct-chat-composer-label"
               multiline
               maxLength={DIRECT_CHAT_MAX_MESSAGE_LENGTH}
               value={draftText}
               onChangeText={setDraftText}
               editable={!isSending}
+              textAlignVertical="top"
               placeholder="Write a message"
               placeholderTextColor={Colors[theme]['muted-foreground']}
-              className="max-h-32 min-h-touch flex-1 rounded-lg border border-input bg-background px-md py-sm text-body-md text-foreground"
+              className="max-h-20 min-h-touch flex-1 rounded-lg border border-input bg-background px-md py-sm text-body-md text-foreground"
             />
             <Pressable
               accessibilityRole="button"
@@ -699,9 +709,6 @@ export function DirectChatThreadView({
               )}
             </Pressable>
           </View>
-          <Text className="mt-xs text-right text-label-sm text-muted-foreground">
-            {draftText.length}/{DIRECT_CHAT_MAX_MESSAGE_LENGTH}
-          </Text>
         </View>
       ) : null}
     </KeyboardAvoidingView>

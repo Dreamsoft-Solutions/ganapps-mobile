@@ -1,8 +1,9 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
-import { View as MockView } from 'react-native';
+import { DeviceEventEmitter, type KeyboardEvent, View as MockView } from 'react-native';
 import type { TestInstance, TestNode } from 'test-renderer';
+import { Spacing } from '@/constants/theme';
 import type { FailedDraft } from '@/hooks/useChat';
 import { showToast } from '@/store/toast.store';
 import type { ChatImageDraft, ChatMessage, EventChatSession, ReactionSummary, ReactionType } from '@/types/chat.types';
@@ -33,7 +34,7 @@ jest.mock('react-native/Libraries/Modal/Modal', () => {
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: (): { top: number; bottom: number; left: number; right: number } => ({
     top: 0,
-    bottom: 0,
+    bottom: 40,
     left: 0,
     right: 0,
   }),
@@ -114,6 +115,11 @@ const imageDraft: ChatImageDraft = {
   status: 'ready',
 };
 
+const keyboardEvent: KeyboardEvent = {
+  duration: 0,
+  easing: 'keyboard',
+  endCoordinates: { screenX: 0, screenY: 0, width: 0, height: 0 },
+};
 function localTimestamp(hour: number): string {
   return new Date(2026, 8, 1, hour).toISOString();
 }
@@ -231,8 +237,10 @@ describe('EventChatThreadView', (): void => {
       />,
     );
 
+    expect(screen.getByLabelText('Add image').props.accessibilityState).toMatchObject({ disabled: true });
     const input = screen.getByLabelText('Message');
     await fireEvent.changeText(input, 'Keep this text');
+    expect(screen.queryByLabelText('Add image')).toBeNull();
     await fireEvent.press(screen.getByLabelText('Send image'));
     await fireEvent.press(screen.getByLabelText('Remove image'));
     expect(onSendImage).toHaveBeenCalledTimes(1);
@@ -311,6 +319,55 @@ describe('EventChatThreadView', (): void => {
 
     await fireEvent.press(screen.getByLabelText('Add image'));
     expect(onPickImage).toHaveBeenCalledTimes(1);
+    screen.unmount();
+  });
+
+  it('hides the image picker after any text and grows the multiline input to about three lines', async (): Promise<void> => {
+    const screen = await render(
+      <EventChatThreadView
+        {...props({
+          session: { ...readOnlySession, capability: 'READ_WRITE', canSend: true, ganapStatus: 'ONGOING' },
+        })}
+      />,
+    );
+    const input = screen.getByLabelText('Message');
+
+    expect(input.props.maxLength).toBe(2_000);
+    expect(input.props.multiline).toBe(true);
+    expect(input.props.textAlignVertical).toBe('top');
+    expect(input.props.accessibilityHint).toBe('Enter a text message up to 2,000 characters');
+    expect(input.props.className).toContain('max-h-20');
+    expect(screen.queryByText('0/2000')).toBeNull();
+
+    await fireEvent.changeText(input, ' ');
+
+    expect(screen.queryByLabelText('Add image')).toBeNull();
+    expect(screen.getByLabelText('Send message').props.accessibilityState).toMatchObject({ disabled: true });
+    expect(screen.queryByText('1/2000')).toBeNull();
+    screen.unmount();
+  });
+
+  it('removes the bottom safe-area inset while the keyboard is visible', async (): Promise<void> => {
+    DeviceEventEmitter.emit('keyboardDidHide', keyboardEvent);
+    const screen = await render(
+      <EventChatThreadView
+        {...props({
+          session: { ...readOnlySession, capability: 'READ_WRITE', canSend: true, ganapStatus: 'ONGOING' },
+        })}
+      />,
+    );
+    const composer = screen.getByTestId('event-chat-composer');
+
+    expect(composer.props.style).toMatchObject({ paddingBottom: 40 + Spacing.sm });
+    await act(async (): Promise<void> => {
+      DeviceEventEmitter.emit('keyboardDidShow', keyboardEvent);
+    });
+    expect(composer.props.style).toMatchObject({ paddingBottom: Spacing.sm });
+
+    await act(async (): Promise<void> => {
+      DeviceEventEmitter.emit('keyboardDidHide', keyboardEvent);
+    });
+    expect(composer.props.style).toMatchObject({ paddingBottom: 40 + Spacing.sm });
     screen.unmount();
   });
 
