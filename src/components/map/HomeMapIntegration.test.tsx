@@ -172,7 +172,7 @@ jest.mock('@/components/map/GanapFeedSheet', () => ({
         : null,
       React.createElement(ReactNative.Pressable, {
         accessibilityRole: 'button',
-        accessibilityLabel: 'Show all events',
+        accessibilityLabel: 'Close events list',
         onPress: onClearSelection,
       }),
     );
@@ -343,6 +343,7 @@ describe('home map clustering integration', (): void => {
     if (expectedCluster === undefined) throw new Error('Expected cluster fixture');
 
     const screen = await renderHome(items);
+    expect(screen.queryByTestId('ganap-feed-sheet')).toBeNull();
     await triggerIdle(idleState(0.9));
 
     const clusterButton = screen.getByRole('button', { name: 'Zoom to group of 2 events' });
@@ -351,6 +352,10 @@ describe('home map clustering integration', (): void => {
     expect(screen.getByTestId('feed-sheet-cluster-mode')).toBeTruthy();
     expect(screen.getByTestId('feed-sheet-card-one')).toBeTruthy();
     expect(screen.getByTestId('feed-sheet-card-two')).toBeTruthy();
+
+    await fireEvent.press(screen.getByLabelText('Close events list'));
+    expect(screen.queryByTestId('feed-sheet-cluster-mode')).toBeNull();
+    expect(screen.queryByTestId('ganap-feed-sheet')).toBeNull();
 
     expect(mockSetCamera).toHaveBeenCalledTimes(1);
     expect(mockSetCamera).toHaveBeenCalledWith({

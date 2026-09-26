@@ -90,7 +90,7 @@ function FeedSheetHeader({ title, mode, onZoomIn, onClearSelection }: FeedSheetH
             </Pressable>
           )}
           {mode !== 'browse' && (
-            <Pressable onPress={onClearSelection} accessibilityRole="button" accessibilityLabel="Show all events">
+            <Pressable onPress={onClearSelection} accessibilityRole="button" accessibilityLabel="Close events list">
               <X size={20} color={Colors[theme]['muted-foreground']} />
             </Pressable>
           )}
@@ -173,11 +173,10 @@ function FeedSheetBody({
 }
 
 /**
- * The map tab's only bottom surface.
+ * The map tab's selection sheet, mounted for a selected pin or cluster.
  *
- * Browses every published event as a cursor-paginated feed, and doubles as the
- * detail surface for a tapped pin or cluster rather than letting three cards
- * compete for the bottom of the screen.
+ * It keeps the map unobstructed until the user selects a map feature, then shows
+ * the selected Ganap or the selected cluster's leaves.
  *
  * In `cluster` mode the list is the cluster's leaves — a local array derived
  * from the map's single large page — not the infinite feed.
@@ -233,6 +232,13 @@ export function GanapFeedSheet({
     if (feed.hasNextPage && !feed.isFetchingNextPage) void feed.fetchNextPage();
   }, [mode, feed.hasNextPage, feed.isFetchingNextPage, feed.fetchNextPage]);
 
+  const handleSheetChange = useCallback(
+    (index: number): void => {
+      if (index < 0) onClearSelection();
+    },
+    [onClearSelection],
+  );
+
   const handleZoomIn = useCallback((): void => {
     if (!selectedCluster) return;
     const target = resolveClusterZoomTarget(clusterIndex, selectedCluster);
@@ -259,10 +265,11 @@ export function GanapFeedSheet({
       index={0}
       snapPoints={snapPoints}
       topInset={topOverlayHeight}
-      enablePanDownToClose={false}
+      enablePanDownToClose
       enableDynamicSizing={false}
       backgroundStyle={{ backgroundColor: Colors[theme].card }}
       handleComponent={renderHandle}
+      onChange={handleSheetChange}
     >
       <FeedSheetBody
         mode={mode}

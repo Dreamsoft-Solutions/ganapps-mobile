@@ -311,18 +311,20 @@ export default function HomeScreen(): ReactElement {
         onDismiss={nearby.dismissPriming}
       />
 
-      <GanapFeedSheet
-        feed={feed}
-        hasActiveFilters={hasActiveFilters}
-        isNearbyApplied={isNearbyApplied}
-        topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
-        selectedGanap={selectedGanap}
-        selectedCluster={activeCluster}
-        clusterIndex={clusterIndex}
-        onSelectGanap={handleOpenGanap}
-        onClearSelection={handleClearSelection}
-        onZoomToCluster={handleClusterZoomIn}
-      />
+      {(selectedGanap !== null || activeCluster !== null) && (
+        <GanapFeedSheet
+          feed={feed}
+          hasActiveFilters={hasActiveFilters}
+          isNearbyApplied={isNearbyApplied}
+          topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+          selectedGanap={selectedGanap}
+          selectedCluster={activeCluster}
+          clusterIndex={clusterIndex}
+          onSelectGanap={handleOpenGanap}
+          onClearSelection={handleClearSelection}
+          onZoomToCluster={handleClusterZoomIn}
+        />
+      )}
     </View>
   );
 }
