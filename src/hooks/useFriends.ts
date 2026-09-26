@@ -42,6 +42,7 @@ export interface UseFriendsOptions {
   segment?: FriendsHubSegment;
   requestDirection?: FriendRequestDirection;
   codeOpen?: boolean;
+  addFriendOpen?: boolean;
   goingEnabled?: boolean;
 }
 
@@ -58,6 +59,8 @@ export interface UseFriendsResult {
   chatSummaries: UseChatSummariesQueryResult['summaries'];
   friends: FriendUserSummary[];
   requests: FriendRequestItem[];
+  outgoingRequests: FriendRequestItem[];
+  isLoadingOutgoingRequests: boolean;
   going: FriendGoingRecord[];
   presence: FriendPresenceResponse['items'];
   screenSession: string | null;
@@ -89,6 +92,7 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
   const segment: FriendsHubSegment = options.segment ?? 'chats';
   const requestDirection: FriendRequestDirection = options.requestDirection ?? 'incoming';
   const codeOpen: boolean = options.codeOpen ?? false;
+  const addFriendOpen: boolean = options.addFriendOpen ?? false;
   const [screenSession, setScreenSession] = useState<string | undefined>(undefined);
   const chatQuery: UseChatSummariesQueryResult = useChatSummariesQuery(segment === 'chats');
   const friendsQuery: UseFriendsQueryResult = useFriendsQuery(segment === 'friends');
@@ -98,7 +102,7 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
   );
   const outgoingQuery: UseFriendRequestsQueryResult = useFriendRequestsQuery(
     'outgoing',
-    segment === 'requests' && requestDirection === 'outgoing',
+    (segment === 'requests' && requestDirection === 'outgoing') || addFriendOpen,
   );
   const requestsQuery: UseFriendRequestsQueryResult = requestDirection === 'incoming' ? incomingQuery : outgoingQuery;
   const presenceQuery: UseQueryResult<FriendPresenceResponse, Error> = useFriendPresenceQuery(screenSession, true);
@@ -166,6 +170,8 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
     chatSummaries: chatQuery.summaries,
     friends: friendsQuery.friends,
     requests: requestsQuery.requests,
+    outgoingRequests: outgoingQuery.requests,
+    isLoadingOutgoingRequests: outgoingQuery.isLoading,
     going: goingQuery.going,
     presence: presenceQuery.data?.items ?? [],
     screenSession: screenSession ?? null,
