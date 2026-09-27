@@ -21,6 +21,7 @@ import { ErrorView } from '@/components/common/Error';
 import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { SegmentControl } from '@/components/common/SegmentControl';
+import { ShareQrCode } from '@/components/common/ShareQrCode';
 import { Text } from '@/components/common/Text';
 import { Colors, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
@@ -33,6 +34,7 @@ import type {
   FriendUserSummary,
 } from '@/types/friends.types';
 import { formatFriendCode, getFriendErrorMessage } from '@/utils/friends';
+import { buildFriendShareUrl } from '@/utils/share-links';
 
 /** Top-level segment names rendered by the Friends hub. */
 export type FriendsHubViewSegment = 'chats' | 'friends' | 'requests';
@@ -287,6 +289,15 @@ function ActiveFriends({
   );
 }
 
+function tryBuildFriendShareUrl(code: string | null): string | null {
+  if (!code) return null;
+  try {
+    return buildFriendShareUrl(code);
+  } catch {
+    return null;
+  }
+}
+
 function CodeModal({
   visible,
   query,
@@ -304,6 +315,7 @@ function CodeModal({
 }): ReactElement {
   const insets = useSafeAreaInsets();
   const code: string | null = query.data?.code ?? null;
+  const shareUrl: string | null = tryBuildFriendShareUrl(code);
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 bg-background px-md" style={{ paddingTop: insets.top + Spacing.md }}>
@@ -315,39 +327,62 @@ function CodeModal({
             <X size={20} />
           </IconButton>
         </View>
-        {query.isLoading ? (
-          <Loading message="Loading your Friend Code" />
-        ) : query.error ? (
-          <ErrorView
-            error={new Error(getFriendErrorMessage(query.error, 'Unable to load your Friend Code.'))}
-            onRetry={(): void => void query.refetch()}
-          />
-        ) : code ? (
-          <Card>
-            <Text className="text-center text-label-md uppercase tracking-widest text-muted-foreground">
-              Share this code
-            </Text>
-            <Text
-              className="mt-md text-center font-inter-bold text-headline-lg"
-              accessibilityLabel={`Friend Code ${formatFriendCode(code)}`}
-            >
-              {formatFriendCode(code)}
-            </Text>
-            <View className="mt-lg gap-sm">
-              <Button variant="outline" onPress={(): void => void onShare(code)} leftIcon={<Share2 size={17} />}>
-                Share code
-              </Button>
-              <Button variant="secondary" loading={isRegenerating} disabled={isRegenerating} onPress={onRegenerate}>
-                Regenerate code
-              </Button>
+        <ScrollView className="flex-1" contentContainerClassName="gap-md pb-lg">
+          {query.isLoading ? (
+            <Loading message="Loading your Friend Code" />
+          ) : query.error ? (
+            <ErrorView
+              error={new Error(getFriendErrorMessage(query.error, 'Unable to load your Friend Code.'))}
+              onRetry={(): void => void query.refetch()}
+            />
+          ) : code ? (
+            <View className="gap-md">
+              {shareUrl ? (
+                <ShareQrCode
+                  value={shareUrl}
+                  title="Scan to add me as a friend"
+                  details={[formatFriendCode(code), shareUrl]}
+                />
+              ) : (
+                <>
+                  <Card>
+                    <Text className="text-center text-label-md uppercase tracking-widest text-muted-foreground">
+                      Your Friend Code
+                    </Text>
+                    <Text
+                      className="mt-md text-center font-inter-bold text-headline-lg"
+                      accessibilityLabel={`Friend Code ${formatFriendCode(code)}`}
+                    >
+                      {formatFriendCode(code)}
+                    </Text>
+                  </Card>
+                  <Text accessibilityLiveRegion="polite" className="text-body-md text-muted-foreground">
+                    Link sharing is unavailable right now. You can still share your Friend Code.
+                  </Text>
+                </>
+              )}
+              <View className="gap-sm">
+                <Button variant="outline" onPress={(): void => void onShare(code)} leftIcon={<Share2 size={17} />}>
+                  {shareUrl ? 'Share code and link' : 'Share code'}
+                </Button>
+                <Button variant="secondary" loading={isRegenerating} disabled={isRegenerating} onPress={onRegenerate}>
+                  Regenerate code
+                </Button>
+              </View>
             </View>
-          </Card>
-        ) : (
-          <Empty message="Your Friend Code is unavailable." />
-        )}
+          ) : (
+            <Empty message="Your Friend Code is unavailable." />
+          )}
+        </ScrollView>
       </View>
     </Modal>
   );
+}
+
+function getFriendRequestButtonLabel(sent: boolean, accepted: boolean): string {
+  if (sent) return 'Friend request sent';
+  if (accepted) return 'Friend request accepted';
+  return 'Send friend request';
 }
 
 function AddFriendModal({
@@ -475,11 +510,7 @@ function AddFriendModal({
                   onPress={(): void => void onSendRequest(normalizedCode)}
                   leftIcon={<UserPlus size={17} />}
                 >
-                  {sentRequestForTarget
-                    ? 'Friend request sent'
-                    : acceptedRequestForTarget
-                      ? 'Friend request accepted'
-                      : 'Send friend request'}
+                  {getFriendRequestButtonLabel(sentRequestForTarget, acceptedRequestForTarget)}
                 </Button>
               </View>
             </Card>

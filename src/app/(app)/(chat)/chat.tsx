@@ -14,6 +14,7 @@ import {
   isValidFriendCode,
   normalizeFriendCode,
 } from '@/utils/friends';
+import { buildFriendShareUrl } from '@/utils/share-links';
 
 /**
  * Friends and Chat hub.
@@ -70,7 +71,16 @@ export default function ChatScreen(): ReactElement {
   };
 
   const handleShareCode = async (code: string): Promise<void> => {
-    await Share.share({ message: `My Ganapps Friend Code is ${formatFriendCode(code)}.` });
+    const codeMessage: string = `My Ganapps Friend Code is ${formatFriendCode(code)}.`;
+    let message: string = codeMessage;
+    try {
+      message = `${codeMessage}\n${buildFriendShareUrl(code)}`;
+    } catch {
+      // The code remains shareable when the public web URL is not configured.
+    }
+    await Share.share({
+      message,
+    });
   };
 
   const handleOpenAddFriend = (): void => {

@@ -13,8 +13,7 @@ function getAppLinksHost(webUrl) {
   try {
     const url = new URL(webUrl);
     const hostname = url.hostname.toLowerCase();
-    const isLocalHostname =
-      hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.endsWith('.local');
+    const isLocalHostname = hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.endsWith('.local');
     const isIpAddress = hostname.includes(':') || /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
 
     if (
@@ -120,8 +119,8 @@ module.exports = {
         'android.permission.READ_MEDIA_IMAGES',
         'android.permission.READ_MEDIA_VIDEO',
         'android.permission.READ_MEDIA_AUDIO',
+        'android.permission.READ_MEDIA_VISUAL_USER_SELECTED',
         'android.permission.READ_EXTERNAL_STORAGE',
-        'android.permission.WRITE_EXTERNAL_STORAGE',
       ],
       adaptiveIcon: {
         backgroundColor: '#22C55E',
@@ -146,6 +145,14 @@ module.exports = {
         },
       ],
       'expo-router',
+      [
+        'expo-media-library',
+        {
+          photosPermission: false,
+          savePhotosPermission: 'Ganapps saves a QR image when you choose Save QR image.',
+          granularPermissions: [],
+        },
+      ],
       [
         'expo-location',
         {
