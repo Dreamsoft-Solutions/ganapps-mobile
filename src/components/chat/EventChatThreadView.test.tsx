@@ -12,7 +12,7 @@ import { EventChatThreadView } from './EventChatThreadView';
 jest.mock('lucide-react-native', () => ({
   ArrowLeft: (): null => null,
   ImagePlus: (): null => null,
-  MoreVertical: (): null => null,
+  Plus: (): null => null,
   Send: (): null => null,
   X: (): null => null,
 }));
@@ -142,6 +142,7 @@ function props(
   overrides: Partial<Parameters<typeof EventChatThreadView>[0]> = {},
 ): Parameters<typeof EventChatThreadView>[0] {
   return {
+    ganapTitle: 'Ganap title',
     session: readOnlySession,
     messages: [message],
     failedDrafts: [],
@@ -166,6 +167,31 @@ function props(
 describe('EventChatThreadView', (): void => {
   beforeEach((): void => {
     mockedShowToast.mockClear();
+  });
+
+  it('uses the Ganap name in its top bar and labels the Event Hub back action', async (): Promise<void> => {
+    const screen = await render(<EventChatThreadView {...props({ ganapTitle: 'Founders Day' })} />);
+
+    expect(screen.getByText('Founders Day').props.accessibilityRole).toBe('header');
+    expect(screen.queryByText('Event Chat')).toBeNull();
+    expect(screen.getByLabelText('Go back').props.accessibilityHint).toBe('Returns to Event Hub');
+    screen.unmount();
+  });
+
+  it('uses a neutral Ganap title when the loaded name is unavailable', async (): Promise<void> => {
+    const screen = await render(<EventChatThreadView {...props({ ganapTitle: '' })} />);
+
+    expect(screen.getByText('Ganap').props.accessibilityRole).toBe('header');
+    expect(screen.queryByText('Event Chat')).toBeNull();
+    screen.unmount();
+  });
+
+  it('keeps an empty message state upright by disabling list inversion until messages exist', async (): Promise<void> => {
+    const screen = await render(<EventChatThreadView {...props({ messages: [] })} />);
+
+    expect(screen.getByTestId('event-chat-messages').props.inverted).toBe(false);
+    expect(screen.getByText('No messages yet. Start the conversation.').parent?.props.style).toBeUndefined();
+    screen.unmount();
   });
 
   it('places date labels before each message row so inverted cells show them above the group', async (): Promise<void> => {
@@ -371,36 +397,53 @@ describe('EventChatThreadView', (): void => {
     screen.unmount();
   });
 
-  it('renders canonical Photo dimensions and keeps moderation actions reachable', async (): Promise<void> => {
+  it('keeps long-press moderation reachable for photos without a triple-dot control', async (): Promise<void> => {
+    const onMessageActions = jest.fn<(selected: ChatMessage) => void>();
     const screen = await render(
       <EventChatThreadView
         {...props({
           session: { ...readOnlySession, capability: 'READ_WRITE', canSend: true, ganapStatus: 'ONGOING' },
           messages: [imageMessage],
+          onMessageActions,
         })}
       />,
     );
 
     expect(screen.getByLabelText('Photo sent by Miguel Santos, 1600 by 1200 pixels')).toBeTruthy();
-    expect(screen.getByLabelText('Message actions for Miguel Santos')).toBeTruthy();
+    expect(screen.queryByLabelText('Message actions for Miguel Santos')).toBeNull();
     expect(screen.queryByLabelText('React with heart')).toBeNull();
+    await fireEvent(screen.getByLabelText('Photo sent by Miguel Santos, 1600 by 1200 pixels'), 'longPress');
+    expect(onMessageActions).toHaveBeenCalledWith(imageMessage);
     screen.unmount();
   });
 
-  it('shows reaction counts inline and dismisses the floating picker from outside the message', async (): Promise<void> => {
+  it('shows overlapping reaction badges and opens the picker from Add reaction', async (): Promise<void> => {
     const onMessageReaction = jest.fn<(selected: ChatMessage, reaction: ReactionType | null) => void>();
+    const onMessageActions = jest.fn<(selected: ChatMessage) => void>();
     const screen = await render(
-      <EventChatThreadView {...props({ session: writableSession, messages: [reactedMessage], onMessageReaction })} />,
+      <EventChatThreadView
+        {...props({ session: writableSession, messages: [reactedMessage], onMessageReaction, onMessageActions })}
+      />,
     );
     const messageTarget = screen.getByLabelText('Welcome to the event. from Miguel Santos');
 
     expect(screen.getByLabelText('Remove heart reaction')).toBeTruthy();
     expect(screen.getByText('2')).toBeTruthy();
-    expect(screen.getByLabelText('Message reactions').props.className).toContain('flex-wrap');
-    await fireEvent(messageTarget, 'longPress');
+    expect(screen.getByLabelText('Message reactions').props.style).toMatchObject({
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+    });
+    await fireEvent.press(screen.getByLabelText('Add reaction'));
     expect(screen.getByLabelText('Choose a message reaction')).toBeTruthy();
     expect(screen.getByLabelText('React with angry face')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('Dismiss reactions'));
+    expect(screen.queryByLabelText('Choose a message reaction')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('Add reaction'));
+    await fireEvent.press(screen.getByLabelText('React with laughing face'));
+    expect(onMessageReaction).toHaveBeenCalledWith(reactedMessage, 'LAUGH');
+    await fireEvent(messageTarget, 'longPress');
+    expect(onMessageActions).toHaveBeenCalledWith(reactedMessage);
     expect(screen.queryByLabelText('Choose a message reaction')).toBeNull();
     screen.unmount();
   });

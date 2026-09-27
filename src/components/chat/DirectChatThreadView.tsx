@@ -1,4 +1,4 @@
-import { ArrowLeft, ImagePlus, MoreVertical, Send } from 'lucide-react-native';
+import { ArrowLeft, ImagePlus, Send } from 'lucide-react-native';
 import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -137,7 +137,7 @@ interface MessageRowProps {
   latestOutgoing: ChatMessage | null;
   latestOutgoingSeenAt: string | null;
   onMessageActions: (message: ChatMessage) => void;
-  onMessageLongPress: (message: ChatMessage, anchor: MessageReactionAnchor, measured: boolean) => void;
+  onOpenReactionPicker: (message: ChatMessage, anchor: MessageReactionAnchor, measured: boolean) => void;
   onMessageReaction?: (message: ChatMessage, reaction: ReactionType | null) => void | Promise<void>;
   reactionPendingMessageId: string | null;
   canReact: boolean;
@@ -155,16 +155,64 @@ interface MessageBubbleProps {
   messageLabel: string;
   imageLoadState: ImageLoadState;
   onMessageActions: (message: ChatMessage) => void;
-  onMessageLongPress: (message: ChatMessage, anchor: MessageReactionAnchor, measured: boolean) => void;
+  onOpenReactionPicker: (message: ChatMessage, anchor: MessageReactionAnchor, measured: boolean) => void;
+  onMessageReaction?: (message: ChatMessage, reaction: ReactionType | null) => void | Promise<void>;
+  reactionPendingMessageId: string | null;
   canReact: boolean;
   onImageLoadError: (messageId: string, error: string) => void;
   onRetryImageLoad: (messageId: string) => void;
+}
+
+interface MessageReactionState {
+  summary: ReactionSummary | null;
+  canOpenPicker: boolean;
+  hasReactionControls: boolean;
+  accessibilityHint: string;
 }
 
 interface MessageTimestampProps {
   isMine: boolean;
   sentAt: string;
   seen: boolean;
+}
+
+function getMessageReactionState(
+  message: ChatMessage,
+  canReact: boolean,
+  onMessageReaction: MessageBubbleProps['onMessageReaction'],
+): MessageReactionState {
+  const summary: ReactionSummary | null = message.type === 'UNSENT' ? null : (message.reactionSummary ?? null);
+  const canOpenPicker: boolean = canReact && message.type !== 'UNSENT' && onMessageReaction !== undefined;
+  const hasReactionBadges: boolean = summary?.counts.some((reaction): boolean => reaction.count > 0) ?? false;
+  return {
+    summary,
+    canOpenPicker,
+    hasReactionControls: canOpenPicker || hasReactionBadges,
+    accessibilityHint: canOpenPicker
+      ? 'Long press for message actions; use Add reaction to react'
+      : 'Long press to open message actions',
+  };
+}
+
+function openMessageReactionPicker(
+  message: ChatMessage,
+  target: View | null,
+  onOpenReactionPicker: MessageBubbleProps['onOpenReactionPicker'],
+): void {
+  onOpenReactionPicker(message, FALLBACK_REACTION_ANCHOR, false);
+  if (!target) return;
+  target.measureInWindow((x: number, y: number, width: number, height: number): void => {
+    if (width > 0 && height > 0) onOpenReactionPicker(message, { x, y, width, height }, true);
+  });
+}
+
+function selectMessageReaction(
+  canReact: boolean,
+  message: ChatMessage,
+  onMessageReaction: MessageBubbleProps['onMessageReaction'],
+  reaction: ReactionType | null,
+): void {
+  if (canReact && onMessageReaction) void onMessageReaction(message, reaction);
 }
 
 function MessageTimestamp({ isMine, sentAt, seen }: MessageTimestampProps): ReactElement {
@@ -191,65 +239,69 @@ function MessageBubble({
   messageLabel,
   imageLoadState,
   onMessageActions,
-  onMessageLongPress,
+  onOpenReactionPicker,
+  onMessageReaction,
+  reactionPendingMessageId,
   canReact,
   onImageLoadError,
   onRetryImageLoad,
 }: MessageBubbleProps): ReactElement {
   const bubbleClassName: string = isMine ? 'bg-primary' : 'border border-border bg-card';
   const messageRef = useRef<View>(null);
-  const reactionSummary: ReactionSummary | null = message.type === 'UNSENT' ? null : (message.reactionSummary ?? null);
-  const canOpenReactionPicker: boolean = canReact && reactionSummary !== null;
-  const accessibilityHint: string = canOpenReactionPicker
-    ? 'Long press to react; use message actions to report, block, or unsend'
-    : 'Long press to open message actions';
-  const handleLongPress = (): void => {
-    if (!canOpenReactionPicker) {
-      onMessageActions(message);
-      return;
-    }
-    const target: View | null = messageRef.current;
-    onMessageLongPress(message, FALLBACK_REACTION_ANCHOR, false);
-    if (!target) {
-      return;
-    }
-    target.measureInWindow((x: number, y: number, width: number, height: number): void => {
-      if (width > 0 && height > 0) onMessageLongPress(message, { x, y, width, height }, true);
-    });
-  };
+  const reactionState: MessageReactionState = getMessageReactionState(message, canReact, onMessageReaction);
+  const requestReactionPicker = (): void =>
+    openMessageReactionPicker(message, messageRef.current, onOpenReactionPicker);
 
   return (
-    <Pressable
-      ref={messageRef}
-      onLongPress={handleLongPress}
-      onPress={
-        media
-          ? (): void => {
-              void Linking.openURL(media.url).catch((): void => {});
-            }
-          : undefined
-      }
-      delayLongPress={350}
-      accessibilityRole="button"
-      accessibilityLabel={messageLabel}
-      accessibilityHint={accessibilityHint}
-      className={`min-w-0 rounded-xl px-md py-sm ${bubbleClassName}`}
+    <View
+      className="relative min-w-0 flex-1"
+      style={{ paddingBottom: reactionState.hasReactionControls ? (MIN_TOUCH_TARGET - Spacing.xs) / 2 : 0 }}
     >
-      {!isMine && <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>}
-      {media ? (
-        <ChatImageBubble
-          media={media}
-          senderUsername={isMine ? 'you' : message.senderUsername}
-          reloadToken={imageLoadState.reloadToken}
-          loadFailed={imageLoadState.loadFailed}
-          onLoadError={(error: string): void => onImageLoadError(message.id, error)}
-          onRetry={(): void => onRetryImageLoad(message.id)}
-        />
-      ) : (
-        <Text className={`text-body-md ${isMine ? 'text-primary-foreground' : 'text-foreground'}`}>{messageCopy}</Text>
-      )}
-      <MessageTimestamp isMine={isMine} sentAt={message.sentAt} seen={seen} />
-    </Pressable>
+      <Pressable
+        ref={messageRef}
+        onLongPress={(): void => onMessageActions(message)}
+        onPress={
+          media
+            ? (): void => {
+                void Linking.openURL(media.url).catch((): void => {});
+              }
+            : undefined
+        }
+        delayLongPress={350}
+        accessibilityRole="button"
+        accessibilityLabel={messageLabel}
+        accessibilityHint={reactionState.accessibilityHint}
+        className={`min-w-0 rounded-xl px-md py-sm ${bubbleClassName}`}
+      >
+        {!isMine && <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>}
+        {media ? (
+          <ChatImageBubble
+            media={media}
+            senderUsername={isMine ? 'you' : message.senderUsername}
+            reloadToken={imageLoadState.reloadToken}
+            loadFailed={imageLoadState.loadFailed}
+            onLoadError={(error: string): void => onImageLoadError(message.id, error)}
+            onRetry={(): void => onRetryImageLoad(message.id)}
+          />
+        ) : (
+          <Text className={`text-body-md ${isMine ? 'text-primary-foreground' : 'text-foreground'}`}>
+            {messageCopy}
+          </Text>
+        )}
+        <MessageTimestamp isMine={isMine} sentAt={message.sentAt} seen={seen} />
+      </Pressable>
+      <MessageReactionBar
+        summary={reactionState.summary}
+        presentation="summary"
+        alignment={isMine ? 'right' : 'left'}
+        isPending={reactionPendingMessageId === message.id}
+        isDisabled={!canReact || reactionPendingMessageId !== null}
+        onRequestReactionPicker={reactionState.canOpenPicker ? requestReactionPicker : undefined}
+        onSelect={(reaction: ReactionType | null): void =>
+          selectMessageReaction(canReact, message, onMessageReaction, reaction)
+        }
+      />
+    </View>
   );
 }
 
@@ -259,7 +311,7 @@ function MessageRow({
   latestOutgoing,
   latestOutgoingSeenAt,
   onMessageActions,
-  onMessageLongPress,
+  onOpenReactionPicker,
   onMessageReaction,
   reactionPendingMessageId,
   canReact,
@@ -267,7 +319,6 @@ function MessageRow({
   onImageLoadError,
   onRetryImageLoad,
 }: MessageRowProps): ReactElement {
-  const theme = useResolvedTheme();
   const isMine: boolean = currentUserId !== null && message.senderId === currentUserId;
   const messageCopy: string = getMessageCopy(message);
   const media: NonNullable<ChatMessage['media']> | null = message.type === 'IMAGE' ? (message.media ?? null) : null;
@@ -275,44 +326,26 @@ function MessageRow({
     ? `Photo sent by ${isMine ? 'you' : message.senderUsername}`
     : `${messageCopy} from ${isMine ? 'you' : message.senderUsername}`;
   const seen: boolean = isSeenMessage(message, latestOutgoing, latestOutgoingSeenAt);
-  const actionLabel: string = `Message actions for ${isMine ? 'your message' : message.senderUsername}`;
   return (
     <View className={`mb-md flex-row items-end px-md ${isMine ? 'justify-end' : 'justify-start'}`}>
       {!isMine && <Avatar src={message.senderDisplayPicture} name={message.senderUsername} size="xs" />}
       <View className={`min-w-0 max-w-[82%] flex-1 flex-row items-end ${isMine ? '' : 'ml-sm'}`}>
-        <View className="min-w-0 flex-1">
-          <MessageBubble
-            message={message}
-            isMine={isMine}
-            messageCopy={messageCopy}
-            media={media}
-            seen={seen}
-            messageLabel={messageLabel}
-            imageLoadState={imageLoadState}
-            onMessageActions={onMessageActions}
-            onMessageLongPress={onMessageLongPress}
-            canReact={canReact}
-            onImageLoadError={onImageLoadError}
-            onRetryImageLoad={onRetryImageLoad}
-          />
-          <MessageReactionBar
-            summary={message.type === 'UNSENT' ? null : message.reactionSummary}
-            presentation="summary"
-            isPending={reactionPendingMessageId === message.id}
-            isDisabled={!canReact || reactionPendingMessageId !== null}
-            onSelect={(reaction: ReactionType | null): void => {
-              if (canReact && onMessageReaction) void onMessageReaction(message, reaction);
-            }}
-          />
-        </View>
-        <IconButton
-          accessibilityLabel={actionLabel}
-          accessibilityHint="Opens message reactions and actions"
-          onPress={(): void => onMessageActions(message)}
-          size="md"
-        >
-          <MoreVertical size={18} color={Colors[theme]['muted-foreground']} />
-        </IconButton>
+        <MessageBubble
+          message={message}
+          isMine={isMine}
+          messageCopy={messageCopy}
+          media={media}
+          seen={seen}
+          messageLabel={messageLabel}
+          imageLoadState={imageLoadState}
+          onMessageActions={onMessageActions}
+          onOpenReactionPicker={onOpenReactionPicker}
+          onMessageReaction={onMessageReaction}
+          reactionPendingMessageId={reactionPendingMessageId}
+          canReact={canReact}
+          onImageLoadError={onImageLoadError}
+          onRetryImageLoad={onRetryImageLoad}
+        />
       </View>
     </View>
   );
@@ -472,16 +505,14 @@ export function DirectChatThreadView({
     });
   }, []);
 
-  const handleMessageLongPress = (message: ChatMessage, anchor: MessageReactionAnchor, measured: boolean): void => {
-    const summary: ReactionSummary | null = message.type === 'UNSENT' ? null : (message.reactionSummary ?? null);
+  const handleOpenReactionPicker = (message: ChatMessage, anchor: MessageReactionAnchor, measured: boolean): void => {
+    const summary: ReactionSummary | null =
+      message.type === 'UNSENT' ? null : (message.reactionSummary ?? { counts: [], myReaction: null, total: 0 });
+    if (!canReact || !summary) return;
     if (measured) {
       setReactionPicker((current: ReactionPickerState | null): ReactionPickerState | null =>
         current?.message.id === message.id ? { ...current, anchor } : current,
       );
-      return;
-    }
-    if (!canReact || !summary) {
-      onMessageActions(message);
       return;
     }
     setReactionPicker({ message, summary, anchor });
@@ -549,7 +580,8 @@ export function DirectChatThreadView({
 
       <FlatList
         data={messages}
-        inverted
+        inverted={messages.length > 0}
+        testID="direct-chat-messages"
         keyExtractor={(message: ChatMessage): string => message.id}
         renderItem={({ item, index }: { item: ChatMessage; index: number }): ReactElement => {
           const dateSeparatorLabel: string | null = getChatMessageDateSeparatorLabel(item, messages[index + 1]);
@@ -562,7 +594,7 @@ export function DirectChatThreadView({
                 latestOutgoing={latestOutgoing}
                 latestOutgoingSeenAt={latestOutgoingSeenAt}
                 onMessageActions={onMessageActions}
-                onMessageLongPress={handleMessageLongPress}
+                onOpenReactionPicker={handleOpenReactionPicker}
                 onMessageReaction={onMessageReaction}
                 reactionPendingMessageId={reactionPendingMessageId}
                 canReact={canReact}
@@ -573,7 +605,7 @@ export function DirectChatThreadView({
             </View>
           );
         }}
-        ListEmptyComponent={<Empty message="No messages yet. Start the conversation." inverted />}
+        ListEmptyComponent={<Empty message="No messages yet. Start the conversation." />}
         ListHeaderComponent={
           hasNextPage ? (
             <View className="items-center py-sm">

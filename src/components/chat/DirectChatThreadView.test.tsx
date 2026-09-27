@@ -12,7 +12,7 @@ import { DirectChatThreadView } from './DirectChatThreadView';
 jest.mock('lucide-react-native', () => ({
   ArrowLeft: (): null => null,
   ImagePlus: (): null => null,
-  MoreVertical: (): null => null,
+  Plus: (): null => null,
   Send: (): null => null,
   X: (): null => null,
 }));
@@ -174,17 +174,33 @@ describe('DirectChatThreadView', (): void => {
     screen.unmount();
   });
 
-  it('keeps the shared message action entry point when a message has no reactions', async (): Promise<void> => {
-    const onMessageActions = jest.fn<(selected: ChatMessage) => void>();
-    const screen = await render(<DirectChatThreadView {...props({ onMessageActions })} />);
+  it('keeps an empty message state upright by disabling list inversion until messages exist', async (): Promise<void> => {
+    const screen = await render(<DirectChatThreadView {...props({ messages: [] })} />);
 
-    expect(screen.queryByLabelText('React with heart')).toBeNull();
-    await fireEvent.press(screen.getByLabelText('Message actions for miguel'));
-    expect(onMessageActions).toHaveBeenCalledWith(message);
+    expect(screen.getByTestId('direct-chat-messages').props.inverted).toBe(false);
+    expect(screen.getByText('No messages yet. Start the conversation.').parent?.props.style).toBeUndefined();
     screen.unmount();
   });
 
-  it('shows reaction counts inline and opens the floating picker on long press', async (): Promise<void> => {
+  it('opens message actions on long press and offers a reaction picker for an unreactioned message', async (): Promise<void> => {
+    const onMessageActions = jest.fn<(selected: ChatMessage) => void>();
+    const onMessageReaction = jest.fn<(selected: ChatMessage, reaction: ReactionType | null) => void>();
+    const screen = await render(<DirectChatThreadView {...props({ onMessageActions, onMessageReaction })} />);
+    const messageTarget = screen.getByLabelText('Hello from Direct Chat. from miguel');
+
+    expect(screen.queryByLabelText('React with heart')).toBeNull();
+    expect(screen.queryByLabelText('Message actions for miguel')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('Add reaction'));
+    expect(screen.getByLabelText('Choose a message reaction')).toBeTruthy();
+    expect(screen.getByLabelText('React with heart')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Dismiss reactions'));
+    await fireEvent(messageTarget, 'longPress');
+    expect(onMessageActions).toHaveBeenCalledWith(message);
+    expect(screen.queryByLabelText('Choose a message reaction')).toBeNull();
+    screen.unmount();
+  });
+
+  it('shows overlapping reaction badges and opens the floating picker from Add reaction', async (): Promise<void> => {
     const onMessageActions = jest.fn<(selected: ChatMessage) => void>();
     const onMessageReaction = jest.fn<(selected: ChatMessage, reaction: ReactionType | null) => void>();
     const screen = await render(
@@ -195,17 +211,22 @@ describe('DirectChatThreadView', (): void => {
     expect(screen.getByLabelText('Remove heart reaction')).toBeTruthy();
     expect(screen.getByText('2')).toBeTruthy();
     expect(screen.queryByLabelText('React with angry face')).toBeNull();
-    await fireEvent(messageTarget, 'longPress');
+    expect(screen.getByLabelText('Message reactions').props.style).toMatchObject({
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+    });
+    await fireEvent.press(screen.getByLabelText('Add reaction'));
     expect(screen.getByLabelText('Choose a message reaction')).toBeTruthy();
     expect(screen.getByLabelText('React with angry face')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('Dismiss reactions'));
     expect(screen.queryByLabelText('Choose a message reaction')).toBeNull();
 
-    await fireEvent(messageTarget, 'longPress');
+    await fireEvent.press(screen.getByLabelText('Add reaction'));
     await fireEvent.press(screen.getByLabelText('React with laughing face'));
     expect(onMessageReaction).toHaveBeenCalledWith(reactedMessage, 'LAUGH');
     expect(screen.queryByLabelText('Choose a message reaction')).toBeNull();
-    await fireEvent.press(screen.getByLabelText('Message actions for miguel'));
+    await fireEvent(messageTarget, 'longPress');
     expect(onMessageActions).toHaveBeenCalledWith(reactedMessage);
     screen.unmount();
   });
@@ -227,6 +248,16 @@ describe('DirectChatThreadView', (): void => {
 
     expect(activeControl?.props.accessibilityState).toMatchObject({ disabled: true, busy: true });
     expect(blockedControl?.props.accessibilityState).toMatchObject({ disabled: true, busy: false });
+    const addReactionControls = screen.getAllByLabelText('Add reaction');
+    expect(addReactionControls).toHaveLength(2);
+    const activeAddReactionControl = addReactionControls.find(
+      (control) => control.props.accessibilityState?.busy === true,
+    );
+    const blockedAddReactionControl = addReactionControls.find(
+      (control) => control.props.accessibilityState?.busy !== true,
+    );
+    expect(activeAddReactionControl?.props.accessibilityState).toMatchObject({ disabled: true, busy: true });
+    expect(blockedAddReactionControl?.props.accessibilityState).toMatchObject({ disabled: true, busy: false });
     if (blockedControl) await fireEvent.press(blockedControl);
     expect(onMessageReaction).not.toHaveBeenCalled();
     screen.unmount();

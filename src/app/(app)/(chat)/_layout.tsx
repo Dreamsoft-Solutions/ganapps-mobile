@@ -7,6 +7,7 @@ export default function ChatLayout(): ReactElement {
       <Stack.Screen name="chat" options={{ headerShown: false }} />
       <Stack.Screen name="friend-profile/[user-id]" options={{ headerShown: false }} />
       <Stack.Screen name="friend-settings" options={{ headerShown: false }} />
+      <Stack.Screen name="event-chat/[ganap-id]" options={{ headerShown: false }} />
       <Stack.Screen name="direct-chat/[conversation-id]" options={{ headerShown: false }} />
     </Stack>
   );

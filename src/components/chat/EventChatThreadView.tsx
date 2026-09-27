@@ -1,4 +1,4 @@
-import { ArrowLeft, ImagePlus, MoreVertical, Send } from 'lucide-react-native';
+import { ArrowLeft, ImagePlus, Send } from 'lucide-react-native';
 import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -38,6 +38,7 @@ export const CHAT_MAX_MESSAGE_LENGTH = 2_000;
 
 /** Props for the focused Event Chat thread. */
 export interface EventChatThreadViewProps {
+  ganapTitle: string;
   session: EventChatSession | null;
   messages: ChatMessage[];
   failedDrafts: FailedDraft[];
@@ -118,7 +119,7 @@ const FALLBACK_REACTION_ANCHOR: MessageReactionAnchor = {
 function MessageRow({
   message,
   onMessageActions,
-  onMessageLongPress,
+  onOpenReactionPicker,
   onMessageReaction,
   reactionPendingMessageId,
   canReact,
@@ -128,7 +129,7 @@ function MessageRow({
 }: {
   message: ChatMessage;
   onMessageActions: (message: ChatMessage) => void;
-  onMessageLongPress: (message: ChatMessage, anchor: MessageReactionAnchor, measured: boolean) => void;
+  onOpenReactionPicker: (message: ChatMessage, anchor: MessageReactionAnchor, measured: boolean) => void;
   onMessageReaction?: (message: ChatMessage, reaction: ReactionType | null) => void | Promise<void>;
   reactionPendingMessageId: string | null;
   canReact: boolean;
@@ -138,39 +139,40 @@ function MessageRow({
 }): ReactElement {
   const messageRef = useRef<View>(null);
   const messageCopy: string = getMessageCopy(message);
-  const actionLabel: string = `Message actions for ${message.senderUsername}`;
   const hasImage: boolean = message.type === 'IMAGE' && message.media !== null && message.media !== undefined;
   const media = hasImage ? message.media : null;
   const reactionSummary: ReactionSummary | null = message.type === 'UNSENT' ? null : (message.reactionSummary ?? null);
-  const canOpenReactionPicker: boolean = canReact && reactionSummary !== null;
+  const canOpenReactionPicker: boolean = canReact && message.type !== 'UNSENT' && onMessageReaction !== undefined;
+  const hasReactionBadges: boolean = reactionSummary?.counts.some((reaction): boolean => reaction.count > 0) ?? false;
+  const hasReactionControls: boolean = canOpenReactionPicker || hasReactionBadges;
   const accessibilityHint: string = canOpenReactionPicker
-    ? 'Long press to react; use message actions to report, block, or unsend'
+    ? 'Long press for message actions; use Add reaction to react'
     : 'Long press to open message actions';
   const messageLabel: string = media
     ? `Photo sent by ${message.senderUsername}, ${media.width} by ${media.height} pixels`
     : `${messageCopy} from ${message.senderUsername}`;
-  const handleLongPress = (): void => {
-    if (!canOpenReactionPicker || !onMessageReaction) {
-      onMessageActions(message);
-      return;
-    }
+  const requestReactionPicker = (): void => {
+    if (!canOpenReactionPicker) return;
     const target: View | null = messageRef.current;
-    onMessageLongPress(message, FALLBACK_REACTION_ANCHOR, false);
+    onOpenReactionPicker(message, FALLBACK_REACTION_ANCHOR, false);
     if (!target) {
       return;
     }
     target.measureInWindow((x: number, y: number, width: number, height: number): void => {
-      if (width > 0 && height > 0) onMessageLongPress(message, { x, y, width, height }, true);
+      if (width > 0 && height > 0) onOpenReactionPicker(message, { x, y, width, height }, true);
     });
   };
   return (
     <View className="mb-md flex-row items-end px-md">
       <Avatar src={message.senderDisplayPicture} name={message.senderUsername} size="xs" />
-      <View className="ml-sm min-w-0 max-w-[82%] flex-1 flex-row items-end">
-        <View className="min-w-0 flex-1">
+      <View className="ml-sm min-w-0 max-w-[82%] flex-1">
+        <View
+          className="relative min-w-0 flex-1"
+          style={{ paddingBottom: hasReactionControls ? (MIN_TOUCH_TARGET - Spacing.xs) / 2 : 0 }}
+        >
           <Pressable
             ref={messageRef}
-            onLongPress={handleLongPress}
+            onLongPress={(): void => onMessageActions(message)}
             onPress={
               media
                 ? (): void => {
@@ -202,21 +204,15 @@ function MessageRow({
           <MessageReactionBar
             summary={reactionSummary}
             presentation="summary"
+            alignment="left"
             isPending={reactionPendingMessageId === message.id}
             isDisabled={!canReact || reactionPendingMessageId !== null}
+            onRequestReactionPicker={canOpenReactionPicker ? requestReactionPicker : undefined}
             onSelect={(reaction: ReactionType | null): void => {
               if (canReact && onMessageReaction) void onMessageReaction(message, reaction);
             }}
           />
         </View>
-        <IconButton
-          accessibilityLabel={actionLabel}
-          accessibilityHint="Opens message reactions and actions"
-          onPress={(): void => onMessageActions(message)}
-          size="md"
-        >
-          <MoreVertical size={18} className="text-muted-foreground" />
-        </IconButton>
       </View>
     </View>
   );
@@ -264,6 +260,7 @@ function FailedDraftRow({
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The thread intentionally branches across guarded, loading, read-only, and composer states.
 export function EventChatThreadView({
+  ganapTitle,
   session,
   messages,
   failedDrafts,
@@ -372,16 +369,14 @@ export function EventChatThreadView({
     });
   }, []);
 
-  const handleMessageLongPress = (message: ChatMessage, anchor: MessageReactionAnchor, measured: boolean): void => {
-    const summary: ReactionSummary | null = message.type === 'UNSENT' ? null : (message.reactionSummary ?? null);
+  const handleOpenReactionPicker = (message: ChatMessage, anchor: MessageReactionAnchor, measured: boolean): void => {
+    const summary: ReactionSummary | null =
+      message.type === 'UNSENT' ? null : (message.reactionSummary ?? { counts: [], myReaction: null, total: 0 });
+    if (!canReact || !summary) return;
     if (measured) {
       setReactionPicker((current: ReactionPickerState | null): ReactionPickerState | null =>
         current?.message.id === message.id ? { ...current, anchor } : current,
       );
-      return;
-    }
-    if (!canReact || !summary) {
-      onMessageActions(message);
       return;
     }
     setReactionPicker({ message, summary, anchor });
@@ -394,10 +389,10 @@ export function EventChatThreadView({
           Event Chat access is no longer available
         </Text>
         <Text className="mb-lg text-center text-body-md text-muted-foreground">
-          Event Details shows the current registration status for this event.
+          Event Hub shows the current registration status for this event.
         </Text>
         <Button variant="outline" onPress={onBack}>
-          Back to Event Details
+          Back to Event Hub
         </Button>
       </View>
     );
@@ -416,11 +411,11 @@ export function EventChatThreadView({
         className="flex-row items-center border-b border-border px-md pb-sm"
         style={{ paddingTop: insets.top + Spacing.sm }}
       >
-        <IconButton accessibilityLabel="Go back" accessibilityHint="Returns to Event Details" onPress={onBack}>
+        <IconButton accessibilityLabel="Go back" accessibilityHint="Returns to Event Hub" onPress={onBack}>
           <ArrowLeft size={20} color={Colors[theme].foreground} />
         </IconButton>
         <Text className="ml-sm flex-1 font-inter-bold text-headline-sm" numberOfLines={1} accessibilityRole="header">
-          {session?.ganapId ? 'Event Chat' : 'Event Chat'}
+          {ganapTitle || 'Ganap'}
         </Text>
       </View>
 
@@ -432,7 +427,8 @@ export function EventChatThreadView({
 
       <FlatList
         data={messages}
-        inverted
+        inverted={messages.length > 0}
+        testID="event-chat-messages"
         keyExtractor={(message: ChatMessage): string => message.id}
         renderItem={({ item, index }: { item: ChatMessage; index: number }): ReactElement => {
           const dateSeparatorLabel: string | null = getChatMessageDateSeparatorLabel(item, messages[index + 1]);
@@ -442,7 +438,7 @@ export function EventChatThreadView({
               <MessageRow
                 message={item}
                 onMessageActions={onMessageActions}
-                onMessageLongPress={handleMessageLongPress}
+                onOpenReactionPicker={handleOpenReactionPicker}
                 onMessageReaction={onMessageReaction}
                 reactionPendingMessageId={reactionPendingMessageId}
                 canReact={canReact}
@@ -453,7 +449,7 @@ export function EventChatThreadView({
             </View>
           );
         }}
-        ListEmptyComponent={<Empty message="No messages yet. Start the conversation." inverted />}
+        ListEmptyComponent={<Empty message="No messages yet. Start the conversation." />}
         ListHeaderComponent={
           hasNextPage ? (
             <View className="items-center py-sm">
