@@ -127,6 +127,8 @@ jest.mock('@rnmapbox/maps', () => {
       React.createElement(View, { testID: `terrain-source-${id}` }, children),
     Terrain: ({ sourceID }: { sourceID: string }): ReactElement =>
       React.createElement(View, { testID: `terrain-layer-${sourceID}` }),
+    FillExtrusionLayer: ({ id }: { id: string }): ReactElement =>
+      React.createElement(View, { testID: `building-extrusion-layer-${id}` }),
     MapView: ({
       children,
       onDidFinishLoadingMap,
@@ -279,6 +281,7 @@ describe('Home map event markers', (): void => {
 
     expect(screen.getByTestId('selected-ganap-card')).toBeTruthy();
     expect(screen.getByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeTruthy();
+    expect(screen.getByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeTruthy();
     const sheetProps = mockGanapFeedSheet.mock.calls.at(-1)?.[0];
     expect(sheetProps?.selectedGanap).toBe(mockGanap);
     expect(screen.getByText(mockGanap.title)).toBeTruthy();

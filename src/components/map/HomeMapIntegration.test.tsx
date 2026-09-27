@@ -26,6 +26,15 @@ const mockMapProps: Array<{
   onPress?: () => void;
 }> = [];
 const mockTerrainSourceProps: Array<{ id: string; url?: string; tileSize?: number; maxZoomLevel?: number }> = [];
+const mockBuildingLayerProps: Array<{
+  id: string;
+  sourceID?: string;
+  sourceLayerID?: string;
+  minZoomLevel?: number;
+  maxZoomLevel?: number;
+  filter?: unknown;
+  style?: unknown;
+}> = [];
 const mockMarkerProps: Array<{ anchor?: { x: number; y: number }; allowOverlap?: boolean }> = [];
 const mockSetCamera =
   jest.fn<
@@ -80,6 +89,27 @@ jest.mock('@rnmapbox/maps', () => {
   const MockTerrain = ({ sourceID }: { sourceID?: string }): ReactElement =>
     React.createElement(ReactNative.View, { testID: `terrain-layer-${sourceID ?? 'missing-source'}` });
 
+  const MockFillExtrusionLayer = ({
+    id,
+    sourceID,
+    sourceLayerID,
+    minZoomLevel,
+    maxZoomLevel,
+    filter,
+    style,
+  }: {
+    id: string;
+    sourceID?: string;
+    sourceLayerID?: string;
+    minZoomLevel?: number;
+    maxZoomLevel?: number;
+    filter?: unknown;
+    style?: unknown;
+  }): ReactElement => {
+    mockBuildingLayerProps.push({ id, sourceID, sourceLayerID, minZoomLevel, maxZoomLevel, filter, style });
+    return React.createElement(ReactNative.View, { testID: `building-extrusion-layer-${id}` });
+  };
+
   const MockMarkerView = ({
     anchor,
     allowOverlap,
@@ -109,6 +139,7 @@ jest.mock('@rnmapbox/maps', () => {
     Camera: MockCamera,
     RasterDemSource: MockRasterDemSource,
     Terrain: MockTerrain,
+    FillExtrusionLayer: MockFillExtrusionLayer,
   };
 });
 
@@ -408,6 +439,7 @@ beforeEach((): void => {
   mockMapProps.length = 0;
   mockMarkerProps.length = 0;
   mockTerrainSourceProps.length = 0;
+  mockBuildingLayerProps.length = 0;
   mockSetCamera.mockClear();
   mockRouterPush.mockClear();
   mockUseGanapDiscovery.mockReset();
@@ -423,6 +455,7 @@ describe('home map clustering integration', (): void => {
     const screen = await renderHome([single]);
     const originalView = idleState(13.25, [121.8, 10.6]);
     await triggerIdle(originalView);
+    expect(screen.queryByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeNull();
     expect(mockMarkerProps).toContainEqual({ anchor: { x: 0.5, y: 1 }, allowOverlap: true });
 
     await fireEvent.press(screen.getByRole('button', { name: 'Open event Event single' }));
@@ -430,6 +463,22 @@ describe('home map clustering integration', (): void => {
     expect(screen.getByTestId('feed-sheet-card-single')).toBeTruthy();
     expect(screen.getByTestId('terrain-source-ganapps-map-terrain-dem')).toBeTruthy();
     expect(screen.getByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeTruthy();
+    expect(screen.getByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeTruthy();
+    expect(mockBuildingLayerProps).toContainEqual({
+      id: 'ganapps-map-building-height',
+      sourceID: 'composite',
+      sourceLayerID: 'building',
+      minZoomLevel: 16,
+      maxZoomLevel: 22,
+      filter: ['all', ['==', ['get', 'extrude'], 'true'], ['has', 'height']],
+      style: {
+        fillExtrusionColor: '#9ca3af',
+        fillExtrusionHeight: ['to-number', ['get', 'height'], 0],
+        fillExtrusionBase: ['to-number', ['get', 'min_height'], 0],
+        fillExtrusionOpacity: 0.9,
+        fillExtrusionVerticalGradient: true,
+      },
+    });
     expect(mockTerrainSourceProps).toContainEqual({
       id: 'ganapps-map-terrain-dem',
       url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
@@ -438,8 +487,8 @@ describe('home map clustering integration', (): void => {
     });
     expect(mockSetCamera).toHaveBeenCalledWith({
       centerCoordinate: [single.locationLong, single.locationLat],
-      zoomLevel: 15.5,
-      pitch: 50,
+      zoomLevel: 16.5,
+      pitch: 80,
       animationDuration: 500,
       padding: {
         paddingTop: MAP_OVERLAY_TOP,
@@ -452,6 +501,7 @@ describe('home map clustering integration', (): void => {
     await fireEvent.press(screen.getByLabelText('Close events list'));
     expect(screen.queryByTestId('terrain-source-ganapps-map-terrain-dem')).toBeNull();
     expect(screen.queryByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeNull();
+    expect(screen.queryByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeNull();
     expect(mockSetCamera).toHaveBeenLastCalledWith({
       centerCoordinate: originalView.properties.center,
       zoomLevel: originalView.properties.zoom,
@@ -614,7 +664,7 @@ describe('home map clustering integration', (): void => {
     expect(mockSetCamera).toHaveBeenNthCalledWith(1, {
       centerCoordinate: getFeatureCoordinate(expectedCluster),
       zoomLevel: getClusterExpansionZoom(expectedIndex, expectedCluster),
-      pitch: 50,
+      pitch: 80,
       animationDuration: 300,
       /**
        * Padded so the expanded cluster centres in the map the user can see,

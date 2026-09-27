@@ -1,4 +1,13 @@
-import Mapbox, { Camera, LocationPuck, type MapState, MapView, RasterDemSource, Terrain } from '@rnmapbox/maps';
+import Mapbox, {
+  Camera,
+  FillExtrusionLayer,
+  type FillExtrusionLayerStyle,
+  LocationPuck,
+  type MapState,
+  MapView,
+  RasterDemSource,
+  Terrain,
+} from '@rnmapbox/maps';
 import { useRouter } from 'expo-router';
 import type { ComponentRef, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -36,13 +45,25 @@ const MAPBOX_TOKEN: string = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
 
 const ILOILO_CITY_CENTER: [number, number] = [122.5621, 10.7202];
 const CITY_ZOOM = 12;
-const LOCATION_SELECTION_ZOOM: number = 15.5;
-const LOCATION_SELECTION_PITCH: number = 50;
+const LOCATION_SELECTION_ZOOM: number = 16.5;
+const LOCATION_SELECTION_PITCH: number = 80;
 const OVERHEAD_PITCH: number = 0;
 const MAP_FEATURE_PRESS_GUARD_MS: number = 150;
 const FEATURE_PRESS_PROPAGATION_WINDOW_MS: number = 75;
 const TERRAIN_SOURCE_ID = 'ganapps-map-terrain-dem';
 const TERRAIN_SOURCE_URL = 'mapbox://mapbox.mapbox-terrain-dem-v1';
+const BUILDING_SOURCE_ID: string = 'composite';
+const BUILDING_SOURCE_LAYER_ID: string = 'building';
+const BUILDING_EXTRUSION_LAYER_ID: string = 'ganapps-map-building-height';
+const BUILDING_MIN_ZOOM: number = 16;
+const BUILDING_MAX_ZOOM: number = 22;
+const BUILDING_EXTRUSION_STYLE: FillExtrusionLayerStyle = {
+  fillExtrusionColor: '#9ca3af',
+  fillExtrusionHeight: ['to-number', ['get', 'height'], 0],
+  fillExtrusionBase: ['to-number', ['get', 'min_height'], 0],
+  fillExtrusionOpacity: 0.9,
+  fillExtrusionVerticalGradient: true,
+};
 
 interface CameraPadding {
   readonly paddingTop: number;
@@ -142,7 +163,17 @@ function SelectionTerrain({ isActive }: { readonly isActive: boolean }): ReactEl
   return (
     <>
       <RasterDemSource id={TERRAIN_SOURCE_ID} url={TERRAIN_SOURCE_URL} tileSize={512} maxZoomLevel={14} />
-      <Terrain sourceID={TERRAIN_SOURCE_ID} style={{ exaggeration: 1.5 }} />
+      <Terrain sourceID={TERRAIN_SOURCE_ID} style={{ exaggeration: 2 }} />
+      <FillExtrusionLayer
+        id={BUILDING_EXTRUSION_LAYER_ID}
+        sourceID={BUILDING_SOURCE_ID}
+        sourceLayerID={BUILDING_SOURCE_LAYER_ID}
+        minZoomLevel={BUILDING_MIN_ZOOM}
+        maxZoomLevel={BUILDING_MAX_ZOOM}
+        aboveLayerID="building"
+        filter={['all', ['==', ['get', 'extrude'], 'true'], ['has', 'height']]}
+        style={BUILDING_EXTRUSION_STYLE}
+      />
     </>
   );
 }
