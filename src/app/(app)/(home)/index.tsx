@@ -1,4 +1,4 @@
-import Mapbox, { Camera, LocationPuck, type MapState, MapView } from '@rnmapbox/maps';
+import Mapbox, { Camera, LocationPuck, type MapState, MapView, RasterDemSource, Terrain } from '@rnmapbox/maps';
 import { useRouter } from 'expo-router';
 import type { ComponentRef, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -38,6 +38,114 @@ const ILOILO_CITY_CENTER: [number, number] = [122.5621, 10.7202];
 const CITY_ZOOM = 12;
 const LOCATION_SELECTION_ZOOM: number = 15.5;
 const LOCATION_SELECTION_PITCH: number = 50;
+const OVERHEAD_PITCH: number = 0;
+const MAP_FEATURE_PRESS_GUARD_MS: number = 150;
+const FEATURE_PRESS_PROPAGATION_WINDOW_MS: number = 75;
+const TERRAIN_SOURCE_ID = 'ganapps-map-terrain-dem';
+const TERRAIN_SOURCE_URL = 'mapbox://mapbox.mapbox-terrain-dem-v1';
+
+interface CameraPadding {
+  readonly paddingTop: number;
+  readonly paddingBottom: number;
+  readonly paddingLeft: number;
+  readonly paddingRight: number;
+}
+
+interface CameraViewSnapshot {
+  readonly centerCoordinate: [number, number];
+  readonly zoomLevel: number;
+  readonly heading: number;
+  readonly pitch: number;
+  readonly padding: CameraPadding;
+}
+
+type SelectionClearReason = 'restore' | 'keep-current' | 'search-target';
+
+interface SelectionClearCameraViewInput {
+  readonly reason: SelectionClearReason;
+  readonly hasUserGestureDuringSelection: boolean;
+  readonly originalView: CameraViewSnapshot | null;
+  readonly currentView: CameraViewSnapshot;
+}
+
+interface MutableValue<T> {
+  current: T;
+}
+
+interface MapPressGuardInput {
+  readonly isSelectionActive: MutableValue<boolean>;
+  readonly lastFeaturePressAt: MutableValue<number | null>;
+  readonly featurePressCount: MutableValue<number>;
+  readonly mapPressTimeout: MutableValue<ReturnType<typeof setTimeout> | null>;
+  readonly clearSelection: () => void;
+}
+
+const ZERO_CAMERA_PADDING: CameraPadding = {
+  paddingTop: 0,
+  paddingBottom: 0,
+  paddingLeft: 0,
+  paddingRight: 0,
+};
+
+function getCameraViewSnapshot(state: MapState, padding: CameraPadding): CameraViewSnapshot {
+  return {
+    centerCoordinate: [state.properties.center[0], state.properties.center[1]],
+    zoomLevel: state.properties.zoom,
+    heading: state.properties.heading,
+    pitch: state.properties.pitch,
+    padding,
+  };
+}
+
+function getSelectionClearCameraView({
+  reason,
+  hasUserGestureDuringSelection,
+  originalView,
+  currentView,
+}: SelectionClearCameraViewInput): CameraViewSnapshot {
+  if (reason === 'restore' && !hasUserGestureDuringSelection && originalView !== null) return originalView;
+
+  return {
+    ...currentView,
+    padding: originalView === null ? currentView.padding : originalView.padding,
+  };
+}
+
+function handleMapPressWithGuard({
+  isSelectionActive,
+  lastFeaturePressAt,
+  featurePressCount,
+  mapPressTimeout,
+  clearSelection,
+}: MapPressGuardInput): void {
+  if (!isSelectionActive.current) return;
+  if (mapPressTimeout.current !== null) clearTimeout(mapPressTimeout.current);
+
+  const mapPressStartedAt: number = Date.now();
+  const featurePressCountAtStart: number = featurePressCount.current;
+  const recentFeaturePressBeforeMapTap: boolean =
+    lastFeaturePressAt.current !== null &&
+    mapPressStartedAt - lastFeaturePressAt.current <= FEATURE_PRESS_PROPAGATION_WINDOW_MS;
+
+  mapPressTimeout.current = setTimeout((): void => {
+    mapPressTimeout.current = null;
+    const featurePressedAfterMapTap: boolean = featurePressCount.current !== featurePressCountAtStart;
+    if (!recentFeaturePressBeforeMapTap && !featurePressedAfterMapTap && isSelectionActive.current) {
+      clearSelection();
+    }
+  }, MAP_FEATURE_PRESS_GUARD_MS);
+}
+
+function SelectionTerrain({ isActive }: { readonly isActive: boolean }): ReactElement | null {
+  if (!isActive) return null;
+
+  return (
+    <>
+      <RasterDemSource id={TERRAIN_SOURCE_ID} url={TERRAIN_SOURCE_URL} tileSize={512} maxZoomLevel={14} />
+      <Terrain sourceID={TERRAIN_SOURCE_ID} style={{ exaggeration: 1.5 }} />
+    </>
+  );
+}
 /**
  * How much of the map the feed sheet covers at rest.
  *
@@ -70,6 +178,7 @@ export default function HomeScreen(): ReactElement {
   const isSearchSettled: boolean = search.trim() === (discovery.filters.search ?? '');
   const hasPendingSearch: boolean = hasSearchText && (!isSearchSettled || map.isFetching);
   const hasSearchError: boolean = hasSearchText && isSearchSettled && isError;
+  const shouldShowMapError: boolean = isError && !hasSearchText;
   /**
    * Whether a radius actually reached the server, which is not the same as the
    * chip being on: the position can still be resolving. The title follows what
@@ -82,6 +191,19 @@ export default function HomeScreen(): ReactElement {
   const wasNearbyActive = useRef<boolean>(false);
   const mapZoomRef = useRef<number>(CITY_ZOOM);
   const isClusterZoomPendingRef = useRef<boolean>(false);
+  const cameraViewRef = useRef<CameraViewSnapshot>({
+    centerCoordinate: ILOILO_CITY_CENTER,
+    zoomLevel: CITY_ZOOM,
+    heading: 0,
+    pitch: OVERHEAD_PITCH,
+    padding: ZERO_CAMERA_PADDING,
+  });
+  const selectionReturnViewRef = useRef<CameraViewSnapshot | null>(null);
+  const isSelectionActiveRef = useRef<boolean>(false);
+  const hasUserGestureDuringSelectionRef = useRef<boolean>(false);
+  const lastFeaturePressAtRef = useRef<number | null>(null);
+  const featurePressCountRef = useRef<number>(0);
+  const mapPressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [viewport, setViewport] = useState<MapViewport>(DEFAULT_MAP_VIEWPORT);
   const [isMapReady, setIsMapReady] = useState<boolean>(false);
   const [selectedGanap, setSelectedGanap] = useState<GanapListItem | null>(null);
@@ -91,13 +213,8 @@ export default function HomeScreen(): ReactElement {
   const clusterIndex = useMemo(() => createGanapClusterIndex(items), [items]);
   const visibleFeatures = useMemo(() => getVisibleMapFeatures(clusterIndex, viewport), [clusterIndex, viewport]);
 
-  useEffect((): void => {
-    setSelectedGanap(null);
-    setSelectedCluster(null);
-    setSelectedClusterIndex(null);
-  }, [clusterIndex]);
-
   const activeCluster: GanapClusterFeature | null = selectedClusterIndex === clusterIndex ? selectedCluster : null;
+  const hasActiveSelection: boolean = selectedGanap !== null || activeCluster !== null;
 
   useEffect(() => {
     if (MAPBOX_TOKEN) {
@@ -107,16 +224,24 @@ export default function HomeScreen(): ReactElement {
 
   const centreOnUser = useCallback(
     (coords: Coords): void => {
+      const padding: CameraPadding = {
+        paddingTop: insets.top + MAP_OVERLAY_TOP,
+        paddingBottom: MAP_OVERLAY_BOTTOM,
+        paddingLeft: 0,
+        paddingRight: 0,
+      };
+      if (isSelectionActiveRef.current) hasUserGestureDuringSelectionRef.current = true;
+      cameraViewRef.current = {
+        ...cameraViewRef.current,
+        centerCoordinate: [coords.longitude, coords.latitude],
+        zoomLevel: USER_ZOOM,
+        padding,
+      };
       cameraRef.current?.setCamera({
         centerCoordinate: [coords.longitude, coords.latitude],
         zoomLevel: USER_ZOOM,
         animationDuration: 500,
-        padding: {
-          paddingTop: insets.top + MAP_OVERLAY_TOP,
-          paddingBottom: MAP_OVERLAY_BOTTOM,
-          paddingLeft: 0,
-          paddingRight: 0,
-        },
+        padding,
       });
     },
     [insets.top],
@@ -153,6 +278,7 @@ export default function HomeScreen(): ReactElement {
   const handleMapIdle = useCallback((state: MapState): void => {
     const zoom: number = state.properties.zoom;
     mapZoomRef.current = zoom;
+    cameraViewRef.current = getCameraViewSnapshot(state, cameraViewRef.current.padding);
     isClusterZoomPendingRef.current = false;
     setViewport(
       mapStateToViewport({
@@ -162,8 +288,33 @@ export default function HomeScreen(): ReactElement {
     );
   }, []);
 
+  const handleCameraChanged = useCallback((state: MapState): void => {
+    mapZoomRef.current = state.properties.zoom;
+    cameraViewRef.current = getCameraViewSnapshot(state, cameraViewRef.current.padding);
+    if (isSelectionActiveRef.current && state.gestures.isGestureActive) {
+      hasUserGestureDuringSelectionRef.current = true;
+    }
+  }, []);
+
+  const beginSelection = useCallback((): void => {
+    if (mapPressTimeoutRef.current !== null) {
+      clearTimeout(mapPressTimeoutRef.current);
+      mapPressTimeoutRef.current = null;
+    }
+    lastFeaturePressAtRef.current = Date.now();
+    featurePressCountRef.current += 1;
+    if (isSelectionActiveRef.current) return;
+
+    selectionReturnViewRef.current = {
+      ...cameraViewRef.current,
+      centerCoordinate: [...cameraViewRef.current.centerCoordinate],
+    };
+    isSelectionActiveRef.current = true;
+    hasUserGestureDuringSelectionRef.current = false;
+  }, []);
+
   const requestClusterZoom = useCallback(
-    (target: ClusterZoomTarget): void => {
+    (target: ClusterZoomTarget, pitch: number = LOCATION_SELECTION_PITCH): void => {
       const camera = cameraRef.current;
       if (camera === null || isClusterZoomPendingRef.current) return;
 
@@ -171,17 +322,25 @@ export default function HomeScreen(): ReactElement {
       if (zoom <= mapZoomRef.current) return;
 
       isClusterZoomPendingRef.current = true;
+      const padding: CameraPadding = {
+        paddingTop: insets.top + MAP_OVERLAY_TOP,
+        paddingBottom: MAP_OVERLAY_BOTTOM,
+        paddingLeft: 0,
+        paddingRight: 0,
+      };
+      cameraViewRef.current = {
+        ...cameraViewRef.current,
+        centerCoordinate: [...target.coordinate],
+        zoomLevel: zoom,
+        pitch,
+        padding,
+      };
       camera.setCamera({
         centerCoordinate: target.coordinate,
         zoomLevel: zoom,
-        pitch: LOCATION_SELECTION_PITCH,
+        pitch,
         animationDuration: 300,
-        padding: {
-          paddingTop: insets.top + MAP_OVERLAY_TOP,
-          paddingBottom: MAP_OVERLAY_BOTTOM,
-          paddingLeft: 0,
-          paddingRight: 0,
-        },
+        padding,
       });
     },
     [insets.top],
@@ -189,41 +348,101 @@ export default function HomeScreen(): ReactElement {
 
   const handleGanapPress = useCallback(
     (ganap: GanapListItem): void => {
+      beginSelection();
       setSelectedCluster(null);
       setSelectedClusterIndex(null);
       setSelectedGanap(ganap);
+      const zoom: number = Math.max(mapZoomRef.current, LOCATION_SELECTION_ZOOM);
+      const padding: CameraPadding = {
+        paddingTop: insets.top + MAP_OVERLAY_TOP,
+        paddingBottom: MAP_OVERLAY_BOTTOM,
+        paddingLeft: 0,
+        paddingRight: 0,
+      };
+      cameraViewRef.current = {
+        ...cameraViewRef.current,
+        centerCoordinate: [ganap.locationLong, ganap.locationLat],
+        zoomLevel: zoom,
+        pitch: LOCATION_SELECTION_PITCH,
+        padding,
+      };
       cameraRef.current?.setCamera({
         centerCoordinate: [ganap.locationLong, ganap.locationLat],
-        zoomLevel: Math.max(mapZoomRef.current, LOCATION_SELECTION_ZOOM),
+        zoomLevel: zoom,
         pitch: LOCATION_SELECTION_PITCH,
         animationDuration: 500,
-        padding: {
-          paddingTop: insets.top + MAP_OVERLAY_TOP,
-          paddingBottom: MAP_OVERLAY_BOTTOM,
-          paddingLeft: 0,
-          paddingRight: 0,
-        },
+        padding,
       });
     },
-    [insets.top],
+    [beginSelection, insets.top],
   );
 
   const handleClusterPress = useCallback(
     (cluster: GanapClusterFeature): void => {
       if (isClusterZoomPendingRef.current) return;
+      beginSelection();
       setSelectedCluster(cluster);
       setSelectedClusterIndex(clusterIndex);
       const target: ClusterZoomTarget | null = resolveClusterZoomTarget(clusterIndex, cluster);
       if (target !== null) requestClusterZoom(target);
     },
-    [clusterIndex, requestClusterZoom],
+    [beginSelection, clusterIndex, requestClusterZoom],
   );
 
-  const handleClearSelection = useCallback((): void => {
+  const handleClearSelection = useCallback((reason: SelectionClearReason = 'restore'): void => {
+    if (mapPressTimeoutRef.current !== null) {
+      clearTimeout(mapPressTimeoutRef.current);
+      mapPressTimeoutRef.current = null;
+    }
+    const wasSelectionActive: boolean = isSelectionActiveRef.current;
+    const originalView: CameraViewSnapshot | null = selectionReturnViewRef.current;
+    const targetView: CameraViewSnapshot = getSelectionClearCameraView({
+      reason,
+      hasUserGestureDuringSelection: hasUserGestureDuringSelectionRef.current,
+      originalView,
+      currentView: cameraViewRef.current,
+    });
     setSelectedGanap(null);
     setSelectedCluster(null);
     setSelectedClusterIndex(null);
+    isSelectionActiveRef.current = false;
+    hasUserGestureDuringSelectionRef.current = false;
+    selectionReturnViewRef.current = null;
+
+    if (!wasSelectionActive || reason === 'search-target') return;
+
+    cameraViewRef.current = { ...targetView, pitch: OVERHEAD_PITCH };
+    mapZoomRef.current = targetView.zoomLevel;
+    cameraRef.current?.setCamera({
+      centerCoordinate: targetView.centerCoordinate,
+      zoomLevel: targetView.zoomLevel,
+      heading: targetView.heading,
+      pitch: OVERHEAD_PITCH,
+      animationDuration: 500,
+      padding: targetView.padding,
+    });
   }, []);
+
+  const handleMapPress = useCallback((): void => {
+    handleMapPressWithGuard({
+      isSelectionActive: isSelectionActiveRef,
+      lastFeaturePressAt: lastFeaturePressAtRef,
+      featurePressCount: featurePressCountRef,
+      mapPressTimeout: mapPressTimeoutRef,
+      clearSelection: handleClearSelection,
+    });
+  }, [handleClearSelection]);
+
+  useEffect((): (() => void) => {
+    return (): void => {
+      if (mapPressTimeoutRef.current !== null) clearTimeout(mapPressTimeoutRef.current);
+    };
+  }, []);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: clear selections when a new map index replaces them.
+  useEffect((): void => {
+    if (isSelectionActiveRef.current) handleClearSelection('keep-current');
+  }, [clusterIndex, handleClearSelection]);
 
   const handleOpenGanap = useCallback(
     (ganap: GanapListItem): void => {
@@ -234,29 +453,36 @@ export default function HomeScreen(): ReactElement {
 
   const handleClusterZoomIn = useCallback(
     (target: ClusterZoomTarget): void => {
-      requestClusterZoom(target);
+      requestClusterZoom(target, OVERHEAD_PITCH);
     },
     [requestClusterZoom],
   );
 
   const handleSelectSearchSuggestion = useCallback(
     (ganap: GanapListItem): void => {
-      setSelectedGanap(null);
-      setSelectedCluster(null);
-      setSelectedClusterIndex(null);
+      handleClearSelection('search-target');
+      const padding: CameraPadding = {
+        paddingTop: insets.top + MAP_OVERLAY_TOP,
+        paddingBottom: MAP_OVERLAY_BOTTOM,
+        paddingLeft: 0,
+        paddingRight: 0,
+      };
+      cameraViewRef.current = {
+        ...cameraViewRef.current,
+        centerCoordinate: [ganap.locationLong, ganap.locationLat],
+        zoomLevel: USER_ZOOM,
+        pitch: OVERHEAD_PITCH,
+        padding,
+      };
       cameraRef.current?.setCamera({
         centerCoordinate: [ganap.locationLong, ganap.locationLat],
         zoomLevel: USER_ZOOM,
+        pitch: OVERHEAD_PITCH,
         animationDuration: 500,
-        padding: {
-          paddingTop: insets.top + MAP_OVERLAY_TOP,
-          paddingBottom: MAP_OVERLAY_BOTTOM,
-          paddingLeft: 0,
-          paddingRight: 0,
-        },
+        padding,
       });
     },
-    [insets.top],
+    [handleClearSelection, insets.top],
   );
 
   if (!MAPBOX_TOKEN) {
@@ -274,7 +500,7 @@ export default function HomeScreen(): ReactElement {
     return <Loading message="Finding events..." />;
   }
 
-  if (isError && !hasSearchText) {
+  if (shouldShowMapError) {
     return <ErrorView error={error} onRetry={refetch} />;
   }
 
@@ -287,9 +513,12 @@ export default function HomeScreen(): ReactElement {
         attributionEnabled
         logoEnabled
         onMapIdle={handleMapIdle}
+        onCameraChanged={handleCameraChanged}
+        onPress={handleMapPress}
         onDidFinishLoadingMap={handleMapReady}
       >
         <Camera ref={cameraRef} centerCoordinate={ILOILO_CITY_CENTER} zoomLevel={CITY_ZOOM} animationMode="none" />
+        <SelectionTerrain isActive={hasActiveSelection} />
         {userCoords !== null && <LocationPuck puckBearing="heading" puckBearingEnabled />}
         <ClusteredGanapMarkers
           features={visibleFeatures}
@@ -360,7 +589,7 @@ export default function HomeScreen(): ReactElement {
         onDismiss={nearby.dismissPriming}
       />
 
-      {(selectedGanap !== null || activeCluster !== null) && (
+      {hasActiveSelection && (
         <GanapFeedSheet
           feed={feed}
           hasActiveFilters={hasActiveFilters}

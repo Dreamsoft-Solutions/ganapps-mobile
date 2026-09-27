@@ -43,7 +43,7 @@ export interface GanapFeedSheetProps {
   selectedCluster: GanapClusterFeature | null;
   clusterIndex: GanapClusterIndex;
   onSelectGanap: (ganap: GanapListItem) => void;
-  onClearSelection: () => void;
+  onClearSelection: (reason?: 'keep-current') => void;
   onZoomToCluster: (target: ClusterZoomTarget) => void;
 }
 
@@ -249,7 +249,7 @@ export function GanapFeedSheet({
      * when the dataset changes — which zooming does not do. Without this the
      * sheet keeps listing leaves of a cluster that no longer exists.
      */
-    onClearSelection();
+    onClearSelection('keep-current');
   }, [clusterIndex, onZoomToCluster, onClearSelection, selectedCluster]);
 
   const renderHandle = useCallback(
