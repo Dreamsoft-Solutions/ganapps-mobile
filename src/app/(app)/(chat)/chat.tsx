@@ -105,12 +105,8 @@ export default function ChatScreen(): ReactElement {
 
   const handleRejectRequest = async (attemptId: string): Promise<void> => {
     try {
-      const result = await friends.rejectRequestMutation.mutateAsync(attemptId);
-      setRequestNotice(
-        result.retryAt
-          ? `Friend request rejected. ${formatFriendRetryWarning(result.retryAt)}`
-          : 'Friend request rejected.',
-      );
+      await friends.rejectRequestMutation.mutateAsync(attemptId);
+      setRequestNotice('Friend request rejected.');
     } catch (error: unknown) {
       const normalized: Error = error instanceof Error ? error : new Error('Unable to reject friend request.');
       setRequestNotice(getFriendErrorMessage(normalized, 'Unable to reject friend request.'));
