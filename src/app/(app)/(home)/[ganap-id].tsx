@@ -1,14 +1,20 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
-import { Alert, Share } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Alert, BackHandler, Share, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { EventDetailView } from '@/components/ganaps/EventDetailView';
+import { GanapShareModal } from '@/components/ganaps/GanapShareModal';
 import { Routes } from '@/constants/routes';
+import { Spacing } from '@/constants/theme';
 import { useBusinessDetailQuery } from '@/hooks/queries/useBusinessesQuery';
 import { useFriendGoingQuery } from '@/hooks/queries/useFriendsQuery';
 import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { useGanaps } from '@/hooks/useGanaps';
+import { showToast } from '@/store/toast.store';
 import type { FriendGoingRecord, FriendUserSummary } from '@/types/friends.types';
 import type { GanapAction, GanapActionConfirmation } from '@/utils/ganap-detail';
 import {
@@ -17,6 +23,7 @@ import {
   getGanapCapacityModel,
   getGanapScheduleModel,
 } from '@/utils/ganap-detail';
+import { buildGanapShareUrl } from '@/utils/share-links';
 
 /**
  * Loaded Ganap Details route that owns data fetching, navigation, and mutations.
@@ -24,16 +31,77 @@ import {
  * @returns The loading, error, not-found, or loaded Ganap Details state.
  */
 export default function GanapDetailScreen(): ReactElement {
-  const { 'ganap-id': ganapId } = useLocalSearchParams<{ 'ganap-id': string }>();
+  const { 'ganap-id': ganapId, returnTo } = useLocalSearchParams<{ 'ganap-id': string; returnTo?: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const isMyEventsOrigin: boolean = returnTo === 'my-events';
   const { data: ganap, isLoading, isRefetching, error, refetch } = useGanapDetailQuery(ganapId);
   const businessQuery = useBusinessDetailQuery(ganap?.businessId);
   const friendsGoingQuery = useFriendGoingQuery(true, ganapId);
   const { join, leave, toggleLike, toggleSave, isJoining, isLeaving, isTogglingLike, isTogglingSave } = useGanaps();
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const screenOptions: ReactElement = <Stack.Screen options={{ gestureEnabled: !isMyEventsOrigin }} />;
 
-  if (isLoading) return <Loading />;
-  if (error) return <ErrorView error={error} onRetry={(): void => void refetch()} />;
-  if (!ganap) return <ErrorView error={new Error('Event not found')} />;
+  const handleBack = useCallback((): void => {
+    if (isMyEventsOrigin) {
+      if (router.canDismiss()) router.dismiss();
+      router.replace(Routes.app.ganaps);
+      return;
+    }
+
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace(Routes.app.home);
+  }, [isMyEventsOrigin, router]);
+
+  const myEventsBackControl: ReactElement | null = isMyEventsOrigin ? (
+    <View className="px-md" style={{ paddingTop: insets.top + Spacing.sm }}>
+      <Button variant="outline" onPress={handleBack} accessibilityHint="Returns to My Events">
+        Back to My Events
+      </Button>
+    </View>
+  ) : null;
+
+  const renderFallbackState = (content: ReactElement): ReactElement => (
+    <>
+      {screenOptions}
+      {isMyEventsOrigin ? (
+        <View className="flex-1 bg-background">
+          {myEventsBackControl}
+          {content}
+        </View>
+      ) : (
+        content
+      )}
+    </>
+  );
+
+  useFocusEffect(
+    useCallback((): (() => void) => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', (): boolean => {
+        if (!isMyEventsOrigin && router.canGoBack()) return false;
+        handleBack();
+        return true;
+      });
+
+      return (): void => subscription.remove();
+    }, [handleBack, isMyEventsOrigin, router]),
+  );
+
+  if (isLoading) {
+    return renderFallbackState(<Loading />);
+  }
+
+  if (error) {
+    return renderFallbackState(<ErrorView error={error} onRetry={(): void => void refetch()} />);
+  }
+
+  if (!ganap) {
+    return renderFallbackState(<ErrorView error={new Error('Event not found')} />);
+  }
 
   const schedule = getGanapScheduleModel(ganap.startDate, ganap.endDate);
   const capacity = getGanapCapacityModel(ganap);
@@ -42,9 +110,23 @@ export default function GanapDetailScreen(): ReactElement {
     .filter((record: FriendGoingRecord): boolean => record.ganap.ganapId === ganap.id)
     .map((record: FriendGoingRecord): FriendUserSummary => record.user);
 
-  const handleShare = async (): Promise<void> => {
-    const message = buildGanapShareMessage(ganap, schedule);
-    await Share.share({ message, title: ganap.title });
+  const handleShare = (): void => {
+    try {
+      setShareUrl(buildGanapShareUrl(ganap.id));
+    } catch {
+      showToast('error', 'Unable to create a share link.');
+    }
+  };
+
+  const handleNativeShare = async (): Promise<void> => {
+    if (!shareUrl) return;
+
+    try {
+      const message = `${buildGanapShareMessage(ganap, schedule)}\n${shareUrl}`;
+      await Share.share({ message, title: ganap.title });
+    } catch {
+      showToast('error', 'Unable to share this event.');
+    }
   };
 
   const dispatchAction = async (action: GanapAction, confirmation: GanapActionConfirmation | null): Promise<void> => {
@@ -87,29 +169,42 @@ export default function GanapDetailScreen(): ReactElement {
     dispatchAction(actionModel.secondary?.action ?? null, actionModel.secondary?.confirmation ?? null);
 
   return (
-    <EventDetailView
-      ganap={ganap}
-      business={businessQuery.data}
-      capacity={capacity}
-      schedule={schedule}
-      actionModel={actionModel}
-      isPrimaryPending={isJoining || isLeaving}
-      isLikePending={isTogglingLike}
-      isSavePending={isTogglingSave}
-      friendsGoing={friendsGoing}
-      isFriendsGoingLoading={friendsGoingQuery.isLoading}
-      friendsGoingError={friendsGoingQuery.error}
-      hasMoreFriendsGoing={Boolean(friendsGoingQuery.hasNextPage)}
-      isRefreshing={isRefetching || friendsGoingQuery.isRefetching}
-      onBack={(): void => router.back()}
-      onRefresh={async (): Promise<void> => {
-        await Promise.all([refetch(), friendsGoingQuery.refetch()]);
-      }}
-      onShare={handleShare}
-      onToggleLike={(): Promise<void> => toggleLike({ ganapId: ganap.id, isLiked: ganap.isLiked ?? false })}
-      onToggleSave={(): Promise<void> => toggleSave({ ganapId: ganap.id, isSaved: ganap.isSaved ?? false })}
-      onPrimaryAction={handlePrimaryAction}
-      onSecondaryAction={handleSecondaryAction}
-    />
+    <>
+      {screenOptions}
+      <EventDetailView
+        ganap={ganap}
+        business={businessQuery.data}
+        capacity={capacity}
+        schedule={schedule}
+        actionModel={actionModel}
+        isPrimaryPending={isJoining || isLeaving}
+        isLikePending={isTogglingLike}
+        isSavePending={isTogglingSave}
+        friendsGoing={friendsGoing}
+        isFriendsGoingLoading={friendsGoingQuery.isLoading}
+        friendsGoingError={friendsGoingQuery.error}
+        hasMoreFriendsGoing={Boolean(friendsGoingQuery.hasNextPage)}
+        isRefreshing={isRefetching || friendsGoingQuery.isRefetching}
+        onBack={handleBack}
+        onRefresh={async (): Promise<void> => {
+          await Promise.all([refetch(), friendsGoingQuery.refetch()]);
+        }}
+        onShare={handleShare}
+        onToggleLike={(): Promise<void> => toggleLike({ ganapId: ganap.id, isLiked: ganap.isLiked ?? false })}
+        onToggleSave={(): Promise<void> => toggleSave({ ganapId: ganap.id, isSaved: ganap.isSaved ?? false })}
+        onPrimaryAction={handlePrimaryAction}
+        onSecondaryAction={handleSecondaryAction}
+      />
+      {shareUrl !== null ? (
+        <GanapShareModal
+          visible
+          url={shareUrl}
+          ganap={ganap}
+          schedule={schedule}
+          onClose={(): void => setShareUrl(null)}
+          onNativeShare={handleNativeShare}
+        />
+      ) : null}
+    </>
   );
 }

@@ -32,6 +32,7 @@ import type { GanapScheduleModel } from '@/utils/ganap-detail';
 import { AnnouncementCard } from './AnnouncementCard';
 import { AttendanceScanRow } from './AttendanceScanRow';
 import { FeedbackRow } from './FeedbackRow';
+import { GanapLocationLink } from './GanapLocationLink';
 
 /** Stable no-op passed to {@link AttendanceScanRow} outside the `available` state. */
 function noop(): void {}
@@ -325,14 +326,21 @@ function EventHubAnnouncementHeader({
           />
         </View>
 
-        <View className="mt-md flex-row items-start">
-          <SummaryIconTile>
-            <MapPin size={16} color={Colors[theme].primary} />
-          </SummaryIconTile>
-          <Text className="min-w-0 flex-1 font-inter-semibold text-body-md">
-            {address ?? 'Location to be announced'}
-          </Text>
-        </View>
+        <GanapLocationLink
+          className="mt-md min-h-touch"
+          latitude={ganap.locationLat}
+          longitude={ganap.locationLong}
+          locationName={address}
+        >
+          <View className="min-h-touch flex-row items-center">
+            <SummaryIconTile>
+              <MapPin size={16} color={Colors[theme].primary} />
+            </SummaryIconTile>
+            <Text className="min-w-0 flex-1 font-inter-semibold text-body-md">
+              {address ?? 'Location to be announced'}
+            </Text>
+          </View>
+        </GanapLocationLink>
 
         <View className="mt-md flex-row items-start">
           <SummaryIconTile>

@@ -4,7 +4,7 @@ import { DirectChatThreadView } from '@/components/chat/DirectChatThreadView';
 import { ModerationActionSheet, type ModerationActionTarget } from '@/components/moderation/ModerationActionSheet';
 import { Routes } from '@/constants/routes';
 import { useMessageReactionMutation, useUnsendMessageMutation } from '@/hooks/mutations/useChatEngagementMutation';
-import { useBlockUserMutation, useCreateReportMutation } from '@/hooks/mutations/useModerationMutation';
+import { useCreateReportMutation } from '@/hooks/mutations/useModerationMutation';
 import { useDirectChatListQuery } from '@/hooks/queries/useChatQuery';
 import { useDirectChat } from '@/hooks/useDirectChat';
 import { useAuthStore } from '@/store/auth.store';
@@ -82,7 +82,6 @@ export default function DirectChatThreadScreen(): ReactElement {
   });
   const currentUserId: string | null = useAuthStore((state) => state.user?.id ?? null);
   const reportMutation = useCreateReportMutation();
-  const blockMutation = useBlockUserMutation();
   const reactionMutation = useMessageReactionMutation();
   const unsendMutation = useUnsendMessageMutation();
   const [reactionPendingMessageId, setReactionPendingMessageId] = useState<string | null>(null);
@@ -104,10 +103,7 @@ export default function DirectChatThreadScreen(): ReactElement {
         id: message.id,
         senderId: message.senderId,
         senderLabel: message.senderUsername,
-        canBlock: currentUserId !== null && message.senderId !== currentUserId,
         canUnsend: isChatMessageUnsendAvailable(message, currentUserId, chat.session?.canSend === true),
-        reactionSummary: message.type === 'UNSENT' ? null : message.reactionSummary,
-        canReact: chat.session?.canSend === true,
       });
     },
     [chat.session?.canSend, currentUserId],
@@ -118,19 +114,11 @@ export default function DirectChatThreadScreen(): ReactElement {
       if (message.type === 'UNSENT' || chat.session?.canSend !== true || reactionMutation.isPending) return;
       setReactionPendingMessageId(message.id);
       try {
-        const summary = await reactionMutation.mutateAsync({
+        await reactionMutation.mutateAsync({
           conversationId: message.conversationId,
           messageId: message.id,
           reaction,
         });
-        setModerationMessage((selected: ChatMessage | null): ChatMessage | null =>
-          selected?.id === message.id ? { ...selected, reactionSummary: summary } : selected,
-        );
-        setModerationTarget((selected: ModerationActionTarget | null): ModerationActionTarget | null =>
-          selected?.type === 'MESSAGE' && selected.id === message.id
-            ? { ...selected, reactionSummary: summary }
-            : selected,
-        );
       } catch (error: unknown) {
         showToast('error', getChatEngagementErrorMessage(error, 'Reaction could not be saved.'));
       } finally {
@@ -164,11 +152,6 @@ export default function DirectChatThreadScreen(): ReactElement {
   const submitReport = useCallback(
     (input: CreateReportInput): Promise<ModerationReportReceipt> => reportMutation.mutateAsync(input),
     [reportMutation],
-  );
-
-  const blockUser = useCallback(
-    (userId: string): Promise<void> => blockMutation.mutateAsync({ userId }),
-    [blockMutation],
   );
 
   useEffect((): void => {
@@ -218,6 +201,8 @@ export default function DirectChatThreadScreen(): ReactElement {
         onRetryImage={chat.retryImage}
         onRefreshImage={chat.refreshImage}
         onMessageActions={openMessageActions}
+        onMessageReaction={onReaction}
+        reactionPendingMessageId={reactionPendingMessageId}
         accessLost={chat.accessLost}
       />
       <ModerationActionSheet
@@ -225,14 +210,7 @@ export default function DirectChatThreadScreen(): ReactElement {
         target={moderationTarget}
         onClose={closeModeration}
         onReport={submitReport}
-        onBlock={blockUser}
         onUnsend={unsendFromActions}
-        onReaction={(reaction: ReactionType | null): Promise<void> => {
-          const message: ChatMessage | null = moderationMessage;
-          if (!message) return Promise.resolve();
-          return onReaction(message, reaction);
-        }}
-        reactionPending={reactionPendingMessageId === moderationMessage?.id}
       />
     </>
   );

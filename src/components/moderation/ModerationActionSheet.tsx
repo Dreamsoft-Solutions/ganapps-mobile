@@ -12,14 +12,12 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MessageReactionBar } from '@/components/chat/MessageReactionBar';
 import { Button } from '@/components/common/Button';
 import { IconButton } from '@/components/common/IconButton';
 import { Text } from '@/components/common/Text';
 import { Colors, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { showToast } from '@/store/toast.store';
-import type { ReactionSummary, ReactionType } from '@/types/chat.types';
 import type { CreateReportInput, ModerationReportReason, ModerationReportReceipt } from '@/types/moderation.types';
 import { getModerationErrorMessage, MODERATION_REASONS } from '@/utils/moderation';
 
@@ -29,14 +27,8 @@ export interface MessageModerationTarget {
   id: string;
   senderId: string;
   senderLabel: string;
-  /** False for the authenticated User's own message; self-block is not offered. */
-  canBlock?: boolean;
   /** True when the message is the authenticated User's currently eligible text/image. */
   canUnsend?: boolean;
-  /** Aggregate used by the compact reaction tray in the action sheet. */
-  reactionSummary?: ReactionSummary | null;
-  /** Server capability gate; read-only chat must not offer reaction attempts. */
-  canReact?: boolean;
 }
 
 /** User target presented by the moderation action sheet. */
@@ -59,13 +51,9 @@ export interface ModerationActionSheetProps {
   target: ModerationActionTarget | null;
   onClose: () => void;
   onReport: (input: CreateReportInput) => Promise<ModerationReportReceipt>;
-  onBlock: (userId: string) => Promise<void>;
+  onBlock?: (userId: string) => Promise<void>;
   /** Performs the sender-owned unsend after the in-app confirmation. */
   onUnsend?: () => void | Promise<void>;
-  /** Sets or removes a reaction from the selected message. */
-  onReaction?: (reaction: ReactionType | null) => void | Promise<void>;
-  /** Message reaction mutation state for the selected message. */
-  reactionPending?: boolean;
 }
 
 type SheetStep = 'actions' | 'reasons' | 'report-confirm' | 'block-confirm' | 'block-success' | 'unsend-confirm';
@@ -90,9 +78,7 @@ function getTargetDescription(target: ModerationActionTarget): string {
 }
 
 function canBlockTarget(target: ModerationActionTarget): boolean {
-  return target.type === 'USER'
-    ? Boolean(target.id) && target.canBlock !== false
-    : Boolean(target.senderId) && target.canBlock !== false;
+  return target.type === 'USER' && Boolean(target.id) && target.canBlock !== false;
 }
 
 function limitReportDetails(value: string): string {
@@ -124,7 +110,7 @@ function buildReportInput(
 }
 
 /**
- * Renders report and block actions for a message or authorized profile.
+ * Renders report and unsend actions for a message, or report and block actions for an authorized profile.
  *
  * The sheet keeps report details local until submit, sends only the typed
  * server payload, and leaves visibility decisions to the server response.
@@ -140,8 +126,6 @@ export function ModerationActionSheet({
   onReport,
   onBlock,
   onUnsend,
-  onReaction,
-  reactionPending = false,
 }: ModerationActionSheetProps): ReactElement | null {
   const insets = useSafeAreaInsets();
   const theme = useResolvedTheme();
@@ -188,11 +172,11 @@ export function ModerationActionSheet({
   };
 
   const submitBlock = async (): Promise<void> => {
-    if (isSubmitting || !canBlockTarget(target)) return;
+    if (!onBlock || isSubmitting || !canBlockTarget(target)) return;
     setIsSubmitting(true);
     setError(null);
     try {
-      await onBlock(target.type === 'MESSAGE' ? target.senderId : target.id);
+      await onBlock(target.id);
       setStep('block-success');
       AccessibilityInfo.announceForAccessibility('User blocked.');
     } catch (caughtError: unknown) {
@@ -258,19 +242,6 @@ export function ModerationActionSheet({
       <>
         {renderHeader('Moderation actions')}
         <Text className="mb-md text-body-md text-muted-foreground">{getTargetDescription(target)}</Text>
-        {target.type === 'MESSAGE' && target.canReact !== false && target.reactionSummary && onReaction && (
-          <View className="mb-md rounded-xl border border-border bg-muted p-xs">
-            <MessageReactionBar
-              summary={target.reactionSummary}
-              presentation="tray"
-              isPending={reactionPending}
-              containerLabel="Message reactions"
-              onSelect={(reaction: ReactionType | null): void => {
-                void onReaction(reaction);
-              }}
-            />
-          </View>
-        )}
         {target.type === 'MESSAGE' &&
           renderAction(getReportActionLabel(target), (): void => {
             setError(null);
@@ -293,7 +264,8 @@ export function ModerationActionSheet({
             setError(null);
             setStep('reasons');
           })}
-        {canBlockTarget(target) &&
+        {onBlock &&
+          canBlockTarget(target) &&
           renderAction(
             'Block user',
             (): void => {

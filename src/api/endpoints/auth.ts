@@ -1,12 +1,15 @@
 import type { AxiosResponse } from 'axios';
 import type {
+  CompletePasswordResetDto,
   DeleteAccountResponse,
   GoogleAuthRequestDto,
   GoogleAuthResponse,
   LoginDto,
+  PasswordResetResponse,
   RefreshRequest,
   RegisterDto,
   RegisterResponse,
+  RequestPasswordResetDto,
   TokenResponse,
   UpdateProfileRequest,
   VerifyEmailRequest,
@@ -36,6 +39,12 @@ export const authAPI = {
 
   register: (dto: RegisterDto): Promise<RegisterResponse> =>
     axiosInstance.post<RegisterResponse>('/auth/register', dto).then((res) => res.data),
+
+  requestPasswordReset: (dto: RequestPasswordResetDto): Promise<PasswordResetResponse> =>
+    axiosInstance.post<PasswordResetResponse>('/auth/password-reset/request', dto).then((res) => res.data),
+
+  completePasswordReset: (dto: CompletePasswordResetDto): Promise<PasswordResetResponse> =>
+    axiosInstance.post<PasswordResetResponse>('/auth/password-reset/complete', dto).then((res) => res.data),
 
   logout: (refreshToken?: string): Promise<void> =>
     axiosInstance.post<void>('/auth/logout', { refreshToken }).then((res) => res.data),

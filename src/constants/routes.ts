@@ -14,10 +14,16 @@ export interface RouteTable {
   /** Public screens reachable without a token. */
   public: {
     welcome: Href;
+    friendShare: (code: string) => Href;
+    ganapShare: (ganapId: string) => Href;
   };
   /** Screens reachable without a token. */
   auth: {
     login: Href;
+    loginForFriendShare: (code: string) => Href;
+    loginForGanapShare: (ganapId: string) => Href;
+    /** Builds the public password-recovery route with an optional prefilled email. */
+    forgotPassword: (email?: string) => Href;
   };
   /** Root-level, deliberately outside `(auth)`. */
   verifyEmail: Href;
@@ -33,7 +39,8 @@ export interface RouteTable {
   profileEdit: Href;
   profileSettings: Href;
   profileJoined: Href;
-  ganapDetail: (ganapId: string) => Href;
+  friendAddWithCode: (code: string) => Href;
+  ganapDetail: (ganapId: string, returnTo?: 'my-events') => Href;
   ganapRegistration: (ganapId: string) => Href;
   eventHub: (ganapId: string) => Href;
   eventChat: (ganapId: string) => Href;
@@ -79,10 +86,28 @@ export interface RouteTable {
 export const Routes: RouteTable = {
   public: {
     welcome: { pathname: '/(public)' },
+    friendShare: (code: string): Href => ({
+      pathname: '/(public)/friends/[code]',
+      params: { code },
+    }),
+    ganapShare: (ganapId: string): Href => ({
+      pathname: '/(public)/ganaps/[id]',
+      params: { id: ganapId },
+    }),
   },
 
   auth: {
     login: { pathname: '/(auth)/login' },
+    loginForFriendShare: (code: string): Href => ({
+      pathname: '/(auth)/login',
+      params: { returnFriendCode: code },
+    }),
+    loginForGanapShare: (ganapId: string): Href => ({
+      pathname: '/(auth)/login',
+      params: { returnGanapId: ganapId },
+    }),
+    forgotPassword: (email?: string): Href =>
+      email ? { pathname: '/(auth)/forgot-password', params: { email } } : { pathname: '/(auth)/forgot-password' },
   },
 
   verifyEmail: { pathname: '/verify-email' },
@@ -99,16 +124,23 @@ export const Routes: RouteTable = {
   profileSettings: { pathname: '/(app)/(profile)/settings' },
   profileJoined: { pathname: '/(app)/(profile)/joined' },
 
+  /** Builds the Chat tab route with the Add Friend form prefilled with one Friend Code. */
+  friendAddWithCode: (code: string): Href => ({
+    pathname: '/(app)/(chat)/chat',
+    params: { friendCode: code },
+  }),
+
   /**
    * Builds the href for a single event's detail screen.
    *
    * @param ganapId - Value for the `[ganap-id]` segment of
    * `src/app/(app)/(home)/[ganap-id].tsx`.
+   * @param returnTo - Optional My Events destination for the detail screen's back action.
    * @returns An href targeting that event's detail screen.
    */
-  ganapDetail: (ganapId: string): Href => ({
+  ganapDetail: (ganapId: string, returnTo?: 'my-events'): Href => ({
     pathname: '/(app)/(home)/[ganap-id]',
-    params: { 'ganap-id': ganapId },
+    params: returnTo === undefined ? { 'ganap-id': ganapId } : { 'ganap-id': ganapId, returnTo },
   }),
 
   /**

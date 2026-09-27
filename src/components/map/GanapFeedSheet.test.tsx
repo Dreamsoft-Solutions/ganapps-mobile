@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import type { UseGanapsResult } from '@/hooks/useGanaps';
 import type { GanapListItem } from '@/types/ganap.types';
 import {
@@ -12,6 +12,8 @@ import {
 import { GanapFeedSheet } from './GanapFeedSheet';
 
 const mockSnapToIndex = jest.fn<(index: number) => void>();
+let mockBottomSheetOnChange: ((index: number) => void) | undefined;
+let mockEnablePanDownToClose: boolean | undefined;
 
 /**
  * Builds on the library's own mock, which renders children and swaps
@@ -28,9 +30,16 @@ jest.mock('@gorhom/bottom-sheet', () => {
 
   const Sheet = React.forwardRef(
     (
-      props: { children?: React.ReactNode; handleComponent?: () => React.ReactElement },
+      props: {
+        children?: React.ReactNode;
+        handleComponent?: () => React.ReactElement;
+        onChange?: (index: number) => void;
+        enablePanDownToClose?: boolean;
+      },
       ref: React.Ref<unknown>,
     ): React.ReactElement => {
+      mockBottomSheetOnChange = props.onChange;
+      mockEnablePanDownToClose = props.enablePanDownToClose;
       React.useImperativeHandle(ref, (): { snapToIndex: (index: number) => void } => ({
         snapToIndex: mockSnapToIndex,
       }));
@@ -278,7 +287,22 @@ describe('GanapFeedSheet selected mode', () => {
     const onClearSelection = jest.fn();
     const screen = await renderSheet({ selectedGanap: FEED_ITEMS[0], onClearSelection });
 
-    await fireEvent.press(screen.getByLabelText('Show all events'));
+    await fireEvent.press(screen.getByLabelText('Close events list'));
+
+    expect(onClearSelection).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the selection after the sheet closes from a downward pan', async (): Promise<void> => {
+    const { index, cluster } = clusterFixture();
+    const onClearSelection = jest.fn();
+    await renderSheet({ selectedCluster: cluster, clusterIndex: index, onClearSelection });
+
+    expect(mockEnablePanDownToClose).toBe(true);
+    expect(mockBottomSheetOnChange).toBeDefined();
+
+    await act(async (): Promise<void> => {
+      mockBottomSheetOnChange?.(-1);
+    });
 
     expect(onClearSelection).toHaveBeenCalledTimes(1);
   });
@@ -298,11 +322,11 @@ describe('GanapFeedSheet cluster mode', () => {
     expect(screen.getByText('Event leaf-b')).toBeTruthy();
   });
 
-  it('opens to the half snap rather than the peek', async (): Promise<void> => {
+  it('keeps the cluster leaf list at the peek so expanded map pins stay visible', async (): Promise<void> => {
     const { index, cluster } = clusterFixture();
     await renderSheet({ selectedCluster: cluster, clusterIndex: index });
 
-    expect(mockSnapToIndex).toHaveBeenLastCalledWith(1);
+    expect(mockSnapToIndex).toHaveBeenLastCalledWith(0);
   });
 
   it('zooms to the cluster and clears it, so the sheet stops listing a group that dissolved', async (): Promise<void> => {

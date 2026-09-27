@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { MapPin } from 'lucide-react-native';
+import { BookmarkCheck, MapPin } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { View } from 'react-native';
 import { Colors } from '@/constants/theme';
@@ -22,7 +22,8 @@ interface GanapMapPinProps {
  *
  * Replicates the web create-event pin: a dark rotated teardrop with a
  * circular logo inset. Uses `mapPinImage` when available, falling back to
- * `coverImage`, then a generic pin icon.
+ * `coverImage`, then a generic pin icon. A saved Ganap also carries a small
+ * badge outside the pin head so its poster remains visible.
  *
  * @param props - The Ganap to render.
  * @returns A marker view element.
@@ -77,6 +78,16 @@ export function GanapMapPin({ ganap }: GanapMapPinProps): ReactElement {
           )}
         </View>
       </View>
+      {ganap.isSaved === true && (
+        <View
+          testID="ganap-map-pin-saved-indicator"
+          accessible={false}
+          pointerEvents="none"
+          className="absolute right-0 top-0 h-6 w-6 items-center justify-center rounded-full border-2 border-secondary bg-background"
+        >
+          <BookmarkCheck size={13} color={Colors[theme].save} />
+        </View>
+      )}
     </View>
   );
 }
