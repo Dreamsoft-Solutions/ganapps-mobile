@@ -118,7 +118,7 @@ export function MessageReactionBar({
         presentation === 'summary'
           ? {
               position: 'absolute',
-              bottom: 0,
+              bottom: -Spacing.sm,
               ...(alignment === 'right' ? { right: 0 } : { left: 0 }),
             }
           : presentation === 'inline'

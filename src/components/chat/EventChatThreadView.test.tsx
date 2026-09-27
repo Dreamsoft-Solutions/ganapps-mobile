@@ -431,7 +431,7 @@ describe('EventChatThreadView', (): void => {
     expect(screen.getByText('2')).toBeTruthy();
     expect(screen.getByLabelText('Message reactions').props.style).toMatchObject({
       position: 'absolute',
-      bottom: 0,
+      bottom: -Spacing.sm,
       left: 0,
     });
     await fireEvent.press(screen.getByLabelText('Add reaction'));

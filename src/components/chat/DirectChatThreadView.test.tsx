@@ -213,7 +213,7 @@ describe('DirectChatThreadView', (): void => {
     expect(screen.queryByLabelText('React with angry face')).toBeNull();
     expect(screen.getByLabelText('Message reactions').props.style).toMatchObject({
       position: 'absolute',
-      bottom: 0,
+      bottom: -Spacing.sm,
       left: 0,
     });
     await fireEvent.press(screen.getByLabelText('Add reaction'));
