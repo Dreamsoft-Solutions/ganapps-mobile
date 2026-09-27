@@ -1,18 +1,20 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, BackHandler, Share, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { EventDetailView } from '@/components/ganaps/EventDetailView';
+import { GanapShareModal } from '@/components/ganaps/GanapShareModal';
 import { Routes } from '@/constants/routes';
 import { Spacing } from '@/constants/theme';
 import { useBusinessDetailQuery } from '@/hooks/queries/useBusinessesQuery';
 import { useFriendGoingQuery } from '@/hooks/queries/useFriendsQuery';
 import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { useGanaps } from '@/hooks/useGanaps';
+import { showToast } from '@/store/toast.store';
 import type { FriendGoingRecord, FriendUserSummary } from '@/types/friends.types';
 import type { GanapAction, GanapActionConfirmation } from '@/utils/ganap-detail';
 import {
@@ -21,6 +23,7 @@ import {
   getGanapCapacityModel,
   getGanapScheduleModel,
 } from '@/utils/ganap-detail';
+import { buildGanapShareUrl } from '@/utils/share-links';
 
 /**
  * Loaded Ganap Details route that owns data fetching, navigation, and mutations.
@@ -36,6 +39,7 @@ export default function GanapDetailScreen(): ReactElement {
   const businessQuery = useBusinessDetailQuery(ganap?.businessId);
   const friendsGoingQuery = useFriendGoingQuery(true, ganapId);
   const { join, leave, toggleLike, toggleSave, isJoining, isLeaving, isTogglingLike, isTogglingSave } = useGanaps();
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
   const screenOptions: ReactElement = <Stack.Screen options={{ gestureEnabled: !isMyEventsOrigin }} />;
 
   const handleBack = useCallback((): void => {
@@ -106,9 +110,23 @@ export default function GanapDetailScreen(): ReactElement {
     .filter((record: FriendGoingRecord): boolean => record.ganap.ganapId === ganap.id)
     .map((record: FriendGoingRecord): FriendUserSummary => record.user);
 
-  const handleShare = async (): Promise<void> => {
-    const message = buildGanapShareMessage(ganap, schedule);
-    await Share.share({ message, title: ganap.title });
+  const handleShare = (): void => {
+    try {
+      setShareUrl(buildGanapShareUrl(ganap.id));
+    } catch {
+      showToast('error', 'Unable to create a share link.');
+    }
+  };
+
+  const handleNativeShare = async (): Promise<void> => {
+    if (!shareUrl) return;
+
+    try {
+      const message = `${buildGanapShareMessage(ganap, schedule)}\n${shareUrl}`;
+      await Share.share({ message, title: ganap.title });
+    } catch {
+      showToast('error', 'Unable to share this event.');
+    }
   };
 
   const dispatchAction = async (action: GanapAction, confirmation: GanapActionConfirmation | null): Promise<void> => {
@@ -176,6 +194,14 @@ export default function GanapDetailScreen(): ReactElement {
         onToggleSave={(): Promise<void> => toggleSave({ ganapId: ganap.id, isSaved: ganap.isSaved ?? false })}
         onPrimaryAction={handlePrimaryAction}
         onSecondaryAction={handleSecondaryAction}
+      />
+      <GanapShareModal
+        visible={shareUrl !== null}
+        url={shareUrl ?? ''}
+        ganap={ganap}
+        schedule={schedule}
+        onClose={(): void => setShareUrl(null)}
+        onNativeShare={handleNativeShare}
       />
     </>
   );

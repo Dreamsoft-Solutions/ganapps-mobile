@@ -15,7 +15,7 @@ import type {
   GanapDetail,
   RegistrationStatus,
 } from '@/types/ganap.types';
-import { getGanapScheduleModel } from '@/utils/ganap-detail';
+import { type GanapScheduleModel, getGanapScheduleModel } from '@/utils/ganap-detail';
 
 const mockRouter = {
   back: jest.fn<() => void>(),
@@ -31,6 +31,19 @@ const mockAnnouncementsRefetch = jest.fn<() => Promise<unknown>>().mockResolvedV
 const mockFriendsGoingRefetch = jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined);
 const mockFetchNextPage = jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined);
 const mockEventHubView = jest.fn<(props: EventHubViewProps) => ReactElement>();
+interface TestShareModalProps {
+  visible: boolean;
+  url: string;
+  ganap: GanapDetail;
+  schedule: GanapScheduleModel;
+  onClose: () => void;
+  onNativeShare: () => void | Promise<void>;
+}
+const mockShareModal = jest.fn<(props: TestShareModalProps) => ReactElement>();
+const mockBuildGanapShareUrl = jest.fn<(id: string) => string>(
+  (id: string): string => `https://ganapps.example/ganaps/${id}`,
+);
+const mockShowToast = jest.fn<(type: 'error', title: string) => string>().mockReturnValue('toast');
 
 type FormBlocksQueryState = Pick<UseQueryResult<FormBlock[], Error>, 'data' | 'isLoading' | 'error'>;
 type UseFormBlocksQueryMock = (ganapId: string, scope: FormBlockScope) => FormBlocksQueryState;
@@ -196,6 +209,18 @@ jest.mock('@/components/ganaps/EventHubView', () => ({
   EventHubView: (props: EventHubViewProps): ReactElement => mockEventHubView(props),
 }));
 
+jest.mock('@/components/ganaps/GanapShareModal', () => ({
+  GanapShareModal: (props: TestShareModalProps): ReactElement => mockShareModal(props),
+}));
+
+jest.mock('@/utils/share-links', () => ({
+  buildGanapShareUrl: (id: string): string => mockBuildGanapShareUrl(id),
+}));
+
+jest.mock('@/store/toast.store', () => ({
+  showToast: (type: 'error', title: string): string => mockShowToast(type, title),
+}));
+
 jest.mock('@/hooks/queries/useGanapsQuery', () => ({
   useGanapDetailQuery: (): typeof mockDetailState => mockDetailState,
   useFormBlocksQuery: (ganapId: string, scope: FormBlockScope): FormBlocksQueryState =>
@@ -235,7 +260,15 @@ function latestViewProps(): EventHubViewProps {
   return props;
 }
 
+function latestShareModalProps(): TestShareModalProps {
+  const props = mockShareModal.mock.calls.at(-1)?.[0];
+  if (!props) throw new Error('GanapShareModal was never rendered');
+  return props;
+}
+
 function resetStates(): void {
+  mockBuildGanapShareUrl.mockImplementation((id: string): string => `https://ganapps.example/ganaps/${id}`);
+  mockShareModal.mockImplementation((): ReactElement => <MockView />);
   mockDetailState = {
     data: mockGanap,
     isLoading: false,
@@ -464,17 +497,39 @@ describe('Event Hub route loaded behavior', (): void => {
     expect(mockRouter.dismiss).not.toHaveBeenCalled();
   });
 
-  it('shares real Ganap data through the native share sheet', async (): Promise<void> => {
+  it('opens the QR card and includes its canonical URL in native sharing', async (): Promise<void> => {
     const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction', activityType: undefined });
     const screen = await renderRoute();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Hub share' }));
 
+    const modalProps = latestShareModalProps();
+    expect(mockBuildGanapShareUrl).toHaveBeenCalledWith('g1');
+    expect(modalProps.visible).toBe(true);
+    expect(modalProps.url).toBe('https://ganapps.example/ganaps/g1');
+    expect(modalProps.ganap).toBe(mockGanap);
+
+    await act(async (): Promise<void> => {
+      await modalProps.onNativeShare();
+    });
+
     const schedule = getGanapScheduleModel(mockGanap.startDate, mockGanap.endDate);
     expect(share).toHaveBeenCalledWith({
-      message: `Coffee & Code\n${schedule.dateLabel} · ${schedule.timeLabel}\nStudent Union`,
+      message: `Coffee & Code\n${schedule.dateLabel} · ${schedule.timeLabel}\nStudent Union\nhttps://ganapps.example/ganaps/g1`,
       title: 'Coffee & Code',
     });
+  });
+
+  it('shows a graceful error when the public share URL cannot be built', async (): Promise<void> => {
+    mockBuildGanapShareUrl.mockImplementation((): string => {
+      throw new Error('EXPO_PUBLIC_WEB_URL is invalid');
+    });
+    const screen = await renderRoute();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Hub share' }));
+
+    expect(latestShareModalProps().visible).toBe(false);
+    expect(mockShowToast).toHaveBeenCalledWith('error', 'Unable to create a share link.');
   });
 
   it('wires announcement retry and load-more to the aggregate hook', async (): Promise<void> => {

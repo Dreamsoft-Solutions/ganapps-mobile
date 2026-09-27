@@ -1,11 +1,12 @@
 // Tests for src/app/(app)/(home)/[ganap-id].tsx live here rather than beside
 // the route: Expo Router would otherwise treat the test as a screen.
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { render } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
-import { View as MockView } from 'react-native';
+import { View as MockView, Share } from 'react-native';
 import type { FriendGoingRecord } from '@/types/friends.types';
 import type { GanapDetail } from '@/types/ganap.types';
+import type { GanapScheduleModel } from '@/utils/ganap-detail';
 
 const mockParams: { 'ganap-id': string } = { 'ganap-id': 'ganap_1' };
 const mockRouter = {
@@ -15,6 +16,19 @@ const mockRouter = {
 const mockDetailRefetch = jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined);
 const mockFriendsGoingRefetch = jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined);
 const mockEventDetailView = jest.fn<(props: Record<string, unknown>) => ReactElement>();
+interface TestShareModalProps {
+  visible: boolean;
+  url: string;
+  ganap: GanapDetail;
+  schedule: GanapScheduleModel;
+  onClose: () => void;
+  onNativeShare: () => void | Promise<void>;
+}
+const mockShareModal = jest.fn<(props: TestShareModalProps) => ReactElement>();
+const mockBuildGanapShareUrl = jest.fn<(id: string) => string>(
+  (id: string): string => `https://ganapps.example/ganaps/${id}`,
+);
+const mockShowToast = jest.fn<(type: 'error', title: string) => string>().mockReturnValue('toast');
 
 const ganap: GanapDetail = {
   id: 'ganap_1',
@@ -92,6 +106,18 @@ jest.mock('@/components/ganaps/EventDetailView', () => ({
   EventDetailView: (props: Record<string, unknown>): ReactElement => mockEventDetailView(props),
 }));
 
+jest.mock('@/components/ganaps/GanapShareModal', () => ({
+  GanapShareModal: (props: TestShareModalProps): ReactElement => mockShareModal(props),
+}));
+
+jest.mock('@/utils/share-links', () => ({
+  buildGanapShareUrl: (id: string): string => mockBuildGanapShareUrl(id),
+}));
+
+jest.mock('@/store/toast.store', () => ({
+  showToast: (type: 'error', title: string): string => mockShowToast(type, title),
+}));
+
 jest.mock('@/components/common/Error', () => ({
   ErrorView: (): ReactElement => <MockView />,
 }));
@@ -148,7 +174,15 @@ function latestViewProps(): Record<string, unknown> {
   return props;
 }
 
+function latestShareModalProps(): TestShareModalProps {
+  const props = mockShareModal.mock.calls.at(-1)?.[0];
+  if (!props) throw new Error('GanapShareModal was never rendered');
+  return props;
+}
+
 function resetState(): void {
+  mockBuildGanapShareUrl.mockImplementation((id: string): string => `https://ganapps.example/ganaps/${id}`);
+  mockShareModal.mockImplementation((): ReactElement => <MockView />);
   mockDetailState = {
     data: ganap,
     isLoading: false,
@@ -236,5 +270,48 @@ describe('Event Details route refresh', (): void => {
 
     expect(latestViewProps().friendsGoing).toEqual([]);
     expect((latestViewProps().friendsGoingError as Error).message).toBe('Friends activity unavailable');
+  });
+});
+
+describe('Event Details route sharing', (): void => {
+  it('opens the QR card and includes its canonical URL in native sharing', async (): Promise<void> => {
+    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction', activityType: undefined });
+    await render(<GanapDetailScreen />);
+
+    const onShare = latestViewProps().onShare as (() => void) | undefined;
+    expect(onShare).toBeDefined();
+    await act(async (): Promise<void> => {
+      onShare?.();
+    });
+
+    const modalProps = latestShareModalProps();
+    expect(mockBuildGanapShareUrl).toHaveBeenCalledWith('ganap_1');
+    expect(modalProps.visible).toBe(true);
+    expect(modalProps.url).toBe('https://ganapps.example/ganaps/ganap_1');
+    expect(modalProps.ganap).toBe(ganap);
+
+    await act(async (): Promise<void> => {
+      await modalProps.onNativeShare();
+    });
+
+    expect(share).toHaveBeenCalledWith({
+      message: `Test Event\n${modalProps.schedule.dateLabel} · ${modalProps.schedule.timeLabel}\nStudent Union\nhttps://ganapps.example/ganaps/ganap_1`,
+      title: 'Test Event',
+    });
+  });
+
+  it('shows a graceful error when the public share URL cannot be built', async (): Promise<void> => {
+    mockBuildGanapShareUrl.mockImplementation((): string => {
+      throw new Error('EXPO_PUBLIC_WEB_URL is invalid');
+    });
+    await render(<GanapDetailScreen />);
+
+    const onShare = latestViewProps().onShare as (() => void) | undefined;
+    await act(async (): Promise<void> => {
+      onShare?.();
+    });
+
+    expect(latestShareModalProps().visible).toBe(false);
+    expect(mockShowToast).toHaveBeenCalledWith('error', 'Unable to create a share link.');
   });
 });

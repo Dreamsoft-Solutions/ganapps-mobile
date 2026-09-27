@@ -7,6 +7,7 @@ import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { EventHubView } from '@/components/ganaps/EventHubView';
+import { GanapShareModal } from '@/components/ganaps/GanapShareModal';
 import { Routes } from '@/constants/routes';
 import { useAnnouncementReactionMutation } from '@/hooks/mutations/useChatEngagementMutation';
 import { useFriendGoingQuery } from '@/hooks/queries/useFriendsQuery';
@@ -20,6 +21,7 @@ import { type AttendanceScanState, getAttendanceScanState } from '@/utils/attend
 import { canAccessEventHub } from '@/utils/event-hub';
 import { type FeedbackRowState, getFeedbackRowState } from '@/utils/feedback';
 import { buildGanapShareMessage, type GanapScheduleModel, getGanapScheduleModel } from '@/utils/ganap-detail';
+import { buildGanapShareUrl } from '@/utils/share-links';
 
 interface EventHubUnavailableProps {
   onBack: () => void;
@@ -81,6 +83,7 @@ function EligibleEventHub({
   const announcements: UseGanapAnnouncementsResult = useGanapAnnouncements(ganap.id, true);
   const friendsGoingQuery = useFriendGoingQuery(true, ganap.id);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
   const schedule: GanapScheduleModel = getGanapScheduleModel(ganap.startDate, ganap.endDate);
   const accessLost: boolean = announcements.hasLostAccess;
   const scanState: AttendanceScanState = getAttendanceScanState(ganap, new Date());
@@ -96,8 +99,23 @@ function EligibleEventHub({
     .filter((record: FriendGoingRecord): boolean => record.ganap.ganapId === ganap.id)
     .map((record: FriendGoingRecord): FriendUserSummary => record.user);
 
-  async function handleShare(): Promise<void> {
-    await Share.share({ message: buildGanapShareMessage(ganap, schedule), title: ganap.title });
+  function handleShare(): void {
+    try {
+      setShareUrl(buildGanapShareUrl(ganap.id));
+    } catch {
+      showToast('error', 'Unable to create a share link.');
+    }
+  }
+
+  async function handleNativeShare(): Promise<void> {
+    if (!shareUrl) return;
+
+    try {
+      const message = `${buildGanapShareMessage(ganap, schedule)}\n${shareUrl}`;
+      await Share.share({ message, title: ganap.title });
+    } catch {
+      showToast('error', 'Unable to share this event.');
+    }
   }
 
   const handleAnnouncementReaction = useCallback(
@@ -129,45 +147,55 @@ function EligibleEventHub({
   }, [announcements.refetch, friendsGoingQuery.refetch, onRefreshDetail]);
 
   return (
-    <EventHubView
-      ganap={ganap}
-      schedule={schedule}
-      announcements={accessLost ? [] : announcements.announcements}
-      total={accessLost ? 0 : announcements.total}
-      isAnnouncementsLoading={announcements.isLoading}
-      announcementError={accessLost ? null : announcements.error}
-      hasNextPage={!accessLost && announcements.hasNextPage}
-      isFetchingNextPage={!accessLost && announcements.isFetchingNextPage}
-      isFetchNextPageError={!accessLost && announcements.isFetchNextPageError}
-      accessLost={accessLost}
-      isRefreshing={isRefreshing}
-      friendsGoing={accessLost ? [] : friendsGoing}
-      isFriendsGoingLoading={!accessLost && friendsGoingQuery.isLoading}
-      friendsGoingError={accessLost ? null : friendsGoingQuery.error}
-      hasMoreFriendsGoing={!accessLost && Boolean(friendsGoingQuery.hasNextPage)}
-      scanState={scanState}
-      onBack={onBack}
-      onShare={handleShare}
-      onOpenChat={onOpenChat}
-      onRefresh={handleRefresh}
-      onRetryAnnouncements={(): void => {
-        void announcements.refetch();
-      }}
-      onRetryFriendsGoing={(): void => {
-        void friendsGoingQuery.refetch();
-      }}
-      onRetryNextPage={(): void => {
-        void announcements.fetchNextPage();
-      }}
-      onLoadMore={(): void => {
-        void announcements.fetchNextPage();
-      }}
-      onScanAttendance={onScanAttendance}
-      feedbackState={feedbackState}
-      onGiveFeedback={onGiveFeedback}
-      onAnnouncementReaction={handleAnnouncementReaction}
-      announcementReactionPendingId={announcementReactionPendingId}
-    />
+    <>
+      <EventHubView
+        ganap={ganap}
+        schedule={schedule}
+        announcements={accessLost ? [] : announcements.announcements}
+        total={accessLost ? 0 : announcements.total}
+        isAnnouncementsLoading={announcements.isLoading}
+        announcementError={accessLost ? null : announcements.error}
+        hasNextPage={!accessLost && announcements.hasNextPage}
+        isFetchingNextPage={!accessLost && announcements.isFetchingNextPage}
+        isFetchNextPageError={!accessLost && announcements.isFetchNextPageError}
+        accessLost={accessLost}
+        isRefreshing={isRefreshing}
+        friendsGoing={accessLost ? [] : friendsGoing}
+        isFriendsGoingLoading={!accessLost && friendsGoingQuery.isLoading}
+        friendsGoingError={accessLost ? null : friendsGoingQuery.error}
+        hasMoreFriendsGoing={!accessLost && Boolean(friendsGoingQuery.hasNextPage)}
+        scanState={scanState}
+        onBack={onBack}
+        onShare={handleShare}
+        onOpenChat={onOpenChat}
+        onRefresh={handleRefresh}
+        onRetryAnnouncements={(): void => {
+          void announcements.refetch();
+        }}
+        onRetryFriendsGoing={(): void => {
+          void friendsGoingQuery.refetch();
+        }}
+        onRetryNextPage={(): void => {
+          void announcements.fetchNextPage();
+        }}
+        onLoadMore={(): void => {
+          void announcements.fetchNextPage();
+        }}
+        onScanAttendance={onScanAttendance}
+        feedbackState={feedbackState}
+        onGiveFeedback={onGiveFeedback}
+        onAnnouncementReaction={handleAnnouncementReaction}
+        announcementReactionPendingId={announcementReactionPendingId}
+      />
+      <GanapShareModal
+        visible={shareUrl !== null}
+        url={shareUrl ?? ''}
+        ganap={ganap}
+        schedule={schedule}
+        onClose={(): void => setShareUrl(null)}
+        onNativeShare={handleNativeShare}
+      />
+    </>
   );
 }
 
