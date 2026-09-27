@@ -41,6 +41,7 @@ const deletedResponse: DeleteAccountResponse = {
 };
 
 jest.mock('expo-router', () => ({
+  useLocalSearchParams: () => ({}),
   useRouter: () => ({ replace: mockReplace }),
 }));
 jest.mock('@/hooks/queries/useAuthQuery', () => ({

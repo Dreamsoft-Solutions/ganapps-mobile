@@ -1,7 +1,7 @@
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 import { ChevronRight, MessageCircle, Settings, Share2, UserPlus, Users, X } from 'lucide-react-native';
 import type { ReactElement } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -53,6 +53,7 @@ export interface FriendsHubViewProps {
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   isCodeOpen: boolean;
+  initialFriendCode?: string;
   codeQuery: UseQueryResult<FriendCode, Error>;
   isRegeneratingCode: boolean;
   isAddFriendOpen: boolean;
@@ -351,6 +352,7 @@ function CodeModal({
 
 function AddFriendModal({
   visible,
+  initialCode,
   lookupMutation,
   createRequestMutation,
   outgoingRequests,
@@ -362,6 +364,7 @@ function AddFriendModal({
   onOpenProfile,
 }: {
   visible: boolean;
+  initialCode?: string;
   lookupMutation: UseMutationResult<FriendUserSummary, Error, string>;
   createRequestMutation: UseMutationResult<FriendRequestResult, Error, string>;
   outgoingRequests: FriendRequestItem[];
@@ -374,10 +377,14 @@ function AddFriendModal({
 }): ReactElement {
   const insets = useSafeAreaInsets();
   const theme = useResolvedTheme();
-  const [code, setCode] = useState<string>('');
+  const [code, setCode] = useState<string>(initialCode ?? '');
   const target: FriendUserSummary | undefined = lookupMutation.data;
   const error: Error | null = lookupMutation.error ?? createRequestMutation.error ?? null;
   const normalizedCode: string = code.trim().replace(/[\s-]/g, '').toUpperCase();
+
+  useEffect((): void => {
+    setCode(initialCode ?? '');
+  }, [initialCode]);
   const sentRequestForTarget: boolean = Boolean(
     target &&
       (outgoingRequests.some(
@@ -668,6 +675,7 @@ export function FriendsHubView({
   hasNextPage,
   isFetchingNextPage,
   isCodeOpen,
+  initialFriendCode,
   codeQuery,
   isAddFriendOpen,
   lookupMutation,
@@ -770,6 +778,7 @@ export function FriendsHubView({
         />
         <AddFriendModal
           visible={isAddFriendOpen}
+          initialCode={initialFriendCode}
           lookupMutation={lookupMutation}
           createRequestMutation={createRequestMutation}
           outgoingRequests={outgoingRequests}

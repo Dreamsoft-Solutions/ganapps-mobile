@@ -175,6 +175,42 @@ describe('route table entries resolve to their screens', () => {
   });
 });
 
+describe('canonical shared links resolve to their public handoff routes', () => {
+  it('routes Friend Code links through the public stack', () => {
+    expect(resolve('/friends/0123456789AB')).toEqual(['(public)', 'friends/[code]']);
+    expect(Routes.public.friendShare('0123456789AB')).toEqual({
+      pathname: '/(public)/friends/[code]',
+      params: { code: '0123456789AB' },
+    });
+  });
+
+  it('routes Ganap links through the public stack', () => {
+    expect(resolve('/ganaps/event-123')).toEqual(['(public)', 'ganaps/[id]']);
+    expect(Routes.public.ganapShare('event-123')).toEqual({
+      pathname: '/(public)/ganaps/[id]',
+      params: { id: 'event-123' },
+    });
+  });
+
+  it('carries share targets through sign-in and opens the existing Add Friend modal', () => {
+    expect(Routes.auth.loginForFriendShare('0123456789AB')).toEqual({
+      pathname: '/(auth)/login',
+      params: { returnFriendCode: '0123456789AB' },
+    });
+    expect(Routes.friendAddWithCode('0123456789AB')).toEqual({
+      pathname: '/(app)/(chat)/chat',
+      params: { friendCode: '0123456789AB' },
+    });
+  });
+
+  it('carries Ganap targets through sign-in', () => {
+    expect(Routes.auth.loginForGanapShare('event-123')).toEqual({
+      pathname: '/(auth)/login',
+      params: { returnGanapId: 'event-123' },
+    });
+  });
+});
+
 describe('tab stack roots', () => {
   it('declares each tab root as the first configured stack screen', (): void => {
     expect(firstConfiguredScreenName(GanapsLayout())).toBe('ganaps');

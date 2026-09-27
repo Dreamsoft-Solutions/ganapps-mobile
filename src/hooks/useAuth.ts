@@ -1,5 +1,6 @@
 import { type UseMutationResult, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback } from 'react';
 import { Routes } from '@/constants/routes';
 import { useAuthStore } from '@/store/auth.store';
@@ -19,6 +20,7 @@ import type {
   VerifyEmailRequest,
 } from '@/types/auth.types';
 import type { User } from '@/types/user.types';
+import { getShareLinkReturnRoute } from '@/utils/navigation';
 import {
   useCompletePasswordResetMutation,
   useDeleteAccountMutation,
@@ -69,6 +71,8 @@ export interface UseAuthResult {
  */
 export function useAuth(): UseAuthResult {
   const router = useRouter();
+  const searchParams = useLocalSearchParams();
+  const postLoginRoute: Href = getShareLinkReturnRoute(searchParams);
   const queryClient = useQueryClient();
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
@@ -88,9 +92,9 @@ export function useAuth(): UseAuthResult {
   const login = useCallback(
     async (dto: LoginDto) => {
       await loginMutation.mutateAsync(dto);
-      router.replace(Routes.app.home);
+      router.replace(postLoginRoute);
     },
-    [loginMutation, router],
+    [loginMutation, postLoginRoute, router],
   );
 
   const requestPasswordReset = useCallback(
@@ -114,9 +118,9 @@ export function useAuth(): UseAuthResult {
   const googleLogin = useCallback(
     async (dto: GoogleAuthRequestDto) => {
       await googleLoginMutation.mutateAsync(dto);
-      router.replace(Routes.app.home);
+      router.replace(postLoginRoute);
     },
-    [googleLoginMutation, router],
+    [googleLoginMutation, postLoginRoute, router],
   );
 
   const logout = useCallback(async () => {

@@ -7,6 +7,38 @@ const googleServicesFile = process.env.GOOGLE_SERVICES_JSON ?? './google-service
 const googleServiceInfoPlist = process.env.GOOGLE_SERVICE_INFO_PLIST ?? './GoogleService-Info.plist';
 const androidPackage = 'com.ganapps.app';
 
+function getAppLinksHost(webUrl) {
+  if (!webUrl) return undefined;
+
+  try {
+    const url = new URL(webUrl);
+    const hostname = url.hostname.toLowerCase();
+    const isLocalHostname =
+      hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.endsWith('.local');
+    const isIpAddress = hostname.includes(':') || /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
+
+    if (
+      url.protocol !== 'https:' ||
+      url.username !== '' ||
+      url.password !== '' ||
+      url.port !== '' ||
+      url.pathname !== '/' ||
+      url.search !== '' ||
+      url.hash !== '' ||
+      isLocalHostname ||
+      isIpAddress
+    ) {
+      return undefined;
+    }
+
+    return hostname;
+  } catch {
+    return undefined;
+  }
+}
+
+const appLinksHost = getAppLinksHost(process.env.EXPO_PUBLIC_WEB_URL);
+
 function getGoogleClientConfiguration() {
   const environmentWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
@@ -64,6 +96,7 @@ module.exports = {
         usesNonExemptEncryption: false,
       },
       googleServicesFile: googleServiceInfoPlist,
+      associatedDomains: appLinksHost ? [`applinks:${appLinksHost}`] : undefined,
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           'Ganapps uses your location to show events happening near you in Iloilo City.',
@@ -73,6 +106,14 @@ module.exports = {
       package: 'com.ganapps.app',
       versionCode: 2,
       googleServicesFile,
+      intentFilters: appLinksHost
+        ? ['friends', 'ganaps'].map((path) => ({
+            action: 'VIEW',
+            autoVerify: true,
+            data: [{ scheme: 'https', host: appLinksHost, pathPrefix: `/${path}/` }],
+            category: ['BROWSABLE', 'DEFAULT'],
+          }))
+        : undefined,
       blockedPermissions: [
         'android.permission.SYSTEM_ALERT_WINDOW',
         'android.permission.RECORD_AUDIO',

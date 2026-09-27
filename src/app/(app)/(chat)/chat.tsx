@@ -1,13 +1,19 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Share } from 'react-native';
 import { FriendsHubView } from '@/components/friends/FriendsHubView';
 import { Routes } from '@/constants/routes';
 import { type FriendsHubSegment, useFriends } from '@/hooks/useFriends';
 import type { ChatConversationSummary } from '@/types/chat.types';
 import type { FriendRequestDirection } from '@/types/friends.types';
-import { formatFriendCode, formatFriendRetryWarning, getFriendErrorMessage } from '@/utils/friends';
+import {
+  formatFriendCode,
+  formatFriendRetryWarning,
+  getFriendErrorMessage,
+  isValidFriendCode,
+  normalizeFriendCode,
+} from '@/utils/friends';
 
 /**
  * Friends and Chat hub.
@@ -19,12 +25,24 @@ import { formatFriendCode, formatFriendRetryWarning, getFriendErrorMessage } fro
  */
 export default function ChatScreen(): ReactElement {
   const router = useRouter();
+  const { friendCode: rawFriendCode } = useLocalSearchParams<{ friendCode?: string | string[] }>();
+  const friendCode: string | undefined =
+    typeof rawFriendCode === 'string' && isValidFriendCode(rawFriendCode)
+      ? normalizeFriendCode(rawFriendCode)
+      : undefined;
   const [segment, setSegment] = useState<FriendsHubSegment>('chats');
   const [requestDirection, setRequestDirection] = useState<FriendRequestDirection>('incoming');
   const [isCodeOpen, setIsCodeOpen] = useState<boolean>(false);
-  const [isAddFriendOpen, setIsAddFriendOpen] = useState<boolean>(false);
+  const [isAddFriendOpen, setIsAddFriendOpen] = useState<boolean>(friendCode !== undefined);
   const [requestNotice, setRequestNotice] = useState<string | null>(null);
   const friends = useFriends({ segment, requestDirection, codeOpen: isCodeOpen, addFriendOpen: isAddFriendOpen });
+
+  useEffect((): void => {
+    if (friendCode !== undefined) {
+      setRequestNotice(null);
+      setIsAddFriendOpen(true);
+    }
+  }, [friendCode]);
 
   const handleOpenCode = (): void => {
     setRequestNotice(null);
@@ -150,6 +168,7 @@ export default function ChatScreen(): ReactElement {
       hasNextPage={Boolean(activeQuery.hasNextPage)}
       isFetchingNextPage={activeQuery.isFetchingNextPage}
       isCodeOpen={isCodeOpen}
+      initialFriendCode={friendCode}
       codeQuery={friends.codeQuery}
       isRegeneratingCode={friends.regenerateCodeMutation.isPending}
       isAddFriendOpen={isAddFriendOpen}
