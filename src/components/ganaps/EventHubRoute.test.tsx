@@ -458,6 +458,12 @@ describe('Event Hub route eligibility guard', (): void => {
 });
 
 describe('Event Hub route loaded behavior', (): void => {
+  it('does not mount the share QR modal before sharing is requested', async (): Promise<void> => {
+    await renderRoute();
+
+    expect(mockShareModal).not.toHaveBeenCalled();
+  });
+
   it('passes the real Ganap, derived schedule, and paging state to the view', async (): Promise<void> => {
     await renderRoute();
 
@@ -528,7 +534,7 @@ describe('Event Hub route loaded behavior', (): void => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Hub share' }));
 
-    expect(latestShareModalProps().visible).toBe(false);
+    expect(mockShareModal).not.toHaveBeenCalled();
     expect(mockShowToast).toHaveBeenCalledWith('error', 'Unable to create a share link.');
   });
 

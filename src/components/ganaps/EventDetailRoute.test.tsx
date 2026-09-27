@@ -274,6 +274,12 @@ describe('Event Details route refresh', (): void => {
 });
 
 describe('Event Details route sharing', (): void => {
+  it('does not mount the share QR modal before sharing is requested', async (): Promise<void> => {
+    await render(<GanapDetailScreen />);
+
+    expect(mockShareModal).not.toHaveBeenCalled();
+  });
+
   it('opens the QR card and includes its canonical URL in native sharing', async (): Promise<void> => {
     const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction', activityType: undefined });
     await render(<GanapDetailScreen />);
@@ -311,7 +317,7 @@ describe('Event Details route sharing', (): void => {
       onShare?.();
     });
 
-    expect(latestShareModalProps().visible).toBe(false);
+    expect(mockShareModal).not.toHaveBeenCalled();
     expect(mockShowToast).toHaveBeenCalledWith('error', 'Unable to create a share link.');
   });
 });

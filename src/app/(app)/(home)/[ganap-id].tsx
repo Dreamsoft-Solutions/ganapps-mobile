@@ -195,14 +195,16 @@ export default function GanapDetailScreen(): ReactElement {
         onPrimaryAction={handlePrimaryAction}
         onSecondaryAction={handleSecondaryAction}
       />
-      <GanapShareModal
-        visible={shareUrl !== null}
-        url={shareUrl ?? ''}
-        ganap={ganap}
-        schedule={schedule}
-        onClose={(): void => setShareUrl(null)}
-        onNativeShare={handleNativeShare}
-      />
+      {shareUrl !== null ? (
+        <GanapShareModal
+          visible
+          url={shareUrl}
+          ganap={ganap}
+          schedule={schedule}
+          onClose={(): void => setShareUrl(null)}
+          onNativeShare={handleNativeShare}
+        />
+      ) : null}
     </>
   );
 }

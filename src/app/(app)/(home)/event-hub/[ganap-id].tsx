@@ -187,14 +187,16 @@ function EligibleEventHub({
         onAnnouncementReaction={handleAnnouncementReaction}
         announcementReactionPendingId={announcementReactionPendingId}
       />
-      <GanapShareModal
-        visible={shareUrl !== null}
-        url={shareUrl ?? ''}
-        ganap={ganap}
-        schedule={schedule}
-        onClose={(): void => setShareUrl(null)}
-        onNativeShare={handleNativeShare}
-      />
+      {shareUrl !== null ? (
+        <GanapShareModal
+          visible
+          url={shareUrl}
+          ganap={ganap}
+          schedule={schedule}
+          onClose={(): void => setShareUrl(null)}
+          onNativeShare={handleNativeShare}
+        />
+      ) : null}
     </>
   );
 }
