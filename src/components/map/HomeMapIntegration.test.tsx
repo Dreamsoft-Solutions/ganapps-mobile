@@ -27,6 +27,7 @@ const mockSetCamera =
     (config: {
       centerCoordinate: [number, number];
       zoomLevel: number;
+      pitch?: number;
       animationDuration: number;
       padding: { paddingTop: number; paddingBottom: number; paddingLeft: number; paddingRight: number };
     }) => void
@@ -367,6 +368,18 @@ describe('home map clustering integration', (): void => {
     await fireEvent.press(screen.getByRole('button', { name: 'Open event Event single' }));
     // The tapped pin becomes the sheet's selection rather than a card of its own.
     expect(screen.getByTestId('feed-sheet-card-single')).toBeTruthy();
+    expect(mockSetCamera).toHaveBeenCalledWith({
+      centerCoordinate: [single.locationLong, single.locationLat],
+      zoomLevel: 15.5,
+      pitch: 50,
+      animationDuration: 500,
+      padding: {
+        paddingTop: MAP_OVERLAY_TOP,
+        paddingBottom: FEED_SHEET_PEEK_HEIGHT,
+        paddingLeft: 0,
+        paddingRight: 0,
+      },
+    });
   });
 
   it('automatically zooms a cluster to its leaf pins and keeps the leaf list at the peek', async (): Promise<void> => {
@@ -399,6 +412,7 @@ describe('home map clustering integration', (): void => {
     expect(mockSetCamera).toHaveBeenCalledWith({
       centerCoordinate: getFeatureCoordinate(expectedCluster),
       zoomLevel: getClusterExpansionZoom(expectedIndex, expectedCluster),
+      pitch: 50,
       animationDuration: 300,
       /**
        * Padded so the expanded cluster centres in the map the user can see,

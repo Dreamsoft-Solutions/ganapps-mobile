@@ -36,6 +36,8 @@ const MAPBOX_TOKEN: string = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
 
 const ILOILO_CITY_CENTER: [number, number] = [122.5621, 10.7202];
 const CITY_ZOOM = 12;
+const LOCATION_SELECTION_ZOOM: number = 15.5;
+const LOCATION_SELECTION_PITCH: number = 50;
 /**
  * How much of the map the feed sheet covers at rest.
  *
@@ -172,6 +174,7 @@ export default function HomeScreen(): ReactElement {
       camera.setCamera({
         centerCoordinate: target.coordinate,
         zoomLevel: zoom,
+        pitch: LOCATION_SELECTION_PITCH,
         animationDuration: 300,
         padding: {
           paddingTop: insets.top + MAP_OVERLAY_TOP,
@@ -184,11 +187,26 @@ export default function HomeScreen(): ReactElement {
     [insets.top],
   );
 
-  const handleGanapPress = useCallback((ganap: GanapListItem): void => {
-    setSelectedCluster(null);
-    setSelectedClusterIndex(null);
-    setSelectedGanap(ganap);
-  }, []);
+  const handleGanapPress = useCallback(
+    (ganap: GanapListItem): void => {
+      setSelectedCluster(null);
+      setSelectedClusterIndex(null);
+      setSelectedGanap(ganap);
+      cameraRef.current?.setCamera({
+        centerCoordinate: [ganap.locationLong, ganap.locationLat],
+        zoomLevel: Math.max(mapZoomRef.current, LOCATION_SELECTION_ZOOM),
+        pitch: LOCATION_SELECTION_PITCH,
+        animationDuration: 500,
+        padding: {
+          paddingTop: insets.top + MAP_OVERLAY_TOP,
+          paddingBottom: MAP_OVERLAY_BOTTOM,
+          paddingLeft: 0,
+          paddingRight: 0,
+        },
+      });
+    },
+    [insets.top],
+  );
 
   const handleClusterPress = useCallback(
     (cluster: GanapClusterFeature): void => {
