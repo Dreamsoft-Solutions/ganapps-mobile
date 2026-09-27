@@ -1,12 +1,13 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render } from '@testing-library/react-native';
+import { TabRouter } from 'expo-router/build/react-navigation/routers/TabRouter';
 import EventChatThreadScreen from '@/app/(app)/(chat)/event-chat/[ganap-id]';
 import { Routes } from '@/constants/routes';
 import type { UseChatResult } from '@/hooks/useChat';
 
 const mockRouter = {
   dismiss: jest.fn<() => void>(),
-  dismissTo: jest.fn<(href: unknown) => void>(),
+  navigate: jest.fn<(href: unknown) => void>(),
   replace: jest.fn<(href: unknown) => void>(),
 };
 
@@ -127,7 +128,7 @@ afterEach((): void => {
 });
 
 describe('Event Chat route navigation', (): void => {
-  it('uses a neutral title while loading and dismisses to this Ganap’s Event Hub', async (): Promise<void> => {
+  it('uses a neutral title while loading and navigates to this Ganap’s Event Hub', async (): Promise<void> => {
     const screen = await render(<EventChatThreadScreen />);
 
     expect(screen.getByText('Ganap')).toBeTruthy();
@@ -135,7 +136,43 @@ describe('Event Chat route navigation', (): void => {
 
     fireEvent.press(screen.getByLabelText('Back to Event Hub'));
 
-    expect(mockRouter.dismissTo).toHaveBeenCalledWith(Routes.eventHub('ganap-42'));
+    expect(mockRouter.navigate).toHaveBeenCalledWith(Routes.eventHub('ganap-42'));
     expect(mockRouter.dismiss).not.toHaveBeenCalled();
+  });
+
+  it('activates the Event Hub tab with its nested route params', (): void => {
+    const routerOptions = {
+      routeNames: ['(home)', '(ganaps)', '(chat)', '(profile)'],
+      routeParamList: {},
+      routeGetIdList: {},
+    };
+    const tabRouter = TabRouter({ initialRouteName: '(chat)' });
+    const chatState = tabRouter.getInitialState(routerOptions);
+    const eventHubParams = {
+      screen: 'event-hub/[ganap-id]',
+      params: { 'ganap-id': 'ganap-42' },
+    };
+    const eventHubAction: Parameters<typeof tabRouter.getStateForAction>[1] = {
+      type: 'NAVIGATE',
+      payload: { name: '(home)', params: eventHubParams },
+    };
+
+    const nextState = tabRouter.getStateForAction(chatState, eventHubAction, routerOptions);
+    if (nextState === null || nextState.index === undefined) {
+      throw new Error('Expected Event Hub navigation to select a tab.');
+    }
+
+    expect(nextState.routes[nextState.index]?.name).toBe('(home)');
+    expect(nextState.routes[nextState.index]?.params).toEqual(eventHubParams);
+    expect(
+      tabRouter.getStateForAction(
+        chatState,
+        {
+          type: 'POP_TO',
+          payload: { name: '(home)', params: eventHubParams },
+        } as unknown as Parameters<typeof tabRouter.getStateForAction>[1],
+        routerOptions,
+      ),
+    ).toBeNull();
   });
 });

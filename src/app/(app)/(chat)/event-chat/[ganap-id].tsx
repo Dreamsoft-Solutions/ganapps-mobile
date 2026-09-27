@@ -102,7 +102,7 @@ export default function EventChatThreadScreen(): ReactElement {
   }, [chat.accessRevoked, ganapId, router]);
 
   const onBack = (): void => {
-    router.dismissTo(Routes.eventHub(ganapId));
+    router.navigate(Routes.eventHub(ganapId));
   };
 
   return (
