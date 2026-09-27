@@ -1,7 +1,7 @@
 import * as MediaLibrary from 'expo-media-library';
 import { Download } from 'lucide-react-native';
-import type { ReactElement } from 'react';
-import { useRef, useState } from 'react';
+import type { ForwardedRef, ForwardRefExoticComponent, ReactElement, RefAttributes } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import { Alert, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
@@ -20,15 +20,40 @@ export interface ShareQrCodeProps {
   details: readonly string[];
 }
 
+/** Imperative actions available to the owner of a QR card. */
+export interface ShareQrCodeHandle {
+  /**
+   * Captures the rendered QR card as a PNG image.
+   *
+   * @returns A local URI for the captured PNG image.
+   * @throws When the QR card has not mounted and cannot be captured.
+   */
+  captureImage: () => Promise<string>;
+}
+
 /**
- * Renders a QR image with human-readable details and a permission-aware save action.
+ * Renders a QR image with human-readable details, a save action, and a capture handle.
  *
  * @param props - QR payload, title, and share details
  * @returns A QR card and its Save QR image action
  */
-export function ShareQrCode({ value, title, details }: ShareQrCodeProps): ReactElement {
+export const ShareQrCode: ForwardRefExoticComponent<ShareQrCodeProps & RefAttributes<ShareQrCodeHandle>> = forwardRef<
+  ShareQrCodeHandle,
+  ShareQrCodeProps
+>(function ShareQrCode(
+  { value, title, details }: ShareQrCodeProps,
+  forwardedRef: ForwardedRef<ShareQrCodeHandle>,
+): ReactElement {
   const viewShotRef = useRef<ViewShotRef | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+
+  const captureImage: () => Promise<string> = useCallback((): Promise<string> => {
+    const viewShot = viewShotRef.current;
+    if (!viewShot) return Promise.reject(new Error('The QR image is not ready to capture.'));
+    return viewShot.capture();
+  }, []);
+
+  useImperativeHandle(forwardedRef, (): ShareQrCodeHandle => ({ captureImage }), [captureImage]);
 
   const handleSave = async (): Promise<void> => {
     setIsSaving(true);
@@ -38,11 +63,7 @@ export function ShareQrCode({ value, title, details }: ShareQrCodeProps): ReactE
           const permission: MediaLibrary.PermissionResponse = await MediaLibrary.requestPermissionsAsync(true);
           return permission.granted;
         },
-        captureImage: (): Promise<string> => {
-          const viewShot = viewShotRef.current;
-          if (!viewShot) return Promise.reject(new Error('The QR image is not ready to save.'));
-          return viewShot.capture();
-        },
+        captureImage,
         saveImage: async (uri: string): Promise<void> => {
           await MediaLibrary.Asset.create(uri);
         },
@@ -105,4 +126,4 @@ export function ShareQrCode({ value, title, details }: ShareQrCodeProps): ReactE
       </Button>
     </View>
   );
-}
+});
