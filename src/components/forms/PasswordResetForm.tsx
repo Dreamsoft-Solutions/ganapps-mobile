@@ -87,7 +87,7 @@ export function PasswordResetForm({ initialEmail }: PasswordResetFormProps): Rea
 
   if (step === 'complete') {
     return (
-      <FormProvider {...completeMethods}>
+      <FormProvider key="complete" {...completeMethods}>
         <View>
           <Text className="text-body-md text-muted-foreground text-center mb-4">
             {confirmationMessage} Enter the 8-digit code below and choose a new password.
@@ -151,7 +151,7 @@ export function PasswordResetForm({ initialEmail }: PasswordResetFormProps): Rea
   }
 
   return (
-    <FormProvider {...requestMethods}>
+    <FormProvider key="request" {...requestMethods}>
       <View>
         <Text className="text-body-md text-muted-foreground text-center mb-4">
           Enter your email and we’ll send a code if an account matches.
