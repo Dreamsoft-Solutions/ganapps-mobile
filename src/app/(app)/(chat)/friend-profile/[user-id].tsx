@@ -107,11 +107,36 @@ export default function FriendProfileScreen(): ReactElement {
     router.push(Routes.directChatForFriend(profileQuery.data));
   };
 
-  if (profileQuery.isLoading) return <Loading message="Loading profile" />;
-  if (profileQuery.error) {
-    return <ErrorView error={profileQuery.error} onRetry={(): void => void profileQuery.refetch()} />;
+  const header: ReactElement = (
+    <View className="mb-md flex-row items-center">
+      <IconButton
+        accessibilityLabel="Go back"
+        accessibilityHint="Returns to Friends"
+        onPress={(): void => router.back()}
+      >
+        <ArrowLeft size={20} />
+      </IconButton>
+      <Text className="ml-sm font-inter-bold text-headline-md" accessibilityRole="header">
+        Friend profile
+      </Text>
+    </View>
+  );
+
+  if (profileQuery.isLoading || profileQuery.error || !profileQuery.data) {
+    const content: ReactElement = profileQuery.isLoading ? (
+      <Loading message="Loading profile" />
+    ) : profileQuery.error ? (
+      <ErrorView error={profileQuery.error} onRetry={(): void => void profileQuery.refetch()} />
+    ) : (
+      <ErrorView error={new Error('Profile unavailable')} />
+    );
+    return (
+      <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+        <View className="px-md">{header}</View>
+        {content}
+      </SafeAreaView>
+    );
   }
-  if (!profileQuery.data) return <ErrorView error={new Error('Profile unavailable')} />;
 
   const profile = profileQuery.data;
   return (
@@ -121,18 +146,7 @@ export default function FriendProfileScreen(): ReactElement {
         contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="mb-md flex-row items-center">
-          <IconButton
-            accessibilityLabel="Go back"
-            accessibilityHint="Returns to Friends"
-            onPress={(): void => router.back()}
-          >
-            <ArrowLeft size={20} />
-          </IconButton>
-          <Text className="ml-sm font-inter-bold text-headline-md" accessibilityRole="header">
-            Friend profile
-          </Text>
-        </View>
+        {header}
         <Card>
           <View className="items-center">
             <Avatar src={profile.displayPicture} name={profile.displayName} size="lg" />
