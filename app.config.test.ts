@@ -7,7 +7,11 @@ type BuildPropertiesIos = {
   forceStaticLinking?: string[];
 };
 
-type PluginOptions = { ios?: BuildPropertiesIos; motionUsagePermission?: string | false };
+type PluginOptions = {
+  ios?: BuildPropertiesIos;
+  motionUsagePermission?: string | false;
+  photosPermission?: string | false;
+};
 
 type PluginEntry = string | [string, PluginOptions?];
 
@@ -128,5 +132,18 @@ describe('native share-link association configuration', () => {
 describe('iOS purpose strings (DS-144)', () => {
   it('declares an app-authored motion purpose string, which ITMS-90683 requires because expo-location links CoreMotion', () => {
     expect(pluginOptions('expo-location')?.motionUsagePermission).toEqual(expect.stringMatching(/^Ganapps /));
+  });
+
+  it('gives every plugin that writes NSPhotoLibraryUsageDescription the same app-authored string, since the last one wins', () => {
+    const photoStrings: Array<string | false | undefined> = expo.plugins
+      .filter(
+        (plugin: PluginEntry): plugin is [string, PluginOptions] =>
+          Array.isArray(plugin) && plugin[1] !== undefined && 'photosPermission' in plugin[1],
+      )
+      .map(([, options]: [string, PluginOptions]): string | false | undefined => options.photosPermission);
+
+    expect(photoStrings.length).toBeGreaterThan(0);
+    expect(photoStrings).toEqual(photoStrings.map((): unknown => expect.stringMatching(/^Ganapps /)));
+    expect(new Set(photoStrings).size).toBe(1);
   });
 });
