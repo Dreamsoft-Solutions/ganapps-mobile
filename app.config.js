@@ -149,7 +149,8 @@ module.exports = {
       [
         'expo-media-library',
         {
-          photosPermission: false,
+          photosPermission:
+            'Ganapps uses your photos so you can set a profile picture and share photos and videos in event chats.',
           savePhotosPermission: 'Ganapps saves a QR image when you choose Save QR image.',
           granularPermissions: [],
         },

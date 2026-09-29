@@ -163,4 +163,11 @@ Motion & Fitness data. A test in `app.config.test.ts` fails if the string is rem
 contains audio-capture code, but Apple's ITMS-90683 check on build 3 listed only the motion key.
 Re-check the processing email after upgrading either library.
 
+**`NSPhotoLibraryUsageDescription` is written by two plugins**: `expo-image-picker` and
+`expo-media-library`. Whichever runs last wins, and `photosPermission: false` on either one
+deletes the key outright. For a while `expo-media-library` had `false`, which silently removed the
+image picker's string from the resolved Info.plist. Both plugins must carry the same app-written
+`photosPermission`, and a test in `app.config.test.ts` enforces it. Saving the QR image uses the
+separate `NSPhotoLibraryAddUsageDescription` (`savePhotosPermission`).
+
 ---
