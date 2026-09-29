@@ -11,6 +11,8 @@ const MAP_LIMIT = 100;
 export interface UseGanapsMapResult {
   items: GanapListItem[];
   isLoading: boolean;
+  /** Whether any map query for the active filters is running, including refetches. */
+  isFetching: boolean;
   isError: boolean;
   error: Error | null;
   refetch: UseQueryResult<CursorPage<GanapListItem>, Error>['refetch'];
@@ -47,6 +49,7 @@ export function useGanapsMap(filters?: GanapListFilters): UseGanapsMapResult {
   return {
     items,
     isLoading: query.isLoading,
+    isFetching: query.isFetching,
     isError: query.isError,
     error: query.error,
     refetch: query.refetch,

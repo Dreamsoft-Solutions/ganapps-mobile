@@ -15,6 +15,7 @@ export default function AuthLayout(): ReactElement {
       }}
     >
       <Stack.Screen name="login" />
+      <Stack.Screen name="forgot-password" />
     </Stack>
   );
 }

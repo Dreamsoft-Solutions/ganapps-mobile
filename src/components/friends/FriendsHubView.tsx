@@ -1,7 +1,7 @@
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 import { ChevronRight, MessageCircle, Settings, Share2, UserPlus, Users, X } from 'lucide-react-native';
 import type { ReactElement } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -21,6 +21,7 @@ import { ErrorView } from '@/components/common/Error';
 import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { SegmentControl } from '@/components/common/SegmentControl';
+import { ShareQrCode } from '@/components/common/ShareQrCode';
 import { Text } from '@/components/common/Text';
 import { Colors, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
@@ -33,6 +34,7 @@ import type {
   FriendUserSummary,
 } from '@/types/friends.types';
 import { formatFriendCode, getFriendErrorMessage } from '@/utils/friends';
+import { buildFriendShareUrl } from '@/utils/share-links';
 
 /** Top-level segment names rendered by the Friends hub. */
 export type FriendsHubViewSegment = 'chats' | 'friends' | 'requests';
@@ -45,12 +47,15 @@ export interface FriendsHubViewProps {
   friends: FriendUserSummary[];
   presence: FriendUserSummary[];
   requests: FriendRequestItem[];
+  outgoingRequests: FriendRequestItem[];
+  isLoadingOutgoingRequests: boolean;
   isLoading: boolean;
   error: Error | null;
   isRefreshing: boolean;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   isCodeOpen: boolean;
+  initialFriendCode?: string;
   codeQuery: UseQueryResult<FriendCode, Error>;
   isRegeneratingCode: boolean;
   isAddFriendOpen: boolean;
@@ -284,6 +289,15 @@ function ActiveFriends({
   );
 }
 
+function tryBuildFriendShareUrl(code: string | null): string | null {
+  if (!code) return null;
+  try {
+    return buildFriendShareUrl(code);
+  } catch {
+    return null;
+  }
+}
+
 function CodeModal({
   visible,
   query,
@@ -301,6 +315,7 @@ function CodeModal({
 }): ReactElement {
   const insets = useSafeAreaInsets();
   const code: string | null = query.data?.code ?? null;
+  const shareUrl: string | null = tryBuildFriendShareUrl(code);
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 bg-background px-md" style={{ paddingTop: insets.top + Spacing.md }}>
@@ -312,45 +327,71 @@ function CodeModal({
             <X size={20} />
           </IconButton>
         </View>
-        {query.isLoading ? (
-          <Loading message="Loading your Friend Code" />
-        ) : query.error ? (
-          <ErrorView
-            error={new Error(getFriendErrorMessage(query.error, 'Unable to load your Friend Code.'))}
-            onRetry={(): void => void query.refetch()}
-          />
-        ) : code ? (
-          <Card>
-            <Text className="text-center text-label-md uppercase tracking-widest text-muted-foreground">
-              Share this code
-            </Text>
-            <Text
-              className="mt-md text-center font-inter-bold text-headline-lg"
-              accessibilityLabel={`Friend Code ${formatFriendCode(code)}`}
-            >
-              {formatFriendCode(code)}
-            </Text>
-            <View className="mt-lg gap-sm">
-              <Button variant="outline" onPress={(): void => void onShare(code)} leftIcon={<Share2 size={17} />}>
-                Share code
-              </Button>
-              <Button variant="secondary" loading={isRegenerating} disabled={isRegenerating} onPress={onRegenerate}>
-                Regenerate code
-              </Button>
+        <ScrollView className="flex-1" contentContainerClassName="gap-md pb-lg">
+          {query.isLoading ? (
+            <Loading message="Loading your Friend Code" />
+          ) : query.error ? (
+            <ErrorView
+              error={new Error(getFriendErrorMessage(query.error, 'Unable to load your Friend Code.'))}
+              onRetry={(): void => void query.refetch()}
+            />
+          ) : code ? (
+            <View className="gap-md">
+              {shareUrl ? (
+                <ShareQrCode
+                  value={shareUrl}
+                  title="Scan to add me as a friend"
+                  details={[formatFriendCode(code), shareUrl]}
+                />
+              ) : (
+                <>
+                  <Card>
+                    <Text className="text-center text-label-md uppercase tracking-widest text-muted-foreground">
+                      Your Friend Code
+                    </Text>
+                    <Text
+                      className="mt-md text-center font-inter-bold text-headline-lg"
+                      accessibilityLabel={`Friend Code ${formatFriendCode(code)}`}
+                    >
+                      {formatFriendCode(code)}
+                    </Text>
+                  </Card>
+                  <Text accessibilityLiveRegion="polite" className="text-body-md text-muted-foreground">
+                    Link sharing is unavailable right now. You can still share your Friend Code.
+                  </Text>
+                </>
+              )}
+              <View className="gap-sm">
+                <Button variant="outline" onPress={(): void => void onShare(code)} leftIcon={<Share2 size={17} />}>
+                  {shareUrl ? 'Share code and link' : 'Share code'}
+                </Button>
+                <Button variant="secondary" loading={isRegenerating} disabled={isRegenerating} onPress={onRegenerate}>
+                  Regenerate code
+                </Button>
+              </View>
             </View>
-          </Card>
-        ) : (
-          <Empty message="Your Friend Code is unavailable." />
-        )}
+          ) : (
+            <Empty message="Your Friend Code is unavailable." />
+          )}
+        </ScrollView>
       </View>
     </Modal>
   );
 }
 
+function getFriendRequestButtonLabel(sent: boolean, accepted: boolean): string {
+  if (sent) return 'Friend request sent';
+  if (accepted) return 'Friend request accepted';
+  return 'Send friend request';
+}
+
 function AddFriendModal({
   visible,
+  initialCode,
   lookupMutation,
   createRequestMutation,
+  outgoingRequests,
+  isLoadingOutgoingRequests,
   requestNotice,
   onClose,
   onLookup,
@@ -358,8 +399,11 @@ function AddFriendModal({
   onOpenProfile,
 }: {
   visible: boolean;
+  initialCode?: string;
   lookupMutation: UseMutationResult<FriendUserSummary, Error, string>;
   createRequestMutation: UseMutationResult<FriendRequestResult, Error, string>;
+  outgoingRequests: FriendRequestItem[];
+  isLoadingOutgoingRequests: boolean;
   requestNotice: string | null;
   onClose: () => void;
   onLookup: (code: string) => void | Promise<void>;
@@ -368,10 +412,27 @@ function AddFriendModal({
 }): ReactElement {
   const insets = useSafeAreaInsets();
   const theme = useResolvedTheme();
-  const [code, setCode] = useState<string>('');
+  const [code, setCode] = useState<string>(initialCode ?? '');
   const target: FriendUserSummary | undefined = lookupMutation.data;
   const error: Error | null = lookupMutation.error ?? createRequestMutation.error ?? null;
   const normalizedCode: string = code.trim().replace(/[\s-]/g, '').toUpperCase();
+
+  useEffect((): void => {
+    setCode(initialCode ?? '');
+  }, [initialCode]);
+  const sentRequestForTarget: boolean = Boolean(
+    target &&
+      (outgoingRequests.some(
+        (request: FriendRequestItem): boolean => request.targetUserId === target.userId && request.status === 'PENDING',
+      ) ||
+        (createRequestMutation.data?.targetUserId === target.userId &&
+          createRequestMutation.data.status === 'PENDING')),
+  );
+  const acceptedRequestForTarget: boolean = Boolean(
+    target &&
+      createRequestMutation.data?.targetUserId === target.userId &&
+      (createRequestMutation.data.status === 'ACCEPTED' || createRequestMutation.data.status === 'AUTO_ACCEPTED'),
+  );
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView className="flex-1 bg-background" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -439,12 +500,17 @@ function AddFriendModal({
               </Pressable>
               <View className="mt-lg">
                 <Button
-                  disabled={createRequestMutation.isPending}
+                  disabled={
+                    isLoadingOutgoingRequests ||
+                    createRequestMutation.isPending ||
+                    sentRequestForTarget ||
+                    acceptedRequestForTarget
+                  }
                   loading={createRequestMutation.isPending}
                   onPress={(): void => void onSendRequest(normalizedCode)}
                   leftIcon={<UserPlus size={17} />}
                 >
-                  Send friend request
+                  {getFriendRequestButtonLabel(sentRequestForTarget, acceptedRequestForTarget)}
                 </Button>
               </View>
             </Card>
@@ -632,12 +698,15 @@ export function FriendsHubView({
   friends,
   presence,
   requests,
+  outgoingRequests,
+  isLoadingOutgoingRequests,
   isLoading,
   error,
   isRefreshing,
   hasNextPage,
   isFetchingNextPage,
   isCodeOpen,
+  initialFriendCode,
   codeQuery,
   isAddFriendOpen,
   lookupMutation,
@@ -740,8 +809,11 @@ export function FriendsHubView({
         />
         <AddFriendModal
           visible={isAddFriendOpen}
+          initialCode={initialFriendCode}
           lookupMutation={lookupMutation}
           createRequestMutation={createRequestMutation}
+          outgoingRequests={outgoingRequests}
+          isLoadingOutgoingRequests={isLoadingOutgoingRequests}
           requestNotice={requestNotice}
           onClose={onCloseAddFriend}
           onLookup={onLookup}

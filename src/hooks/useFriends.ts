@@ -1,6 +1,5 @@
-import { type UseQueryResult, useQueryClient } from '@tanstack/react-query';
+import { type UseQueryResult } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
 import {
   useAcceptFriendRequestMutation,
   useCreateFriendRequestMutation,
@@ -11,7 +10,7 @@ import {
   useUnfriendMutation,
   useUpdateFriendSettingsMutation,
 } from '@/hooks/mutations/useFriendsMutation';
-import { chatQueryKeys, type UseChatSummariesQueryResult, useChatSummariesQuery } from '@/hooks/queries/useChatQuery';
+import { type UseChatSummariesQueryResult, useChatSummariesQuery } from '@/hooks/queries/useChatQuery';
 import {
   type UseFriendGoingQueryResult,
   type UseFriendRequestsQueryResult,
@@ -23,7 +22,6 @@ import {
   useFriendsCodeQuery,
   useFriendsQuery,
 } from '@/hooks/queries/useFriendsQuery';
-import { type ChatConnectionState, chatSocketClient } from '@/services/chat-socket.service';
 import type {
   FriendCode,
   FriendGoingRecord,
@@ -42,6 +40,7 @@ export interface UseFriendsOptions {
   segment?: FriendsHubSegment;
   requestDirection?: FriendRequestDirection;
   codeOpen?: boolean;
+  addFriendOpen?: boolean;
   goingEnabled?: boolean;
 }
 
@@ -58,6 +57,8 @@ export interface UseFriendsResult {
   chatSummaries: UseChatSummariesQueryResult['summaries'];
   friends: FriendUserSummary[];
   requests: FriendRequestItem[];
+  outgoingRequests: FriendRequestItem[];
+  isLoadingOutgoingRequests: boolean;
   going: FriendGoingRecord[];
   presence: FriendPresenceResponse['items'];
   screenSession: string | null;
@@ -75,6 +76,12 @@ export interface UseFriendsResult {
   updateSettingsMutation: ReturnType<typeof useUpdateFriendSettingsMutation>;
 }
 
+const shouldLoadOutgoingRequests = (
+  segment: FriendsHubSegment,
+  requestDirection: FriendRequestDirection,
+  addFriendOpen: boolean,
+): boolean => (segment === 'requests' && requestDirection === 'outgoing') || addFriendOpen;
+
 /**
  * Coordinates the Friends hub's server-owned feeds, bounded presence, and social mutations.
  *
@@ -85,10 +92,10 @@ export interface UseFriendsResult {
  * @returns Aggregated Friends state and typed mutation handles
  */
 export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
-  const queryClient = useQueryClient();
   const segment: FriendsHubSegment = options.segment ?? 'chats';
   const requestDirection: FriendRequestDirection = options.requestDirection ?? 'incoming';
   const codeOpen: boolean = options.codeOpen ?? false;
+  const addFriendOpen: boolean = options.addFriendOpen ?? false;
   const [screenSession, setScreenSession] = useState<string | undefined>(undefined);
   const chatQuery: UseChatSummariesQueryResult = useChatSummariesQuery(segment === 'chats');
   const friendsQuery: UseFriendsQueryResult = useFriendsQuery(segment === 'friends');
@@ -98,7 +105,7 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
   );
   const outgoingQuery: UseFriendRequestsQueryResult = useFriendRequestsQuery(
     'outgoing',
-    segment === 'requests' && requestDirection === 'outgoing',
+    shouldLoadOutgoingRequests(segment, requestDirection, addFriendOpen),
   );
   const requestsQuery: UseFriendRequestsQueryResult = requestDirection === 'incoming' ? incomingQuery : outgoingQuery;
   const presenceQuery: UseQueryResult<FriendPresenceResponse, Error> = useFriendPresenceQuery(screenSession, true);
@@ -112,29 +119,6 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
   const regenerateCodeMutation = useRegenerateFriendCodeMutation();
   const unfriendMutation = useUnfriendMutation();
   const updateSettingsMutation = useUpdateFriendSettingsMutation();
-
-  useEffect((): (() => void) | undefined => {
-    if (segment !== 'chats') return undefined;
-    const invalidateSummaries = (): void => {
-      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries(), refetchType: 'active' });
-    };
-    const unsubscribeSummary = chatSocketClient.onSummaryChange((): void => {
-      invalidateSummaries();
-    });
-    const unsubscribeConnection = chatSocketClient.onConnectionStateChange((state: ChatConnectionState): void => {
-      if (state === 'connected') invalidateSummaries();
-    });
-    const appStateSubscription = AppState.addEventListener('change', (state: AppStateStatus): void => {
-      if (state !== 'active') return;
-      invalidateSummaries();
-      void chatSocketClient.ensureConnected();
-    });
-    return (): void => {
-      unsubscribeSummary();
-      unsubscribeConnection();
-      appStateSubscription.remove();
-    };
-  }, [queryClient, segment]);
 
   useEffect((): void => {
     const returnedSession: string | undefined = presenceQuery.data?.screenSession;
@@ -166,6 +150,8 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
     chatSummaries: chatQuery.summaries,
     friends: friendsQuery.friends,
     requests: requestsQuery.requests,
+    outgoingRequests: outgoingQuery.requests,
+    isLoadingOutgoingRequests: outgoingQuery.isLoading,
     going: goingQuery.going,
     presence: presenceQuery.data?.items ?? [],
     screenSession: screenSession ?? null,

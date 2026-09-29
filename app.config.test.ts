@@ -11,8 +11,20 @@ type PluginOptions = { ios?: BuildPropertiesIos; motionUsagePermission?: string 
 
 type PluginEntry = string | [string, PluginOptions?];
 
+type IntentFilter = {
+  action: string;
+  autoVerify?: boolean;
+  data: Array<{ scheme?: string; host?: string; pathPrefix?: string }>;
+  category?: string[];
+};
+
 type AppConfig = {
-  expo: { plugins: PluginEntry[]; ios: { config?: { usesNonExemptEncryption?: boolean } } };
+  expo: {
+    scheme: string;
+    plugins: PluginEntry[];
+    ios: { associatedDomains?: string[]; config?: { usesNonExemptEncryption?: boolean } };
+    android: { intentFilters?: IntentFilter[] };
+  };
 };
 
 type PackageManifest = { dependencies: Record<string, string> };
@@ -40,6 +52,26 @@ function installedFirebasePods(): string[] {
   );
 }
 
+function loadAppConfigForWebUrl(webUrl: string | undefined): AppConfig['expo'] {
+  const originalWebUrl: string | undefined = process.env.EXPO_PUBLIC_WEB_URL;
+
+  try {
+    if (webUrl === undefined) {
+      delete process.env.EXPO_PUBLIC_WEB_URL;
+    } else {
+      process.env.EXPO_PUBLIC_WEB_URL = webUrl;
+    }
+    jest.resetModules();
+    return jest.requireActual<AppConfig>('./app.config').expo;
+  } finally {
+    if (originalWebUrl === undefined) {
+      delete process.env.EXPO_PUBLIC_WEB_URL;
+    } else {
+      process.env.EXPO_PUBLIC_WEB_URL = originalWebUrl;
+    }
+  }
+}
+
 describe('iOS static framework linkage (ADR 0002)', () => {
   it('declares expo-build-properties as a dependency', () => {
     expect(manifest.dependencies).toHaveProperty('expo-build-properties');
@@ -60,6 +92,36 @@ describe('iOS static framework linkage (ADR 0002)', () => {
 describe('App Store export compliance (DS-91)', () => {
   it('declares that the app uses only exempt encryption', () => {
     expect(expo.ios.config?.usesNonExemptEncryption).toBe(false);
+  });
+});
+
+describe('native share-link association configuration', () => {
+  it('configures the existing app scheme and HTTPS paths for Android and iOS', () => {
+    const config = loadAppConfigForWebUrl('https://links.ganapps.test');
+
+    expect(config.scheme).toBe('ganappsmobile');
+    expect(config.ios.associatedDomains).toEqual(['applinks:links.ganapps.test']);
+    expect(config.android.intentFilters).toEqual([
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [{ scheme: 'https', host: 'links.ganapps.test', pathPrefix: '/friends/' }],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [{ scheme: 'https', host: 'links.ganapps.test', pathPrefix: '/ganaps/' }],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+    ]);
+  });
+
+  it('does not configure verified domains from a local HTTP development origin', () => {
+    const config = loadAppConfigForWebUrl('http://192.168.1.42:3000');
+
+    expect(config.ios.associatedDomains).toBeUndefined();
+    expect(config.android.intentFilters).toBeUndefined();
   });
 });
 

@@ -1,12 +1,16 @@
+import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import type { Href } from 'expo-router';
 import { Tabs, useRootNavigationState, useRouter, useSegments } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import { Loading } from '@/components/common/Loading';
 import { AppTabBar, BAR_HEIGHT } from '@/components/navigation/AppTabBar';
 import { Routes } from '@/constants/routes';
 import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
+import { chatQueryKeys, useChatSummariesQuery } from '@/hooks/queries/useChatQuery';
+import { type ChatConnectionState, chatSocketClient } from '@/services/chat-socket.service';
 import { startFriendPresenceHeartbeat } from '@/services/friend-presence.service';
 import {
   completePendingNotification,
@@ -24,6 +28,7 @@ import { needsOnboarding } from '@/utils/onboarding';
  * @returns The tab navigator or a loading state.
  */
 export default function AppLayout(): ReactElement {
+  const queryClient: QueryClient = useQueryClient();
   const router = useRouter();
   const segments = useSegments();
   const rootNavigationState = useRootNavigationState();
@@ -36,6 +41,30 @@ export default function AppLayout(): ReactElement {
   const isRouterReady: boolean = Boolean(rootNavigationState?.key);
   const isVerifiedUserReady: boolean = user?.isVerified === true;
   const isNotificationReady: boolean = isVerifiedUserReady && !needsOnboarding(user ?? null);
+  const { hasUnreadMessages } = useChatSummariesQuery(isNotificationReady);
+
+  useEffect((): (() => void) | undefined => {
+    if (!isNotificationReady) return undefined;
+    const invalidateSummaries = (): void => {
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries(), refetchType: 'active' });
+    };
+    const unsubscribeSummary = chatSocketClient.onSummaryChange((): void => {
+      invalidateSummaries();
+    });
+    const unsubscribeConnection = chatSocketClient.onConnectionStateChange((state: ChatConnectionState): void => {
+      if (state === 'connected') invalidateSummaries();
+    });
+    const appStateSubscription = AppState.addEventListener('change', (state: AppStateStatus): void => {
+      if (state !== 'active') return;
+      invalidateSummaries();
+      void chatSocketClient.ensureConnected();
+    });
+    return (): void => {
+      unsubscribeSummary();
+      unsubscribeConnection();
+      appStateSubscription.remove();
+    };
+  }, [isNotificationReady, queryClient]);
 
   useEffect(() => {
     if (!user) return;
@@ -92,7 +121,9 @@ export default function AppLayout(): ReactElement {
 
   return (
     <Tabs
-      tabBar={(props: BottomTabBarProps): ReactElement | null => (hideTabBar ? null : <AppTabBar {...props} />)}
+      tabBar={(props: BottomTabBarProps): ReactElement | null =>
+        hideTabBar ? null : <AppTabBar {...props} hasUnreadMessages={hasUnreadMessages} />
+      }
       screenOptions={{
         headerShown: false,
         tabBarStyle: {

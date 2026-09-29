@@ -20,10 +20,33 @@ import {
 } from '@/utils/map-clustering';
 import { MAP_OVERLAY_TOP } from '@/utils/map-viewport';
 
-const mockMapProps: Array<{ onMapIdle?: (state: MapState) => void }> = [];
+const mockMapProps: Array<{
+  onMapIdle?: (state: MapState) => void;
+  onCameraChanged?: (state: MapState) => void;
+  onPress?: () => void;
+}> = [];
+const mockTerrainSourceProps: Array<{ id: string; url?: string; tileSize?: number; maxZoomLevel?: number }> = [];
+const mockBuildingLayerProps: Array<{
+  id: string;
+  sourceID?: string;
+  sourceLayerID?: string;
+  minZoomLevel?: number;
+  maxZoomLevel?: number;
+  filter?: unknown;
+  style?: unknown;
+}> = [];
 const mockMarkerProps: Array<{ anchor?: { x: number; y: number }; allowOverlap?: boolean }> = [];
 const mockSetCamera =
-  jest.fn<(config: { centerCoordinate: [number, number]; zoomLevel: number; animationDuration: number }) => void>();
+  jest.fn<
+    (config: {
+      centerCoordinate: [number, number];
+      zoomLevel: number;
+      heading?: number;
+      pitch?: number;
+      animationDuration: number;
+      padding: { paddingTop: number; paddingBottom: number; paddingLeft: number; paddingRight: number };
+    }) => void
+  >();
 const mockUseGanapDiscovery = jest.fn<() => UseGanapDiscoveryResult>();
 const mockRouterPush = jest.fn<(href: unknown) => void>();
 
@@ -34,12 +57,57 @@ jest.mock('@rnmapbox/maps', () => {
   const MockMapView = ({
     children,
     onMapIdle,
+    onCameraChanged,
+    onPress,
   }: {
     children?: ReactNode;
     onMapIdle?: (state: MapState) => void;
+    onCameraChanged?: (state: MapState) => void;
+    onPress?: () => void;
   }): ReactElement => {
-    mockMapProps.push({ onMapIdle });
+    mockMapProps.push({ onMapIdle, onCameraChanged, onPress });
     return React.createElement(ReactNative.View, null, children);
+  };
+
+  const MockRasterDemSource = ({
+    children,
+    id,
+    url,
+    tileSize,
+    maxZoomLevel,
+  }: {
+    children?: ReactNode;
+    id: string;
+    url?: string;
+    tileSize?: number;
+    maxZoomLevel?: number;
+  }): ReactElement => {
+    mockTerrainSourceProps.push({ id, url, tileSize, maxZoomLevel });
+    return React.createElement(ReactNative.View, { testID: `terrain-source-${id}` }, children);
+  };
+
+  const MockTerrain = ({ sourceID }: { sourceID?: string }): ReactElement =>
+    React.createElement(ReactNative.View, { testID: `terrain-layer-${sourceID ?? 'missing-source'}` });
+
+  const MockFillExtrusionLayer = ({
+    id,
+    sourceID,
+    sourceLayerID,
+    minZoomLevel,
+    maxZoomLevel,
+    filter,
+    style,
+  }: {
+    id: string;
+    sourceID?: string;
+    sourceLayerID?: string;
+    minZoomLevel?: number;
+    maxZoomLevel?: number;
+    filter?: unknown;
+    style?: unknown;
+  }): ReactElement => {
+    mockBuildingLayerProps.push({ id, sourceID, sourceLayerID, minZoomLevel, maxZoomLevel, filter, style });
+    return React.createElement(ReactNative.View, { testID: `building-extrusion-layer-${id}` });
   };
 
   const MockMarkerView = ({
@@ -69,6 +137,9 @@ jest.mock('@rnmapbox/maps', () => {
     MapView: MockMapView,
     MarkerView: MockMarkerView,
     Camera: MockCamera,
+    RasterDemSource: MockRasterDemSource,
+    Terrain: MockTerrain,
+    FillExtrusionLayer: MockFillExtrusionLayer,
   };
 });
 
@@ -103,7 +174,44 @@ jest.mock('@/components/map/GanapMapPin', () => ({
     return React.createElement(ReactNative.View, { testID: `ganap-pin-${ganap.id}` });
   },
 }));
-jest.mock('@/components/map/MapSearchBar', () => ({ MapSearchBar: (): null => null }));
+jest.mock('@/components/map/MapSearchBar', () => {
+  const React = require('react') as typeof import('react');
+  const ReactNative = require('react-native') as typeof import('react-native');
+
+  return {
+    MapSearchBar: ({
+      value,
+      suggestions,
+      isErrorSuggestions,
+      onSelectSuggestion,
+    }: {
+      value: string;
+      suggestions: GanapListItem[];
+      isErrorSuggestions: boolean;
+      onSelectSuggestion: (ganap: GanapListItem) => void;
+    }): ReactElement =>
+      React.createElement(
+        ReactNative.View,
+        { testID: 'map-search-value', accessibilityLabel: `Search: ${value}` },
+        ...(isErrorSuggestions
+          ? [React.createElement(ReactNative.Text, { key: 'search-error' }, "Couldn't load event suggestions.")]
+          : suggestions.map(
+              (suggestion: GanapListItem): ReactElement =>
+                React.createElement(
+                  ReactNative.Pressable,
+                  {
+                    key: suggestion.id,
+                    testID: `map-search-suggestion-${suggestion.id}`,
+                    accessibilityRole: 'button',
+                    accessibilityLabel: suggestion.title,
+                    onPress: (): void => onSelectSuggestion(suggestion),
+                  },
+                  React.createElement(ReactNative.Text, null, suggestion.title),
+                ),
+            )),
+      ),
+  };
+});
 jest.mock('@/components/map/TagChips', () => ({
   TagChips: ({ onToggleNearby }: { onToggleNearby: () => void }): ReactElement => {
     const React = require('react') as typeof import('react');
@@ -159,14 +267,17 @@ jest.mock('@/components/map/GanapFeedSheet', () => ({
             accessibilityLabel: 'Zoom in to this area',
             onPress: (): void => {
               const target = sheet.resolveClusterZoomTarget(clusterIndex, selectedCluster);
-              if (target !== null) onZoomToCluster(target);
+              if (target !== null) {
+                onZoomToCluster(target);
+                onClearSelection('keep-current');
+              }
             },
           })
         : null,
       React.createElement(ReactNative.Pressable, {
         accessibilityRole: 'button',
-        accessibilityLabel: 'Show all events',
-        onPress: onClearSelection,
+        accessibilityLabel: 'Close events list',
+        onPress: (): void => onClearSelection(),
       }),
     );
   },
@@ -177,7 +288,7 @@ interface GanapFeedSheetStubProps {
   selectedCluster: GanapClusterFeature | null;
   clusterIndex: GanapClusterIndex;
   onSelectGanap: (ganap: GanapListItem) => void;
-  onClearSelection: () => void;
+  onClearSelection: (reason?: 'keep-current') => void;
   onZoomToCluster: (target: ClusterZoomTarget) => void;
 }
 
@@ -220,6 +331,7 @@ function mapHookResult(
     map: {
       items,
       isLoading: false,
+      isFetching: false,
       isError: false,
       error: null,
       refetch: jest.fn<UseGanapDiscoveryResult['map']['refetch']>(),
@@ -258,10 +370,14 @@ function mapHookResult(
   };
 }
 
-function idleState(zoom: number): MapState {
+function idleState(
+  zoom: number,
+  center: [number, number] = [122.5489, 10.7313],
+  isGestureActive: boolean = false,
+): MapState {
   return {
     properties: {
-      center: [122.5489, 10.7313],
+      center,
       bounds: {
         sw: [-180, -85.051129],
         ne: [180, 85.051129],
@@ -270,7 +386,7 @@ function idleState(zoom: number): MapState {
       heading: 0,
       pitch: 0,
     },
-    gestures: { isGestureActive: false },
+    gestures: { isGestureActive },
   };
 }
 
@@ -279,6 +395,24 @@ async function triggerIdle(state: MapState): Promise<void> {
   if (latestMapProps?.onMapIdle === undefined) throw new Error('Map mock did not receive onMapIdle');
   await act(async (): Promise<void> => {
     latestMapProps.onMapIdle?.(state);
+  });
+}
+
+async function triggerMapPress(): Promise<void> {
+  const latestMapProps = mockMapProps[mockMapProps.length - 1];
+  if (latestMapProps?.onPress === undefined) throw new Error('Map mock did not receive onPress');
+  await act(async (): Promise<void> => {
+    latestMapProps.onPress?.();
+  });
+}
+
+async function triggerCameraChanged(state: MapState): Promise<void> {
+  const latestMapProps = mockMapProps[mockMapProps.length - 1];
+  if (latestMapProps?.onCameraChanged === undefined) {
+    throw new Error('Map mock did not receive onCameraChanged');
+  }
+  await act(async (): Promise<void> => {
+    latestMapProps.onCameraChanged?.(state);
   });
 }
 
@@ -304,6 +438,8 @@ afterAll((): void => {
 beforeEach((): void => {
   mockMapProps.length = 0;
   mockMarkerProps.length = 0;
+  mockTerrainSourceProps.length = 0;
+  mockBuildingLayerProps.length = 0;
   mockSetCamera.mockClear();
   mockRouterPush.mockClear();
   mockUseGanapDiscovery.mockReset();
@@ -317,14 +453,187 @@ describe('home map clustering integration', (): void => {
     await emptyScreen.unmount();
     const single = ganap('single', 122.5489, 10.7313);
     const screen = await renderHome([single]);
+    const originalView = idleState(13.25, [121.8, 10.6]);
+    await triggerIdle(originalView);
+    expect(screen.queryByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeNull();
     expect(mockMarkerProps).toContainEqual({ anchor: { x: 0.5, y: 1 }, allowOverlap: true });
 
     await fireEvent.press(screen.getByRole('button', { name: 'Open event Event single' }));
     // The tapped pin becomes the sheet's selection rather than a card of its own.
     expect(screen.getByTestId('feed-sheet-card-single')).toBeTruthy();
+    expect(screen.getByTestId('terrain-source-ganapps-map-terrain-dem')).toBeTruthy();
+    expect(screen.getByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeTruthy();
+    expect(screen.getByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeTruthy();
+    expect(mockBuildingLayerProps).toContainEqual({
+      id: 'ganapps-map-building-height',
+      sourceID: 'composite',
+      sourceLayerID: 'building',
+      minZoomLevel: 16,
+      maxZoomLevel: 22,
+      filter: ['all', ['==', ['get', 'extrude'], 'true'], ['has', 'height']],
+      style: {
+        fillExtrusionColor: '#9ca3af',
+        fillExtrusionHeight: ['to-number', ['get', 'height'], 0],
+        fillExtrusionBase: ['to-number', ['get', 'min_height'], 0],
+        fillExtrusionOpacity: 0.9,
+        fillExtrusionVerticalGradient: true,
+      },
+    });
+    expect(mockTerrainSourceProps).toContainEqual({
+      id: 'ganapps-map-terrain-dem',
+      url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+      tileSize: 512,
+      maxZoomLevel: 14,
+    });
+    expect(mockSetCamera).toHaveBeenCalledWith({
+      centerCoordinate: [single.locationLong, single.locationLat],
+      zoomLevel: 16.5,
+      pitch: 80,
+      animationDuration: 500,
+      padding: {
+        paddingTop: MAP_OVERLAY_TOP,
+        paddingBottom: FEED_SHEET_PEEK_HEIGHT,
+        paddingLeft: 0,
+        paddingRight: 0,
+      },
+    });
+
+    await fireEvent.press(screen.getByLabelText('Close events list'));
+    expect(screen.queryByTestId('terrain-source-ganapps-map-terrain-dem')).toBeNull();
+    expect(screen.queryByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeNull();
+    expect(screen.queryByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeNull();
+    expect(mockSetCamera).toHaveBeenLastCalledWith({
+      centerCoordinate: originalView.properties.center,
+      zoomLevel: originalView.properties.zoom,
+      heading: originalView.properties.heading,
+      pitch: 0,
+      animationDuration: 500,
+      padding: { paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 },
+    });
   });
 
-  it('uses onMapIdle bounds and floored zoom to expose a cluster, list leaves, and zoom to expansion', async (): Promise<void> => {
+  it('clears a selected area on an empty map tap and restores the previous overhead view', async (): Promise<void> => {
+    jest.useFakeTimers();
+    try {
+      const single = ganap('blank-tap', 122.5489, 10.7313);
+      const screen = await renderHome([single]);
+      const originalView = idleState(12.75, [121.9, 10.65]);
+      await triggerIdle(originalView);
+      await fireEvent.press(screen.getByRole('button', { name: 'Open event Event blank-tap' }));
+      expect(screen.getByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeTruthy();
+
+      await act(async (): Promise<void> => {
+        jest.advanceTimersByTime(100);
+      });
+      await triggerMapPress();
+      await act(async (): Promise<void> => {
+        jest.advanceTimersByTime(151);
+      });
+
+      expect(screen.queryByTestId('ganap-feed-sheet')).toBeNull();
+      expect(screen.queryByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeNull();
+      expect(mockSetCamera).toHaveBeenLastCalledWith({
+        centerCoordinate: originalView.properties.center,
+        zoomLevel: originalView.properties.zoom,
+        heading: originalView.properties.heading,
+        pitch: 0,
+        animationDuration: 500,
+        padding: { paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not clear a marker selection when its press also reaches the map listener', async (): Promise<void> => {
+    jest.useFakeTimers();
+    try {
+      const single = ganap('tap-propagation', 122.5489, 10.7313);
+      const screen = await renderHome([single]);
+      await triggerIdle(idleState(12));
+      const marker = screen.getByRole('button', { name: 'Open event Event tap-propagation' });
+      await fireEvent.press(marker);
+
+      await act(async (): Promise<void> => {
+        jest.advanceTimersByTime(100);
+      });
+      await triggerMapPress();
+      await fireEvent.press(marker);
+      await act(async (): Promise<void> => {
+        jest.advanceTimersByTime(151);
+      });
+
+      expect(screen.getByTestId('feed-sheet-card-tap-propagation')).toBeTruthy();
+      expect(screen.getByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not clear a marker selection when the map press follows the marker press', async (): Promise<void> => {
+    jest.useFakeTimers();
+    try {
+      const single = ganap('reverse-tap-propagation', 122.5489, 10.7313);
+      const screen = await renderHome([single]);
+      await triggerIdle(idleState(12));
+      const marker = screen.getByRole('button', { name: 'Open event Event reverse-tap-propagation' });
+      await fireEvent.press(marker);
+      await triggerMapPress();
+      await act(async (): Promise<void> => {
+        jest.advanceTimersByTime(151);
+      });
+
+      expect(screen.getByTestId('feed-sheet-card-reverse-tap-propagation')).toBeTruthy();
+      expect(screen.getByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps the original camera view when a different marker is selected before clearing', async (): Promise<void> => {
+    const first = ganap('first-selection', 122.5489, 10.7313);
+    const second = ganap('second-selection', 122.8, 10.7313);
+    const screen = await renderHome([first, second]);
+    const originalView = idleState(12.5, [121.8, 10.6]);
+    await triggerIdle(originalView);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Open event Event first-selection' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Open event Event second-selection' }));
+
+    expect(screen.getByTestId('feed-sheet-card-second-selection')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Close events list'));
+
+    expect(mockSetCamera).toHaveBeenLastCalledWith({
+      centerCoordinate: originalView.properties.center,
+      zoomLevel: originalView.properties.zoom,
+      heading: originalView.properties.heading,
+      pitch: 0,
+      animationDuration: 500,
+      padding: { paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 },
+    });
+  });
+
+  it('keeps the user-adjusted center and zoom when clearing after a camera gesture', async (): Promise<void> => {
+    const single = ganap('gesture', 122.5489, 10.7313);
+    const screen = await renderHome([single]);
+    await triggerIdle(idleState(12.5, [121.9, 10.65]));
+    await fireEvent.press(screen.getByRole('button', { name: 'Open event Event gesture' }));
+
+    await triggerCameraChanged(idleState(13.25, [120.4, 11.2], true));
+    await triggerCameraChanged(idleState(13.25, [120.4, 11.2]));
+    await fireEvent.press(screen.getByLabelText('Close events list'));
+
+    expect(mockSetCamera).toHaveBeenLastCalledWith({
+      centerCoordinate: [120.4, 11.2],
+      zoomLevel: 13.25,
+      heading: 0,
+      pitch: 0,
+      animationDuration: 500,
+      padding: { paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 },
+    });
+  });
+
+  it('automatically zooms a cluster to its leaf pins and keeps the leaf list at the peek', async (): Promise<void> => {
     const items: GanapListItem[] = [ganap('one', 0, 0), ganap('two', 30, 0)];
     const expectedIndex = createGanapClusterIndex(items);
     const normalizedZoom = normalizeClusterZoom(0.9);
@@ -336,19 +645,26 @@ describe('home map clustering integration', (): void => {
     if (expectedCluster === undefined) throw new Error('Expected cluster fixture');
 
     const screen = await renderHome(items);
-    await triggerIdle(idleState(0.9));
+    expect(screen.queryByTestId('ganap-feed-sheet')).toBeNull();
+    const originalView = idleState(0.9, [40, 20]);
+    await triggerIdle(originalView);
 
-    const clusterButton = screen.getByRole('button', { name: 'Open group of 2 events' });
+    const clusterButton = screen.getByRole('button', { name: 'Zoom to group of 2 events' });
     expect(clusterButton).toBeTruthy();
     await fireEvent.press(clusterButton);
     expect(screen.getByTestId('feed-sheet-cluster-mode')).toBeTruthy();
     expect(screen.getByTestId('feed-sheet-card-one')).toBeTruthy();
     expect(screen.getByTestId('feed-sheet-card-two')).toBeTruthy();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Zoom in to this area' }));
-    expect(mockSetCamera).toHaveBeenCalledWith({
+    await fireEvent.press(screen.getByLabelText('Close events list'));
+    expect(screen.queryByTestId('feed-sheet-cluster-mode')).toBeNull();
+    expect(screen.queryByTestId('ganap-feed-sheet')).toBeNull();
+
+    expect(mockSetCamera).toHaveBeenCalledTimes(2);
+    expect(mockSetCamera).toHaveBeenNthCalledWith(1, {
       centerCoordinate: getFeatureCoordinate(expectedCluster),
       zoomLevel: getClusterExpansionZoom(expectedIndex, expectedCluster),
+      pitch: 80,
       animationDuration: 300,
       /**
        * Padded so the expanded cluster centres in the map the user can see,
@@ -361,13 +677,57 @@ describe('home map clustering integration', (): void => {
         paddingRight: 0,
       },
     });
+    expect(mockSetCamera).toHaveBeenNthCalledWith(2, {
+      centerCoordinate: originalView.properties.center,
+      zoomLevel: originalView.properties.zoom,
+      heading: originalView.properties.heading,
+      pitch: 0,
+      animationDuration: 500,
+      padding: { paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 },
+    });
+  });
+
+  it('clears a cluster after zoom-in while keeping its expanded center and zoom overhead', async (): Promise<void> => {
+    const items: GanapListItem[] = [
+      ganap('zoom-clear-one', 122.5489, 10.7313),
+      ganap('zoom-clear-two', 122.5489, 10.7313),
+    ];
+    const expectedIndex = createGanapClusterIndex(items);
+    const expectedCluster: GanapClusterFeature | undefined = getVisibleMapFeatures(expectedIndex, {
+      bounds: [-180, -85.051129, 180, 85.051129],
+      zoom: 0,
+    }).find(isClusterFeature);
+    if (expectedCluster === undefined) throw new Error('Expected cluster fixture');
+    const expansionZoom = getClusterExpansionZoom(expectedIndex, expectedCluster);
+    const clusterCenter = getFeatureCoordinate(expectedCluster);
+    if (clusterCenter === null) throw new Error('Expected cluster coordinate');
+
+    const screen = await renderHome(items);
+    await triggerIdle(idleState(0));
+    await fireEvent.press(screen.getByRole('button', { name: 'Zoom to group of 2 events' }));
+    expect(screen.getByTestId('feed-sheet-cluster-mode')).toBeTruthy();
+
+    await triggerIdle(idleState(expansionZoom, clusterCenter));
+    await fireEvent.press(screen.getByLabelText('Zoom in to this area'));
+
+    expect(screen.queryByTestId('feed-sheet-cluster-mode')).toBeNull();
+    expect(screen.queryByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeNull();
+    expect(mockSetCamera).toHaveBeenCalledTimes(2);
+    expect(mockSetCamera).toHaveBeenLastCalledWith({
+      centerCoordinate: clusterCenter,
+      zoomLevel: expansionZoom,
+      heading: 0,
+      pitch: 0,
+      animationDuration: 500,
+      padding: { paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 },
+    });
   });
 
   it('opens the detail screen when a leaf is tapped in the sheet', async (): Promise<void> => {
     const items: GanapListItem[] = [ganap('one', 122.5489, 10.7313), ganap('two', 122.5489, 10.7313)];
     const screen = await renderHome(items);
     await triggerIdle(idleState(0));
-    await fireEvent.press(screen.getByRole('button', { name: 'Open group of 2 events' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Zoom to group of 2 events' }));
     await fireEvent.press(screen.getByTestId('feed-sheet-card-two'));
 
     // Every card tap navigates now, including a cluster leaf — the sheet is the
@@ -382,13 +742,32 @@ describe('home map clustering integration', (): void => {
     ];
     const screen = await renderHome(initialItems);
     await triggerIdle(idleState(0));
-    await fireEvent.press(screen.getByRole('button', { name: 'Open group of 2 events' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Zoom to group of 2 events' }));
     expect(screen.getByTestId('feed-sheet-cluster-mode')).toBeTruthy();
 
     mockUseGanapDiscovery.mockReturnValue(mapHookResult([ganap('replacement', 122.5489, 10.7313)]));
     await screen.rerender(<HomeScreen />);
 
     expect(screen.queryByTestId('feed-sheet-cluster-mode')).toBeNull();
+  });
+
+  it('does not move the camera when a stale cluster press is already at its expansion zoom', async (): Promise<void> => {
+    const items: GanapListItem[] = [ganap('one', 122.5489, 10.7313), ganap('two', 122.5489, 10.7313)];
+    const index = createGanapClusterIndex(items);
+    const cluster: GanapClusterFeature | undefined = getVisibleMapFeatures(index, {
+      bounds: [-180, -85.051129, 180, 85.051129],
+      zoom: 0,
+    }).find(isClusterFeature);
+    if (cluster === undefined) throw new Error('Expected cluster fixture');
+    const expansionZoom = getClusterExpansionZoom(index, cluster);
+    const screen = await renderHome(items);
+    await triggerIdle(idleState(0));
+
+    const staleClusterButton = screen.getByRole('button', { name: 'Zoom to group of 2 events' });
+    await triggerIdle(idleState(expansionZoom));
+    await fireEvent.press(staleClusterButton);
+
+    expect(mockSetCamera).not.toHaveBeenCalled();
   });
 
   it('toggles Nearby from the filter row', async (): Promise<void> => {
@@ -399,5 +778,48 @@ describe('home map clustering integration', (): void => {
     fireEvent.press(getByLabelText('Show events near me'));
 
     expect(toggleNearby).toHaveBeenCalledTimes(1);
+  });
+
+  it('centers on a search suggestion while preserving the search text', async (): Promise<void> => {
+    const suggestion = ganap('search-result', 122.572, 10.728);
+    const discovery = mapHookResult([suggestion]);
+    const setSearch = jest.fn<(value: string) => void>();
+    discovery.search = 'developer meetup';
+    discovery.setSearch = setSearch;
+    mockUseGanapDiscovery.mockReturnValue(discovery);
+
+    const screen = await render(<HomeScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: suggestion.title }));
+
+    expect(mockSetCamera).toHaveBeenCalledWith({
+      centerCoordinate: [suggestion.locationLong, suggestion.locationLat],
+      zoomLevel: 13.4,
+      pitch: 0,
+      animationDuration: 500,
+      padding: {
+        paddingTop: MAP_OVERLAY_TOP,
+        paddingBottom: FEED_SHEET_PEEK_HEIGHT,
+        paddingLeft: 0,
+        paddingRight: 0,
+      },
+    });
+    expect(setSearch).not.toHaveBeenCalled();
+    expect(screen.getByTestId('map-search-value').props.accessibilityLabel).toBe('Search: developer meetup');
+  });
+
+  it('keeps the map available and reports a failed active search', async (): Promise<void> => {
+    const staleSuggestion = ganap('stale-search-result', 122.572, 10.728);
+    const discovery = mapHookResult([staleSuggestion]);
+    discovery.search = 'developer meetup';
+    discovery.filters = { search: 'developer meetup' };
+    discovery.map.isError = true;
+    mockUseGanapDiscovery.mockReturnValue(discovery);
+
+    const screen = await render(<HomeScreen />);
+
+    expect(screen.getByTestId('mock-camera')).toBeTruthy();
+    expect(screen.getByTestId('map-search-value')).toBeTruthy();
+    expect(screen.getByText("Couldn't load event suggestions.")).toBeTruthy();
+    expect(screen.queryByRole('button', { name: staleSuggestion.title })).toBeNull();
   });
 });

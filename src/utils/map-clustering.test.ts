@@ -1,11 +1,14 @@
 import { describe, expect, it } from '@jest/globals';
 import type { GanapListItem } from '@/types/ganap.types';
+import { resolveClusterZoomTarget } from './feed-sheet';
 import {
+  CLUSTER_EXPANSION_MAX_ZOOM,
   CLUSTER_MAX_ZOOM,
   createGanapClusterIndex,
   DEFAULT_MAP_VIEWPORT,
   type GanapClusterFeature,
   type GanapMapFeature,
+  type GanapPointFeature,
   getClusterExpansionZoom,
   getClusterLeaves,
   getFeatureCoordinate,
@@ -57,6 +60,19 @@ function onlyCluster(features: readonly GanapMapFeature[]): GanapClusterFeature 
     throw new Error('Expected a cluster feature');
   }
   return cluster;
+}
+
+function visibleClusterLeafIdsAtZoom(
+  index: ReturnType<typeof createGanapClusterIndex>,
+  cluster: GanapClusterFeature,
+  zoom: number,
+): string[] {
+  const leafIds: Set<string> = new Set(getClusterLeaves(index, cluster).map((item: GanapListItem): string => item.id));
+  return getVisibleMapFeatures(index, { bounds: WORLD_MAP_BOUNDS, zoom })
+    .filter(isGanapPointFeature)
+    .map((feature: GanapPointFeature): string => feature.properties.ganap.id)
+    .filter((id: string): boolean => leafIds.has(id))
+    .sort();
 }
 
 describe('map clustering utility', (): void => {
@@ -114,6 +130,41 @@ describe('map clustering utility', (): void => {
     expect(getClusterExpansionZoom(index, cluster)).toBeGreaterThan(0);
   });
 
+  it('expands a sparse cluster at its first leaf zoom instead of jumping to the cap', (): void => {
+    const points: GanapListItem[] = [ganap('sparse-west', 122.5489, 10.7313), ganap('sparse-east', 122.5589, 10.7313)];
+    const index = createGanapClusterIndex(points);
+    const cluster: GanapClusterFeature = onlyCluster(visibleAt(index, 0));
+    const firstExpansionZoom: number = index.getClusterExpansionZoom(cluster.properties.cluster_id);
+    const targetZoom: number = getClusterExpansionZoom(index, cluster);
+
+    expect(targetZoom).toBe(firstExpansionZoom);
+    expect(targetZoom).toBeLessThan(CLUSTER_EXPANSION_MAX_ZOOM);
+    expect(visibleClusterLeafIdsAtZoom(index, cluster, targetZoom)).toEqual(['sparse-east', 'sparse-west']);
+  });
+
+  it('continues through dense child clusters until every leaf is an individual point', (): void => {
+    const points: GanapListItem[] = [
+      ganap('dense-a1', 122.5489, 10.7313),
+      ganap('dense-a2', 122.5489, 10.7313),
+      ganap('dense-b1', 122.5589, 10.7313),
+      ganap('dense-b2', 122.5589, 10.7313),
+    ];
+    const index = createGanapClusterIndex(points);
+    const cluster: GanapClusterFeature = onlyCluster(visibleAt(index, 0));
+    const firstExpansionZoom: number = index.getClusterExpansionZoom(cluster.properties.cluster_id);
+    const targetZoom: number = getClusterExpansionZoom(index, cluster);
+
+    expect(index.getChildren(cluster.properties.cluster_id).some(isClusterFeature)).toBe(true);
+    expect(targetZoom).toBeGreaterThan(firstExpansionZoom);
+    expect(targetZoom).toBe(CLUSTER_EXPANSION_MAX_ZOOM);
+    expect(visibleClusterLeafIdsAtZoom(index, cluster, targetZoom)).toEqual([
+      'dense-a1',
+      'dense-a2',
+      'dense-b1',
+      'dense-b2',
+    ]);
+  });
+
   it('keeps distant points as separate individual features', (): void => {
     const index = createGanapClusterIndex([ganap('cpu', 122.5489, 10.7313), ganap('new-york', -73.9857, 40.7484)]);
     const features: GanapMapFeature[] = visibleAt(index, 0);
@@ -126,7 +177,7 @@ describe('map clustering utility', (): void => {
   it('normalizes zoom and converts Mapbox bounds in west/south/east/north order', (): void => {
     expect(normalizeClusterZoom(15.9)).toBe(15);
     expect(normalizeClusterZoom(-2)).toBe(0);
-    expect(normalizeClusterZoom(CLUSTER_MAX_ZOOM + 4)).toBe(CLUSTER_MAX_ZOOM);
+    expect(normalizeClusterZoom(CLUSTER_MAX_ZOOM + 4)).toBe(CLUSTER_EXPANSION_MAX_ZOOM);
     expect(normalizeClusterZoom(Number.NaN)).toBe(15);
 
     expect(
@@ -174,5 +225,12 @@ describe('getClusterLeaves resilience', () => {
     if (cluster === undefined) throw new Error('Expected a cluster fixture');
 
     expect(getClusterLeaves(createGanapClusterIndex([]), cluster)).toEqual([]);
+  });
+
+  it('returns no camera target for a cluster from a replaced index', () => {
+    const index = createGanapClusterIndex([ganap('a', 122.5489, 10.7313), ganap('b', 122.5489, 10.7313)]);
+    const cluster = onlyCluster(visibleAt(index, 0));
+
+    expect(resolveClusterZoomTarget(createGanapClusterIndex([]), cluster)).toBeNull();
   });
 });

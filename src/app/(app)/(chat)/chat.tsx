@@ -1,13 +1,20 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Share } from 'react-native';
 import { FriendsHubView } from '@/components/friends/FriendsHubView';
 import { Routes } from '@/constants/routes';
 import { type FriendsHubSegment, useFriends } from '@/hooks/useFriends';
 import type { ChatConversationSummary } from '@/types/chat.types';
 import type { FriendRequestDirection } from '@/types/friends.types';
-import { formatFriendCode, formatFriendRetryWarning, getFriendErrorMessage } from '@/utils/friends';
+import {
+  formatFriendCode,
+  formatFriendRetryWarning,
+  getFriendErrorMessage,
+  isValidFriendCode,
+  normalizeFriendCode,
+} from '@/utils/friends';
+import { buildFriendShareUrl } from '@/utils/share-links';
 
 /**
  * Friends and Chat hub.
@@ -19,12 +26,24 @@ import { formatFriendCode, formatFriendRetryWarning, getFriendErrorMessage } fro
  */
 export default function ChatScreen(): ReactElement {
   const router = useRouter();
+  const { friendCode: rawFriendCode } = useLocalSearchParams<{ friendCode?: string | string[] }>();
+  const friendCode: string | undefined =
+    typeof rawFriendCode === 'string' && isValidFriendCode(rawFriendCode)
+      ? normalizeFriendCode(rawFriendCode)
+      : undefined;
   const [segment, setSegment] = useState<FriendsHubSegment>('chats');
   const [requestDirection, setRequestDirection] = useState<FriendRequestDirection>('incoming');
   const [isCodeOpen, setIsCodeOpen] = useState<boolean>(false);
-  const [isAddFriendOpen, setIsAddFriendOpen] = useState<boolean>(false);
+  const [isAddFriendOpen, setIsAddFriendOpen] = useState<boolean>(friendCode !== undefined);
   const [requestNotice, setRequestNotice] = useState<string | null>(null);
-  const friends = useFriends({ segment, requestDirection, codeOpen: isCodeOpen });
+  const friends = useFriends({ segment, requestDirection, codeOpen: isCodeOpen, addFriendOpen: isAddFriendOpen });
+
+  useEffect((): void => {
+    if (friendCode !== undefined) {
+      setRequestNotice(null);
+      setIsAddFriendOpen(true);
+    }
+  }, [friendCode]);
 
   const handleOpenCode = (): void => {
     setRequestNotice(null);
@@ -52,7 +71,16 @@ export default function ChatScreen(): ReactElement {
   };
 
   const handleShareCode = async (code: string): Promise<void> => {
-    await Share.share({ message: `My Ganapps Friend Code is ${formatFriendCode(code)}.` });
+    const codeMessage: string = `My Ganapps Friend Code is ${formatFriendCode(code)}.`;
+    let message: string = codeMessage;
+    try {
+      message = `${codeMessage}\n${buildFriendShareUrl(code)}`;
+    } catch {
+      // The code remains shareable when the public web URL is not configured.
+    }
+    await Share.share({
+      message,
+    });
   };
 
   const handleOpenAddFriend = (): void => {
@@ -81,7 +109,7 @@ export default function ChatScreen(): ReactElement {
       setRequestNotice(
         result.status === 'ACCEPTED' || result.status === 'AUTO_ACCEPTED'
           ? 'Friend request accepted.'
-          : 'Friend request sent.',
+          : 'Friend request sent',
       );
     } catch (error: unknown) {
       const normalized: Error = error instanceof Error ? error : new Error('Unable to send friend request.');
@@ -105,12 +133,8 @@ export default function ChatScreen(): ReactElement {
 
   const handleRejectRequest = async (attemptId: string): Promise<void> => {
     try {
-      const result = await friends.rejectRequestMutation.mutateAsync(attemptId);
-      setRequestNotice(
-        result.retryAt
-          ? `Friend request rejected. ${formatFriendRetryWarning(result.retryAt)}`
-          : 'Friend request rejected.',
-      );
+      await friends.rejectRequestMutation.mutateAsync(attemptId);
+      setRequestNotice('Friend request rejected.');
     } catch (error: unknown) {
       const normalized: Error = error instanceof Error ? error : new Error('Unable to reject friend request.');
       setRequestNotice(getFriendErrorMessage(normalized, 'Unable to reject friend request.'));
@@ -146,12 +170,15 @@ export default function ChatScreen(): ReactElement {
       friends={friends.friends}
       presence={friends.presence}
       requests={friends.requests}
+      outgoingRequests={friends.outgoingRequests}
+      isLoadingOutgoingRequests={friends.isLoadingOutgoingRequests}
       isLoading={friends.isLoading}
       error={friends.error}
       isRefreshing={activeQuery.isRefetching || friends.presenceQuery.isRefetching}
       hasNextPage={Boolean(activeQuery.hasNextPage)}
       isFetchingNextPage={activeQuery.isFetchingNextPage}
       isCodeOpen={isCodeOpen}
+      initialFriendCode={friendCode}
       codeQuery={friends.codeQuery}
       isRegeneratingCode={friends.regenerateCodeMutation.isPending}
       isAddFriendOpen={isAddFriendOpen}

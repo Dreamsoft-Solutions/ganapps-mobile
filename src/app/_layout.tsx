@@ -3,7 +3,7 @@ import '../global.css';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { NavigationBar } from 'expo-navigation-bar';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useGlobalSearchParams, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { cssInterop } from 'nativewind';
 import { type ReactElement, useEffect, useState } from 'react';
@@ -20,6 +20,7 @@ import { remoteConfigService } from '@/services/remote-config.service';
 import { type CheckInReplayOutcome, startOutboxDrain } from '@/services/sync.service';
 import { useAuthStore } from '@/store/auth.store';
 import { handleCheckInReplayOutcome } from '@/utils/attendance';
+import { hasShareLinkReturnTarget } from '@/utils/navigation';
 import migrations from '../../drizzle/migrations';
 
 cssInterop(SafeAreaView, { className: 'style' });
@@ -36,9 +37,16 @@ function isUnauthenticatedGroup(segment: string | undefined): boolean {
   return segment === '(public)' || segment === '(auth)';
 }
 
+/** Keeps canonical share routes alive long enough to validate and forward them. */
+function isShareLinkRoute(segments: readonly string[]): boolean {
+  return segments[0] === '(public)' && (segments[1] === 'friends' || segments[1] === 'ganaps');
+}
+
 function RootLayoutNav(): ReactElement {
   const router = useRouter();
   const segments = useSegments();
+  const searchParams = useGlobalSearchParams();
+  const hasPendingShareReturn: boolean = hasShareLinkReturnTarget(searchParams);
   const queryClient = useQueryClient();
   const token = useAuthStore((s) => s.token);
   const isHydrated = useAuthStore((s) => s.isHydrated);
@@ -77,13 +85,14 @@ function RootLayoutNav(): ReactElement {
     if (!isHydrated || !migrationsReady) return;
 
     const segment = segments[0];
+    const isIncomingShareLink: boolean = isShareLinkRoute(segments);
 
     if (token === null && !isUnauthenticatedGroup(segment)) {
       router.replace(Routes.public.welcome);
-    } else if (token !== null && isUnauthenticatedGroup(segment)) {
+    } else if (token !== null && isUnauthenticatedGroup(segment) && !isIncomingShareLink && !hasPendingShareReturn) {
       router.replace(Routes.app.home);
     }
-  }, [token, isHydrated, migrationsReady, segments, router]);
+  }, [token, isHydrated, migrationsReady, segments, router, hasPendingShareReturn]);
 
   // A database that failed to migrate fails confusingly later — every read hits a
   // missing table — so surface it here rather than letting the app start broken.
