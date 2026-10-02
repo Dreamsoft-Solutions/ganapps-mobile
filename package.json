@@ -83,6 +83,8 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "check:docs": "node scripts/check-docs.mjs",
+    "test:docs": "node --test scripts/check-docs.test.mjs",
     "start": "expo start",
     "dev": "expo start --clear",
     "android": "expo run:android",

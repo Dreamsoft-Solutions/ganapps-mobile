@@ -4,86 +4,35 @@ Read the sections relevant to the task. Code paths and command working directori
 
 ## Project Structure
 
-```
-src/
-├── api/                              # Axios HTTP client layer
-│   ├── axios-instance.ts             # The configured instance — always import this
-│   ├── config.ts                     # API_BASE_URL (includes /api/v1)
-│   ├── interceptors/
-│   │   ├── request.interceptor.ts    # Bearer token + preemptive refresh (2 min before expiry)
-│   │   ├── response.interceptor.ts   # Unwraps the server's response envelope
-│   │   ├── error.interceptor.ts      # 401 → refresh + retry queue → clearAuth
-│   │   └── refresh-token.ts          # POST /auth/refresh, deduped via shared promise
-│   ├── endpoints/
-│   │   ├── auth.ts                   # 8 auth calls (see API Layer below)
-│   │   ├── ganaps.ts                 # Public Ganap discovery + detail
-│   │   └── users.ts                  # DEAD — no such endpoint on the server
-│   ├── types/
-│   │   ├── api-response.ts           # ApiResponse<T>, PaginatedResponse<T>, isApiResponse
-│   │   └── api-error.ts              # ApiErrorResponse
-│   └── api-layer.test.ts             # URL shape + envelope unwrapping tests
-├── app/                              # Expo Router file-based routing
-│   ├── _layout.tsx                   # Root layout — hydrate, splash, auth vs app routing
-│   ├── +not-found.tsx
-│   ├── onboarding.tsx                # Root level, NOT in (auth)
-│   ├── verify-email.tsx              # Root level, NOT in (auth)
-│   ├── (auth)/                       # Unauthenticated group
-│   │   ├── _layout.tsx
-│   │   └── login.tsx                                    # Login AND register — see native-build-reference.md
-│   └── (app)/                        # Authenticated group (tab navigator)
-│       ├── _layout.tsx               # Tabs: Map, My Events, Chat, Profile
-│       ├── (home)/                                      # Map discovery — owns `/`
-│       │   ├── {_layout,index}.tsx
-│       │   ├── [ganap-id].tsx                           # Ganap detail
-│       │   ├── registration/[ganap-id].tsx
-│       │   ├── event-hub/[ganap-id].tsx
-│       │   ├── scan/[ganap-id].tsx                      # QR check-in (expo-camera)
-│       │   └── feedback/[ganap-id].tsx                  # Post-attendance form
-│       ├── (ganaps)/{_layout,ganaps}.tsx                # My Events — renders JoinedGanapsList
-│       ├── (chat)/{_layout,chat}.tsx                    # Chat — still a placeholder
-│       └── (profile)/{_layout,profile,edit,settings,joined}.tsx
-├── components/
-│   ├── common/                       # UI primitives
-│   │   ├── Button.tsx                # CVA variants; takes `children: string`
-│   │   ├── Card.tsx                  # Accepts className (ViewProps spread)
-│   │   ├── Empty.tsx                 # Centered empty state
-│   │   ├── Error.tsx                 # Exports `ErrorView`, not `Error`
-│   │   ├── Input.tsx                 # react-hook-form Controller wrapper
-│   │   ├── Loading.tsx               # Centered ActivityIndicator
-│   │   └── Text.tsx                  # Accepts className (TextProps spread)
-│   ├── forms/                        # LoginForm, RegisterForm, VerifyEmailForm, OnboardingForm
-│   ├── lists/                        # FeatureList.tsx
-│   ├── map/                          # GanapMapPin, MapSearchBar, TagChips, SelectedGanapCard
-│   └── navigation/                   # AppTabBar (custom bottom tabs)
-├── constants/
-│   ├── errors.ts                     # ErrorCodes + ErrorMessages, mirrors server AppError
-│   ├── routes.ts                     # Href-typed route table — see Navigation Convention
-│   └── theme.ts                      # Dark mode palette
-├── db/                               # SQLite via Drizzle
-│   ├── index.ts
-│   └── schema.ts                     # outbox, feature_cache, user_cache
-├── hooks/
-│   ├── queries/useAuthQuery.ts
-│   ├── mutations/useAuthMutation.ts
-│   ├── useAuth.ts
-│   ├── useFeatureFlag.ts             # useFeatureFlag / ...String / ...Number
-│   └── useFeatures.ts                # DEAD — see Known Drift
-├── providers/RootProvider.tsx        # GestureHandlerRootView + QueryClientProvider
-├── services/
-│   ├── remote-config.service.ts      # Firebase Remote Config singleton
-│   └── sync.service.ts               # Offline outbox processor
-├── store/auth.store.ts               # Zustand; tokens in expo-secure-store
-├── types/                            # auth.types, ganap.types, user.types, feature.types
-├── utils/
-│   ├── error-handling.ts             # parseApiError
-│   ├── formatting.ts  formatting.test.ts
-│   ├── secure-storage.ts             # expo-secure-store wrapper
-│   ├── storage.ts                    # AsyncStorage wrapper
-│   └── validation.ts                 # Zod schemas
-└── global.css
-```
+### Feature entry points
 
----
+Start with the row matching the task, then trace its imports and callers. Paths below belong to this repository.
+
+| Task | First files |
+| --- | --- |
+| Password fields and shared input | [LoginForm.tsx](<../../src/components/forms/LoginForm.tsx>), [Input.tsx](<../../src/components/common/Input.tsx>) |
+| Auth, refresh, response unwrapping | [useAuth.ts](<../../src/hooks/useAuth.ts>), [axios-instance.ts](<../../src/api/axios-instance.ts>), [interceptors](<../../src/api/interceptors>), [auth.store.ts](<../../src/store/auth.store.ts>) |
+| Map, categories, nearby discovery | [useGanapsMap.ts](<../../src/hooks/useGanapsMap.ts>), [ganaps.ts](<../../src/api/endpoints/ganaps.ts>), [map](<../../src/components/map>) |
+| Joined and saved Ganaps | [useJoinedGanaps.ts](<../../src/hooks/useJoinedGanaps.ts>), [useSavedGanaps.ts](<../../src/hooks/useSavedGanaps.ts>), [ganaps.tsx](<../../src/app/(app)/(ganaps)/ganaps.tsx>) |
+| Friends profiles and loading | [[user-id].tsx](<../../src/app/(app)/(chat)/friend-profile/[user-id].tsx>), [useFriendsQuery.ts](<../../src/hooks/queries/useFriendsQuery.ts>), [friends.ts](<../../src/api/endpoints/friends.ts>), [FriendsHubView.tsx](<../../src/components/friends/FriendsHubView.tsx>) |
+| Chat and realtime transport | [chat.tsx](<../../src/app/(app)/(chat)/chat.tsx>), [chat.ts](<../../src/api/endpoints/chat.ts>), [chat-socket.service.ts](<../../src/services/chat-socket.service.ts>) |
+| Routes and screen tests | [routes.ts](<../../src/constants/routes.ts>), [app-tests](<../../src/app-tests>) |
+
+Friends profile calls resolve to server `modules/friends`; Chat calls resolve to `modules/chat`. For the HTTP contract, inspect the assigned server checkout’s controller, request/response DTOs, and service.
+
+### Fresh worktrees
+
+Run Git and package commands from this repository or its assigned worktree. Check `git status --short --branch` first and read only the reference section matching the task. Load review checklists when reviewing the completed change.
+
+Install locked dependencies with `npm ci`. A `node_modules` directory or junction does not prove the declared packages are installed; repair installation before diagnosing a missing-module failure.
+
+For route typing, run `npx expo customize tsconfig.json` after installation or route-tree changes; `.expo/types` is ignored. This is separate from the human-only Drizzle migration workflow.
+
+Sibling paths such as `../ganapps-server` apply only to the normal three-repo checkout. In a ticket worktree or standalone clone, use the explicitly assigned sibling checkout/worktree; resolve it with the owning repo’s `git worktree list` rather than guessing a path under this worktree.
+
+### Navigation checks
+
+Run `node scripts/check-docs.mjs` for documentation changes. Existing CI also runs `node --test scripts/check-docs.test.mjs`. The check covers inline links in root guides, agent references, ADR indexes, and architecture overviews; it validates local Git filename case and Markdown heading anchors. External URLs and links outside this repository are optional workspace references. Use angle-bracket destinations for paths containing spaces or route parentheses. Historical plans and feature snapshots remain outside this navigation check.
 
 ## API Layer
 
@@ -135,27 +84,11 @@ Registered in `axios-instance.ts`, and the order matters:
 Retries go through `axiosInstance` so they are unwrapped like any other response. Each retried
 request carries `_retry` to prevent an infinite refresh loop.
 
-### Endpoints that exist
+### Reading the API contract
 
-`authAPI` (`api/endpoints/auth.ts`) — all live:
+Endpoint wrappers in `src/api/endpoints/` are clients, not proof of server support. Read the owning controller, request/response DTOs, and service in the assigned server checkout. Start module discovery at its `src/app.module.ts`; use `docs/flags.md` for feature gates and `prisma/schema.prisma` for persistence vocabulary. Confirm the response envelope and authorization as well as the route path.
 
-| Function | Route |
-|---|---|
-| `login` | `POST /auth/login` |
-| `register` | `POST /auth/register` |
-| `logout` | `POST /auth/logout` |
-| `refreshToken` | `POST /auth/refresh` |
-| `getMe` | `GET /auth/me` |
-| `updateProfile` | `PATCH /auth/me` |
-| `verifyEmail` | `POST /auth/verify-email` |
-| `resendVerification` | `POST /auth/resend-verification` |
-| `googleLogin` | `POST /auth/google` |
-
-The server also exposes `POST /auth/link-google`, which mobile does not wrap yet.
-
-Beyond auth, the server has only `ganaps`, `businesses`, and `health`. Read
-`../ganapps-server/docs/flags.md` for every path — **do not infer endpoints from existing
-mobile code**, which contains wrappers for routes that do not exist.
+The server implements Friends, Chat, Profile, Organizer Operations, and other modules beyond Auth, Businesses, and Ganaps. Keep route details in the controller/DTO source instead of a second endpoint inventory here.
 
 ---
 

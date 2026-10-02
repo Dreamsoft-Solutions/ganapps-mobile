@@ -34,6 +34,8 @@ jobs:
 
       # Biome lint + format + assists. Also the gate for nursery/useExplicitType,
       # which is set to error — see AGENTS.md, TypeScript Standards.
+      - name: Check navigation documentation
+        run: node --test scripts/check-docs.test.mjs && node scripts/check-docs.mjs
       - name: Check formatting and lint
         run: npm run check
 
