@@ -93,7 +93,7 @@ aside and scaffolds a blank app.
 
 ## Project Structure
 
-Use this map when locating an unfamiliar feature. See [Project Structure](docs/agents/implementation-reference.md#project-structure).
+Locate unfamiliar features through [Feature entry points](docs/agents/implementation-reference.md#feature-entry-points). For a new checkout or missing dependencies, read [Fresh worktrees](docs/agents/implementation-reference.md#fresh-worktrees). Load only the section matching the task.
 
 ## API Layer
 
@@ -336,6 +336,8 @@ For feature work, apply the checklist items relevant to the changed surface. See
 
 ## Git Workflow
 
+Unless the task specifies another base, start feature work from refreshed `origin/dev`, target `dev`, and pin that same ref for baseline evidence. Run Git/package commands in the owning repository or assigned worktree.
+
 - Branch: `dev`. `master` is not a working branch. Note that `origin/HEAD` still points at
   `master`, so anything defaulting to it — a new PR's base, for one — targets the wrong branch.
 - Conventional Commits, enforced by commitlint (100 char header limit)
@@ -362,4 +364,4 @@ than letting CI test a version nobody develops on.
 
 ## Code Review Process
 
-Review feature changes against the relevant categories. Run npm run check, npm run type-check, and npm run test for application feature changes; documentation-only edits need document and link checks. Preserve required Git-hook and release checks. See [Code Review Process](docs/agents/review-reference.md#code-review-process).
+Review feature changes against the relevant categories. Run npm run check, npm run type-check, and npm run test for application feature changes; documentation-only edits run `node scripts/check-docs.mjs`; see [Navigation checks](docs/agents/implementation-reference.md#navigation-checks). Preserve required Git-hook and release checks. See [Code Review Process](docs/agents/review-reference.md#code-review-process).

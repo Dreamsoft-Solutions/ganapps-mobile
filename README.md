@@ -1,8 +1,8 @@
 # Ganapps Mobile
 
-The React Native app for **Ganapps**, a campus event discovery platform for Central
-Philippine University. Students browse events on a map or feed, register, join the event
-chat, check in by scanning the organizer's QR code, and leave feedback afterwards.
+The React Native app for **Ganapps**, an event discovery platform for Iloilo City. Users browse events on a map or feed, register, join Chat, check in by QR, and leave feedback. CPU organizers remain the first market.
+
+Start with [agent guidance](AGENTS.md), [feature entry points](docs/agents/implementation-reference.md#feature-entry-points), and [fresh-worktree setup](docs/agents/implementation-reference.md#fresh-worktrees).
 
 This repo is one of three:
 
@@ -29,7 +29,7 @@ expo-sqlite) · Firebase Remote Config · Biome · Jest · EAS Build
 ## Setup
 
 ```bash
-npm install
+npm ci
 cp .env.example .env
 ```
 

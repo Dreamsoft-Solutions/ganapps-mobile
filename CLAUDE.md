@@ -45,14 +45,13 @@ rather than inferring the shape from existing mobile code:
 | Path | Use it for |
 |---|---|
 | `../ganapps-server/prisma/schema.prisma` | The authoritative data model — fields, relations, enums, status lifecycles |
-| `../ganapps-server/docs/flags.md` | Every endpoint path, grouped by feature flag, with defaults |
+| `../ganapps-server/src/modules/<domain>/` | Controller paths, DTO request/response shapes, authorization and service behavior |
+| `../ganapps-server/docs/flags.md` | Feature-gated paths and server-side defaults |
 | `../ganapps-server/docs/features/ganap-management-summary.md` | Ganap lifecycle, announcements, form blocks, QR hash |
 | `../ganapps-server/docs/features/business-registration-summary.md` | Invites, org setup, membership, subscriptions, image upload |
 | `../ganapps-web/docs/adr/0001-cookie-only-auth.md` | Why mobile's token handling differs from web's |
 
-`../CLAUDE.md` has the product context and the full workspace reference map. Note that a
-flag being `true` in `flags.md` is the server-side default, which is separate from this
-app's own three-tier flag resolution.
+For workspace ownership, use the optional `../AGENTS.md` in the normal sibling checkout; this repository’s [feature map and worktree setup](docs/agents/implementation-reference.md#feature-entry-points) work in standalone clones too. In a ticket worktree, resolve sibling source against the assigned checkout rather than assuming these `../` paths exist. A flag being `true` in `flags.md` is the server-side default, separate from mobile’s three-tier flag resolution.
 
 ## Where documents go
 
