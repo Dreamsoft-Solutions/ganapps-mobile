@@ -83,10 +83,14 @@ function getErrorCode(error: Error): string | undefined {
   return (error as ParsedApiError).errorCode;
 }
 
-/** Retries transient Friends reads once, but never repeats a rate-limited request. */
+/** Retries transient Friends reads once, but never repeats a rejected request. */
 function shouldRetryFriendsQuery(failureCount: number, error: Error): boolean {
-  const errorCode: string | undefined = getErrorCode(error);
-  return errorCode !== 'FRIEND_CODE_RATE_LIMITED' && failureCount < 1;
+  const parsedError: ParsedApiError = error as ParsedApiError;
+  return (
+    failureCount < 1 &&
+    getErrorCode(error) !== 'FRIEND_CODE_RATE_LIMITED' &&
+    (parsedError.status === undefined || parsedError.status >= 500)
+  );
 }
 
 /**
