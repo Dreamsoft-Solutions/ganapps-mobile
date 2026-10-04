@@ -1,4 +1,4 @@
-# Ganapps Mobile Context
+# Ganapps Mobile Glossary
 
 Ganapps Mobile is the app people use to discover events across Iloilo City, register for them, attend, and leave feedback.
 

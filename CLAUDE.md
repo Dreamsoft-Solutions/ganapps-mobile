@@ -11,7 +11,7 @@ Use the default labels `needs-triage`, `needs-info`, `ready-for-agent`, `ready-f
 
 ### Domain docs
 
-Domain vocabulary lives in a single glossary at root `CONTEXT.md`; architecture decisions live in `docs/adr/`. Use the glossary's terms when naming things. See `docs/agents/domain.md`.
+Domain vocabulary lives in a single glossary at root `GLOSSARY.md`; architecture decisions live in `docs/adr/`. Use the glossary's terms when naming things. See `docs/agents/domain.md`.
 
 # Working in this repo with Claude Code
 
@@ -57,7 +57,7 @@ For workspace ownership, use the optional `../AGENTS.md` in the normal sibling c
 
 | Kind of document | Location | Committed? |
 |---|---|---|
-| Domain glossary — the words this repo uses for its concepts | `CONTEXT.md` (repo root) | Yes — shared with the team |
+| Domain glossary — the words this repo uses for its concepts | `GLOSSARY.md` (repo root) | Yes — shared with the team |
 | Architecture decision records | `docs/adr/NNNN-slug.md` | Yes — shared with the team |
 | Feature documentation | `docs/features/` | Yes — shared with the team |
 | Design specs, implementation plans, handoffs, scratch notes | `../.claude/` | No — personal |

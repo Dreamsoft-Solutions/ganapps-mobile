@@ -16,7 +16,7 @@ the boundary — **never hardcode CPU as the only campus, or a campus as the onl
 venue**. Because events are spread across a city rather than one campus, distance and
 proximity are core to discovery, not decorative.
 
-Domain vocabulary lives in `CONTEXT.md` at the repo root — read it before naming anything.
+Domain vocabulary lives in `GLOSSARY.md` at the repo root — read it before naming anything.
 The two terms that matter most: a **Ganap** is an event (never `Event`, which collides with
 DOM and React Native types), and a **Business** is an organizing body.
 
