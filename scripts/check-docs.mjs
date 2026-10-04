@@ -12,7 +12,7 @@ const files = new Set(
 );
 const docs = [...files].filter(
   (file) =>
-    /^(?:AGENTS|CLAUDE|README|CONTEXT(?:-MAP)?)\.md$/i.test(file) ||
+    /^(?:AGENTS|CLAUDE|README|CONTEXT(?:-MAP)?|GLOSSARY(?:-MAP)?)\.md$/i.test(file) ||
     /^docs\/(?:agents\/.*|architecture\/[^/]+|adr\/README)\.md$/i.test(file),
 );
 
