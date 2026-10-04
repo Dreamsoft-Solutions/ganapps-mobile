@@ -29,6 +29,16 @@ Expo packages must be added with `npx expo install` so SDK-compatible versions a
 
 ---
 
+## Communication and explainers
+
+Write concise technical prose with familiar words, active voice, and consistent terms from `GLOSSARY.md`. Lead with the answer and material caveats. For procedures, put conditions before actions and give one action per step. Preserve exact commands, identifiers, and requirements.
+
+Choose the simplest format that makes the result easy to understand. Use tables for comparisons and Mermaid for flows, states, or relationships when they clarify the explanation. Create an interactive explainer when changing inputs helps answer the question. Use video when requested or when timing and motion are essential.
+
+Ground explanations in inspected code or cited sources. Label proposed behavior and simulations clearly, and link verification evidence separately. For cross-repository changes, identify the responsible web, server, or mobile surface and relevant error paths in diagrams.
+
+Keep durable feature explanations with this repository's existing documentation. Keep disposable explainers in the assigned workspace outside the repository unless requested as a project deliverable.
+
 ## Commands
 
 ```bash
