@@ -14,6 +14,7 @@ const mockRouter = {
   push: jest.fn<(href: unknown) => void>(),
 };
 const mockDetailRefetch = jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined);
+const mockBusinessRefetch = jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined);
 const mockFriendsGoingRefetch = jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined);
 const mockEventDetailView = jest.fn<(props: Record<string, unknown>) => ReactElement>();
 interface TestShareModalProps {
@@ -136,7 +137,10 @@ jest.mock('@/hooks/queries/useFriendsQuery', () => ({
 }));
 
 jest.mock('@/hooks/queries/useBusinessesQuery', () => ({
-  useBusinessDetailQuery: (): { data: undefined } => ({ data: undefined }),
+  useBusinessDetailQuery: (): { data: undefined; refetch: typeof mockBusinessRefetch } => ({
+    data: undefined,
+    refetch: mockBusinessRefetch,
+  }),
 }));
 
 jest.mock('@/hooks/useGanaps', () => ({
@@ -242,6 +246,7 @@ describe('Event Details route refresh', (): void => {
     await onRefresh?.();
     expect(mockDetailRefetch).toHaveBeenCalledTimes(1);
     expect(mockFriendsGoingRefetch).toHaveBeenCalledTimes(1);
+    expect(mockBusinessRefetch).toHaveBeenCalledTimes(1);
   });
 
   it('requests privacy-filtered Going data for the displayed Ganap', async (): Promise<void> => {

@@ -39,6 +39,7 @@ export interface RouteTable {
   profileEdit: Href;
   profileSettings: Href;
   profileJoined: Href;
+  businessProfile: (businessId: string) => Href;
   friendAddWithCode: (code: string) => Href;
   ganapDetail: (ganapId: string, returnTo?: 'my-events') => Href;
   ganapRegistration: (ganapId: string) => Href;
@@ -123,6 +124,15 @@ export const Routes: RouteTable = {
   profileEdit: { pathname: '/(app)/(profile)/edit' },
   profileSettings: { pathname: '/(app)/(profile)/settings' },
   profileJoined: { pathname: '/(app)/(profile)/joined' },
+
+  /** Builds an authenticated organization profile route.
+   * @param businessId - Business identity from the Ganap
+   * @returns Pushed organization profile href
+   */
+  businessProfile: (businessId: string): Href => ({
+    pathname: '/(app)/(home)/organizations/[business-id]',
+    params: { 'business-id': businessId },
+  }),
 
   /** Builds the Chat tab route with the Add Friend form prefilled with one Friend Code. */
   friendAddWithCode: (code: string): Href => ({

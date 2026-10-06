@@ -7,6 +7,8 @@ export interface BusinessDetail {
   name: string;
   slug: string;
   bio?: string | null;
+  websiteUrl?: string | null;
+  publicContactEmail?: string | null;
   displayPicture?: string | null;
   coverImage?: string | null;
   address?: string | null;

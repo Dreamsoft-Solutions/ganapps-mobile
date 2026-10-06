@@ -184,10 +184,10 @@ export default function GanapDetailScreen(): ReactElement {
         isFriendsGoingLoading={friendsGoingQuery.isLoading}
         friendsGoingError={friendsGoingQuery.error}
         hasMoreFriendsGoing={Boolean(friendsGoingQuery.hasNextPage)}
-        isRefreshing={isRefetching || friendsGoingQuery.isRefetching}
+        isRefreshing={isRefetching || friendsGoingQuery.isRefetching || businessQuery.isRefetching}
         onBack={handleBack}
         onRefresh={async (): Promise<void> => {
-          await Promise.all([refetch(), friendsGoingQuery.refetch()]);
+          await Promise.all([refetch(), friendsGoingQuery.refetch(), businessQuery.refetch()]);
         }}
         onShare={handleShare}
         onToggleLike={(): Promise<void> => toggleLike({ ganapId: ganap.id, isLiked: ganap.isLiked ?? false })}
