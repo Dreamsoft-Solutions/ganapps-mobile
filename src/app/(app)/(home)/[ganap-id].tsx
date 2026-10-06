@@ -13,6 +13,7 @@ import { Spacing } from '@/constants/theme';
 import { useBusinessDetailQuery } from '@/hooks/queries/useBusinessesQuery';
 import { useFriendGoingQuery } from '@/hooks/queries/useFriendsQuery';
 import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
+import { useEventTime } from '@/hooks/useEventTime';
 import { useGanaps } from '@/hooks/useGanaps';
 import { showToast } from '@/store/toast.store';
 import type { FriendGoingRecord, FriendUserSummary } from '@/types/friends.types';
@@ -37,6 +38,7 @@ export default function GanapDetailScreen(): ReactElement {
   const isMyEventsOrigin: boolean = returnTo === 'my-events';
   const { data: ganap, isLoading, isRefetching, error, refetch } = useGanapDetailQuery(ganapId);
   const businessQuery = useBusinessDetailQuery(ganap?.businessId);
+  const now = useEventTime(ganap?.endDate);
   const friendsGoingQuery = useFriendGoingQuery(true, ganapId);
   const { join, leave, toggleLike, toggleSave, isJoining, isLeaving, isTogglingLike, isTogglingSave } = useGanaps();
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -105,7 +107,7 @@ export default function GanapDetailScreen(): ReactElement {
 
   const schedule = getGanapScheduleModel(ganap.startDate, ganap.endDate);
   const capacity = getGanapCapacityModel(ganap);
-  const actionModel = getGanapActionModel(ganap, new Date());
+  const actionModel = getGanapActionModel(ganap, now);
   const friendsGoing: FriendUserSummary[] = friendsGoingQuery.going
     .filter((record: FriendGoingRecord): boolean => record.ganap.ganapId === ganap.id)
     .map((record: FriendGoingRecord): FriendUserSummary => record.user);

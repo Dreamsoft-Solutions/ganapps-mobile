@@ -1,5 +1,34 @@
 import type { GanapDetail, RegistrationStatus } from '@/types/ganap.types';
 
+/**
+ * Formats public attendance without exposing the exact registration count.
+ * @param count - Exact internal registration count.
+ * @returns A public estimate in buckets of five, with low-count invitation copy.
+ */
+export function getAttendanceEstimate(count: number): string {
+  const safeCount: number = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+  if (safeCount === 0) return 'Be the first';
+  if (safeCount < 5) return 'A few attending';
+  return `${String(Math.floor(safeCount / 5) * 5)}+ attending`;
+}
+
+/**
+ * Derives display lifecycle only; absent or invalid ends retain server status.
+ * @param ganap - Authoritative lifecycle and optional event end.
+ * @param now - Current display time.
+ * @returns Terminal display label, preserving cancellation over elapsed time.
+ */
+export function getGanapLifecycleLabel(
+  ganap: { status: string; endDate?: string | null },
+  now: Date,
+): 'Done' | 'Cancelled' | null {
+  if (ganap.status === 'CANCELLED') return 'Cancelled';
+  if (ganap.status === 'COMPLETED') return 'Done';
+  if (ganap.status !== 'PUBLISHED' && ganap.status !== 'ONGOING') return null;
+  const endTime: number = ganap.endDate ? new Date(ganap.endDate).getTime() : Number.NaN;
+  return Number.isFinite(endTime) && now.getTime() >= endTime ? 'Done' : null;
+}
+
 /** Capacity copy and availability state for a Ganap. */
 export interface GanapCapacityModel {
   summary: string;
@@ -128,20 +157,9 @@ export function getGanapCapacityModel(ganap: GanapDetail): GanapCapacityModel {
   if (isFull) {
     return { summary: 'Full', detail: 'New joins enter the waitlist', isFull: true };
   }
-  if (count === 0) {
-    return {
-      summary: 'Be the first to join',
-      detail: maximum === null ? null : `${String(maximum)} spots available`,
-      isFull: false,
-    };
-  }
-  if (maximum === null) {
-    return { summary: `${String(count)} attending`, detail: null, isFull: false };
-  }
-  const remaining = maximum - count;
   return {
-    summary: `${String(count)} of ${String(maximum)} spots filled`,
-    detail: `${String(remaining)} remaining`,
+    summary: getAttendanceEstimate(count),
+    detail: maximum === null ? null : 'Spaces available',
     isFull: false,
   };
 }
@@ -154,15 +172,21 @@ export function getGanapCapacityModel(ganap: GanapDetail): GanapCapacityModel {
  * @returns The status and primary action model.
  */
 export function getGanapActionModel(ganap: GanapDetail, now: Date): GanapActionModel {
+  const lifecycleLabel = getGanapLifecycleLabel(ganap, now);
   const registration = ganap.myRegistration;
   if (registration?.status === 'PENDING' && registration.registrationFormSubmittedAt === null) {
     return {
-      statusLabel: 'Registration incomplete',
+      statusLabel: lifecycleLabel ?? 'Registration incomplete',
       primary: choice('complete-registration', 'Complete registration'),
       secondary: null,
     };
   }
-  if (registration?.status) return leaveOnlyAction(registration.status);
+  if (registration?.status) {
+    const model = leaveOnlyAction(registration.status);
+    return { ...model, statusLabel: lifecycleLabel ?? model.statusLabel };
+  }
+
+  if (lifecycleLabel) return statusOnly(lifecycleLabel);
 
   if (ganap.status === 'ONGOING') return statusOnly('Event in progress');
   if (ganap.status === 'COMPLETED') return statusOnly('Event ended');

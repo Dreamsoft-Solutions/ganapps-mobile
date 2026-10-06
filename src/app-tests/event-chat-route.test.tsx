@@ -7,6 +7,7 @@ import type { UseChatResult } from '@/hooks/useChat';
 
 const mockRouter = {
   dismiss: jest.fn<() => void>(),
+  dismissTo: jest.fn<(href: unknown) => void>(),
   navigate: jest.fn<(href: unknown) => void>(),
   replace: jest.fn<(href: unknown) => void>(),
 };
@@ -47,16 +48,12 @@ const mockChat: UseChatResult = {
   isReadOnly: false,
 };
 
-jest.mock(
-  'expo-router',
-  (): {
-    useLocalSearchParams: () => { 'ganap-id': string };
-    useRouter: () => typeof mockRouter;
-  } => ({
-    useLocalSearchParams: (): { 'ganap-id': string } => ({ 'ganap-id': 'ganap-42' }),
-    useRouter: (): typeof mockRouter => mockRouter,
-  }),
-);
+jest.mock('expo-router', (): object => ({
+  Stack: { Screen: (): null => null },
+  useFocusEffect: (): void => {},
+  useLocalSearchParams: (): { 'ganap-id': string } => ({ 'ganap-id': 'ganap-42' }),
+  useRouter: (): typeof mockRouter => mockRouter,
+}));
 
 jest.mock('@/components/chat/EventChatThreadView', () => {
   const React = require('react') as typeof import('react');
@@ -134,10 +131,12 @@ describe('Event Chat route navigation', (): void => {
     expect(screen.getByText('Ganap')).toBeTruthy();
     expect(screen.queryByText('Event Chat')).toBeNull();
 
-    fireEvent.press(screen.getByLabelText('Back to Event Hub'));
+    await fireEvent.press(screen.getByLabelText('Back to Event Hub'));
 
     expect(mockRouter.navigate).toHaveBeenCalledWith(Routes.eventHub('ganap-42'));
+    expect(mockRouter.dismissTo).toHaveBeenCalledWith(Routes.app.chat);
     expect(mockRouter.dismiss).not.toHaveBeenCalled();
+    await screen.unmount();
   });
 
   it('activates the Event Hub tab with its nested route params', (): void => {

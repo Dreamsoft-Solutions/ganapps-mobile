@@ -5,8 +5,10 @@ import { Pressable, View } from 'react-native';
 import { Card } from '@/components/common/Card';
 import { Text } from '@/components/common/Text';
 import { formatInterestLabel } from '@/constants/interests';
+import { useEventTime } from '@/hooks/useEventTime';
 import type { RegistrationStatus } from '@/types/ganap.types';
 import type { JoinedGanap } from '@/types/profile.types';
+import { getGanapLifecycleLabel } from '@/utils/ganap-detail';
 
 /**
  * Fill the thumbnail as a real style object, not a class.
@@ -40,6 +42,8 @@ interface JoinedGanapCardProps {
  */
 export function JoinedGanapCard({ ganap, onPress }: JoinedGanapCardProps): ReactElement {
   const registrationLabel: string = REGISTRATION_LABELS[ganap.registrationStatus];
+  const now = useEventTime(ganap.endDate);
+  const lifecycleLabel = getGanapLifecycleLabel(ganap, now);
   const firstTag: string | undefined = ganap.tags[0];
   const coverImage: string | null = ganap.coverImage || null;
 
@@ -86,6 +90,7 @@ export function JoinedGanapCard({ ganap, onPress }: JoinedGanapCardProps): React
             </View>
             <Text className="text-label-sm text-muted-foreground">{registrationLabel}</Text>
           </View>
+          {lifecycleLabel && <Text className="mt-1 text-label-sm text-muted-foreground">{lifecycleLabel}</Text>}
           {firstTag && (
             <Text className="mt-2 max-w-24 text-right text-label-sm text-muted-foreground" numberOfLines={1}>
               {formatInterestLabel(firstTag)}

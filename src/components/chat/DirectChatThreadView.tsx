@@ -1,18 +1,9 @@
 import { ArrowLeft, ImagePlus, Send } from 'lucide-react-native';
 import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  KeyboardAvoidingView,
-  Linking,
-  Platform,
-  Pressable,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatDateSeparator } from '@/components/chat/ChatDateSeparator';
-import { ChatImageBubble, ChatImagePreview } from '@/components/chat/ChatImage';
+import { ChatImageBubble, ChatImagePreview, ChatImageViewer } from '@/components/chat/ChatImage';
 import { MessageReactionBar } from '@/components/chat/MessageReactionBar';
 import { type MessageReactionAnchor, MessageReactionOverlay } from '@/components/chat/MessageReactionOverlay';
 import { Avatar } from '@/components/common/Avatar';
@@ -247,6 +238,7 @@ function MessageBubble({
   onRetryImageLoad,
 }: MessageBubbleProps): ReactElement {
   const bubbleClassName: string = isMine ? 'bg-primary' : 'border border-border bg-card';
+  const [photoOpen, setPhotoOpen] = useState<boolean>(false);
   const messageRef = useRef<View>(null);
   const reactionState: MessageReactionState = getMessageReactionState(message, canReact, onMessageReaction);
   const requestReactionPicker = (): void =>
@@ -263,7 +255,7 @@ function MessageBubble({
         onPress={
           media
             ? (): void => {
-                void Linking.openURL(media.url).catch((): void => {});
+                setPhotoOpen(true);
               }
             : undefined
         }
@@ -290,6 +282,18 @@ function MessageBubble({
         )}
         <MessageTimestamp isMine={isMine} sentAt={message.sentAt} seen={seen} />
       </Pressable>
+      {media && (
+        <ChatImageViewer
+          visible={photoOpen}
+          media={media}
+          senderUsername={isMine ? 'you' : message.senderUsername}
+          reloadToken={imageLoadState.reloadToken}
+          loadFailed={imageLoadState.loadFailed}
+          onLoadError={(error: string): void => onImageLoadError(message.id, error)}
+          onRetry={(): void => onRetryImageLoad(message.id)}
+          onClose={(): void => setPhotoOpen(false)}
+        />
+      )}
       <MessageReactionBar
         summary={reactionState.summary}
         presentation="summary"

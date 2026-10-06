@@ -22,13 +22,14 @@ import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { formatInterestLabel } from '@/constants/interests';
 import { Colors, Spacing } from '@/constants/theme';
+import { useEventTime } from '@/hooks/useEventTime';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { ReactionType } from '@/types/chat.types';
 import type { FriendUserSummary } from '@/types/friends.types';
 import type { GanapAnnouncement, GanapDetail } from '@/types/ganap.types';
 import type { AttendanceScanState } from '@/utils/attendance';
 import type { FeedbackRowState } from '@/utils/feedback';
-import type { GanapScheduleModel } from '@/utils/ganap-detail';
+import { type GanapScheduleModel, getAttendanceEstimate, getGanapLifecycleLabel } from '@/utils/ganap-detail';
 import { AnnouncementCard } from './AnnouncementCard';
 import { AttendanceScanRow } from './AttendanceScanRow';
 import { FeedbackRow } from './FeedbackRow';
@@ -290,10 +291,13 @@ function EventHubAnnouncementHeader({
   hasMoreFriendsGoing,
   onRetryFriendsGoing,
 }: EventHubAnnouncementHeaderProps): ReactElement {
+  const now = useEventTime(ganap.endDate);
+  const lifecycleLabel = getGanapLifecycleLabel(ganap, now);
   return (
     <>
       <View className="px-md pt-md">
         <Text className="font-inter-bold text-headline-md">{ganap.title}</Text>
+        {lifecycleLabel && <Text className="mt-sm text-label-md text-muted-foreground">{lifecycleLabel}</Text>}
 
         <View className="mt-sm flex-row flex-wrap items-center gap-sm">
           {ganap.tags.map(
@@ -347,7 +351,7 @@ function EventHubAnnouncementHeader({
             <Users size={16} color={Colors[theme].primary} />
           </SummaryIconTile>
           <Text className="min-w-0 flex-1 font-inter-semibold text-body-md">
-            {`${String(Math.max(0, ganap.registrationCount))} joined`}
+            {getAttendanceEstimate(ganap.registrationCount)}
           </Text>
         </View>
 

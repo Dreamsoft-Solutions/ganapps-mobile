@@ -148,7 +148,14 @@ describe('route table entries resolve to their screens', () => {
   it('builds an object-form Event Chat route with the Ganap parameter', () => {
     expect(Routes.eventChat('abc123')).toEqual({
       pathname: '/(app)/(chat)/event-chat/[ganap-id]',
-      params: { 'ganap-id': 'abc123' },
+      params: { 'ganap-id': 'abc123', returnTo: 'event-hub' },
+    });
+  });
+
+  it('preserves the Friends origin when opening an event conversation', (): void => {
+    expect(Routes.eventChat('abc123', 'friends')).toEqual({
+      pathname: '/(app)/(chat)/event-chat/[ganap-id]',
+      params: { 'ganap-id': 'abc123', returnTo: 'friends' },
     });
   });
 
