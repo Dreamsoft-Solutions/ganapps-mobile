@@ -11,7 +11,8 @@ import Mapbox, {
 import { useRouter } from 'expo-router';
 import type { ComponentRef, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { type LayoutChangeEvent, Pressable, View } from 'react-native';
+import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
@@ -20,11 +21,14 @@ import { ClusteredGanapMarkers } from '@/components/map/ClusteredGanapMarkers';
 import { GanapFeedSheet } from '@/components/map/GanapFeedSheet';
 import { LocateMeButton } from '@/components/map/LocateMeButton';
 import { LocationPrimingSheet } from '@/components/map/LocationPrimingSheet';
+import { MapControlsOverlay } from '@/components/map/MapControlsOverlay';
 import { MapSearchBar } from '@/components/map/MapSearchBar';
+import { MAX_MAP_PITCH, MapViewControls } from '@/components/map/MapViewControls';
 import { ReducedAccuracyNotice } from '@/components/map/ReducedAccuracyNotice';
 import { TagChips } from '@/components/map/TagChips';
 import { Routes } from '@/constants/routes';
 import { useGanapDiscovery } from '@/hooks/useGanapDiscovery';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
 import { FEED_SHEET_PEEK_HEIGHT, resolveClusterZoomTarget } from '@/utils/feed-sheet';
@@ -64,6 +68,15 @@ const BUILDING_EXTRUSION_STYLE: FillExtrusionLayerStyle = {
   fillExtrusionOpacity: 0.9,
   fillExtrusionVerticalGradient: true,
 };
+
+/**
+ * Selects a built-in map style with compatible composite building sources.
+ * @param theme - Resolved application appearance.
+ * @returns The style URL without changing camera state.
+ */
+function resolveMapStyleURL(theme: 'light' | 'dark'): string {
+  return theme === 'dark' ? Mapbox.StyleURL.Dark : 'mapbox://styles/mapbox/streets-v12';
+}
 
 interface CameraPadding {
   readonly paddingTop: number;
@@ -157,23 +170,31 @@ function handleMapPressWithGuard({
   }, MAP_FEATURE_PRESS_GUARD_MS);
 }
 
-function SelectionTerrain({ isActive }: { readonly isActive: boolean }): ReactElement | null {
+function SelectionTerrain({
+  isActive,
+  buildingsVisible,
+}: {
+  readonly isActive: boolean;
+  readonly buildingsVisible: boolean;
+}): ReactElement | null {
   if (!isActive) return null;
 
   return (
     <>
       <RasterDemSource id={TERRAIN_SOURCE_ID} url={TERRAIN_SOURCE_URL} tileSize={512} maxZoomLevel={14} />
       <Terrain sourceID={TERRAIN_SOURCE_ID} style={{ exaggeration: 2 }} />
-      <FillExtrusionLayer
-        id={BUILDING_EXTRUSION_LAYER_ID}
-        sourceID={BUILDING_SOURCE_ID}
-        sourceLayerID={BUILDING_SOURCE_LAYER_ID}
-        minZoomLevel={BUILDING_MIN_ZOOM}
-        maxZoomLevel={BUILDING_MAX_ZOOM}
-        aboveLayerID="building"
-        filter={['all', ['==', ['get', 'extrude'], 'true'], ['has', 'height']]}
-        style={BUILDING_EXTRUSION_STYLE}
-      />
+      {buildingsVisible && (
+        <FillExtrusionLayer
+          id={BUILDING_EXTRUSION_LAYER_ID}
+          sourceID={BUILDING_SOURCE_ID}
+          sourceLayerID={BUILDING_SOURCE_LAYER_ID}
+          minZoomLevel={BUILDING_MIN_ZOOM}
+          maxZoomLevel={BUILDING_MAX_ZOOM}
+          aboveLayerID="building"
+          filter={['all', ['==', ['get', 'extrude'], 'true'], ['has', 'height']]}
+          style={BUILDING_EXTRUSION_STYLE}
+        />
+      )}
     </>
   );
 }
@@ -196,6 +217,9 @@ const MAP_OVERLAY_BOTTOM: number = FEED_SHEET_PEEK_HEIGHT;
  * @returns The map home screen
  */
 export default function HomeScreen(): ReactElement {
+  const theme = useResolvedTheme();
+  const mapHeight = useSharedValue<number>(0);
+  const sheetPosition = useSharedValue<number>(-1);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const discovery = useGanapDiscovery();
@@ -236,6 +260,8 @@ export default function HomeScreen(): ReactElement {
   const featurePressCountRef = useRef<number>(0);
   const mapPressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [viewport, setViewport] = useState<MapViewport>(DEFAULT_MAP_VIEWPORT);
+  const [cameraPitch, setCameraPitch] = useState<number>(OVERHEAD_PITCH);
+  const [buildingsVisible, setBuildingsVisible] = useState<boolean>(true);
   const [isMapReady, setIsMapReady] = useState<boolean>(false);
   const [selectedGanap, setSelectedGanap] = useState<GanapListItem | null>(null);
   const [selectedCluster, setSelectedCluster] = useState<GanapClusterFeature | null>(null);
@@ -307,6 +333,7 @@ export default function HomeScreen(): ReactElement {
   }, []);
 
   const handleMapIdle = useCallback((state: MapState): void => {
+    setCameraPitch(Math.round(state.properties.pitch));
     const zoom: number = state.properties.zoom;
     mapZoomRef.current = zoom;
     cameraViewRef.current = getCameraViewSnapshot(state, cameraViewRef.current.padding);
@@ -320,6 +347,12 @@ export default function HomeScreen(): ReactElement {
   }, []);
 
   const handleCameraChanged = useCallback((state: MapState): void => {
+    setCameraPitch(Math.round(state.properties.pitch));
+    const nextViewport: MapViewport = mapStateToViewport({
+      bounds: state.properties.bounds,
+      zoom: state.properties.zoom,
+    });
+    setViewport((current: MapViewport): MapViewport => (current.zoom === nextViewport.zoom ? current : nextViewport));
     mapZoomRef.current = state.properties.zoom;
     cameraViewRef.current = getCameraViewSnapshot(state, cameraViewRef.current.padding);
     if (isSelectionActiveRef.current && state.gestures.isGestureActive) {
@@ -353,6 +386,7 @@ export default function HomeScreen(): ReactElement {
       if (zoom <= mapZoomRef.current) return;
 
       isClusterZoomPendingRef.current = true;
+      setCameraPitch(pitch);
       const padding: CameraPadding = {
         paddingTop: insets.top + MAP_OVERLAY_TOP,
         paddingBottom: MAP_OVERLAY_BOTTOM,
@@ -383,6 +417,7 @@ export default function HomeScreen(): ReactElement {
       setSelectedCluster(null);
       setSelectedClusterIndex(null);
       setSelectedGanap(ganap);
+      setCameraPitch(LOCATION_SELECTION_PITCH);
       const zoom: number = Math.max(mapZoomRef.current, LOCATION_SELECTION_ZOOM);
       const padding: CameraPadding = {
         paddingTop: insets.top + MAP_OVERLAY_TOP,
@@ -442,6 +477,7 @@ export default function HomeScreen(): ReactElement {
 
     if (!wasSelectionActive || reason === 'search-target') return;
 
+    setCameraPitch(OVERHEAD_PITCH);
     cameraViewRef.current = { ...targetView, pitch: OVERHEAD_PITCH };
     mapZoomRef.current = targetView.zoomLevel;
     cameraRef.current?.setCamera({
@@ -492,6 +528,7 @@ export default function HomeScreen(): ReactElement {
   const handleSelectSearchSuggestion = useCallback(
     (ganap: GanapListItem): void => {
       handleClearSelection('search-target');
+      setCameraPitch(OVERHEAD_PITCH);
       const padding: CameraPadding = {
         paddingTop: insets.top + MAP_OVERLAY_TOP,
         paddingBottom: MAP_OVERLAY_BOTTOM,
@@ -516,6 +553,24 @@ export default function HomeScreen(): ReactElement {
     [handleClearSelection, insets.top],
   );
 
+  const handlePitchChange = useCallback((requestedPitch: number): void => {
+    if (!Number.isFinite(requestedPitch)) return;
+    const pitch: number = Math.max(OVERHEAD_PITCH, Math.min(MAX_MAP_PITCH, Math.round(requestedPitch)));
+    if (isSelectionActiveRef.current) hasUserGestureDuringSelectionRef.current = true;
+    const view: CameraViewSnapshot = { ...cameraViewRef.current, pitch };
+    cameraViewRef.current = view;
+    setCameraPitch(pitch);
+    cameraRef.current?.setCamera({ ...view, animationDuration: 0 });
+  }, []);
+
+  const handleOverhead = useCallback((): void => {
+    if (isSelectionActiveRef.current) hasUserGestureDuringSelectionRef.current = true;
+    const view: CameraViewSnapshot = { ...cameraViewRef.current, pitch: OVERHEAD_PITCH, heading: 0 };
+    cameraViewRef.current = view;
+    setCameraPitch(OVERHEAD_PITCH);
+    cameraRef.current?.setCamera({ ...view, animationDuration: 0 });
+  }, []);
+
   if (!MAPBOX_TOKEN) {
     return (
       <View className="flex-1 items-center justify-center bg-background p-md">
@@ -536,10 +591,15 @@ export default function HomeScreen(): ReactElement {
   }
 
   return (
-    <View className="flex-1">
+    <View
+      className="flex-1"
+      onLayout={(event: LayoutChangeEvent): void => {
+        mapHeight.value = event.nativeEvent.layout.height;
+      }}
+    >
       <MapView
         style={{ flex: 1 }}
-        styleURL="mapbox://styles/mapbox/streets-v12"
+        styleURL={resolveMapStyleURL(theme)}
         scaleBarEnabled={false}
         attributionEnabled
         logoEnabled
@@ -549,7 +609,7 @@ export default function HomeScreen(): ReactElement {
         onDidFinishLoadingMap={handleMapReady}
       >
         <Camera ref={cameraRef} centerCoordinate={ILOILO_CITY_CENTER} zoomLevel={CITY_ZOOM} animationMode="none" />
-        <SelectionTerrain isActive={hasActiveSelection} />
+        <SelectionTerrain isActive={hasActiveSelection} buildingsVisible={buildingsVisible} />
         {userCoords !== null && <LocationPuck puckBearing="heading" puckBearingEnabled />}
         <ClusteredGanapMarkers
           features={visibleFeatures}
@@ -608,9 +668,31 @@ export default function HomeScreen(): ReactElement {
         )}
       </View>
 
-      <View className="absolute right-4" style={{ bottom: MAP_OVERLAY_BOTTOM + 12 }} pointerEvents="box-none">
+      <MapControlsOverlay
+        side="left"
+        hasSelection={hasActiveSelection}
+        mapHeight={mapHeight}
+        sheetPosition={sheetPosition}
+        topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+      >
+        <MapViewControls
+          pitch={cameraPitch}
+          buildingsVisible={buildingsVisible}
+          onPitchChange={handlePitchChange}
+          onOverhead={handleOverhead}
+          onBuildingsChange={setBuildingsVisible}
+        />
+      </MapControlsOverlay>
+
+      <MapControlsOverlay
+        side="right"
+        hasSelection={hasActiveSelection}
+        mapHeight={mapHeight}
+        sheetPosition={sheetPosition}
+        topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+      >
         <LocateMeButton onPress={handleLocateMe} />
-      </View>
+      </MapControlsOverlay>
 
       <LocationPrimingSheet
         visible={nearby.isPrimingVisible}
@@ -626,6 +708,7 @@ export default function HomeScreen(): ReactElement {
           hasActiveFilters={hasActiveFilters}
           isNearbyApplied={isNearbyApplied}
           topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+          animatedPosition={sheetPosition}
           selectedGanap={selectedGanap}
           selectedCluster={activeCluster}
           clusterIndex={clusterIndex}

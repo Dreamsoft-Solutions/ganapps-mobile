@@ -87,7 +87,7 @@ module.exports = {
     orientation: 'portrait',
     icon: './assets/brand/ganap-logo-1.png',
     scheme: 'ganappsmobile',
-    userInterfaceStyle: 'light',
+    userInterfaceStyle: 'automatic',
     ios: {
       icon: './assets/brand/ganap-logo-1.png',
       bundleIdentifier: 'com.ganapps.app',

@@ -3,6 +3,7 @@ import { X, ZoomIn } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Pressable, View } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
 import { Empty } from '@/components/common/Empty';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
@@ -39,6 +40,8 @@ export interface GanapFeedSheetProps {
    * of the status bar and the filters stay reachable while the feed is expanded.
    */
   topOverlayHeight: number;
+  /** Shared native position keeps floating map controls above the moving sheet. */
+  animatedPosition?: SharedValue<number>;
   selectedGanap: GanapListItem | null;
   selectedCluster: GanapClusterFeature | null;
   clusterIndex: GanapClusterIndex;
@@ -189,6 +192,7 @@ export function GanapFeedSheet({
   hasActiveFilters,
   isNearbyApplied,
   topOverlayHeight,
+  animatedPosition,
   selectedGanap,
   selectedCluster,
   clusterIndex,
@@ -265,6 +269,7 @@ export function GanapFeedSheet({
       index={0}
       snapPoints={snapPoints}
       topInset={topOverlayHeight}
+      animatedPosition={animatedPosition}
       enablePanDownToClose
       enableDynamicSizing={false}
       backgroundStyle={{ backgroundColor: Colors[theme].card }}

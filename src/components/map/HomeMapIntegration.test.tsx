@@ -5,6 +5,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { Routes } from '@/constants/routes';
 import type { UseGanapDiscoveryResult } from '@/hooks/useGanapDiscovery';
 import type { Coords } from '@/services/location.service';
+import { useThemeStore } from '@/store/theme.store';
 import type { GanapListItem } from '@/types/ganap.types';
 import { FEED_SHEET_PEEK_HEIGHT } from '@/utils/feed-sheet';
 import {
@@ -21,6 +22,7 @@ import {
 import { MAP_OVERLAY_TOP } from '@/utils/map-viewport';
 
 const mockMapProps: Array<{
+  styleURL?: string;
   onMapIdle?: (state: MapState) => void;
   onCameraChanged?: (state: MapState) => void;
   onPress?: () => void;
@@ -50,22 +52,44 @@ const mockSetCamera =
 const mockUseGanapDiscovery = jest.fn<() => UseGanapDiscoveryResult>();
 const mockRouterPush = jest.fn<(href: unknown) => void>();
 
+jest.mock('react-native-reanimated', () => {
+  const ReactNative = require('react-native') as typeof import('react-native');
+  const React = require('react') as typeof import('react');
+  return {
+    __esModule: true,
+    default: { View: ReactNative.View },
+    useSharedValue: (value: number): { value: number } => React.useRef({ value }).current,
+    useAnimatedStyle: (updater: () => unknown): unknown => updater(),
+  };
+});
+
+jest.mock('@expo/ui/community/slider', () => {
+  const React = require('react') as typeof import('react');
+  const ReactNative = require('react-native') as typeof import('react-native');
+  return {
+    Slider: (props: { onValueChange?: (value: number) => void; value?: number }): ReactElement =>
+      React.createElement(ReactNative.View, { ...props, testID: 'map-pitch-slider' }),
+  };
+});
+
 jest.mock('@rnmapbox/maps', () => {
   const React = require('react') as typeof import('react');
   const ReactNative = require('react-native') as typeof import('react-native');
 
   const MockMapView = ({
     children,
+    styleURL,
     onMapIdle,
     onCameraChanged,
     onPress,
   }: {
     children?: ReactNode;
+    styleURL?: string;
     onMapIdle?: (state: MapState) => void;
     onCameraChanged?: (state: MapState) => void;
     onPress?: () => void;
   }): ReactElement => {
-    mockMapProps.push({ onMapIdle, onCameraChanged, onPress });
+    mockMapProps.push({ styleURL, onMapIdle, onCameraChanged, onPress });
     return React.createElement(ReactNative.View, null, children);
   };
 
@@ -133,7 +157,10 @@ jest.mock('@rnmapbox/maps', () => {
 
   return {
     __esModule: true,
-    default: { setAccessToken: jest.fn<() => Promise<void>>().mockResolvedValue(undefined) },
+    default: {
+      setAccessToken: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+      StyleURL: { Dark: 'mapbox://styles/mapbox/dark-v11' },
+    },
     MapView: MockMapView,
     MarkerView: MockMarkerView,
     Camera: MockCamera,
@@ -436,6 +463,7 @@ afterAll((): void => {
 });
 
 beforeEach((): void => {
+  useThemeStore.setState({ mode: 'light' });
   mockMapProps.length = 0;
   mockMarkerProps.length = 0;
   mockTerrainSourceProps.length = 0;
@@ -446,6 +474,65 @@ beforeEach((): void => {
 });
 
 describe('home map clustering integration', (): void => {
+  it('switches the mounted map style without resetting its camera', async (): Promise<void> => {
+    const screen = await renderHome([ganap('one', 0, 0)]);
+    await fireEvent.press(screen.getByTestId('map-event-marker-one'));
+    await triggerIdle({
+      ...idleState(14, [20, 10]),
+      properties: { ...idleState(14, [20, 10]).properties, heading: 90, pitch: 35 },
+    });
+    expect(mockMapProps.at(-1)?.styleURL).toBe('mapbox://styles/mapbox/streets-v12');
+    const cameraCalls = mockSetCamera.mock.calls.length;
+    await act(async (): Promise<void> => {
+      useThemeStore.setState({ mode: 'dark' });
+    });
+    expect(mockMapProps.at(-1)?.styleURL).toBe('mapbox://styles/mapbox/dark-v11');
+    expect(mockSetCamera).toHaveBeenCalledTimes(cameraCalls);
+    expect(screen.getByTestId('feed-sheet-card-one')).toBeTruthy();
+    expect(screen.getByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeTruthy();
+    expect(screen.getByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeTruthy();
+  });
+
+  it('adjusts pitch and resets pitch and bearing without moving the map', async (): Promise<void> => {
+    const screen = await renderHome([ganap('one', 0, 0)]);
+    expect(screen.queryByLabelText('Map pitch')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Map view controls' }));
+    const currentView: MapState = idleState(14, [20, 10]);
+    await triggerIdle({ ...currentView, properties: { ...currentView.properties, heading: 90, pitch: 40 } });
+    await fireEvent(screen.getByTestId('map-pitch-slider', { includeHiddenElements: true }), 'valueChange', 35);
+    expect(mockSetCamera).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pitch: 35, centerCoordinate: [20, 10], zoomLevel: 14 }),
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Return to overhead view' }));
+    expect(mockSetCamera).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pitch: 0, heading: 0, centerCoordinate: [20, 10], zoomLevel: 14 }),
+    );
+  });
+
+  it('toggles only buildings while keeping the selected event and terrain', async (): Promise<void> => {
+    const screen = await renderHome([ganap('one', 0, 0)]);
+    await fireEvent.press(screen.getByTestId('map-event-marker-one'));
+    expect(screen.getByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Map view controls' }));
+    await fireEvent(screen.getByLabelText('Show 3D buildings'), 'valueChange', false);
+    expect(screen.queryByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeNull();
+    expect(screen.getByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeTruthy();
+    expect(screen.getByTestId('feed-sheet-card-one')).toBeTruthy();
+    await fireEvent(screen.getByLabelText('Show 3D buildings'), 'valueChange', true);
+    expect(screen.getByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeTruthy();
+  });
+
+  it('renders expanded pins during camera changes before map idle', async (): Promise<void> => {
+    const screen = await renderHome([ganap('one', 0, 0), ganap('two', 30, 0)]);
+    await triggerIdle(idleState(0.9));
+    expect(screen.getByRole('button', { name: 'Zoom to group of 2 events' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Zoom to group of 2 events' }));
+    await triggerCameraChanged(idleState(17));
+    expect(screen.getByTestId('map-event-marker-one')).toBeTruthy();
+    expect(screen.getByTestId('map-event-marker-two')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Zoom to group of 2 events' })).toBeNull();
+  });
+
   it('renders no marker for an empty dataset and one bottom-anchored marker for one point', async (): Promise<void> => {
     const emptyScreen = await renderHome([]);
     expect(emptyScreen.queryByTestId(/^map-(event|cluster)-marker-/)).toBeNull();
