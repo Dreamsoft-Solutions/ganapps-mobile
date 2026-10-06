@@ -1,5 +1,6 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { type ReactElement, useCallback, useEffect, useState } from 'react';
+import { BackHandler } from 'react-native';
 import { EventChatThreadView } from '@/components/chat/EventChatThreadView';
 import { ModerationActionSheet, type ModerationActionTarget } from '@/components/moderation/ModerationActionSheet';
 import { Routes } from '@/constants/routes';
@@ -21,10 +22,11 @@ import { getChatEngagementErrorMessage, isChatMessageUnsendAvailable } from '@/u
  * @returns Guarded Event Chat thread
  */
 export default function EventChatThreadScreen(): ReactElement {
-  const params = useLocalSearchParams<{ 'ganap-id': string | string[] }>();
+  const params = useLocalSearchParams<{ 'ganap-id': string | string[]; returnTo?: string }>();
   const rawGanapId: string | string[] | undefined = params['ganap-id'];
   const ganapId: string = Array.isArray(rawGanapId) ? (rawGanapId[0] ?? '') : (rawGanapId ?? '');
   const router = useRouter();
+  const isFriendsOrigin: boolean = params.returnTo === 'friends';
   const { data: ganap } = useGanapDetailQuery(ganapId);
   const headerTitle: string = ganap?.title?.trim() || 'Ganap';
   const chat = useChat(ganapId);
@@ -95,18 +97,30 @@ export default function EventChatThreadScreen(): ReactElement {
     [reportMutation],
   );
 
+  const onBack = useCallback((): void => {
+    router.dismissTo(Routes.app.chat);
+    if (!isFriendsOrigin) router.navigate(Routes.eventHub(ganapId));
+  }, [ganapId, isFriendsOrigin, router]);
+
+  useFocusEffect(
+    useCallback((): (() => void) => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', (): boolean => {
+        onBack();
+        return true;
+      });
+      return (): void => subscription.remove();
+    }, [onBack]),
+  );
+
   useEffect((): void => {
     if (!chat.accessRevoked) return;
     showToast('info', 'You no longer have access to this chat.');
-    router.replace(Routes.eventHub(ganapId));
-  }, [chat.accessRevoked, ganapId, router]);
-
-  const onBack = (): void => {
-    router.navigate(Routes.eventHub(ganapId));
-  };
+    onBack();
+  }, [chat.accessRevoked, onBack]);
 
   return (
     <>
+      <Stack.Screen options={{ gestureEnabled: isFriendsOrigin }} />
       <EventChatThreadView
         ganapTitle={headerTitle}
         session={chat.session}

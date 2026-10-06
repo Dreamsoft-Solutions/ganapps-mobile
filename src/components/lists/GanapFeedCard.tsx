@@ -8,6 +8,7 @@ import { Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { GanapListItem } from '@/types/ganap.types';
 import { formatFeedEventTimeRange } from '@/utils/formatting';
+import { getAttendanceEstimate } from '@/utils/ganap-detail';
 
 /**
  * Fills the sized wrapper around the poster.
@@ -43,7 +44,7 @@ export interface GanapFeedCardProps {
  * Ported from the MagicPath `Ganapps – Map Home` design. Three of the fields
  * that design draws do not exist on the public list response, so each degrades
  * rather than being faked: no organization logo (initial letter instead), no
- * verified badge, and no attendee cap (a bare count, never `9/15`). Likes are
+ * verified badge, and no attendee cap (an attendance estimate, never `9/15`). Likes are
  * hardcoded to zero server-side and are deliberately absent, and there is no
  * price field on the model at all.
  *
@@ -68,7 +69,7 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
       testID="ganap-feed-card"
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${ganap.title}, hosted by ${ganap.businessName}`}
+      accessibilityLabel={`${ganap.title}, hosted by ${ganap.businessName}, ${getAttendanceEstimate(ganap.registrationCount)}`}
       className="active:opacity-80"
     >
       <Card className="mb-sm">
@@ -119,9 +120,9 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
           </View>
         </View>
 
-        <View className="mt-sm flex-row items-center justify-between border-t border-border pt-sm">
+        <View className="mt-sm flex-row items-center gap-sm border-t border-border pt-sm">
           <View className="min-w-0 flex-1 flex-row items-center gap-xs">
-            <View className="h-8 w-8 items-center justify-center rounded-full bg-muted">
+            <View className="h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
               <Text
                 testID="ganap-feed-card-host-initial"
                 className="font-inter-bold text-label-md text-muted-foreground"
@@ -129,14 +130,16 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
                 {initial}
               </Text>
             </View>
-            <Text className="font-inter-semibold text-body-md text-foreground" numberOfLines={1}>
+            <Text className="min-w-0 flex-1 font-inter-semibold text-body-md text-foreground" numberOfLines={1}>
               {ganap.businessName}
             </Text>
           </View>
 
-          <View className="flex-row items-center gap-1 rounded-full bg-muted px-sm py-1">
+          <View className="shrink-0 flex-row items-center gap-1 rounded-full bg-muted px-sm py-1">
             <Users size={14} color={subdued} />
-            <Text className="font-inter-medium text-label-md text-muted-foreground">{ganap.registrationCount}</Text>
+            <Text className="font-inter-medium text-label-md text-muted-foreground">
+              {getAttendanceEstimate(ganap.registrationCount)}
+            </Text>
           </View>
         </View>
       </Card>

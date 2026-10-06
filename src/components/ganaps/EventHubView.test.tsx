@@ -244,7 +244,7 @@ describe('EventHubView header', (): void => {
 });
 
 describe('EventHubView event summary', (): void => {
-  it('renders the full title, tags, Public badge, schedule, address, and real joined count', async (): Promise<void> => {
+  it('renders the full title, tags, Public badge, schedule, address, and attendance estimate', async (): Promise<void> => {
     const screen = await render(<EventHubView {...buildProps()} />);
 
     expect(screen.getByText('Coffee & Code at Festive Walk')).toBeTruthy();
@@ -253,7 +253,7 @@ describe('EventHubView event summary', (): void => {
     expect(screen.getByText('Saturday, August 8, 2026')).toBeTruthy();
     expect(screen.getByText('10:00 AM – 1:00 PM')).toBeTruthy();
     expect(screen.getByText('Festive Walk Mall, Iloilo City, Philippines')).toBeTruthy();
-    expect(screen.getByText('17 joined')).toBeTruthy();
+    expect(screen.getByText('15+ attending')).toBeTruthy();
   });
 
   it('gives the Public badge a solid token background rather than an opacity modifier', async (): Promise<void> => {

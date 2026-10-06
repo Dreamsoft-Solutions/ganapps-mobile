@@ -17,6 +17,8 @@ jest.mock('lucide-react-native', () => ({
   X: (): null => null,
 }));
 
+jest.mock('react-native-reanimated', () => ({ useReducedMotion: (): boolean => false }));
+
 jest.mock('expo-image', () => ({
   Image: (): ReactElement => <MockView testID="chat-image" />,
 }));
@@ -73,6 +75,28 @@ const message: ChatMessage = {
   type: 'TEXT',
   sentAt: '2026-09-07T00:00:00.000Z',
 };
+
+it('opens a private photo inside Direct chat and removes it when unsent', async (): Promise<void> => {
+  const photo: ChatMessage = {
+    ...message,
+    type: 'IMAGE',
+    content: null,
+    media: {
+      id: 'photo-1',
+      url: 'https://example.test/private?sig=first',
+      mimeType: 'image/webp',
+      bytes: 100,
+      width: 100,
+      height: 200,
+    },
+  };
+  const screen = await render(<DirectChatThreadView {...props({ messages: [photo] })} />);
+  await fireEvent.press(screen.getByLabelText('Photo sent by miguel'));
+  expect(screen.getByLabelText('Close photo')).toBeTruthy();
+  await screen.rerender(<DirectChatThreadView {...props({ messages: [{ ...photo, type: 'UNSENT', media: null }] })} />);
+  expect(screen.queryByLabelText('Close photo')).toBeNull();
+  await screen.unmount();
+});
 
 const keyboardEvent: KeyboardEvent = {
   duration: 0,

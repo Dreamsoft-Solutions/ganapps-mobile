@@ -43,7 +43,7 @@ export interface RouteTable {
   ganapDetail: (ganapId: string, returnTo?: 'my-events') => Href;
   ganapRegistration: (ganapId: string) => Href;
   eventHub: (ganapId: string) => Href;
-  eventChat: (ganapId: string) => Href;
+  eventChat: (ganapId: string, returnTo?: 'friends' | 'event-hub') => Href;
   friendProfile: (userId: string) => Href;
   friendSettings: Href;
   directChat: (conversationId: string) => Href;
@@ -169,11 +169,12 @@ export const Routes: RouteTable = {
    * Builds the href for an Event Chat thread.
    *
    * @param ganapId - Value for the `[ganap-id]` segment of the chat thread route.
+   * @param returnTo - Entry origin used when closing the thread.
    * @returns An href targeting the Ganap's Event Chat thread.
    */
-  eventChat: (ganapId: string): Href => ({
+  eventChat: (ganapId: string, returnTo: 'friends' | 'event-hub' = 'event-hub'): Href => ({
     pathname: '/(app)/(chat)/event-chat/[ganap-id]',
-    params: { 'ganap-id': ganapId },
+    params: { 'ganap-id': ganapId, returnTo },
   }),
 
   /**

@@ -2,8 +2,10 @@ import { describe, expect, it } from '@jest/globals';
 import type { GanapDetail, RegistrationStatus } from '@/types/ganap.types';
 import {
   buildGanapShareMessage,
+  getAttendanceEstimate,
   getGanapActionModel,
   getGanapCapacityModel,
+  getGanapLifecycleLabel,
   getGanapScheduleModel,
 } from './ganap-detail';
 
@@ -74,15 +76,15 @@ const terminalCases: Array<[RegistrationStatus, string]> = [
 describe('getGanapCapacityModel', (): void => {
   it('invites the first attendee when capacity is available', (): void => {
     expect(getGanapCapacityModel(ganapWith({ registrationCount: 0 }))).toEqual({
-      summary: 'Be the first to join',
-      detail: '20 spots available',
+      summary: 'Be the first',
+      detail: 'Spaces available',
       isFull: false,
     });
   });
 
   it('shows an unlimited attendance count', (): void => {
     expect(getGanapCapacityModel(ganapWith({ maxAttendees: null, registrationCount: 17 }))).toEqual({
-      summary: '17 attending',
+      summary: '15+ attending',
       detail: null,
       isFull: false,
     });
@@ -90,8 +92,8 @@ describe('getGanapCapacityModel', (): void => {
 
   it('shows filled and remaining capacity', (): void => {
     expect(getGanapCapacityModel(ganapWith({ maxAttendees: 20, registrationCount: 17 }))).toEqual({
-      summary: '17 of 20 spots filled',
-      detail: '3 remaining',
+      summary: '15+ attending',
+      detail: 'Spaces available',
       isFull: false,
     });
   });
@@ -179,7 +181,7 @@ describe('getGanapActionModel', (): void => {
 
   it('disables joining after the start time', (): void => {
     expect(getGanapActionModel(ganapWith({}), new Date('2026-08-09T00:00:00.000Z'))).toEqual({
-      statusLabel: 'Event has started',
+      statusLabel: 'Done',
       primary: null,
       secondary: null,
     });
@@ -199,6 +201,38 @@ describe('getGanapActionModel', (): void => {
     const unregisteredModel = getGanapActionModel(ganapWith({}), BEFORE_EVENT);
     expect(unregisteredModel.primary?.action).not.toBe('enter-hub');
     expect(unregisteredModel.secondary?.action).not.toBe('enter-hub');
+  });
+});
+
+describe('attendance estimates and lifecycle', (): void => {
+  it.each([
+    [0, 'Be the first'],
+    [1, 'A few attending'],
+    [4, 'A few attending'],
+    [5, '5+ attending'],
+    [9, '5+ attending'],
+    [10, '10+ attending'],
+    [-1, 'Be the first'],
+  ])('estimates %s attendees', (count, label): void => {
+    expect(getAttendanceEstimate(Number(count))).toBe(label);
+  });
+
+  it('marks an event done at its end, with cancellation winning', (): void => {
+    const now = new Date('2026-08-08T05:00:00.000Z');
+    expect(getGanapLifecycleLabel(ganapWith({}), now)).toBe('Done');
+    expect(getGanapLifecycleLabel(ganapWith({ status: 'ONGOING' }), now)).toBe('Done');
+    expect(getGanapLifecycleLabel(ganapWith({ status: 'CANCELLED' }), now)).toBe('Cancelled');
+    expect(getGanapLifecycleLabel(ganapWith({ status: 'DRAFT' }), now)).toBeNull();
+    expect(getGanapLifecycleLabel(ganapWith({ endDate: null }), now)).toBeNull();
+    expect(getGanapLifecycleLabel(ganapWith({ endDate: 'invalid' }), now)).toBeNull();
+    expect(getGanapLifecycleLabel(ganapWith({}), new Date('2026-08-08T04:59:59.999Z'))).toBeNull();
+  });
+
+  it('keeps historical hub access and leave actions when displaying Done', (): void => {
+    const model = getGanapActionModel(ganapWith(withRegistration('REGISTERED')), new Date('2026-08-09'));
+    expect(model.statusLabel).toBe('Done');
+    expect(model.primary?.action).toBe('enter-hub');
+    expect(model.secondary?.action).toBe('leave');
   });
 });
 

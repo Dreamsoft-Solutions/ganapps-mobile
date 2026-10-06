@@ -52,7 +52,7 @@ describe('GanapFeedCard', () => {
     expect(screen.getByText('Weekend Acoustic Jam')).toBeTruthy();
     expect(screen.getByText('CPU Republic')).toBeTruthy();
     expect(screen.getByText('Plazuela de Iloilo')).toBeTruthy();
-    expect(screen.getByText('9')).toBeTruthy();
+    expect(screen.getByText('5+ attending')).toBeTruthy();
   });
 
   it('shows the first tag as the category pill', async (): Promise<void> => {
@@ -81,10 +81,14 @@ describe('GanapFeedCard', () => {
     expect(screen.getByText('C')).toBeTruthy();
   });
 
-  it('shows a bare attendee count, never a capacity denominator', async (): Promise<void> => {
+  it('uses the same attendance estimate for the visible card and accessibility label', async (): Promise<void> => {
     const screen = await render(<GanapFeedCard ganap={ganap()} onPress={jest.fn()} />);
 
     expect(screen.queryByText(/\d+\s*\/\s*\d+/)).toBeNull();
+    expect(screen.getByRole('button').props.accessibilityLabel).toBe(
+      'Weekend Acoustic Jam, hosted by CPU Republic, 5+ attending',
+    );
+    expect(screen.queryByText('9')).toBeNull();
   });
 
   it('colours its icons from the theme, not from an inert className', async (): Promise<void> => {

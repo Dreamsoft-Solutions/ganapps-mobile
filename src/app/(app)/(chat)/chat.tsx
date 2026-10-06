@@ -200,7 +200,7 @@ export default function ChatScreen(): ReactElement {
       }}
       onOpenSummary={(summary: ChatConversationSummary): void => {
         if (summary.type === 'EVENT') {
-          router.push(Routes.eventChat(summary.ganapId));
+          router.push(Routes.eventChat(summary.ganapId, 'friends'));
           return;
         }
         router.push(Routes.directChat(summary.conversationId));

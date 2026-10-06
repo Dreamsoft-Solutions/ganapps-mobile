@@ -17,6 +17,8 @@ jest.mock('lucide-react-native', () => ({
   X: (): null => null,
 }));
 
+jest.mock('react-native-reanimated', () => ({ useReducedMotion: (): boolean => false }));
+
 jest.mock('expo-image', () => ({
   Image: (): ReactElement => <MockView testID="avatar-image" />,
 }));
@@ -114,6 +116,26 @@ const imageDraft: ChatImageDraft = {
   },
   status: 'ready',
 };
+
+it('opens a photo inside chat, closes it, and removes the viewer when access is lost', async (): Promise<void> => {
+  const screen = await render(<EventChatThreadView {...props({ messages: [imageMessage] })} />);
+  await fireEvent.press(
+    screen.getByLabelText(
+      `Photo sent by ${imageMessage.senderUsername}, ${imageMessage.media?.width} by ${imageMessage.media?.height} pixels`,
+    ),
+  );
+  expect(screen.getByLabelText('Close photo')).toBeTruthy();
+  await fireEvent.press(screen.getByLabelText('Close photo'));
+  expect(screen.queryByLabelText('Close photo')).toBeNull();
+  await fireEvent.press(
+    screen.getByLabelText(
+      `Photo sent by ${imageMessage.senderUsername}, ${imageMessage.media?.width} by ${imageMessage.media?.height} pixels`,
+    ),
+  );
+  await screen.rerender(<EventChatThreadView {...props({ messages: [imageMessage], accessLost: true })} />);
+  expect(screen.queryByLabelText('Close photo')).toBeNull();
+  await screen.unmount();
+});
 
 const keyboardEvent: KeyboardEvent = {
   duration: 0,
