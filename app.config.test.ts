@@ -25,6 +25,7 @@ type IntentFilter = {
 type AppConfig = {
   expo: {
     scheme: string;
+    userInterfaceStyle: string;
     plugins: PluginEntry[];
     ios: { associatedDomains?: string[]; config?: { usesNonExemptEncryption?: boolean } };
     android: { intentFilters?: IntentFilter[] };
@@ -145,5 +146,11 @@ describe('iOS purpose strings (DS-144)', () => {
     expect(photoStrings.length).toBeGreaterThan(0);
     expect(photoStrings).toEqual(photoStrings.map((): unknown => expect.stringMatching(/^Ganapps /)));
     expect(new Set(photoStrings).size).toBe(1);
+  });
+});
+
+describe('native system appearance (DS-168)', () => {
+  it('allows the app to receive device appearance changes', () => {
+    expect(expo.userInterfaceStyle).toBe('automatic');
   });
 });

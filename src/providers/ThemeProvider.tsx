@@ -1,7 +1,11 @@
+import '@/utils/icon-interop';
+
+import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { colorScheme } from 'nativewind';
-import { type ReactElement, type ReactNode, useLayoutEffect } from 'react';
+import { type ReactElement, type ReactNode, useLayoutEffect, useMemo } from 'react';
 import { View } from 'react-native';
+import { Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { useThemeStore } from '@/store/theme.store';
 
@@ -22,7 +26,22 @@ interface ThemeProviderProps {
 export function ThemeProvider({ children }: ThemeProviderProps): ReactElement | null {
   const mode = useThemeStore((s) => s.mode);
   const isHydrated = useThemeStore((s) => s.isHydrated);
-  const isDark = useResolvedTheme() === 'dark';
+  const theme = useResolvedTheme();
+  const isDark = theme === 'dark';
+  const navigationTheme = useMemo(
+    (): typeof DefaultTheme => ({
+      ...(isDark ? DarkTheme : DefaultTheme),
+      colors: {
+        primary: Colors[theme].primary,
+        background: Colors[theme].background,
+        card: Colors[theme].card,
+        text: Colors[theme].foreground,
+        border: Colors[theme].border,
+        notification: Colors[theme].primary,
+      },
+    }),
+    [isDark, theme],
+  );
 
   // Hydration must be triggered here rather than by a descendant: the `isHydrated`
   // gate below unmounts the whole tree, so a `hydrate()` call living under it would
@@ -38,9 +57,11 @@ export function ThemeProvider({ children }: ThemeProviderProps): ReactElement | 
   if (!isHydrated) return null;
 
   return (
-    <View className="flex-1" style={{ flex: 1 }}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-      {children}
-    </View>
+    <NavigationThemeProvider value={navigationTheme}>
+      <View className={`flex-1 bg-background${isDark ? ' dark' : ''}`} style={{ flex: 1 }}>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        {children}
+      </View>
+    </NavigationThemeProvider>
   );
 }

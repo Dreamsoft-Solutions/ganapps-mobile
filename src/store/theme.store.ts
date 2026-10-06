@@ -5,14 +5,14 @@ import { storage } from '@/utils/storage';
  * User-facing theme preference.
  *
  * `'system'` follows the device OS color scheme; `'light'` and `'dark'` are explicit
- * overrides. The app defaults to `'light'` when no preference is stored.
+ * overrides. The app defaults to `'system'` when no preference is stored.
  */
 export type ThemeMode = 'light' | 'dark' | 'system';
 
 const THEME_MODE_KEY = 'app_theme_mode';
 
 interface ThemeState {
-  /** Persisted user preference; defaults to `'light'` for first-time users. */
+  /** Persisted user preference; defaults to `'system'` for first-time users. */
   mode: ThemeMode;
   /** `true` once {@link hydrate} has read the stored preference. */
   isHydrated: boolean;
@@ -23,7 +23,7 @@ interface ThemeState {
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
-  mode: 'light',
+  mode: 'system',
   isHydrated: false,
 
   setMode: async (mode: ThemeMode): Promise<void> => {
@@ -34,6 +34,6 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   hydrate: async (): Promise<void> => {
     if (get().isHydrated) return;
     const storedMode = await storage.get<ThemeMode>(THEME_MODE_KEY);
-    set({ mode: storedMode ?? 'light', isHydrated: true });
+    set({ mode: storedMode ?? 'system', isHydrated: true });
   },
 }));

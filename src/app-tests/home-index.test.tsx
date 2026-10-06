@@ -5,6 +5,17 @@ import type { UseGanapDiscoveryResult } from '@/hooks/useGanapDiscovery';
 import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
 
+jest.mock('react-native-reanimated', () => {
+  const ReactNative = require('react-native') as typeof import('react-native');
+  const React = require('react') as typeof import('react');
+  return {
+    __esModule: true,
+    default: { View: ReactNative.View },
+    useSharedValue: (value: number): { value: number } => React.useRef({ value }).current,
+    useAnimatedStyle: (updater: () => unknown): unknown => updater(),
+  };
+});
+
 interface MarkerProps {
   anchor: { x: number; y: number };
   children?: ReactNode;
