@@ -78,3 +78,4 @@ describes the gap that prompted the rule in the first place.
 - [ADR 0003: Nearby Location Sampling and Map Camera Constraints](0003-nearby-location-and-map-camera.md)
 - [ADR 0004: Event Feed Lives in a Bottom Sheet on the Map Tab](0004-event-feed-bottom-sheet.md)
 - [ADR 0005: iOS and Android UI Each Follow Their Own Platform Guidelines](0005-platform-design-guidelines.md)
+- [ADR 0006: Firebase Analytics Is Installed but Not Linked](0006-exclude-firebase-analytics-autolinking.md)
