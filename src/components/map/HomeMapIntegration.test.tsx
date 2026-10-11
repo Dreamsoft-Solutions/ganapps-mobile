@@ -417,6 +417,11 @@ function idleState(
   };
 }
 
+function cameraFrame(pitch: number, isGestureActive: boolean = false): MapState {
+  const state: MapState = idleState(16.5, [0, 0], isGestureActive);
+  return { ...state, properties: { ...state.properties, pitch } };
+}
+
 async function triggerIdle(state: MapState): Promise<void> {
   const latestMapProps = mockMapProps[mockMapProps.length - 1];
   if (latestMapProps?.onMapIdle === undefined) throw new Error('Map mock did not receive onMapIdle');
@@ -519,6 +524,77 @@ describe('home map clustering integration', (): void => {
     expect(screen.getByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeTruthy();
     expect(screen.getByTestId('feed-sheet-card-one')).toBeTruthy();
     await fireEvent(screen.getByLabelText('Show 3D buildings'), 'valueChange', true);
+    expect(screen.getByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeTruthy();
+  });
+
+  it('shows 3D buildings without a selection once the map is tilted, and hides them when toggled off', async (): Promise<void> => {
+    const screen = await renderHome([ganap('one', 0, 0)]);
+    await triggerIdle(idleState(17));
+    expect(screen.queryByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Map view controls' }));
+    await fireEvent(screen.getByTestId('map-pitch-slider', { includeHiddenElements: true }), 'valueChange', 45);
+    expect(screen.getByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeTruthy();
+    expect(screen.queryByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeNull();
+
+    await fireEvent(screen.getByLabelText('Show 3D buildings'), 'valueChange', false);
+    expect(screen.queryByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeNull();
+  });
+
+  it('keeps 3D buildings off in the overhead view while the toggle stays on', async (): Promise<void> => {
+    const screen = await renderHome([ganap('one', 0, 0)]);
+    const tiltedView: MapState = idleState(17);
+    await triggerIdle({ ...tiltedView, properties: { ...tiltedView.properties, pitch: 40 } });
+    expect(screen.getByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Map view controls' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Return to overhead view' }));
+    expect(screen.queryByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeNull();
+  });
+
+  it('hides 3D buildings but keeps terrain when a selected event returns to the overhead view', async (): Promise<void> => {
+    const screen = await renderHome([ganap('one', 0, 0)]);
+    await fireEvent.press(screen.getByTestId('map-event-marker-one'));
+    expect(screen.getByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Map view controls' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Return to overhead view' }));
+    expect(screen.queryByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeNull();
+    expect(screen.getByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeTruthy();
+    expect(screen.getByTestId('feed-sheet-card-one')).toBeTruthy();
+  });
+
+  it('keeps 3D buildings off while closing an event animates the camera back to overhead', async (): Promise<void> => {
+    const screen = await renderHome([ganap('one', 0, 0)]);
+    await fireEvent.press(screen.getByTestId('map-event-marker-one'));
+    await fireEvent.press(screen.getByLabelText('Close events list'));
+    expect(screen.queryByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeNull();
+
+    for (const pitch of [79.9, 40, 10]) {
+      await triggerCameraChanged(cameraFrame(pitch));
+      expect(screen.queryByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeNull();
+    }
+    await triggerIdle(cameraFrame(0));
+    expect(screen.queryByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeNull();
+  });
+
+  it('keeps 3D buildings on while selecting an event animates the camera up', async (): Promise<void> => {
+    const screen = await renderHome([ganap('one', 0, 0)]);
+    await fireEvent.press(screen.getByTestId('map-event-marker-one'));
+    expect(screen.getByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeTruthy();
+
+    for (const pitch of [0.01, 0.3, 40]) {
+      await triggerCameraChanged(cameraFrame(pitch));
+      expect(screen.getByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeTruthy();
+    }
+  });
+
+  it('shows 3D buildings while a two-finger tilt is still in progress without a selection', async (): Promise<void> => {
+    const screen = await renderHome([ganap('one', 0, 0)]);
+    await triggerIdle(cameraFrame(0));
+    expect(screen.queryByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeNull();
+
+    await triggerCameraChanged(cameraFrame(40, true));
     expect(screen.getByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeTruthy();
   });
 
