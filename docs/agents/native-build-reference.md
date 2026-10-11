@@ -66,6 +66,11 @@ transitive native modules. Unexcluded, it shipped Google Analytics, IDFA-capable
 `android` platforms to `null` (DS-92, [ADR 0006](../adr/0006-exclude-firebase-analytics-autolinking.md)).
 `npm ls` still lists it; that is expected.
 
+**iOS privacy manifests are audited, not assumed.** [iOS privacy manifests](../ios-privacy-manifests.md)
+lists the linked pods that ship no manifest, the Required Reason APIs each binary calls, and the
+reasons `ios.privacyManifests` in `app.config.js` declares for them (DS-93). Re-check it after an
+Expo SDK, React Native or React Native Firebase upgrade, or when adding a native module.
+
 ---
 
 ## iOS Native Build Configuration
