@@ -1,5 +1,5 @@
-import { readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { basename } from 'node:path';
 
 type BuildPropertiesIos = {
   useFrameworks?: string;
@@ -34,10 +34,20 @@ type AppConfig = {
 
 type PackageManifest = { dependencies: Record<string, string> };
 
+type AutolinkPlatform = 'ios' | 'android';
+
+type AutolinkedDependency = {
+  platforms: Partial<Record<AutolinkPlatform, { podspecPath?: string } | null>>;
+};
+
+type ReactNativeAutolinkingConfig = { dependencies: Record<string, AutolinkedDependency> };
+
 const { expo } = jest.requireActual<AppConfig>('./app.config');
 const manifest = jest.requireActual<PackageManifest>('./package.json');
 
-const RNFB_MODULES_DIR = join(__dirname, 'node_modules', '@react-native-firebase');
+const FIREBASE_SCOPE = '@react-native-firebase/';
+const FIREBASE_ANALYTICS = '@react-native-firebase/analytics';
+const FIREBASE_REMOTE_CONFIG = '@react-native-firebase/remote-config';
 const PODSPEC_SUFFIX = '.podspec';
 
 function pluginOptions(name: string): PluginOptions | undefined {
@@ -49,12 +59,30 @@ function buildPropertiesIos(): BuildPropertiesIos | undefined {
   return pluginOptions('expo-build-properties')?.ios;
 }
 
-function installedFirebasePods(): string[] {
-  return readdirSync(RNFB_MODULES_DIR).flatMap((packageDir: string): string[] =>
-    readdirSync(join(RNFB_MODULES_DIR, packageDir))
-      .filter((file: string): boolean => file.endsWith(PODSPEC_SUFFIX))
-      .map((file: string): string => file.slice(0, -PODSPEC_SUFFIX.length)),
+function autolinkedDependencies(platform: AutolinkPlatform): Record<string, AutolinkedDependency> {
+  const output: string = execFileSync(
+    process.execPath,
+    [
+      '--no-warnings',
+      '--eval',
+      "require('expo/bin/autolinking')",
+      'expo-modules-autolinking',
+      'react-native-config',
+      '--json',
+      '--platform',
+      platform,
+    ],
+    { cwd: __dirname, encoding: 'utf8' },
   );
+  return (JSON.parse(output) as ReactNativeAutolinkingConfig).dependencies;
+}
+
+function autolinkedFirebasePods(): string[] {
+  return Object.entries(autolinkedDependencies('ios'))
+    .filter(([name]: [string, AutolinkedDependency]): boolean => name.startsWith(FIREBASE_SCOPE))
+    .map(([, dependency]: [string, AutolinkedDependency]): string =>
+      basename(dependency.platforms.ios?.podspecPath ?? '', PODSPEC_SUFFIX),
+    );
 }
 
 function loadAppConfigForWebUrl(webUrl: string | undefined): AppConfig['expo'] {
@@ -86,11 +114,25 @@ describe('iOS static framework linkage (ADR 0002)', () => {
     expect(buildPropertiesIos()).toMatchObject({ useFrameworks: 'static', usePrecompiledModules: false });
   });
 
-  it('force-links every installed React Native Firebase pod statically', () => {
-    const firebasePods: string[] = installedFirebasePods();
+  it('force-links exactly the React Native Firebase pods that autolink', () => {
+    const firebasePods: string[] = autolinkedFirebasePods();
+    const forceStaticLinking: string[] = buildPropertiesIos()?.forceStaticLinking ?? [];
 
     expect(firebasePods.length).toBeGreaterThan(0);
-    expect(buildPropertiesIos()?.forceStaticLinking).toEqual(expect.arrayContaining(firebasePods));
+    expect(forceStaticLinking).toHaveLength(firebasePods.length);
+    expect(forceStaticLinking).toEqual(expect.arrayContaining(firebasePods));
+  });
+});
+
+describe('Firebase Analytics stays out of the native build (DS-92)', () => {
+  it.each<AutolinkPlatform>([
+    'ios',
+    'android',
+  ])('leaves @react-native-firebase/analytics out of %s autolinking while Remote Config still links', (platform: AutolinkPlatform): void => {
+    const linked: string[] = Object.keys(autolinkedDependencies(platform));
+
+    expect(linked).toContain(FIREBASE_REMOTE_CONFIG);
+    expect(linked).not.toContain(FIREBASE_ANALYTICS);
   });
 });
 

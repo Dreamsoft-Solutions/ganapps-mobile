@@ -59,6 +59,13 @@ it made Expo load the package's runtime entry as a plugin, which threw and broke
 resolution — `expo start`, `expo config`, `expo prebuild` and `expo customize` alike. Check for
 `app.plugin.js` in the package root before adding a plugin here.
 
+**Firebase Analytics is installed but deliberately not linked.** `@react-native-firebase/remote-config`
+lists `@react-native-firebase/analytics` as a peer dependency, so npm installs it, and Expo autolinks
+transitive native modules. Unexcluded, it shipped Google Analytics, IDFA-capable code and Android's
+`AD_ID` permission while nothing in the app called it. `react-native.config.js` sets its `ios` and
+`android` platforms to `null` (DS-92, [ADR 0006](../adr/0006-exclude-firebase-analytics-autolinking.md)).
+`npm ls` still lists it; that is expected.
+
 ---
 
 ## iOS Native Build Configuration
@@ -75,7 +82,7 @@ breaks the build again, in a way whose error message does not point back here.
     ios: {
       useFrameworks: 'static',
       usePrecompiledModules: false,
-      forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBRemoteConfig', 'RNFBAnalytics'],
+      forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBRemoteConfig'],
     },
   },
 ],
@@ -98,7 +105,8 @@ breaks the build again, in a way whose error message does not point back here.
   (`usePrecompiledModules` covers only Expo's modules), and on RN 0.84+ / Expo 54+ with
   prebuilt core every RNFB native module must be listed here. Otherwise its headers fail
   `-Werror=non-modular-include-in-framework-module` on `#import <React/RCTBridgeModule.h>`.
-  Keep this list in sync with the `RNFB*` pods in `ios/Podfile.lock`.
+  It must name exactly the `RNFB*` pods Expo autolinks; `app.config.test.ts` runs the Podfile's
+  own autolinking command and fails on a missing or stale entry.
 
 `@react-native-firebase/app` is pinned at 25.1.0, which has no SPM support and so no
 `disableSPM` plugin option — the package contains no such string. RNFirebase's docs pair
