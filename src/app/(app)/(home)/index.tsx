@@ -170,32 +170,37 @@ function handleMapPressWithGuard({
   }, MAP_FEATURE_PRESS_GUARD_MS);
 }
 
-function SelectionTerrain({
-  isActive,
-  buildingsVisible,
-}: {
-  readonly isActive: boolean;
-  readonly buildingsVisible: boolean;
-}): ReactElement | null {
+function SelectionTerrain({ isActive }: { readonly isActive: boolean }): ReactElement | null {
   if (!isActive) return null;
 
   return (
     <>
       <RasterDemSource id={TERRAIN_SOURCE_ID} url={TERRAIN_SOURCE_URL} tileSize={512} maxZoomLevel={14} />
       <Terrain sourceID={TERRAIN_SOURCE_ID} style={{ exaggeration: 2 }} />
-      {buildingsVisible && (
-        <FillExtrusionLayer
-          id={BUILDING_EXTRUSION_LAYER_ID}
-          sourceID={BUILDING_SOURCE_ID}
-          sourceLayerID={BUILDING_SOURCE_LAYER_ID}
-          minZoomLevel={BUILDING_MIN_ZOOM}
-          maxZoomLevel={BUILDING_MAX_ZOOM}
-          aboveLayerID="building"
-          filter={['all', ['==', ['get', 'extrude'], 'true'], ['has', 'height']]}
-          style={BUILDING_EXTRUSION_STYLE}
-        />
-      )}
     </>
+  );
+}
+
+function BuildingExtrusions({
+  isEnabled,
+  pitch,
+}: {
+  readonly isEnabled: boolean;
+  readonly pitch: number;
+}): ReactElement | null {
+  if (!isEnabled || pitch <= OVERHEAD_PITCH) return null;
+
+  return (
+    <FillExtrusionLayer
+      id={BUILDING_EXTRUSION_LAYER_ID}
+      sourceID={BUILDING_SOURCE_ID}
+      sourceLayerID={BUILDING_SOURCE_LAYER_ID}
+      minZoomLevel={BUILDING_MIN_ZOOM}
+      maxZoomLevel={BUILDING_MAX_ZOOM}
+      aboveLayerID="building"
+      filter={['all', ['==', ['get', 'extrude'], 'true'], ['has', 'height']]}
+      style={BUILDING_EXTRUSION_STYLE}
+    />
   );
 }
 /**
@@ -347,7 +352,7 @@ export default function HomeScreen(): ReactElement {
   }, []);
 
   const handleCameraChanged = useCallback((state: MapState): void => {
-    setCameraPitch(Math.round(state.properties.pitch));
+    if (state.gestures.isGestureActive) setCameraPitch(Math.round(state.properties.pitch));
     const nextViewport: MapViewport = mapStateToViewport({
       bounds: state.properties.bounds,
       zoom: state.properties.zoom,
@@ -609,7 +614,8 @@ export default function HomeScreen(): ReactElement {
         onDidFinishLoadingMap={handleMapReady}
       >
         <Camera ref={cameraRef} centerCoordinate={ILOILO_CITY_CENTER} zoomLevel={CITY_ZOOM} animationMode="none" />
-        <SelectionTerrain isActive={hasActiveSelection} buildingsVisible={buildingsVisible} />
+        <SelectionTerrain isActive={hasActiveSelection} />
+        <BuildingExtrusions isEnabled={buildingsVisible} pitch={cameraPitch} />
         {userCoords !== null && <LocationPuck puckBearing="heading" puckBearingEnabled />}
         <ClusteredGanapMarkers
           features={visibleFeatures}
