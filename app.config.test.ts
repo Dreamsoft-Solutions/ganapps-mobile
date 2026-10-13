@@ -22,12 +22,18 @@ type IntentFilter = {
   category?: string[];
 };
 
+type AccessedApiType = { NSPrivacyAccessedAPIType: string; NSPrivacyAccessedAPITypeReasons: string[] };
+
 type AppConfig = {
   expo: {
     scheme: string;
     userInterfaceStyle: string;
     plugins: PluginEntry[];
-    ios: { associatedDomains?: string[]; config?: { usesNonExemptEncryption?: boolean } };
+    ios: {
+      associatedDomains?: string[];
+      config?: { usesNonExemptEncryption?: boolean };
+      privacyManifests?: { NSPrivacyAccessedAPITypes?: AccessedApiType[] };
+    };
     android: { intentFilters?: IntentFilter[] };
   };
 };
@@ -139,6 +145,21 @@ describe('Firebase Analytics stays out of the native build (DS-92)', () => {
 describe('App Store export compliance (DS-91)', () => {
   it('declares that the app uses only exempt encryption', () => {
     expect(expo.ios.config?.usesNonExemptEncryption).toBe(false);
+  });
+});
+
+describe('iOS privacy manifest required reasons (DS-93)', () => {
+  it.each<[string, string]>([
+    ['NSPrivacyAccessedAPICategoryFileTimestamp', 'C617.1'],
+    ['NSPrivacyAccessedAPICategorySystemBootTime', '35F9.1'],
+    ['NSPrivacyAccessedAPICategoryDiskSpace', 'E174.1'],
+    ['NSPrivacyAccessedAPICategoryUserDefaults', 'CA92.1'],
+  ])('declares %s with reason %s for linked code that ships no privacy manifest', (category: string, reason: string): void => {
+    const declared: AccessedApiType | undefined = expo.ios.privacyManifests?.NSPrivacyAccessedAPITypes?.find(
+      (entry: AccessedApiType): boolean => entry.NSPrivacyAccessedAPIType === category,
+    );
+
+    expect(declared?.NSPrivacyAccessedAPITypeReasons).toContain(reason);
   });
 });
 
