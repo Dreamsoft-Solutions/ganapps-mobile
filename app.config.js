@@ -77,6 +77,15 @@ function getGoogleClientConfiguration() {
   }
 }
 
+function collectedForAppFunctionality(dataType) {
+  return {
+    NSPrivacyCollectedDataType: dataType,
+    NSPrivacyCollectedDataTypeLinked: true,
+    NSPrivacyCollectedDataTypeTracking: false,
+    NSPrivacyCollectedDataTypePurposes: ['NSPrivacyCollectedDataTypePurposeAppFunctionality'],
+  };
+}
+
 const googleClientConfiguration = getGoogleClientConfiguration();
 
 module.exports = {
@@ -119,6 +128,17 @@ module.exports = {
             NSPrivacyAccessedAPITypeReasons: ['CA92.1'],
           },
         ],
+        NSPrivacyCollectedDataTypes: [
+          'NSPrivacyCollectedDataTypeName',
+          'NSPrivacyCollectedDataTypeEmailAddress',
+          'NSPrivacyCollectedDataTypeUserID',
+          'NSPrivacyCollectedDataTypePhotosorVideos',
+          'NSPrivacyCollectedDataTypeEmailsOrTextMessages',
+          'NSPrivacyCollectedDataTypeContacts',
+          'NSPrivacyCollectedDataTypeOtherUserContent',
+          'NSPrivacyCollectedDataTypeProductInteraction',
+        ].map(collectedForAppFunctionality),
+        NSPrivacyTracking: false,
       },
     },
     android: {
