@@ -24,6 +24,13 @@ type IntentFilter = {
 
 type AccessedApiType = { NSPrivacyAccessedAPIType: string; NSPrivacyAccessedAPITypeReasons: string[] };
 
+type CollectedDataType = {
+  NSPrivacyCollectedDataType: string;
+  NSPrivacyCollectedDataTypeLinked: boolean;
+  NSPrivacyCollectedDataTypeTracking: boolean;
+  NSPrivacyCollectedDataTypePurposes: string[];
+};
+
 type AppConfig = {
   expo: {
     scheme: string;
@@ -32,7 +39,11 @@ type AppConfig = {
     ios: {
       associatedDomains?: string[];
       config?: { usesNonExemptEncryption?: boolean };
-      privacyManifests?: { NSPrivacyAccessedAPITypes?: AccessedApiType[] };
+      privacyManifests?: {
+        NSPrivacyAccessedAPITypes?: AccessedApiType[];
+        NSPrivacyCollectedDataTypes?: CollectedDataType[];
+        NSPrivacyTracking?: boolean;
+      };
     };
     android: { intentFilters?: IntentFilter[] };
   };
@@ -160,6 +171,46 @@ describe('iOS privacy manifest required reasons (DS-93)', () => {
     );
 
     expect(declared?.NSPrivacyAccessedAPITypeReasons).toContain(reason);
+  });
+});
+
+describe('iOS privacy manifest collected data (DS-83)', () => {
+  const GANAPPS_COLLECTED_DATA_TYPES: string[] = [
+    'NSPrivacyCollectedDataTypeName',
+    'NSPrivacyCollectedDataTypeEmailAddress',
+    'NSPrivacyCollectedDataTypeUserID',
+    'NSPrivacyCollectedDataTypePhotosorVideos',
+    'NSPrivacyCollectedDataTypeEmailsOrTextMessages',
+    'NSPrivacyCollectedDataTypeContacts',
+    'NSPrivacyCollectedDataTypeOtherUserContent',
+    'NSPrivacyCollectedDataTypeProductInteraction',
+  ];
+
+  it('declares that the app does not track', () => {
+    expect(expo.ios.privacyManifests?.NSPrivacyTracking).toBe(false);
+  });
+
+  it('declares exactly the data types Ganapps collects itself', () => {
+    const declared: string[] = (expo.ios.privacyManifests?.NSPrivacyCollectedDataTypes ?? []).map(
+      (entry: CollectedDataType): string => entry.NSPrivacyCollectedDataType,
+    );
+
+    expect([...declared].sort()).toEqual([...GANAPPS_COLLECTED_DATA_TYPES].sort());
+  });
+
+  it.each<string>(
+    GANAPPS_COLLECTED_DATA_TYPES,
+  )('declares %s as linked to the account, not tracking, for app functionality only', (dataType: string): void => {
+    const entry: CollectedDataType | undefined = expo.ios.privacyManifests?.NSPrivacyCollectedDataTypes?.find(
+      (candidate: CollectedDataType): boolean => candidate.NSPrivacyCollectedDataType === dataType,
+    );
+
+    expect(entry).toEqual({
+      NSPrivacyCollectedDataType: dataType,
+      NSPrivacyCollectedDataTypeLinked: true,
+      NSPrivacyCollectedDataTypeTracking: false,
+      NSPrivacyCollectedDataTypePurposes: ['NSPrivacyCollectedDataTypePurposeAppFunctionality'],
+    });
   });
 });
 
