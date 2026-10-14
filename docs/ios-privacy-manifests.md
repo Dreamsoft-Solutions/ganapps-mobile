@@ -4,8 +4,8 @@ Audited on October 12, 2026 for DS-93, against `dev` after DS-92 (Firebase Analy
 React Native 0.86.0, Expo SDK 57, static frameworks and `usePrecompiledModules: false`. The evidence
 is a clean `npx expo prebuild`, its `ios/Podfile.lock`, and a Debug simulator build.
 
-This records what the native SDKs declare and call. It is not the App Privacy label and not legal
-advice; DS-83 owns the label and the collected-data part of the manifest.
+This records what the native SDKs declare and call, and the App Store Connect App Privacy answers
+that follow from it (DS-83). It is not legal advice.
 
 ## Limits
 
@@ -104,7 +104,7 @@ Reason API. No action is needed.
 
 ## Collected data declared by SDKs
 
-Input for DS-83's App Privacy label. SDK manifests describe what the SDK collects; the label must
+Input for the App Privacy label below. SDK manifests describe what the SDK collects; the label must
 account for it.
 
 | SDK | Declared data types |
@@ -116,7 +116,96 @@ account for it.
 | FirebaseInstallations, FirebaseRemoteConfig | Other Diagnostic Data |
 
 No SDK manifest declares tracking or tracking domains. Each manifest also says whether a type is
-linked to the user and for what purpose; read those from the files when filling in the label.
+linked to the user and for what purpose; the App Privacy label below takes those into account.
+
+## App Privacy label
+
+The source for the App Store Connect answers. The app manifest (`ios.privacyManifests` in
+`app.config.js`) declares only Ganapps' own collection: eight types, each linked to the user, not
+used for tracking, and for app functionality only, plus `NSPrivacyTracking: false`. Each SDK
+declares its own collection in its own manifest. App Store Connect needs the combination; where
+Ganapps and an SDK both declare a type, the stricter answer wins.
+
+| Data type | Linked to user | Tracking | Purposes | Source |
+|---|---|---|---|---|
+| Name | Yes | No | App Functionality | Ganapps; Firebase Auth (name from Google) |
+| Email Address | Yes | No | App Functionality | Ganapps; Firebase Auth (email from Google) |
+| User ID | Yes | No | App Functionality, Analytics | Ganapps; Firebase Auth (linked); Google Sign-In (OAuth grants); Mapbox (analytics) |
+| Photos or Videos | Yes | No | App Functionality | Ganapps |
+| Emails or Text Messages | Yes | No | App Functionality | Ganapps |
+| Contacts | Yes | No | App Functionality | Ganapps |
+| Other User Content | Yes | No | App Functionality | Ganapps |
+| Product Interaction | Yes | No | App Functionality, Analytics | Ganapps (linked); Mapbox (analytics) |
+| Precise Location | No | No | App Functionality, Analytics | Mapbox |
+| Coarse Location | Yes | No | App Functionality, Analytics | Google Sign-In (IP address, fraud prevention; linked per its manifest); Mapbox (analytics) |
+| Other Usage Data | No | No | App Functionality, Analytics | Mapbox |
+| Performance Data | No | No | App Functionality, Analytics | Mapbox |
+| Other Diagnostic Data | No | No | App Functionality, Analytics | Mapbox; Firebase Auth, Installations, Remote Config |
+
+No data is used to track you.
+
+**What Ganapps' own rows cover.** Name and Email Address: the account profile, including the name
+from Google. User ID: account ID, username and friend code. Photos or Videos: profile pictures and
+chat images. Emails or Text Messages: Event and Direct Chat messages and their read receipts.
+Contacts: the friend list and blocks (Apple's definition includes a social graph). Other User
+Content: bio, interests, ratings, registration and feedback form answers, message and announcement
+reactions, and moderation reports. Product Interaction: likes, saves, registrations and QR
+check-ins.
+
+**Sources for the SDK rows.**
+
+- **Google Sign-In:** [Google's iOS app privacy page](https://developers.google.com/identity/sign-in/ios/app-privacy)
+  lists two types: a user identifier, to record OAuth grants, and IP address, used to estimate
+  general location for fraud prevention. The label declares those two. The page does not say
+  whether they are linked to the user, so that comes from GoogleSignIn's manifest, which marks User
+  ID and Coarse Location as linked. The manifest also lists Name, Email Address, Phone Number,
+  Other Data Types, Device ID and Other Usage Data; the label leaves those out because Google's page
+  does not list them. The app requests only the default scopes (`GoogleSignin.configure` with just
+  `webClientId`).
+- **Mapbox:** no published App Store guidance; its manifests declare every type as not linked, for
+  app functionality and analytics. Users can opt out of Mapbox's collection with the (i) button on
+  the map.
+- **Firebase:** [Firebase's App Store data collection page](https://firebase.google.com/docs/ios/app-store-data-collection)
+  says its manifests cover data that is always collected or collected by default, and the app must
+  disclose usage-dependent data. The manifests: Auth declares User ID (linked, app functionality)
+  and Other Diagnostic Data (not linked, analytics); Installations and Remote Config declare Other
+  Diagnostic Data (not linked, analytics). Usage-dependent data for this app: Auth receives the
+  email address and name from Google sign-in, covered by Ganapps' Name and Email Address rows.
+  Remote Config always sends country, language and time zone; its manifest, which covers
+  always-collected data, declares only Other Diagnostic Data.
+
+**Not collected.** Apple counts data as collected when it leaves the device and is kept longer than
+needed to answer the request in real time.
+
+- **Nearby coordinates:** rounded to 2 decimal places on the device and used only to filter the
+  search; the server does not store them. A request URL can reach a log on an unhandled server
+  error. Location is declared anyway through Mapbox and Google Sign-In.
+- **Search text:** used only to filter.
+- **iOS push token:** iOS does not register one yet; Android does. Revisit with DS-135.
+- **IP address:** kept only in 60-second rate-limit keys.
+- **Presence device ID:** a random per-install ID for friends' online status, behind
+  `feature_friends`. The server treats it as active for 90 seconds; the Redis entry is removed at
+  the next presence read by any user or at logout, so on a quiet night it can linger for hours.
+- **Chat image originals:** the chat picker uploads the original file, with its EXIF and GPS
+  metadata. The server keeps only a re-encoded WebP without metadata and discards the original
+  during the request.
+- **Device identifiers, the advertising identifier, crash and analytics data:** nothing reads or
+  sends them.
+
+**Photos.** Profile pictures are picked with `allowsEditing: true`, so expo-image-picker re-encodes
+the cropped image (`jpegData` or `pngData`) and no GPS metadata leaves the device. Verified on
+October 14, 2026 by picking a GPS-tagged JPEG and HEIC in Edit Profile on an iOS simulator: neither
+output kept GPS. GIF avatars are re-encoded too, and ImageIO's GIF writer writes no EXIF or GPS.
+Chat images are re-encoded to WebP by the server without metadata.
+
+**Revisit the label when:**
+
+- iOS push ships (DS-135).
+- An analytics or crash-reporting SDK is added.
+- Mapbox, Google Sign-In or Firebase change what they collect.
+- A Ganapps feature collects a new kind of data: update `ios.privacyManifests` in `app.config.js`,
+  its test in `app.config.test.ts`, and this table together.
+- The server starts keeping something it discards today, such as chat image originals.
 
 ## Re-check
 
