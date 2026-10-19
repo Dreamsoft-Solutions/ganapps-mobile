@@ -1,5 +1,7 @@
 import type { AxiosResponse } from 'axios';
 import type {
+  AppleAuthRequestDto,
+  AppleAuthResponse,
   CompletePasswordResetDto,
   DeleteAccountResponse,
   GoogleAuthRequestDto,
@@ -76,6 +78,17 @@ export const authAPI = {
 
   googleLogin: (dto: GoogleAuthRequestDto): Promise<GoogleAuthResponse> =>
     axiosInstance.post<GoogleAuthResponse>('/auth/google', dto).then((res) => res.data),
+
+  /**
+   * Exchanges an Apple credential for a Ganapps session.
+   * @param dto - Identity token, authorization code, raw nonce and optional first-authorization name.
+   * @returns Session tokens and the signed-in user.
+   * @throws A parsed API error retaining the server status and error code.
+   */
+  appleLogin: (dto: AppleAuthRequestDto): Promise<AppleAuthResponse> =>
+    axiosInstance
+      .post<AppleAuthResponse>('/auth/apple', dto)
+      .then((res: AxiosResponse<AppleAuthResponse>): AppleAuthResponse => res.data),
 };
 
 /**

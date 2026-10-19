@@ -5,6 +5,8 @@ import { useCallback } from 'react';
 import { Routes } from '@/constants/routes';
 import { useAuthStore } from '@/store/auth.store';
 import type {
+  AppleAuthRequestDto,
+  AppleAuthResponse,
   CompletePasswordResetDto,
   DeleteAccountInput,
   DeleteAccountResponse,
@@ -22,6 +24,7 @@ import type {
 import type { User } from '@/types/user.types';
 import { getShareLinkReturnRoute } from '@/utils/navigation';
 import {
+  useAppleLoginMutation,
   useCompletePasswordResetMutation,
   useDeleteAccountMutation,
   useGoogleLoginMutation,
@@ -46,6 +49,7 @@ export interface UseAuthResult {
   completePasswordReset: (dto: CompletePasswordResetDto) => Promise<PasswordResetResponse>;
   register: (dto: RegisterDto) => Promise<void>;
   googleLogin: (dto: GoogleAuthRequestDto) => Promise<void>;
+  appleLogin: (dto: AppleAuthRequestDto) => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: (input: DeleteAccountInput) => Promise<void>;
   verifyEmail: (dto: VerifyEmailRequest) => Promise<void>;
@@ -58,6 +62,7 @@ export interface UseAuthResult {
   completePasswordResetMutation: UseMutationResult<PasswordResetResponse, Error, CompletePasswordResetDto>;
   registerMutation: UseMutationResult<RegisterResponse, Error, RegisterDto>;
   googleLoginMutation: UseMutationResult<GoogleAuthResponse, Error, GoogleAuthRequestDto>;
+  appleLoginMutation: UseMutationResult<AppleAuthResponse, Error, AppleAuthRequestDto>;
   logoutMutation: UseMutationResult<void, Error, void>;
   deleteAccountMutation: UseMutationResult<DeleteAccountResponse, Error, DeleteAccountInput>;
   verifyEmailMutation: UseMutationResult<User, Error, VerifyEmailRequest>;
@@ -83,6 +88,7 @@ export function useAuth(): UseAuthResult {
   const completePasswordResetMutation = useCompletePasswordResetMutation();
   const registerMutation = useRegisterMutation();
   const googleLoginMutation = useGoogleLoginMutation();
+  const appleLoginMutation = useAppleLoginMutation();
   const logoutMutation = useLogoutMutation();
   const deleteAccountMutation = useDeleteAccountMutation();
   const verifyEmailMutation = useVerifyEmailMutation();
@@ -121,6 +127,14 @@ export function useAuth(): UseAuthResult {
       router.replace(postLoginRoute);
     },
     [googleLoginMutation, postLoginRoute, router],
+  );
+
+  const appleLogin = useCallback(
+    async (dto: AppleAuthRequestDto) => {
+      await appleLoginMutation.mutateAsync(dto);
+      router.replace(postLoginRoute);
+    },
+    [appleLoginMutation, postLoginRoute, router],
   );
 
   const logout = useCallback(async () => {
@@ -163,13 +177,19 @@ export function useAuth(): UseAuthResult {
   return {
     user,
     token,
-    isLoading: userLoading || loginMutation.isPending || registerMutation.isPending || googleLoginMutation.isPending,
+    isLoading:
+      userLoading ||
+      loginMutation.isPending ||
+      registerMutation.isPending ||
+      googleLoginMutation.isPending ||
+      appleLoginMutation.isPending,
     error: userError,
     login,
     requestPasswordReset,
     completePasswordReset,
     register,
     googleLogin,
+    appleLogin,
     logout,
     deleteAccount,
     verifyEmail: verifyEmailAction,
@@ -182,6 +202,7 @@ export function useAuth(): UseAuthResult {
     completePasswordResetMutation,
     registerMutation,
     googleLoginMutation,
+    appleLoginMutation,
     logoutMutation,
     deleteAccountMutation,
     verifyEmailMutation,

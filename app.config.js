@@ -100,6 +100,7 @@ module.exports = {
     ios: {
       icon: './assets/brand/ganap-logo-1.png',
       bundleIdentifier: 'com.ganapps.app',
+      usesAppleSignIn: true,
       config: {
         usesNonExemptEncryption: false,
       },
@@ -186,6 +187,7 @@ module.exports = {
         },
       ],
       'expo-router',
+      'expo-apple-authentication',
       [
         'expo-media-library',
         {
