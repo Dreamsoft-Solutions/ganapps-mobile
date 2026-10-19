@@ -4,6 +4,10 @@
       "enabled": true,
       "description": "Enables Google authentication"
     },
+    "feature_apple_auth": {
+      "enabled": true,
+      "description": "Enables Sign in with Apple on iOS"
+    },
     "example-feature": {
       "enabled": false,
       "description": "Example feature flag"

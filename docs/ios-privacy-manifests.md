@@ -128,9 +128,9 @@ Ganapps and an SDK both declare a type, the stricter answer wins.
 
 | Data type | Linked to user | Tracking | Purposes | Source |
 |---|---|---|---|---|
-| Name | Yes | No | App Functionality | Ganapps; Firebase Auth (name from Google) |
-| Email Address | Yes | No | App Functionality | Ganapps; Firebase Auth (email from Google) |
-| User ID | Yes | No | App Functionality, Analytics | Ganapps; Firebase Auth (linked); Google Sign-In (OAuth grants); Mapbox (analytics) |
+| Name | Yes | No | App Functionality | Ganapps; Firebase Auth (name from Google); Sign in with Apple |
+| Email Address | Yes | No | App Functionality | Ganapps; Firebase Auth (email from Google); Sign in with Apple |
+| User ID | Yes | No | App Functionality, Analytics | Ganapps; Firebase Auth (linked); Google Sign-In (OAuth grants); Sign in with Apple; Mapbox (analytics) |
 | Photos or Videos | Yes | No | App Functionality | Ganapps |
 | Emails or Text Messages | Yes | No | App Functionality | Ganapps |
 | Contacts | Yes | No | App Functionality | Ganapps |
@@ -143,6 +143,10 @@ Ganapps and an SDK both declare a type, the stricter answer wins.
 | Other Diagnostic Data | No | No | App Functionality, Analytics | Mapbox; Firebase Auth, Installations, Remote Config |
 
 No data is used to track you.
+
+Sign in with Apple shares only a name, an email address and a user identifier. The existing linked,
+app-functionality rows already cover all three, so the label answers do not change. The
+`expo-apple-authentication` package ships no `PrivacyInfo.xcprivacy`, so it adds no SDK row.
 
 **What Ganapps' own rows cover.** Name and Email Address: the account profile, including the name
 from Google. User ID: account ID, username and friend code. Photos or Videos: profile pictures and

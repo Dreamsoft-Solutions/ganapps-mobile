@@ -37,6 +37,7 @@ type AppConfig = {
     userInterfaceStyle: string;
     plugins: PluginEntry[];
     ios: {
+      usesAppleSignIn?: boolean;
       associatedDomains?: string[];
       config?: { usesNonExemptEncryption?: boolean };
       privacyManifests?: {
@@ -266,5 +267,24 @@ describe('iOS purpose strings (DS-144)', () => {
 describe('native system appearance (DS-168)', () => {
   it('allows the app to receive device appearance changes', () => {
     expect(expo.userInterfaceStyle).toBe('automatic');
+  });
+});
+
+describe('Sign in with Apple (DS-137)', () => {
+  it('adds the Sign in with Apple entitlement', () => {
+    expect(expo.ios.usesAppleSignIn).toBe(true);
+  });
+
+  it('registers the expo-apple-authentication config plugin', () => {
+    const pluginNames: string[] = expo.plugins.map((plugin: PluginEntry): string =>
+      Array.isArray(plugin) ? plugin[0] : plugin,
+    );
+
+    expect(pluginNames).toContain('expo-apple-authentication');
+  });
+
+  it('depends on the SDK 57 Apple and crypto packages', () => {
+    expect(manifest.dependencies['expo-apple-authentication']).toMatch(/^~57\./);
+    expect(manifest.dependencies['expo-crypto']).toMatch(/^~57\./);
   });
 });
