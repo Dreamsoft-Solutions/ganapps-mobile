@@ -85,3 +85,17 @@ export interface UpdateProfileRequest {
 export interface GoogleAuthRequestDto {
   idToken: string;
 }
+
+/** Apple credential posted to the server's Sign in with Apple endpoint. */
+export interface AppleAuthRequestDto {
+  identityToken: string;
+  authorizationCode: string;
+  nonce: string;
+  givenName?: string;
+  familyName?: string;
+}
+
+/** Tokens and user returned after a successful Sign in with Apple. */
+export interface AppleAuthResponse extends TokenResponse {
+  user: User;
+}
