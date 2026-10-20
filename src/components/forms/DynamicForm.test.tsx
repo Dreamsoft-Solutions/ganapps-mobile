@@ -223,8 +223,8 @@ describe('RegistrationForm dynamic fields', (): void => {
     const screen = await renderRegistrationForm({ blocks: [singleChoiceBlock] });
     const morning = screen.getByRole('radio', { name: 'Morning' });
 
-    expect(morning.props.className).toEqual(expect.stringContaining('min-h-11'));
-    expect(morning.props.className).toEqual(expect.stringContaining('min-w-11'));
+    expect(morning.props.className).toEqual(expect.stringContaining('min-h-touch'));
+    expect(morning.props.className).toEqual(expect.stringContaining('min-w-touch'));
     expect(morning.props.className).toEqual(expect.stringContaining('gap-xs'));
   });
 });

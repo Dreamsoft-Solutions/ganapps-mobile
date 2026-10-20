@@ -1,65 +1,39 @@
 import { keepPreviousData, type UseQueryResult, useQuery } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { CursorPage } from '@/api/types/api-response';
 import type { GanapListItem } from '@/types/ganap.types';
-import { ganapQueryKeys } from './queries/useGanapsQuery';
-import { useDebouncedValue } from './useDebouncedValue';
+import { type GanapListFilters, ganapQueryKeys } from './queries/useGanapsQuery';
 
-export interface UseGanapsMapFilters {
-  search: string;
-  tag: string | null;
-}
+/** One page large enough to cluster the whole city viewport. The server caps `limit` at 100. */
+const MAP_LIMIT = 100;
 
 export interface UseGanapsMapResult {
   items: GanapListItem[];
-  tags: string[];
-  search: string;
-  setSearch: (search: string) => void;
-  tag: string | null;
-  setTag: (tag: string | null) => void;
   isLoading: boolean;
+  /** Whether any map query for the active filters is running, including refetches. */
+  isFetching: boolean;
   isError: boolean;
   error: Error | null;
   refetch: UseQueryResult<CursorPage<GanapListItem>, Error>['refetch'];
 }
 
-const MAP_LIMIT = 100;
-const SEARCH_DEBOUNCE_MS = 350;
-
 /**
- * Aggregated hook for discovering Ganaps on the map.
+ * The Ganaps the map draws as pins, for the filters it is given.
  *
- * Manages search/tag filters and exposes the public Ganap list as a single page
- * large enough for the map viewport.
+ * Deliberately one large page rather than cursor pages: clustering needs every
+ * marker in the viewport at once, and a cluster built from page one would redraw
+ * itself on every scroll of a list the user is not looking at.
  *
- * Two behaviours are deliberate. Search is debounced before it reaches the query
- * key, so typing does not refetch — and re-render the map — on every keystroke.
- * The tag chips come from their own unfiltered query rather than from the
- * filtered response, so no filter can collapse the chip row to its own results.
- * When no filter is active both queries share one key, so TanStack dedupes them
- * into a single request.
+ * Filter state lives in `useGanapFilters`, not here — this hook is data only.
  *
- * @returns Filter state, query state, and the list of visible Ganaps.
+ * @param filters - Active discovery filters; omitted means the whole catalogue
+ * @returns The visible Ganaps and the query's state
  */
-export function useGanapsMap(): UseGanapsMapResult {
-  const [search, setSearch] = useState<string>('');
-  const [tag, setTag] = useState<string | null>(null);
-
-  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
-  const trimmedSearch = debouncedSearch.trim() || undefined;
-
+export function useGanapsMap(filters?: GanapListFilters): UseGanapsMapResult {
   const query = useQuery<CursorPage<GanapListItem>, Error>({
-    queryKey: ganapQueryKeys.list({
-      search: trimmedSearch,
-      tag: tag ?? undefined,
-    }),
-    queryFn: (): Promise<CursorPage<GanapListItem>> =>
-      ganapsAPI.list({
-        search: trimmedSearch,
-        tag: tag ?? undefined,
-        limit: MAP_LIMIT,
-      }),
+    queryKey: ganapQueryKeys.list(filters),
+    queryFn: (): Promise<CursorPage<GanapListItem>> => ganapsAPI.list({ ...filters, limit: MAP_LIMIT }),
     // Without this a filter change empties `data`, so `isLoading` flips true and
     // the screen swaps the whole MapView for a spinner — tearing down the native
     // map and dismissing the keyboard mid-search. Holding the previous page keeps
@@ -70,45 +44,12 @@ export function useGanapsMap(): UseGanapsMapResult {
     retry: 1,
   });
 
-  const items = useMemo(() => query.data?.items ?? [], [query.data]);
-
-  // The chip vocabulary is a property of the whole catalogue, not of the current
-  // filter, so it gets its own unfiltered query. Deriving it from `query` instead
-  // made each filter hide the tags it had just excluded.
-  const tagVocabularyQuery = useQuery<CursorPage<GanapListItem>, Error>({
-    queryKey: ganapQueryKeys.list(),
-    queryFn: (): Promise<CursorPage<GanapListItem>> => ganapsAPI.list({ limit: MAP_LIMIT }),
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    retry: 1,
-  });
-
-  const availableTags = useMemo((): string[] => {
-    const uniqueTags = new Set<string>();
-    for (const ganap of tagVocabularyQuery.data?.items ?? []) {
-      for (const t of ganap.tags) {
-        uniqueTags.add(t);
-      }
-    }
-    return Array.from(uniqueTags).sort();
-  }, [tagVocabularyQuery.data]);
-
-  const handleSetTag = useCallback((value: string | null): void => {
-    setTag(value);
-  }, []);
-
-  const handleSetSearch = useCallback((value: string): void => {
-    setSearch(value);
-  }, []);
+  const items = useMemo((): GanapListItem[] => query.data?.items ?? [], [query.data]);
 
   return {
     items,
-    tags: availableTags,
-    search,
-    setSearch: handleSetSearch,
-    tag,
-    setTag: handleSetTag,
     isLoading: query.isLoading,
+    isFetching: query.isFetching,
     isError: query.isError,
     error: query.error,
     refetch: query.refetch,

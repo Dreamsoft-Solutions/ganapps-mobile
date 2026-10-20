@@ -115,7 +115,7 @@ This is an inventory for the declaration owner, not a completed Data safety form
 | Mapbox | Map/network requests and SDK telemetry; confirm current SDK disclosures and user controls before declaring location or diagnostics behavior |
 | SecureStore, AsyncStorage, SQLite and query caches | Tokens/preferences and cached data; establish cleanup and retention for the final deletion implementation |
 
-No advertising or billing SDK was identified in `package.json`; the owner must still confirm the app's actual advertising and monetization behavior. Event coordinates are not evidence that device location is collected. Do not infer that SDK collection is absent just because application code does not explicitly send it.
+No advertising or billing SDK is linked. Until DS-92, Firebase Analytics was autolinked as a peer of Remote Config and merged the `com.google.android.gms.permission.AD_ID` permission. Check the Play Console's Advertising ID declaration against the first build without it. The owner must still confirm the app's actual advertising and monetization behavior. Event coordinates are not evidence that device location is collected. Do not infer that SDK collection is absent just because application code does not explicitly send it.
 
 ## Store listing draft
 

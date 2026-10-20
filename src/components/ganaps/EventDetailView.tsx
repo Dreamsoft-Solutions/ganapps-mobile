@@ -1,9 +1,10 @@
 import Markdown, { type MarkdownStyleMap } from '@ronradtke/react-native-markdown-display';
 import { Image } from 'expo-image';
+import { Link } from 'expo-router';
 import { ArrowLeft, Bookmark, Calendar, Check, Clock, Heart, Share2, Star, Users } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, useWindowDimensions, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, useWindowDimensions, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/common/Avatar';
@@ -11,6 +12,7 @@ import { Card } from '@/components/common/Card';
 import { IconButton } from '@/components/common/IconButton';
 import { Text } from '@/components/common/Text';
 import { formatInterestLabel } from '@/constants/interests';
+import { Routes } from '@/constants/routes';
 import { Colors, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { BusinessDetail } from '@/types/business.types';
@@ -208,7 +210,6 @@ function EventDetailHero({
         style={{ top: insetsTop + 8 }}
       >
         <IconButton
-          size="lg"
           variant="default"
           accessibilityLabel="Go back"
           accessibilityHint="Returns to the previous screen"
@@ -219,7 +220,6 @@ function EventDetailHero({
 
         <View className="flex-row gap-sm">
           <IconButton
-            size="lg"
             variant="default"
             accessibilityLabel="Share event"
             accessibilityHint="Opens the device share sheet"
@@ -230,7 +230,6 @@ function EventDetailHero({
             <Share2 size={22} className="text-foreground" />
           </IconButton>
           <IconButton
-            size="lg"
             variant="default"
             selected={isLiked}
             disabled={isLikePending}
@@ -242,7 +241,6 @@ function EventDetailHero({
             <Heart size={22} color={likeColor} fill={isLiked ? likeColor : 'none'} />
           </IconButton>
           <IconButton
-            size="lg"
             variant="default"
             selected={isSaved}
             disabled={isSavePending}
@@ -363,28 +361,37 @@ function EventDetailContent({
       </View>
 
       <Text className="mt-xl text-headline-md">Hosted by</Text>
-      <Card className="mt-sm">
-        <View className="flex-row items-start">
-          <View accessible accessibilityLabel={`${organizerName} organizer image`}>
-            <Avatar src={business?.displayPicture} name={organizerName} size="sm" />
-          </View>
-          <View className="ml-sm min-w-0 flex-1">
-            <View className="flex-row flex-wrap items-center">
-              <Text className="text-headline-sm">{organizerName}</Text>
-              {business?.verificationStatus === 'ACTIVE' && (
-                <View className="ml-sm flex-row items-center rounded-full bg-primary px-sm py-xs">
-                  <View className="mr-xs">
-                    <Check size={14} strokeWidth={2.5} color={Colors[theme]['primary-foreground']} />
-                  </View>
-                  <Text className="text-label-sm text-primary-foreground">Verified</Text>
+      <Link href={Routes.businessProfile(ganap.businessId)} asChild>
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={`View ${organizerName} organization profile`}
+          className="min-h-touch active:opacity-70"
+        >
+          <Card className="mt-sm">
+            <View className="flex-row items-start">
+              <View accessible accessibilityLabel={`${organizerName} organizer image`}>
+                <Avatar src={business?.displayPicture} name={organizerName} size="sm" />
+              </View>
+              <View className="ml-sm min-w-0 flex-1">
+                <View className="flex-row flex-wrap items-center">
+                  <Text className="text-headline-sm">{organizerName}</Text>
+                  {business?.verificationStatus === 'ACTIVE' && (
+                    <View className="ml-sm flex-row items-center rounded-full bg-primary px-sm py-xs">
+                      <View className="mr-xs">
+                        <Check size={14} strokeWidth={2.5} color={Colors[theme]['primary-foreground']} />
+                      </View>
+                      <Text className="text-label-sm text-primary-foreground">Verified</Text>
+                    </View>
+                  )}
                 </View>
-              )}
+                <Text className="mt-1 text-body-md text-muted-foreground">Event organizer</Text>
+                <Text className="mt-sm text-body-md text-primary">View organization</Text>
+                {organizerBio && <Text className="mt-sm text-body-md">{organizerBio}</Text>}
+              </View>
             </View>
-            <Text className="mt-1 text-body-md text-muted-foreground">Event organizer</Text>
-            {organizerBio && <Text className="mt-sm text-body-md">{organizerBio}</Text>}
-          </View>
-        </View>
-      </Card>
+          </Card>
+        </Pressable>
+      </Link>
 
       <Text className="mt-xl text-headline-md">About</Text>
       <View className="mt-sm">

@@ -53,43 +53,92 @@ const TAB_ROUTES: TabRoute[] = [
   },
 ];
 
+interface TabIconProps {
+  tab: TabRoute;
+  isActive: boolean;
+  user: User | null;
+  hasUnreadMessages: boolean;
+  color: string;
+}
+
+function TabIcon({ tab, isActive, user, hasUnreadMessages, color }: TabIconProps): ReactElement | null {
+  if (tab.renderIcon) return <>{tab.renderIcon(isActive, user)}</>;
+
+  const Icon = tab.icon;
+  if (!Icon) return null;
+
+  return (
+    <View className="relative">
+      <Icon size={24} color={color} />
+      {hasUnreadMessages ? (
+        <View
+          accessible={false}
+          className="absolute -right-1 -top-1 h-2 w-2 rounded-full border border-card bg-primary"
+        />
+      ) : null}
+    </View>
+  );
+}
+
 /** Height of the bottom tab bar, shared with the layout's floating tab bar style. */
 export const BAR_HEIGHT: number = 72;
 
 /**
  * Bottom tab bar with brand elements: the logo anchors the Map tab and the
  * user's avatar anchors the Profile tab, both framed by a primary border when
- * active.
+ * active. The Friends tab shows a primary dot and announces its unread state.
  *
- * @param props - React Navigation bottom tab bar props.
+ * The surface colour and the hairline live on the outer wrapper so they cover
+ * the safe-area inset too. Painting only the {@link BAR_HEIGHT} row leaves the
+ * home-indicator strip transparent, which shows as an unfinished band of
+ * whatever is behind the bar.
+ *
+ * The hairline is a border rather than a shadow because this is chrome docked
+ * against scrolling content, not a floating surface — the same treatment the
+ * chat composers and form footers use.
+ *
+ * The icon slot keeps a numeric-scale `h-11`, which looks like a touch-target
+ * violation and is not: the slot is a `View`, and the `Pressable` around it
+ * fills a {@link BAR_HEIGHT} row at `flex-1`, so each tab accepts presses
+ * across 72dp and a fifth of the screen. Growing the slot would only push the
+ * label down. DS-119 audited this row and left it, which is also why it does
+ * not use the `touch` token the real targets moved to.
+ *
+ * @param props - React Navigation bottom tab bar props and Friends unread state.
  * @returns The tab bar.
  */
-export function AppTabBar({ state, navigation }: BottomTabBarProps): ReactElement {
+export function AppTabBar({
+  state,
+  navigation,
+  hasUnreadMessages,
+}: BottomTabBarProps & { hasUnreadMessages: boolean }): ReactElement {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const theme = useResolvedTheme();
 
   return (
-    <View style={{ paddingBottom: insets.bottom }}>
-      <View className="flex-row items-end bg-card" style={{ height: BAR_HEIGHT }}>
+    <View className="border-t border-border bg-card" style={{ paddingBottom: insets.bottom }}>
+      <View className="flex-row items-end" style={{ height: BAR_HEIGHT }}>
         {TAB_ROUTES.map((tab: TabRoute, index: number): ReactNode => {
-          const Icon: LucideIcon | undefined = tab.icon;
           const isActive: boolean = state.index === index;
+          const hasUnreadForTab: boolean = tab.key === 'chat' && hasUnreadMessages;
 
           return (
             <Pressable
               key={tab.key}
               onPress={(): void => navigation.navigate(tab.name)}
               className="flex-1 items-center justify-end pb-3 px-2"
-              accessibilityLabel={tab.label}
+              accessibilityLabel={hasUnreadForTab ? `${tab.label}, unread messages` : tab.label}
               accessibilityState={{ selected: isActive }}
             >
               <View className="h-11 items-center justify-center">
-                {tab.renderIcon ? (
-                  tab.renderIcon(isActive, user)
-                ) : Icon ? (
-                  <Icon size={24} color={isActive ? Colors[theme].primary : Colors[theme]['muted-foreground']} />
-                ) : null}
+                <TabIcon
+                  tab={tab}
+                  isActive={isActive}
+                  user={user}
+                  hasUnreadMessages={hasUnreadForTab}
+                  color={isActive ? Colors[theme].primary : Colors[theme]['muted-foreground']}
+                />
               </View>
               <Text className={`text-label-sm mt-1 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
                 {tab.label}

@@ -3,13 +3,18 @@ import { authAPI } from '@/api/endpoints/auth';
 import { revokeRegisteredAndroidPushToken } from '@/services/push-notification.service';
 import { useAuthStore } from '@/store/auth.store';
 import type {
+  AppleAuthRequestDto,
+  AppleAuthResponse,
+  CompletePasswordResetDto,
   DeleteAccountInput,
   DeleteAccountResponse,
   GoogleAuthRequestDto,
   GoogleAuthResponse,
   LoginDto,
+  PasswordResetResponse,
   RegisterDto,
   RegisterResponse,
+  RequestPasswordResetDto,
   TokenResponse,
   UpdateProfileRequest,
   VerifyEmailRequest,
@@ -58,6 +63,40 @@ export function useRegisterMutation(): UseMutationResult<RegisterResponse, Error
   });
 }
 
+/**
+ * Creates the generic password-reset request mutation.
+ *
+ * @returns A mutation for asking the server to email a reset code.
+ */
+export function useRequestPasswordResetMutation(): UseMutationResult<
+  PasswordResetResponse,
+  Error,
+  RequestPasswordResetDto
+> {
+  return useMutation<PasswordResetResponse, Error, RequestPasswordResetDto>({
+    mutationFn: (dto: RequestPasswordResetDto): Promise<PasswordResetResponse> => authAPI.requestPasswordReset(dto),
+    retry: false,
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
+  });
+}
+
+/**
+ * Creates the password-reset completion mutation.
+ *
+ * @returns A mutation for consuming a code and setting the new password.
+ */
+export function useCompletePasswordResetMutation(): UseMutationResult<
+  PasswordResetResponse,
+  Error,
+  CompletePasswordResetDto
+> {
+  return useMutation<PasswordResetResponse, Error, CompletePasswordResetDto>({
+    mutationFn: (dto: CompletePasswordResetDto): Promise<PasswordResetResponse> => authAPI.completePasswordReset(dto),
+    retry: false,
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
+  });
+}
+
 export function useGoogleLoginMutation(): UseMutationResult<GoogleAuthResponse, Error, GoogleAuthRequestDto> {
   const queryClient = useQueryClient();
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -67,6 +106,27 @@ export function useGoogleLoginMutation(): UseMutationResult<GoogleAuthResponse, 
     mutationFn: (dto: GoogleAuthRequestDto): Promise<GoogleAuthResponse> => authAPI.googleLogin(dto),
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
     onSuccess: async (data: GoogleAuthResponse): Promise<void> => {
+      await setAuth(data.accessToken, data.refreshToken, data.expiresIn);
+      setUser(data.user);
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
+    },
+  });
+}
+
+/**
+ * Creates the Sign in with Apple mutation that stores the session and user on success.
+ *
+ * @returns A mutation that exchanges an Apple credential for a Ganapps session without a global error toast.
+ */
+export function useAppleLoginMutation(): UseMutationResult<AppleAuthResponse, Error, AppleAuthRequestDto> {
+  const queryClient = useQueryClient();
+  const setAuth = useAuthStore((s) => s.setAuth);
+  const setUser = useAuthStore((s) => s.setUser);
+
+  return useMutation<AppleAuthResponse, Error, AppleAuthRequestDto>({
+    mutationFn: (dto: AppleAuthRequestDto): Promise<AppleAuthResponse> => authAPI.appleLogin(dto),
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
+    onSuccess: async (data: AppleAuthResponse): Promise<void> => {
       await setAuth(data.accessToken, data.refreshToken, data.expiresIn);
       setUser(data.user);
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all });

@@ -47,7 +47,6 @@ export function RatingStep({
     <View className="flex-1 bg-background">
       <View className="px-md pb-sm" style={{ paddingTop: insets.top + Spacing.md }}>
         <IconButton
-          size="lg"
           variant="default"
           accessibilityLabel="Go back"
           accessibilityHint="Leaves without rating this event"
@@ -76,7 +75,7 @@ export function RatingStep({
                 accessibilityState={{ selected: score !== null && value <= score }}
                 disabled={isSubmitting}
                 onPress={(): void => setScore(value)}
-                className="min-h-11 min-w-11 items-center justify-center active:opacity-70"
+                className="min-h-touch min-w-touch items-center justify-center active:opacity-70"
               >
                 <Star
                   size={36}

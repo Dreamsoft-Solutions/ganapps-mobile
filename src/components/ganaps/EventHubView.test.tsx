@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
-import { View as MockView, type StyleProp, type ViewStyle } from 'react-native';
+import { Linking, View as MockView, type StyleProp, type ViewStyle } from 'react-native';
 import { Colors } from '@/constants/theme';
 import type { FriendUserSummary } from '@/types/friends.types';
 import type { GanapAnnouncement, GanapDetail } from '@/types/ganap.types';
@@ -244,7 +244,7 @@ describe('EventHubView header', (): void => {
 });
 
 describe('EventHubView event summary', (): void => {
-  it('renders the full title, tags, Public badge, schedule, address, and real joined count', async (): Promise<void> => {
+  it('renders the full title, tags, Public badge, schedule, address, and attendance estimate', async (): Promise<void> => {
     const screen = await render(<EventHubView {...buildProps()} />);
 
     expect(screen.getByText('Coffee & Code at Festive Walk')).toBeTruthy();
@@ -253,7 +253,7 @@ describe('EventHubView event summary', (): void => {
     expect(screen.getByText('Saturday, August 8, 2026')).toBeTruthy();
     expect(screen.getByText('10:00 AM – 1:00 PM')).toBeTruthy();
     expect(screen.getByText('Festive Walk Mall, Iloilo City, Philippines')).toBeTruthy();
-    expect(screen.getByText('17 joined')).toBeTruthy();
+    expect(screen.getByText('15+ attending')).toBeTruthy();
   });
 
   it('gives the Public badge a solid token background rather than an opacity modifier', async (): Promise<void> => {
@@ -312,6 +312,27 @@ describe('EventHubView event summary', (): void => {
     const screen = await render(<EventHubView {...buildProps({ ganap: { ...ganap, address: null } })} />);
 
     expect(screen.getByText('Location to be announced')).toBeTruthy();
+  });
+
+  it('opens a valid event location in the platform map app', async (): Promise<void> => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+    const screen = await render(<EventHubView {...buildProps()} />);
+
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Open Festive Walk Mall, Iloilo City, Philippines in maps' }),
+    );
+
+    expect(openURL).toHaveBeenCalledWith(expect.stringMatching(/^(https:\/\/maps\.apple\.com\/|geo:)/));
+    openURL.mockRestore();
+  });
+
+  it('keeps an invalid event location visible without an actionable control', async (): Promise<void> => {
+    const screen = await render(<EventHubView {...buildProps({ ganap: { ...ganap, locationLat: Number.NaN } })} />);
+
+    expect(screen.getByText('Festive Walk Mall, Iloilo City, Philippines')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Open Festive Walk Mall, Iloilo City, Philippines in maps' }),
+    ).toBeNull();
   });
 });
 

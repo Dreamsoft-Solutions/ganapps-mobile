@@ -1,6 +1,6 @@
 {
   "cli": {
-    "version": ">= 5.0.0",
+    "version": ">= 24.4.2",
     "appVersionSource": "remote"
   },
   "build": {
@@ -22,14 +22,37 @@
       "android": {
         "buildType": "app-bundle"
       },
+      "ios": {
+        "image": "macos-tahoe-26.5-xcode-26.6"
+      },
       "env": {
         "APP_ENV": "production",
         "EXPO_PUBLIC_FEATURE_FLAG_ENV_OVERRIDE": "false",
         "EXPO_PUBLIC_FEATURE_FLAG_REMOTE_CONFIG_PARAMETER": "mobile_prod"
       }
+    },
+    "testflight": {
+      "extends": "production",
+      "environment": "preview",
+      "android": {
+        "distribution": "internal",
+        "buildType": "apk",
+        "autoIncrement": false
+      },
+      "env": {
+        "EXPO_PUBLIC_FEATURE_FLAG_REMOTE_CONFIG_PARAMETER": "mobile_dev"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6815148007",
+        "appleTeamId": "ZS3U26AMH9"
+      }
+    },
+    "testflight": {
+      "extends": "production"
+    }
   }
 }

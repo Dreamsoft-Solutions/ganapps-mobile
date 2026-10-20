@@ -148,7 +148,14 @@ describe('route table entries resolve to their screens', () => {
   it('builds an object-form Event Chat route with the Ganap parameter', () => {
     expect(Routes.eventChat('abc123')).toEqual({
       pathname: '/(app)/(chat)/event-chat/[ganap-id]',
-      params: { 'ganap-id': 'abc123' },
+      params: { 'ganap-id': 'abc123', returnTo: 'event-hub' },
+    });
+  });
+
+  it('preserves the Friends origin when opening an event conversation', (): void => {
+    expect(Routes.eventChat('abc123', 'friends')).toEqual({
+      pathname: '/(app)/(chat)/event-chat/[ganap-id]',
+      params: { 'ganap-id': 'abc123', returnTo: 'friends' },
     });
   });
 
@@ -172,6 +179,42 @@ describe('route table entries resolve to their screens', () => {
 
   it('opens the login screen', () => {
     expect(resolve(pathnameOf(Routes.auth.login))).toEqual(['(auth)', 'login']);
+  });
+});
+
+describe('canonical shared links resolve to their public handoff routes', () => {
+  it('routes Friend Code links through the public stack', () => {
+    expect(resolve('/friends/0123456789AB')).toEqual(['(public)', 'friends/[code]']);
+    expect(Routes.public.friendShare('0123456789AB')).toEqual({
+      pathname: '/(public)/friends/[code]',
+      params: { code: '0123456789AB' },
+    });
+  });
+
+  it('routes Ganap links through the public stack', () => {
+    expect(resolve('/ganaps/event-123')).toEqual(['(public)', 'ganaps/[id]']);
+    expect(Routes.public.ganapShare('event-123')).toEqual({
+      pathname: '/(public)/ganaps/[id]',
+      params: { id: 'event-123' },
+    });
+  });
+
+  it('carries share targets through sign-in and opens the existing Add Friend modal', () => {
+    expect(Routes.auth.loginForFriendShare('0123456789AB')).toEqual({
+      pathname: '/(auth)/login',
+      params: { returnFriendCode: '0123456789AB' },
+    });
+    expect(Routes.friendAddWithCode('0123456789AB')).toEqual({
+      pathname: '/(app)/(chat)/chat',
+      params: { friendCode: '0123456789AB' },
+    });
+  });
+
+  it('carries Ganap targets through sign-in', () => {
+    expect(Routes.auth.loginForGanapShare('event-123')).toEqual({
+      pathname: '/(auth)/login',
+      params: { returnGanapId: 'event-123' },
+    });
   });
 });
 

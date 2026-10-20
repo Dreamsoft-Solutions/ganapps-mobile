@@ -2,12 +2,14 @@ import Mapbox, { Camera, MapView, MarkerView } from '@rnmapbox/maps';
 import { MapPin } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 import { Card } from '@/components/common/Card';
 import { Text } from '@/components/common/Text';
 import { Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { GanapDetail } from '@/types/ganap.types';
+import { getExternalMapLinks } from '@/utils/external-map';
+import { GanapLocationLink } from './GanapLocationLink';
 
 const MAPBOX_TOKEN: string = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
 
@@ -15,26 +17,29 @@ interface EventLocationPreviewProps {
   ganap: GanapDetail;
 }
 
-interface AddressCardProps {
-  address?: string | null;
-}
-
 /**
  * Renders the address beneath the map or as the complete location fallback.
  *
- * @param props - Optional Ganap address.
+ * @param props - Ganap location and optional venue address.
  * @returns A semantic address card.
  */
-function AddressCard({ address }: AddressCardProps): ReactElement {
-  const label: string = address?.trim() || 'Location unavailable';
+function AddressCard({ ganap }: EventLocationPreviewProps): ReactElement {
+  const label: string = ganap.address?.trim() || 'Location unavailable';
 
   return (
-    <Card className="mt-sm flex-row items-center">
-      <MapPin size={20} className="mr-sm text-primary" />
-      <Text className="flex-1 text-body-md" accessibilityRole="text">
-        {label}
-      </Text>
-    </Card>
+    <GanapLocationLink
+      className="mt-sm"
+      latitude={ganap.locationLat}
+      longitude={ganap.locationLong}
+      locationName={ganap.address}
+    >
+      <Card className="flex-row items-center">
+        <MapPin size={20} className="mr-sm text-primary" />
+        <Text className="flex-1 text-body-md" accessibilityRole="text">
+          {label}
+        </Text>
+      </Card>
+    </GanapLocationLink>
   );
 }
 
@@ -48,17 +53,21 @@ export function EventLocationPreview({ ganap }: EventLocationPreviewProps): Reac
   const theme = useResolvedTheme();
   const [mapFailed, setMapFailed] = useState<boolean>(false);
   const [tokenReady, setTokenReady] = useState<boolean>(false);
+  const platform: 'ios' | 'android' = Platform.OS === 'ios' ? 'ios' : 'android';
+  const hasValidCoordinates: boolean =
+    getExternalMapLinks({ latitude: ganap.locationLat, longitude: ganap.locationLong }, platform, ganap.address) !==
+    null;
 
   useEffect((): void => {
-    if (MAPBOX_TOKEN) {
+    if (MAPBOX_TOKEN && hasValidCoordinates) {
       void Mapbox.setAccessToken(MAPBOX_TOKEN)
         .then((): void => setTokenReady(true))
         .catch((): void => setMapFailed(true));
     }
-  }, []);
+  }, [hasValidCoordinates]);
 
-  if (!MAPBOX_TOKEN || mapFailed) {
-    return <AddressCard address={ganap.address} />;
+  if (!MAPBOX_TOKEN || mapFailed || !hasValidCoordinates) {
+    return <AddressCard ganap={ganap} />;
   }
 
   if (!tokenReady) {
@@ -67,7 +76,7 @@ export function EventLocationPreview({ ganap }: EventLocationPreviewProps): Reac
         <View className="h-40 items-center justify-center overflow-hidden rounded-xl bg-muted">
           <ActivityIndicator color={Colors[theme].primary} />
         </View>
-        <AddressCard address={ganap.address} />
+        <AddressCard ganap={ganap} />
       </View>
     );
   }
@@ -96,7 +105,7 @@ export function EventLocationPreview({ ganap }: EventLocationPreviewProps): Reac
           </MarkerView>
         </MapView>
       </View>
-      <AddressCard address={ganap.address} />
+      <AddressCard ganap={ganap} />
     </View>
   );
 }

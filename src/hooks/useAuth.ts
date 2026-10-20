@@ -1,27 +1,37 @@
 import { type UseMutationResult, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback } from 'react';
 import { Routes } from '@/constants/routes';
 import { useAuthStore } from '@/store/auth.store';
 import type {
+  AppleAuthRequestDto,
+  AppleAuthResponse,
+  CompletePasswordResetDto,
   DeleteAccountInput,
   DeleteAccountResponse,
   GoogleAuthRequestDto,
   GoogleAuthResponse,
   LoginDto,
+  PasswordResetResponse,
   RegisterDto,
   RegisterResponse,
+  RequestPasswordResetDto,
   TokenResponse,
   UpdateProfileRequest,
   VerifyEmailRequest,
 } from '@/types/auth.types';
 import type { User } from '@/types/user.types';
+import { getShareLinkReturnRoute } from '@/utils/navigation';
 import {
+  useAppleLoginMutation,
+  useCompletePasswordResetMutation,
   useDeleteAccountMutation,
   useGoogleLoginMutation,
   useLoginMutation,
   useLogoutMutation,
   useRegisterMutation,
+  useRequestPasswordResetMutation,
   useResendVerificationMutation,
   useUpdateProfileMutation,
   useVerifyEmailMutation,
@@ -35,8 +45,11 @@ export interface UseAuthResult {
   isLoading: boolean;
   error: Error | null;
   login: (dto: LoginDto) => Promise<void>;
+  requestPasswordReset: (dto: RequestPasswordResetDto) => Promise<PasswordResetResponse>;
+  completePasswordReset: (dto: CompletePasswordResetDto) => Promise<PasswordResetResponse>;
   register: (dto: RegisterDto) => Promise<void>;
   googleLogin: (dto: GoogleAuthRequestDto) => Promise<void>;
+  appleLogin: (dto: AppleAuthRequestDto) => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: (input: DeleteAccountInput) => Promise<void>;
   verifyEmail: (dto: VerifyEmailRequest) => Promise<void>;
@@ -45,8 +58,11 @@ export interface UseAuthResult {
   isAuthenticated: boolean;
   isVerified: boolean;
   loginMutation: UseMutationResult<TokenResponse, Error, LoginDto>;
+  requestPasswordResetMutation: UseMutationResult<PasswordResetResponse, Error, RequestPasswordResetDto>;
+  completePasswordResetMutation: UseMutationResult<PasswordResetResponse, Error, CompletePasswordResetDto>;
   registerMutation: UseMutationResult<RegisterResponse, Error, RegisterDto>;
   googleLoginMutation: UseMutationResult<GoogleAuthResponse, Error, GoogleAuthRequestDto>;
+  appleLoginMutation: UseMutationResult<AppleAuthResponse, Error, AppleAuthRequestDto>;
   logoutMutation: UseMutationResult<void, Error, void>;
   deleteAccountMutation: UseMutationResult<DeleteAccountResponse, Error, DeleteAccountInput>;
   verifyEmailMutation: UseMutationResult<User, Error, VerifyEmailRequest>;
@@ -60,14 +76,19 @@ export interface UseAuthResult {
  */
 export function useAuth(): UseAuthResult {
   const router = useRouter();
+  const searchParams = useLocalSearchParams();
+  const postLoginRoute: Href = getShareLinkReturnRoute(searchParams);
   const queryClient = useQueryClient();
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const { isLoading: userLoading, error: userError } = useAuthQuery();
 
   const loginMutation = useLoginMutation();
+  const requestPasswordResetMutation = useRequestPasswordResetMutation();
+  const completePasswordResetMutation = useCompletePasswordResetMutation();
   const registerMutation = useRegisterMutation();
   const googleLoginMutation = useGoogleLoginMutation();
+  const appleLoginMutation = useAppleLoginMutation();
   const logoutMutation = useLogoutMutation();
   const deleteAccountMutation = useDeleteAccountMutation();
   const verifyEmailMutation = useVerifyEmailMutation();
@@ -77,9 +98,19 @@ export function useAuth(): UseAuthResult {
   const login = useCallback(
     async (dto: LoginDto) => {
       await loginMutation.mutateAsync(dto);
-      router.replace(Routes.app.home);
+      router.replace(postLoginRoute);
     },
-    [loginMutation, router],
+    [loginMutation, postLoginRoute, router],
+  );
+
+  const requestPasswordReset = useCallback(
+    (dto: RequestPasswordResetDto): Promise<PasswordResetResponse> => requestPasswordResetMutation.mutateAsync(dto),
+    [requestPasswordResetMutation],
+  );
+
+  const completePasswordReset = useCallback(
+    (dto: CompletePasswordResetDto): Promise<PasswordResetResponse> => completePasswordResetMutation.mutateAsync(dto),
+    [completePasswordResetMutation],
   );
 
   const register = useCallback(
@@ -93,9 +124,17 @@ export function useAuth(): UseAuthResult {
   const googleLogin = useCallback(
     async (dto: GoogleAuthRequestDto) => {
       await googleLoginMutation.mutateAsync(dto);
-      router.replace(Routes.app.home);
+      router.replace(postLoginRoute);
     },
-    [googleLoginMutation, router],
+    [googleLoginMutation, postLoginRoute, router],
+  );
+
+  const appleLogin = useCallback(
+    async (dto: AppleAuthRequestDto) => {
+      await appleLoginMutation.mutateAsync(dto);
+      router.replace(postLoginRoute);
+    },
+    [appleLoginMutation, postLoginRoute, router],
   );
 
   const logout = useCallback(async () => {
@@ -138,11 +177,19 @@ export function useAuth(): UseAuthResult {
   return {
     user,
     token,
-    isLoading: userLoading || loginMutation.isPending || registerMutation.isPending || googleLoginMutation.isPending,
+    isLoading:
+      userLoading ||
+      loginMutation.isPending ||
+      registerMutation.isPending ||
+      googleLoginMutation.isPending ||
+      appleLoginMutation.isPending,
     error: userError,
     login,
+    requestPasswordReset,
+    completePasswordReset,
     register,
     googleLogin,
+    appleLogin,
     logout,
     deleteAccount,
     verifyEmail: verifyEmailAction,
@@ -151,8 +198,11 @@ export function useAuth(): UseAuthResult {
     isAuthenticated: !!token,
     isVerified: user?.isVerified ?? false,
     loginMutation,
+    requestPasswordResetMutation,
+    completePasswordResetMutation,
     registerMutation,
     googleLoginMutation,
+    appleLoginMutation,
     logoutMutation,
     deleteAccountMutation,
     verifyEmailMutation,

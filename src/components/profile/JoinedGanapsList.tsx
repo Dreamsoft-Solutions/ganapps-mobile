@@ -53,7 +53,7 @@ export function JoinedGanapsList({
           <JoinedGanapCard
             ganap={item}
             onPress={(): void => {
-              router.push(Routes.ganapDetail(item.id));
+              router.push(Routes.ganapDetail(item.id, 'my-events'));
             }}
           />
         )}

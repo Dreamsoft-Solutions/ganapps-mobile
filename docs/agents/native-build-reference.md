@@ -28,20 +28,20 @@ rather than sharing copies.
 `BUNDLE_ID: com.ganapps.app`, `PROJECT_ID: ganapps`, `IS_SIGNIN_ENABLED: true`. Earlier
 revisions of this file said the iOS app was unregistered; that was wrong.
 
-iOS prebuild needs a third thing: a secret Mapbox token with `DOWNLOADS:READ` scope in
-`~/.netrc`, under `machine api.mapbox.com`. `@rnmapbox/maps` fetches the Mapbox iOS SDK from a
-private registry at `pod install` time, so without it `pod install` fails and no iOS build is
-possible. This is separate from `EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN` in `.env`, which is the
-public `pk.` runtime token. Never put the secret token in `.env` — the `EXPO_PUBLIC_` prefix
-bundles it into the shipped binary.
+**No secret Mapbox token should be needed to build.** Earlier revisions of this file (and
+DS-88, DS-101) required a `DOWNLOADS:READ` token in `~/.netrc` for `pod install`. As of
+2026-09-23, Mapbox serves the iOS SDK archives (`MapboxCoreMaps` 11.23.1, `MapboxCommon`
+24.23.1) and the Android Maven artifacts without authentication, and `rnmapbox-maps.podspec`
+itself marks the download token as deprecated. That is checked against the download URLs, not
+yet against an EAS cloud build — DS-101 stays open until the first one confirms it. A leftover
+`machine api.mapbox.com` entry in `~/.netrc` is harmless.
 
-**This is configured and no longer a blocker** (DS-88, done). Earlier revisions of this file
-said no iOS build was possible; that stopped being true on 2026-08-31. The token is per
-developer and is never shared — each person generates their own in the Mapbox account page and
-writes their own `~/.netrc`.
+The only Mapbox credential the app uses is `EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN`, the public `pk.`
+runtime token. Never give a secret `sk.` token the `EXPO_PUBLIC_` prefix — that bundles it into
+the shipped binary.
 
-`npx expo prebuild -p ios --no-install` skips CocoaPods and works without the Mapbox token,
-which is enough to regenerate and inspect `ios/ganappsmobile/Info.plist`.
+`npx expo prebuild -p ios --no-install` skips CocoaPods, which is enough to regenerate and
+inspect `ios/Ganapps/Info.plist`.
 
 `android.package` and `ios.bundleIdentifier` are both **`com.ganapps.app`**, matching the
 Android app AJ registered in the production Firebase project (confirmed with him — it is not a
@@ -59,6 +59,18 @@ it made Expo load the package's runtime entry as a plugin, which threw and broke
 resolution — `expo start`, `expo config`, `expo prebuild` and `expo customize` alike. Check for
 `app.plugin.js` in the package root before adding a plugin here.
 
+**Firebase Analytics is installed but deliberately not linked.** `@react-native-firebase/remote-config`
+lists `@react-native-firebase/analytics` as a peer dependency, so npm installs it, and Expo autolinks
+transitive native modules. Unexcluded, it shipped Google Analytics, IDFA-capable code and Android's
+`AD_ID` permission while nothing in the app called it. `react-native.config.js` sets its `ios` and
+`android` platforms to `null` (DS-92, [ADR 0006](../adr/0006-exclude-firebase-analytics-autolinking.md)).
+`npm ls` still lists it; that is expected.
+
+**iOS privacy manifests are audited, not assumed.** [iOS privacy manifests](../ios-privacy-manifests.md)
+lists the linked pods that ship no manifest, the Required Reason APIs each binary calls, and the
+reasons `ios.privacyManifests` in `app.config.js` declares for them (DS-93). Re-check it after an
+Expo SDK, React Native or React Native Firebase upgrade, or when adding a native module.
+
 ---
 
 ## iOS Native Build Configuration
@@ -75,7 +87,7 @@ breaks the build again, in a way whose error message does not point back here.
     ios: {
       useFrameworks: 'static',
       usePrecompiledModules: false,
-      forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBRemoteConfig', 'RNFBAnalytics'],
+      forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBRemoteConfig'],
     },
   },
 ],
@@ -98,7 +110,8 @@ breaks the build again, in a way whose error message does not point back here.
   (`usePrecompiledModules` covers only Expo's modules), and on RN 0.84+ / Expo 54+ with
   prebuilt core every RNFB native module must be listed here. Otherwise its headers fail
   `-Werror=non-modular-include-in-framework-module` on `#import <React/RCTBridgeModule.h>`.
-  Keep this list in sync with the `RNFB*` pods in `ios/Podfile.lock`.
+  It must name exactly the `RNFB*` pods Expo autolinks; `app.config.test.ts` runs the Podfile's
+  own autolinking command and fails on a missing or stale entry.
 
 `@react-native-firebase/app` is pinned at 25.1.0, which has no SPM support and so no
 `disableSPM` plugin option — the package contains no such string. RNFirebase's docs pair
@@ -111,5 +124,63 @@ destination at all and `expo run:ios` fails with `Unable to find a destination m
 provided destination specifier`, which reads like a device-selection bug rather than a missing
 multi-GB download. None of this needs an Apple Developer Program membership — the simulator
 signs locally; the membership matters only for TestFlight and App Store submission.
+
+### EAS cloud builds for iOS
+
+`eas.json` has two store-signed iOS profiles. Both auto-increment the build number from the
+same remote counter and pin the Xcode 26.6 image:
+
+| Profile | EAS environment | API and Remote Config | Use |
+|---|---|---|---|
+| `testflight` | `preview` | dev API, `mobile_dev` | Internal TestFlight — `eas build -p ios --profile testflight --auto-submit` |
+| `production` | `production` | production API, `mobile_prod` | App Store release |
+
+A `testflight` build is never the one submitted for App Review — it talks to the dev API.
+
+`eas.json` requires **eas-cli 24.4.2 or newer** (`cli.version`). Older versions fail the Apple
+sign-in step with "Authentication with Apple Developer Portal failed! iTunes service key is
+empty", after Apple changed its login flow in September 2026 (expo/eas-cli#4392, #4394). Upgrade
+with `npm install -g eas-cli`.
+
+The EAS environment a profile reads must hold everything the local `.env` and gitignored files
+provide, because neither reaches the build worker:
+
+- **`GOOGLE_SERVICE_INFO_PLIST`** — a *file* variable holding `GoogleService-Info.plist`.
+  Without it `app.config.js` falls back to `./GoogleService-Info.plist`, which is gitignored
+  and never uploaded, and the React Native Firebase plugin fails prebuild with
+  "GoogleService-Info.plist doesn't exist". Android preview builds never needed it, so the
+  `preview` environment may not have it yet (DS-86).
+- Every `EXPO_PUBLIC_*` variable in `.env.example`, with `EXPO_PUBLIC_API_URL` set to the API
+  that profile targets.
+
+`testflight`'s Android block builds an internal APK without bumping the version code, so
+forgetting `-p ios` cannot produce a dev-API Play Store bundle.
+
+### iOS purpose strings
+
+Every `NS*UsageDescription` in the generated Info.plist is app-written. `app.config.js` sets
+them through each plugin's options instead of accepting the plugin defaults, which are generic
+("Allow $(PRODUCT_NAME) to…") and a Guideline 5.1.1 risk. Run
+`npx expo config --type introspect` to see the resolved set.
+
+**`NSMotionUsageDescription` must stay, even though Ganapps never uses motion data.**
+`expo-location` compiles `CMMotionActivityManager` code into every build, and it has no iOS
+flag to leave it out. Apple scans the compiled binary and rejects the upload during processing
+with **ITMS-90683** if the key is missing — "while your app might not use these APIs, a
+purpose string is still required". That is what happened to build 3 on 2026-09-25, after
+`motionUsagePermission: false` had removed the key (DS-144). The app never requests motion
+access, so iOS never shows this string, and the App Privacy labels (DS-83) must not declare
+Motion & Fitness data. A test in `app.config.test.ts` fails if the string is removed.
+
+`microphonePermission: false` on `expo-camera` and `expo-image-picker` stays. expo-camera
+contains audio-capture code, but Apple's ITMS-90683 check on build 3 listed only the motion key.
+Re-check the processing email after upgrading either library.
+
+**`NSPhotoLibraryUsageDescription` is written by two plugins**: `expo-image-picker` and
+`expo-media-library`. Whichever runs last wins, and `photosPermission: false` on either one
+deletes the key outright. For a while `expo-media-library` had `false`, which silently removed the
+image picker's string from the resolved Info.plist. Both plugins must carry the same app-written
+`photosPermission`, and a test in `app.config.test.ts` enforces it. Saving the QR image uses the
+separate `NSPhotoLibraryAddUsageDescription` (`savePhotosPermission`).
 
 ---

@@ -1,12 +1,17 @@
 import type { AxiosResponse } from 'axios';
 import type {
+  AppleAuthRequestDto,
+  AppleAuthResponse,
+  CompletePasswordResetDto,
   DeleteAccountResponse,
   GoogleAuthRequestDto,
   GoogleAuthResponse,
   LoginDto,
+  PasswordResetResponse,
   RefreshRequest,
   RegisterDto,
   RegisterResponse,
+  RequestPasswordResetDto,
   TokenResponse,
   UpdateProfileRequest,
   VerifyEmailRequest,
@@ -36,6 +41,12 @@ export const authAPI = {
 
   register: (dto: RegisterDto): Promise<RegisterResponse> =>
     axiosInstance.post<RegisterResponse>('/auth/register', dto).then((res) => res.data),
+
+  requestPasswordReset: (dto: RequestPasswordResetDto): Promise<PasswordResetResponse> =>
+    axiosInstance.post<PasswordResetResponse>('/auth/password-reset/request', dto).then((res) => res.data),
+
+  completePasswordReset: (dto: CompletePasswordResetDto): Promise<PasswordResetResponse> =>
+    axiosInstance.post<PasswordResetResponse>('/auth/password-reset/complete', dto).then((res) => res.data),
 
   logout: (refreshToken?: string): Promise<void> =>
     axiosInstance.post<void>('/auth/logout', { refreshToken }).then((res) => res.data),
@@ -67,6 +78,17 @@ export const authAPI = {
 
   googleLogin: (dto: GoogleAuthRequestDto): Promise<GoogleAuthResponse> =>
     axiosInstance.post<GoogleAuthResponse>('/auth/google', dto).then((res) => res.data),
+
+  /**
+   * Exchanges an Apple credential for a Ganapps session.
+   * @param dto - Identity token, authorization code, raw nonce and optional first-authorization name.
+   * @returns Session tokens and the signed-in user.
+   * @throws A parsed API error retaining the server status and error code.
+   */
+  appleLogin: (dto: AppleAuthRequestDto): Promise<AppleAuthResponse> =>
+    axiosInstance
+      .post<AppleAuthResponse>('/auth/apple', dto)
+      .then((res: AxiosResponse<AppleAuthResponse>): AppleAuthResponse => res.data),
 };
 
 /**

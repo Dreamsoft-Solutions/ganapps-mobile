@@ -1,10 +1,12 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { type ReactElement, useCallback, useEffect, useState } from 'react';
+import { BackHandler } from 'react-native';
 import { EventChatThreadView } from '@/components/chat/EventChatThreadView';
 import { ModerationActionSheet, type ModerationActionTarget } from '@/components/moderation/ModerationActionSheet';
 import { Routes } from '@/constants/routes';
 import { useMessageReactionMutation, useUnsendMessageMutation } from '@/hooks/mutations/useChatEngagementMutation';
-import { useBlockUserMutation, useCreateReportMutation } from '@/hooks/mutations/useModerationMutation';
+import { useCreateReportMutation } from '@/hooks/mutations/useModerationMutation';
+import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { useChat } from '@/hooks/useChat';
 import { useAuthStore } from '@/store/auth.store';
 import { showToast } from '@/store/toast.store';
@@ -20,14 +22,16 @@ import { getChatEngagementErrorMessage, isChatMessageUnsendAvailable } from '@/u
  * @returns Guarded Event Chat thread
  */
 export default function EventChatThreadScreen(): ReactElement {
-  const params = useLocalSearchParams<{ 'ganap-id': string | string[] }>();
+  const params = useLocalSearchParams<{ 'ganap-id': string | string[]; returnTo?: string }>();
   const rawGanapId: string | string[] | undefined = params['ganap-id'];
   const ganapId: string = Array.isArray(rawGanapId) ? (rawGanapId[0] ?? '') : (rawGanapId ?? '');
   const router = useRouter();
+  const isFriendsOrigin: boolean = params.returnTo === 'friends';
+  const { data: ganap } = useGanapDetailQuery(ganapId);
+  const headerTitle: string = ganap?.title?.trim() || 'Ganap';
   const chat = useChat(ganapId);
   const currentUserId: string | null = useAuthStore((state) => state.user?.id ?? null);
   const reportMutation = useCreateReportMutation();
-  const blockMutation = useBlockUserMutation();
   const reactionMutation = useMessageReactionMutation();
   const unsendMutation = useUnsendMessageMutation();
   const [reactionPendingMessageId, setReactionPendingMessageId] = useState<string | null>(null);
@@ -42,10 +46,7 @@ export default function EventChatThreadScreen(): ReactElement {
         id: message.id,
         senderId: message.senderId,
         senderLabel: message.senderUsername,
-        canBlock: currentUserId !== null && message.senderId !== currentUserId,
         canUnsend: isChatMessageUnsendAvailable(message, currentUserId, chat.session?.canSend === true),
-        reactionSummary: message.type === 'UNSENT' ? null : message.reactionSummary,
-        canReact: chat.session?.canSend === true,
       });
     },
     [chat.session?.canSend, currentUserId],
@@ -56,19 +57,11 @@ export default function EventChatThreadScreen(): ReactElement {
       if (message.type === 'UNSENT' || chat.session?.canSend !== true || reactionMutation.isPending) return;
       setReactionPendingMessageId(message.id);
       try {
-        const summary = await reactionMutation.mutateAsync({
+        await reactionMutation.mutateAsync({
           conversationId: message.conversationId,
           messageId: message.id,
           reaction,
         });
-        setModerationMessage((selected: ChatMessage | null): ChatMessage | null =>
-          selected?.id === message.id ? { ...selected, reactionSummary: summary } : selected,
-        );
-        setModerationTarget((selected: ModerationActionTarget | null): ModerationActionTarget | null =>
-          selected?.type === 'MESSAGE' && selected.id === message.id
-            ? { ...selected, reactionSummary: summary }
-            : selected,
-        );
       } catch (error: unknown) {
         showToast('error', getChatEngagementErrorMessage(error, 'Reaction could not be saved.'));
       } finally {
@@ -104,28 +97,32 @@ export default function EventChatThreadScreen(): ReactElement {
     [reportMutation],
   );
 
-  const blockUser = useCallback(
-    (userId: string): Promise<void> => blockMutation.mutateAsync({ userId }),
-    [blockMutation],
+  const onBack = useCallback((): void => {
+    router.dismissTo(Routes.app.chat);
+    if (!isFriendsOrigin) router.navigate(Routes.eventHub(ganapId));
+  }, [ganapId, isFriendsOrigin, router]);
+
+  useFocusEffect(
+    useCallback((): (() => void) => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', (): boolean => {
+        onBack();
+        return true;
+      });
+      return (): void => subscription.remove();
+    }, [onBack]),
   );
 
   useEffect((): void => {
     if (!chat.accessRevoked) return;
     showToast('info', 'You no longer have access to this chat.');
-    router.replace(Routes.eventHub(ganapId));
-  }, [chat.accessRevoked, ganapId, router]);
-
-  const onBack = (): void => {
-    if (router.canDismiss()) {
-      router.dismiss();
-      return;
-    }
-    router.replace(Routes.ganapDetail(ganapId));
-  };
+    onBack();
+  }, [chat.accessRevoked, onBack]);
 
   return (
     <>
+      <Stack.Screen options={{ gestureEnabled: isFriendsOrigin }} />
       <EventChatThreadView
+        ganapTitle={headerTitle}
         session={chat.session}
         messages={chat.messages}
         failedDrafts={chat.failedDrafts}
@@ -151,6 +148,8 @@ export default function EventChatThreadScreen(): ReactElement {
         onRetryImage={chat.retryImage}
         onRefreshImage={chat.refreshImage}
         onMessageActions={openMessageActions}
+        onMessageReaction={onReaction}
+        reactionPendingMessageId={reactionPendingMessageId}
         accessLost={chat.accessLost}
       />
       <ModerationActionSheet
@@ -158,14 +157,7 @@ export default function EventChatThreadScreen(): ReactElement {
         target={moderationTarget}
         onClose={closeModeration}
         onReport={submitReport}
-        onBlock={blockUser}
         onUnsend={unsendFromActions}
-        onReaction={(reaction: ReactionType | null): Promise<void> => {
-          const message: ChatMessage | null = moderationMessage;
-          if (!message) return Promise.resolve();
-          return onReaction(message, reaction);
-        }}
-        reactionPending={reactionPendingMessageId === moderationMessage?.id}
       />
     </>
   );

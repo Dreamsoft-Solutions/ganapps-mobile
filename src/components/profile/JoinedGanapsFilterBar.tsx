@@ -52,7 +52,7 @@ export function JoinedGanapsFilterBar({
             accessibilityRole="button"
             accessibilityLabel="Clear joined-event search"
             onPress={(): void => onSearchChange('')}
-            className="min-h-11 min-w-11 items-center justify-center"
+            className="min-h-touch min-w-touch items-center justify-center"
           >
             <X size={18} color={mutedForeground} />
           </Pressable>

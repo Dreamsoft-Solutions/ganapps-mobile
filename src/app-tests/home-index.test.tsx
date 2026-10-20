@@ -1,30 +1,40 @@
 import { describe, expect, jest } from '@jest/globals';
 import { fireEvent, render } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
+import type { UseGanapDiscoveryResult } from '@/hooks/useGanapDiscovery';
+import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
+
+jest.mock('react-native-reanimated', () => {
+  const ReactNative = require('react-native') as typeof import('react-native');
+  const React = require('react') as typeof import('react');
+  return {
+    __esModule: true,
+    default: { View: ReactNative.View },
+    useSharedValue: (value: number): { value: number } => React.useRef({ value }).current,
+    useAnimatedStyle: (updater: () => unknown): unknown => updater(),
+  };
+});
 
 interface MarkerProps {
   anchor: { x: number; y: number };
   children?: ReactNode;
 }
 
-interface MockMapState {
-  items: GanapListItem[];
-  tags: string[];
-  search: string;
-  setSearch: (value: string) => void;
-  tag: string | null;
-  setTag: (value: string | null) => void;
-  isLoading: boolean;
-  isError: boolean;
-  error: Error | null;
-  refetch: () => Promise<unknown>;
+/**
+ * Typed against the real hook result, not a hand-rolled shape: the previous
+ * local interface let the screen's contract drift without failing type-check.
+ */
+type MockMapState = UseGanapDiscoveryResult;
+
+interface MockCameraStop {
+  centerCoordinate: [number, number];
+  zoomLevel: number;
 }
 
-interface SelectedGanapCardProps {
-  ganap: GanapListItem;
-  onClose: () => void;
-  onPress: () => void;
+interface GanapFeedSheetStubProps {
+  selectedGanap: GanapListItem | null;
+  onSelectGanap: (ganap: GanapListItem) => void;
 }
 
 const mockCapturedAnchors: Array<{ x: number; y: number }> = [];
@@ -52,19 +62,54 @@ const mockGanap: GanapListItem = {
   createdAt: '2026-08-01T00:00:00.000Z',
 };
 const mockMapState: MockMapState = {
-  items: [mockGanap],
-  tags: [],
+  filters: {},
   search: '',
   setSearch: jest.fn<(value: string) => void>(),
   tag: null,
   setTag: jest.fn<(value: string | null) => void>(),
-  isLoading: false,
-  isError: false,
-  error: null,
-  refetch: jest.fn<() => Promise<unknown>>().mockResolvedValue(undefined),
+  tags: [],
+  map: {
+    items: [mockGanap],
+    isLoading: false,
+    isFetching: false,
+    isError: false,
+    error: null,
+    refetch: jest.fn<MockMapState['map']['refetch']>(),
+  },
+  feed: {
+    items: [mockGanap],
+    isLoading: false,
+    error: null,
+    hasNextPage: false,
+    fetchNextPage: jest.fn<MockMapState['feed']['fetchNextPage']>(),
+    isFetchingNextPage: false,
+    join: jest.fn<MockMapState['feed']['join']>(),
+    leave: jest.fn<MockMapState['feed']['leave']>(),
+    toggleLike: jest.fn<MockMapState['feed']['toggleLike']>(),
+    toggleSave: jest.fn<MockMapState['feed']['toggleSave']>(),
+    isJoining: false,
+    isLeaving: false,
+    isTogglingLike: false,
+    isTogglingSave: false,
+  },
+  nearby: {
+    isActive: false,
+    isDisabled: false,
+    coords: null,
+    isPrimingVisible: false,
+    isAccuracyNoticeVisible: false,
+    errorMessage: null,
+    toggle: jest.fn(),
+    refresh: jest.fn<() => Promise<Coords | null>>(),
+    confirmPriming: jest.fn<() => Promise<void>>(),
+    dismissPriming: jest.fn(),
+    dismissAccuracyNotice: jest.fn(),
+    openSettings: jest.fn<() => Promise<void>>(),
+  },
 };
-const mockUseGanapsMap = jest.fn<() => MockMapState>(() => mockMapState);
-const mockSelectedGanapCard = jest.fn<(props: SelectedGanapCardProps) => ReactElement>();
+const mockSetCamera = jest.fn<(stop: MockCameraStop) => void>();
+const mockUseGanapDiscovery = jest.fn<() => MockMapState>(() => mockMapState);
+const mockGanapFeedSheet = jest.fn<(props: GanapFeedSheetStubProps) => ReactElement>();
 
 jest.mock('lucide-react-native', () => {
   const React = require('react') as typeof import('react');
@@ -72,6 +117,7 @@ jest.mock('lucide-react-native', () => {
     LucideProvider: ({ children }: { children?: ReactNode }): ReactElement =>
       React.createElement(React.Fragment, null, children),
     X: (): null => null,
+    LocateFixed: (): null => null,
   };
 });
 
@@ -81,8 +127,29 @@ jest.mock('@rnmapbox/maps', () => {
   return {
     __esModule: true,
     default: { setAccessToken: jest.fn<() => Promise<void>>().mockResolvedValue(undefined) },
-    Camera: (): null => null,
-    MapView: ({ children }: { children?: ReactNode }): ReactElement => React.createElement(View, null, children),
+    Camera: React.forwardRef((_props: unknown, ref: React.Ref<{ setCamera: (stop: MockCameraStop) => void }>): null => {
+      React.useImperativeHandle(ref, (): { setCamera: (stop: MockCameraStop) => void } => ({
+        setCamera: mockSetCamera,
+      }));
+      return null;
+    }),
+    LocationPuck: (): null => null,
+    RasterDemSource: ({ children, id }: { children?: ReactNode; id: string }): ReactElement =>
+      React.createElement(View, { testID: `terrain-source-${id}` }, children),
+    Terrain: ({ sourceID }: { sourceID: string }): ReactElement =>
+      React.createElement(View, { testID: `terrain-layer-${sourceID}` }),
+    FillExtrusionLayer: ({ id }: { id: string }): ReactElement =>
+      React.createElement(View, { testID: `building-extrusion-layer-${id}` }),
+    MapView: ({
+      children,
+      onDidFinishLoadingMap,
+    }: {
+      children?: ReactNode;
+      onDidFinishLoadingMap?: () => void;
+    }): ReactElement => {
+      React.useEffect((): void => onDidFinishLoadingMap?.(), [onDidFinishLoadingMap]);
+      return React.createElement(View, null, children);
+    },
     MarkerView: ({ anchor, children }: MarkerProps): ReactElement => {
       mockCapturedAnchors.push(anchor);
       return React.createElement(View, null, children);
@@ -103,8 +170,8 @@ jest.mock('react-native-safe-area-context', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useGanapsMap', () => ({
-  useGanapsMap: (): MockMapState => mockUseGanapsMap(),
+jest.mock('@/hooks/useGanapDiscovery', () => ({
+  useGanapDiscovery: (): MockMapState => mockUseGanapDiscovery(),
 }));
 
 jest.mock('@/components/map/MapSearchBar', () => {
@@ -132,19 +199,29 @@ jest.mock('@/components/map/GanapMapPin', () => {
   };
 });
 
-jest.mock('@/components/map/SelectedGanapCard', () => {
+jest.mock('@/components/map/GanapFeedSheet', () => {
   const React = require('react') as typeof import('react');
-  const { Pressable, Text } = require('react-native') as typeof import('react-native');
-  mockSelectedGanapCard.mockImplementation(
-    ({ ganap, onPress }: SelectedGanapCardProps): ReactElement =>
+  const { Pressable, Text, View } = require('react-native') as typeof import('react-native');
+  mockGanapFeedSheet.mockImplementation(
+    ({ selectedGanap, onSelectGanap }: GanapFeedSheetStubProps): ReactElement =>
       React.createElement(
-        Pressable,
-        { testID: 'selected-ganap-card', accessibilityRole: 'button', onPress },
-        React.createElement(Text, null, ganap.title),
+        View,
+        { testID: 'ganap-feed-sheet' },
+        selectedGanap
+          ? React.createElement(
+              Pressable,
+              {
+                testID: 'selected-ganap-card',
+                accessibilityRole: 'button',
+                onPress: (): void => onSelectGanap(selectedGanap),
+              },
+              React.createElement(Text, null, selectedGanap.title),
+            )
+          : null,
       ),
   );
   return {
-    SelectedGanapCard: (props: SelectedGanapCardProps): ReactElement => mockSelectedGanapCard(props),
+    GanapFeedSheet: (props: GanapFeedSheetStubProps): ReactElement => mockGanapFeedSheet(props),
   };
 });
 
@@ -179,20 +256,45 @@ const HomeScreen = require('@/app/(app)/(home)/index').default as () => ReactEle
 describe('Home map event markers', (): void => {
   beforeEach((): void => {
     mockCapturedAnchors.length = 0;
-    mockSelectedGanapCard.mockClear();
+    mockGanapFeedSheet.mockClear();
     mockRouter.push.mockClear();
+    mockSetCamera.mockClear();
+    mockMapState.map.isLoading = false;
+    mockMapState.nearby.coords = null;
+  });
+
+  it('centres on the user when the position arrives while the events query is still loading', async (): Promise<void> => {
+    mockMapState.map.isLoading = true;
+    mockMapState.nearby.coords = { latitude: 10.71, longitude: 122.55 };
+
+    const screen = await render(<HomeScreen />);
+
+    expect(mockSetCamera).not.toHaveBeenCalled();
+
+    mockMapState.map.isLoading = false;
+    await screen.rerender(<HomeScreen />);
+
+    expect(mockSetCamera).toHaveBeenCalledTimes(1);
+    expect(mockSetCamera.mock.calls[0]?.[0].centerCoordinate).toEqual([122.55, 10.71]);
   });
 
   it('anchors an individual event marker at the visible pin tip and preserves selection', async (): Promise<void> => {
     const screen = await render(<HomeScreen />);
 
-    expect(mockCapturedAnchors).toEqual([{ x: 0.5, y: 1 }]);
+    const distinctAnchors = mockCapturedAnchors.filter(
+      (anchor, index): boolean =>
+        mockCapturedAnchors.findIndex((other): boolean => other.x === anchor.x && other.y === anchor.y) === index,
+    );
+
+    expect(distinctAnchors).toEqual([{ x: 0.5, y: 1 }]);
 
     await fireEvent.press(screen.getByTestId('ganap-map-pin-child'));
 
     expect(screen.getByTestId('selected-ganap-card')).toBeTruthy();
-    const selectedCardProps = mockSelectedGanapCard.mock.calls.at(-1)?.[0];
-    expect(selectedCardProps?.ganap).toBe(mockGanap);
+    expect(screen.getByTestId('terrain-layer-ganapps-map-terrain-dem')).toBeTruthy();
+    expect(screen.getByTestId('building-extrusion-layer-ganapps-map-building-height')).toBeTruthy();
+    const sheetProps = mockGanapFeedSheet.mock.calls.at(-1)?.[0];
+    expect(sheetProps?.selectedGanap).toBe(mockGanap);
     expect(screen.getByText(mockGanap.title)).toBeTruthy();
   });
 });

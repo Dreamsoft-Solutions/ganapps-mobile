@@ -15,7 +15,12 @@ import { INTEREST_OPTIONS } from '@/constants/interests';
 import { Routes } from '@/constants/routes';
 import { useAuth } from '@/hooks/useAuth';
 import { recordPromptDismissal } from '@/hooks/useProfilePrompt';
-import { type OnboardingFormData, onboardingNamesSchema, onboardingSchema } from '@/utils/validation';
+import {
+  type OnboardingFormData,
+  onboardingNamesSchema,
+  onboardingSchema,
+  PROFILE_FIELD_LIMITS,
+} from '@/utils/validation';
 
 type Step = 'names' | 'extras';
 
@@ -165,8 +170,22 @@ export function OnboardingForm(): ReactElement {
               </Text>
             </View>
 
-            <Input name="firstName" label="First Name" placeholder="Maria" autoCapitalize="words" />
-            <Input name="lastName" label="Last Name" placeholder="Santos" autoCapitalize="words" />
+            <Input
+              name="firstName"
+              label="First Name"
+              placeholder="Maria"
+              autoCapitalize="words"
+              maxLength={PROFILE_FIELD_LIMITS.nameMaxLength}
+              helperText={`Enter 1–${PROFILE_FIELD_LIMITS.nameMaxLength} characters.`}
+            />
+            <Input
+              name="lastName"
+              label="Last Name"
+              placeholder="Santos"
+              autoCapitalize="words"
+              maxLength={PROFILE_FIELD_LIMITS.nameMaxLength}
+              helperText={`Enter 1–${PROFILE_FIELD_LIMITS.nameMaxLength} characters.`}
+            />
 
             {submitError && <Text className="text-destructive text-body-md mb-2">{submitError.message}</Text>}
 

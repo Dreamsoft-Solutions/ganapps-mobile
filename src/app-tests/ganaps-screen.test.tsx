@@ -4,6 +4,7 @@ import GanapsScreen from '@/app/(app)/(ganaps)/ganaps';
 import { BAR_HEIGHT } from '@/components/navigation/AppTabBar';
 import { Spacing } from '@/constants/theme';
 import type { UseJoinedGanapsResult } from '@/hooks/useJoinedGanaps';
+import type { UseSavedGanapsResult } from '@/hooks/useSavedGanaps';
 import type { JoinedGanap, JoinedGanapFilters } from '@/types/profile.types';
 
 const mockRouter = {
@@ -37,6 +38,22 @@ const mockJoinedGanapsResult: UseJoinedGanapsResult = {
   refetch: jest.fn<UseJoinedGanapsResult['refetch']>(),
 };
 
+const mockSavedGanapsResult: UseSavedGanapsResult = {
+  items: [],
+  total: 0,
+  isLoading: false,
+  error: null,
+  hasNextPage: false,
+  fetchNextPage: jest.fn<UseSavedGanapsResult['fetchNextPage']>(),
+  isFetchingNextPage: false,
+  isRefetching: false,
+  refetch: jest.fn<UseSavedGanapsResult['refetch']>(),
+};
+
+const mockToggleSave = jest.fn<(variables: { ganapId: string; isSaved: boolean }) => Promise<void>>(
+  async (): Promise<void> => undefined,
+);
+
 const mockUseJoinedGanaps = jest.fn<(take: number, filters?: JoinedGanapFilters) => UseJoinedGanapsResult>(
   () => mockJoinedGanapsResult,
 );
@@ -59,7 +76,16 @@ jest.mock('@/hooks/useJoinedGanaps', () => ({
     mockUseJoinedGanaps(take, filters),
 }));
 
+jest.mock('@/hooks/useSavedGanaps', () => ({
+  useSavedGanaps: (): UseSavedGanapsResult => mockSavedGanapsResult,
+}));
+
+jest.mock('@/hooks/useGanaps', () => ({
+  useGanaps: (): { toggleSave: typeof mockToggleSave } => ({ toggleSave: mockToggleSave }),
+}));
+
 jest.mock('lucide-react-native', () => ({
+  Bookmark: (): null => null,
   Calendar: (): null => null,
   CheckCircle2: (): null => null,
   ChevronRight: (): null => null,
@@ -118,5 +144,45 @@ describe('GanapsScreen layout contract', (): void => {
 
     const filters = mockUseJoinedGanaps.mock.calls[mockUseJoinedGanaps.mock.calls.length - 1]?.[1];
     expect(filters).toEqual({ time: 'UPCOMING' });
+  });
+});
+
+describe('GanapsScreen segments', (): void => {
+  it('shows the joined filter bar by default and hides it on the saved segment', async (): Promise<void> => {
+    const screen = await render(<GanapsScreen />);
+
+    expect(screen.getByPlaceholderText('Search joined events')).toBeTruthy();
+    expect(screen.getByTestId('joined-ganaps-list')).toBeTruthy();
+
+    await act(async (): Promise<void> => {
+      fireEvent.press(screen.getByRole('tab', { name: 'Saved' }));
+    });
+
+    expect(screen.queryByPlaceholderText('Search joined events')).toBeNull();
+    expect(screen.getByTestId('saved-ganaps-list')).toBeTruthy();
+    expect(screen.queryByTestId('joined-ganaps-list')).toBeNull();
+  });
+
+  it('returns to the joined list when the Joined segment is chosen again', async (): Promise<void> => {
+    const screen = await render(<GanapsScreen />);
+
+    await act(async (): Promise<void> => {
+      fireEvent.press(screen.getByRole('tab', { name: 'Saved' }));
+    });
+    expect(screen.getByTestId('saved-ganaps-list')).toBeTruthy();
+
+    await act(async (): Promise<void> => {
+      fireEvent.press(screen.getByRole('tab', { name: 'Joined' }));
+    });
+
+    expect(screen.getByTestId('joined-ganaps-list')).toBeTruthy();
+    expect(screen.queryByTestId('saved-ganaps-list')).toBeNull();
+  });
+
+  it('starts on the joined segment', async (): Promise<void> => {
+    const screen = await render(<GanapsScreen />);
+
+    expect(screen.getByRole('tab', { name: 'Joined' }).props.accessibilityState.selected).toBe(true);
+    expect(screen.getByRole('tab', { name: 'Saved' }).props.accessibilityState.selected).toBe(false);
   });
 });

@@ -79,7 +79,6 @@ export function AttendanceScanView({
 
           <View className="w-full flex-row items-center justify-between">
             <IconButton
-              size="lg"
               variant="default"
               accessibilityLabel="Go back"
               accessibilityHint="Leaves the attendance scanner"

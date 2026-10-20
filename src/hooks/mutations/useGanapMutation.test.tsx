@@ -1,18 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import type { InfiniteData } from '@tanstack/react-query';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react-native';
 import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import type { ReactElement, ReactNode } from 'react';
 import axiosInstance from '@/api/axios-instance';
+import type { PaginatedResponse } from '@/api/types/api-response';
 import { ErrorCodes } from '@/constants/errors';
 import { enqueueOutbox } from '@/services/sync.service';
 import type { SubmitFeedbackResponse } from '@/types/ganap.types';
+import type { SavedGanap } from '@/types/profile.types';
 import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
 import { ganapQueryKeys } from '../queries/useGanapsQuery';
 import { profileQueryKeys } from '../queries/useProfileQuery';
 import {
   useCheckInMutation,
   useRateGanapMutation,
+  useSaveGanapMutation,
   useSubmitFeedbackMutation,
   useSubmitFormAnswersMutation,
 } from './useGanapMutation';
@@ -309,6 +313,137 @@ describe('global error toast suppression', () => {
     });
 
     expect(metaOf(client)).toEqual({ [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true });
+    unmount();
+  });
+});
+
+describe('useSaveGanapMutation', () => {
+  /**
+   * A query client whose cache outlives the assertions.
+   *
+   * The shared `queryClient()` sets `gcTime: 0`, which collects a query
+   * populated by `setQueryData` before it is read back, since nothing observes
+   * it. Every cache assertion then sees `undefined` no matter how the mutation
+   * behaves, so these tests need a cache that survives.
+   *
+   * @returns A client that retains query data for the length of the test.
+   */
+  function savedCacheClient(): QueryClient {
+    return new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, gcTime: Number.POSITIVE_INFINITY },
+        mutations: { retry: false, gcTime: 0 },
+      },
+    });
+  }
+
+  function savedPage(ids: string[]): InfiniteData<PaginatedResponse<SavedGanap>, number> {
+    return {
+      pages: [
+        {
+          items: ids.map(
+            (id: string): SavedGanap => ({
+              id,
+              businessId: 'b-1',
+              businessName: 'CPU Developers',
+              slug: id,
+              title: `Event ${id}`,
+              startDate: '2026-09-30T00:00:00.000Z',
+              endDate: null,
+              status: 'PUBLISHED',
+              tags: [],
+              coverImage: null,
+              savedAt: '2026-09-01T00:00:00.000Z',
+            }),
+          ),
+          pagination: { total: ids.length, skip: 0, take: 20, pages: 1 },
+        },
+      ],
+      pageParams: [0],
+    };
+  }
+
+  function savedIds(client: QueryClient): string[] | undefined {
+    return client
+      .getQueryData<InfiniteData<PaginatedResponse<SavedGanap>, number>>(profileQueryKeys.savedGanaps(20))
+      ?.pages[0].items.map((item: SavedGanap): string => item.id);
+  }
+
+  it('removes the row from the saved cache before the request settles', async () => {
+    axiosInstance.defaults.adapter = envelopeAdapter(undefined);
+    const client = savedCacheClient();
+    client.setQueryData(profileQueryKeys.savedGanaps(20), savedPage(['g-1', 'g-2']));
+    const { result, unmount } = await renderHook(() => useSaveGanapMutation(), { wrapper: wrapperFor(client) });
+
+    await act(async (): Promise<void> => {
+      await result.current.mutateAsync({ ganapId: 'g-1', isSaved: true });
+    });
+
+    expect(savedIds(client)).toEqual(['g-2']);
+    expect(
+      client.getQueryData<InfiniteData<PaginatedResponse<SavedGanap>, number>>(profileQueryKeys.savedGanaps(20))
+        ?.pages[0].pagination.total,
+    ).toBe(1);
+    unmount();
+  });
+
+  it('invalidates detail, lists, and profile on success', async () => {
+    axiosInstance.defaults.adapter = envelopeAdapter(undefined);
+    const client = savedCacheClient();
+    const invalidateQueries = jest.spyOn(client, 'invalidateQueries');
+    const { result, unmount } = await renderHook(() => useSaveGanapMutation(), { wrapper: wrapperFor(client) });
+
+    await act(async (): Promise<void> => {
+      await result.current.mutateAsync({ ganapId: 'g-1', isSaved: false });
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ganapQueryKeys.detail('g-1') });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ganapQueryKeys.lists() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: profileQueryKeys.all });
+    unmount();
+  });
+
+  it('restores the removed row when the server rejects the unsave', async () => {
+    axiosInstance.defaults.adapter = serverErrorAdapter(404, 'Save not found', ErrorCodes.NOT_FOUND);
+    const client = savedCacheClient();
+    client.setQueryData(profileQueryKeys.savedGanaps(20), savedPage(['g-1', 'g-2']));
+    const { result, unmount } = await renderHook(() => useSaveGanapMutation(), { wrapper: wrapperFor(client) });
+
+    await act(async (): Promise<void> => {
+      await expect(result.current.mutateAsync({ ganapId: 'g-1', isSaved: true })).rejects.toThrow();
+    });
+
+    expect(savedIds(client)).toEqual(['g-1', 'g-2']);
+    expect(mockedEnqueueOutbox).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('keeps the row removed and queues replay when the request never reached the server', async () => {
+    axiosInstance.defaults.adapter = transportErrorAdapter();
+    const client = savedCacheClient();
+    client.setQueryData(profileQueryKeys.savedGanaps(20), savedPage(['g-1', 'g-2']));
+    const { result, unmount } = await renderHook(() => useSaveGanapMutation(), { wrapper: wrapperFor(client) });
+
+    await act(async (): Promise<void> => {
+      await expect(result.current.mutateAsync({ ganapId: 'g-1', isSaved: true })).rejects.toThrow();
+    });
+
+    expect(savedIds(client)).toEqual(['g-2']);
+    expect(mockedEnqueueOutbox).toHaveBeenCalledWith('ganap', 'unsave', { ganapId: 'g-1' });
+    unmount();
+  });
+
+  it('leaves the saved cache alone when saving rather than unsaving', async () => {
+    axiosInstance.defaults.adapter = envelopeAdapter(undefined);
+    const client = savedCacheClient();
+    client.setQueryData(profileQueryKeys.savedGanaps(20), savedPage(['g-1']));
+    const { result, unmount } = await renderHook(() => useSaveGanapMutation(), { wrapper: wrapperFor(client) });
+
+    await act(async (): Promise<void> => {
+      await result.current.mutateAsync({ ganapId: 'g-2', isSaved: false });
+    });
+
+    expect(savedIds(client)).toEqual(['g-1']);
     unmount();
   });
 });

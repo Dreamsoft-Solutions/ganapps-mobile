@@ -16,7 +16,7 @@ the boundary — **never hardcode CPU as the only campus, or a campus as the onl
 venue**. Because events are spread across a city rather than one campus, distance and
 proximity are core to discovery, not decorative.
 
-Domain vocabulary lives in `CONTEXT.md` at the repo root — read it before naming anything.
+Domain vocabulary lives in `GLOSSARY.md` at the repo root — read it before naming anything.
 The two terms that matter most: a **Ganap** is an event (never `Event`, which collides with
 DOM and React Native types), and a **Business** is an organizing body.
 
@@ -28,6 +28,16 @@ Drizzle ORM (SQLite) · Biome · Jest · EAS Build
 Expo packages must be added with `npx expo install` so SDK-compatible versions are chosen.
 
 ---
+
+## Communication and explainers
+
+Write concise technical prose with familiar words, active voice, and consistent terms from `GLOSSARY.md`. Lead with the answer and material caveats. For procedures, put conditions before actions and give one action per step. Preserve exact commands, identifiers, and requirements.
+
+Choose the simplest format that makes the result easy to understand. Use tables for comparisons and Mermaid for flows, states, or relationships when they clarify the explanation. Create an interactive explainer when changing inputs helps answer the question. Use video when requested or when timing and motion are essential.
+
+Ground explanations in inspected code or cited sources. Label proposed behavior and simulations clearly, and link verification evidence separately. For cross-repository changes, identify the responsible web, server, or mobile surface and relevant error paths in diagrams.
+
+Keep durable feature explanations with this repository's existing documentation. Keep disposable explainers in the assigned workspace outside the repository unless requested as a project deliverable.
 
 ## Commands
 
@@ -43,6 +53,7 @@ npx expo customize tsconfig.json
 
 # Build (EAS)
 eas build --profile preview     # Preview build (Android APK / iOS sim)
+eas build -p ios --profile testflight --auto-submit  # Internal TestFlight build, dev API
 eas build --profile production  # Production build
 
 # Lint & Format (Biome)
@@ -92,11 +103,24 @@ aside and scaffolds a blank app.
 
 ## Project Structure
 
-Use this map when locating an unfamiliar feature. See [Project Structure](docs/agents/implementation-reference.md#project-structure).
+Locate unfamiliar features through [Feature entry points](docs/agents/implementation-reference.md#feature-entry-points). For a new checkout or missing dependencies, read [Fresh worktrees](docs/agents/implementation-reference.md#fresh-worktrees). Load only the section matching the task.
 
 ## API Layer
 
 Before changing API calls, envelopes, or refresh behavior, read this contract guidance. See [API Layer](docs/agents/implementation-reference.md#api-layer).
+
+## Input length limits
+
+Keep form validation, native `maxLength`, visible help, and server validation aligned. Use these existing limits; do not shorten the User bio to the example values in the DS-140 ticket.
+
+| Field | Limit |
+|---|---:|
+| User first and last names | Up to 64 characters |
+| Username | 3–32 characters |
+| User bio | Up to 280 characters |
+| Registration text answers | Use the maximum configured on the Registration Form block |
+
+Show concise length guidance beside fields where a User could otherwise hit a validation error without warning. Dynamic Registration answers must continue using the server-provided maximum.
 
 ## Module Convention
 
@@ -130,6 +154,9 @@ Before changing primitives or forms, read their prop, variant, and composition r
 - **No emojis** in UI text, labels, or error messages.
 - **Icons** — `lucide-react-native` for all iconography.
 - **Spacing** — use the Tailwind scale in `docs/DESIGN.md` (`p-md`, `gap-lg`), not raw pixel values.
+- **Platform guidelines** — iOS follows Apple's Human Interface Guidelines; Android follows
+  the Android design guidelines. Both bind navigation, touch targets, text scaling, and
+  accessibility. See [Platform conventions](docs/DESIGN.md#platform-conventions).
 
 ## Design System
 
@@ -319,6 +346,8 @@ For feature work, apply the checklist items relevant to the changed surface. See
 
 ## Git Workflow
 
+Unless the task specifies another base, start feature work from refreshed `origin/dev`, target `dev`, and pin that same ref for baseline evidence. Run Git/package commands in the owning repository or assigned worktree.
+
 - Branch: `dev`. `master` is not a working branch. Note that `origin/HEAD` still points at
   `master`, so anything defaulting to it — a new PR's base, for one — targets the wrong branch.
 - Conventional Commits, enforced by commitlint (100 char header limit)
@@ -345,4 +374,4 @@ than letting CI test a version nobody develops on.
 
 ## Code Review Process
 
-Review feature changes against the relevant categories. Run npm run check, npm run type-check, and npm run test for application feature changes; documentation-only edits need document and link checks. Preserve required Git-hook and release checks. See [Code Review Process](docs/agents/review-reference.md#code-review-process).
+Review feature changes against the relevant categories. Run npm run check, npm run type-check, and npm run test for application feature changes; documentation-only edits run `node scripts/check-docs.mjs`; see [Navigation checks](docs/agents/implementation-reference.md#navigation-checks). Preserve required Git-hook and release checks. See [Code Review Process](docs/agents/review-reference.md#code-review-process).
