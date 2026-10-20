@@ -26,7 +26,9 @@ export default function VerifyEmailScreen(): ReactElement {
         <VerifyEmailForm />
 
         <View className="mt-6 items-center">
-          <Text className="text-muted-foreground text-body-md mb-2">Didn't receive the code?</Text>
+          <Text className="text-muted-foreground text-body-md mb-2">
+            Didn't receive the code? Check your spam folder.
+          </Text>
           <Button
             variant="ghost"
             size="sm"

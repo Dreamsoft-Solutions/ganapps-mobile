@@ -132,6 +132,9 @@ export function PasswordResetForm({ initialEmail }: PasswordResetFormProps): Rea
             Reset Password
           </Button>
           <View className="mt-3 items-center">
+            <Text className="text-body-md text-muted-foreground mb-2">
+              Didn’t receive the code? Check your spam folder.
+            </Text>
             <Button
               variant="link"
               size="sm"

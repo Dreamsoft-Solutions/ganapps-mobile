@@ -33,4 +33,14 @@ describe('PasswordResetForm', (): void => {
     await fireEvent.changeText(codeInput, '12');
     await waitFor((): void => expect(screen.getByLabelText('Reset code').props.value).toBe('12'));
   });
+
+  it('points Users to their spam folder once the reset code is sent', async (): Promise<void> => {
+    const spamHint = 'Didn’t receive the code? Check your spam folder.';
+    await render(<PasswordResetForm initialEmail="user@example.com" />);
+    expect(screen.queryByText(spamHint)).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Send Reset Code' }));
+
+    expect(await screen.findByText(spamHint)).toBeTruthy();
+  });
 });
