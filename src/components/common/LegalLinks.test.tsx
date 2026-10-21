@@ -40,4 +40,23 @@ describe('LegalLinks', (): void => {
     await fireEvent.press(screen.getByText('Privacy Policy'));
     await waitFor((): void => expect(showToast).toHaveBeenCalledTimes(2));
   });
+
+  it('opens an email to the support address it shows', async (): Promise<void> => {
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+    await render(<LegalLinks />);
+    const entry = screen.getByRole('button', { name: /contact@ganapps\.com/ });
+    expect(entry.props.accessibilityHint).toContain('email');
+    await fireEvent.press(entry);
+    await waitFor((): void => expect(open).toHaveBeenCalledWith('mailto:contact@ganapps.com'));
+    expect(showToast).not.toHaveBeenCalled();
+  });
+
+  it('names the support address when no email app can open it', async (): Promise<void> => {
+    jest.spyOn(Linking, 'openURL').mockRejectedValue(new Error('No email app'));
+    await render(<LegalLinks />);
+    await fireEvent.press(screen.getByText(/contact@ganapps\.com/));
+    await waitFor((): void =>
+      expect(showToast).toHaveBeenCalledWith('error', expect.stringContaining('contact@ganapps.com')),
+    );
+  });
 });
