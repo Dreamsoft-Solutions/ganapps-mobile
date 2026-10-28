@@ -10,30 +10,32 @@ export const axiosInstance: AxiosInstance = axios.create({
   // Let Axios infer JSON or multipart headers from the request body.
 });
 
-axiosInstance.interceptors.request.use((config) => {
-  console.log(`[API] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
-  return config;
-});
+if (__DEV__) {
+  axiosInstance.interceptors.request.use((config) => {
+    console.log(`[API] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+    return config;
+  });
 
-axiosInstance.interceptors.response.use(
-  (response) => {
-    console.log(`[API] ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
-    return response;
-  },
-  (error) => {
-    if (error.response) {
-      console.error(
-        `[API] ${error.response.status} ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
-        error.response.data,
-      );
-    } else if (error.request) {
-      console.error(`[API] NETWORK ERROR ${error.config?.method?.toUpperCase()} ${error.config?.url}`, error.message);
-    } else {
-      console.error('[API] REQUEST SETUP ERROR', error.message);
-    }
-    return Promise.reject(error);
-  },
-);
+  axiosInstance.interceptors.response.use(
+    (response) => {
+      console.log(`[API] ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
+      return response;
+    },
+    (error) => {
+      if (error.response) {
+        console.error(
+          `[API] ${error.response.status} ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
+          error.response.data,
+        );
+      } else if (error.request) {
+        console.error(`[API] NETWORK ERROR ${error.config?.method?.toUpperCase()} ${error.config?.url}`, error.message);
+      } else {
+        console.error('[API] REQUEST SETUP ERROR', error.message);
+      }
+      return Promise.reject(error);
+    },
+  );
+}
 
 axiosInstance.interceptors.request.use(requestInterceptor.onFulfilled, requestInterceptor.onRejected);
 

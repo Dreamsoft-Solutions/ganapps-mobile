@@ -99,7 +99,7 @@ Public Expo variables are bundled into the app: never put private keys, service-
 
 **Deletion is implemented in repository code but not release-verified:** the mobile app opens the public web resource, the web resource verifies a signed-in account and submits the server deletion contract, and the server records the deletion transaction. The owner must still deploy and exercise the route, verify provider-side cleanup and associated-data handling, and approve the lawful-retention rules and wording. A page describing deletion without accepting requests is insufficient. Do not treat logout, blocking, deactivation, or removing SecureStore tokens as account deletion.
 
-**Privacy is unresolved:** obtain approved policy copy and support/privacy contact information. Verify the actual deployed pages without authentication; do not ship placeholders. The build check deliberately blocks production when URLs are absent. Providing syntactically valid URLs alone does not resolve these requirements.
+**Privacy is unresolved:** obtain approved policy copy. The support and privacy contact is `contact@ganapps.com`, the address the published Terms and Privacy Policy name and the app shows beside its policy links; confirm a person monitors it before release. Verify the actual deployed pages without authentication; do not ship placeholders. The build check deliberately blocks production when URLs are absent. Providing syntactically valid URLs alone does not resolve these requirements.
 
 ## Data safety evidence to reconcile
 
@@ -123,7 +123,7 @@ No advertising or billing SDK is linked. Until DS-92, Firebase Analytics was aut
 - Short description: **Discover campus events, register, and connect with friends.**
 - Full description draft: **Find campus events on the map, explore event details, and register from your phone. Keep track of your joined events, see organizer announcements, and chat with other attendees. Connect with friends, check in by scanning the organizer's QR code, and share feedback after attending.**
 
-Confirm listing claims against the production feature flags. The owner must supply category, support email, website, audience, content rating, and ads declarations.
+Confirm listing claims against the production feature flags. The owner must enter `contact@ganapps.com` as the support email, matching the in-app contact link, and supply category, website, audience, content rating, and ads declarations.
 Prepare a 512 × 512 PNG store icon within 1,024 KB, a 1,024 × 500 JPEG or 24-bit PNG feature graphic without alpha, and accurate release screenshots. Existing launcher artwork does not establish that these store assets are ready. Do not fabricate screenshots or reviewer credentials.
 
 ## Release verification and handoff
