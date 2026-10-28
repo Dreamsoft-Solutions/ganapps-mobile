@@ -50,3 +50,49 @@ describe('RemoteConfigService', () => {
     expect(remoteConfigService.getBoolean('feature_google_auth', false)).toBe(true);
   });
 });
+
+describe('RemoteConfigService fetch failure', () => {
+  interface DevFlagGlobal {
+    __DEV__: boolean;
+  }
+
+  const devFlag: DevFlagGlobal = globalThis as unknown as DevFlagGlobal;
+  const originalDev: boolean = devFlag.__DEV__;
+  let warnSpy: jest.SpiedFunction<typeof console.warn>;
+
+  /** Loads a fresh service, since the shared instance initializes only once. */
+  function loadFreshService(): typeof remoteConfigService {
+    let service: typeof remoteConfigService | undefined;
+    jest.isolateModules((): void => {
+      service = (require('./remote-config.service') as typeof import('./remote-config.service')).remoteConfigService;
+    });
+    if (!service) throw new Error('remote-config.service did not load');
+    return service;
+  }
+
+  beforeEach((): void => {
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation((): void => undefined);
+    mockRemoteConfigInstance.fetchAndActivate.mockRejectedValueOnce(new Error('offline'));
+  });
+
+  afterEach((): void => {
+    devFlag.__DEV__ = originalDev;
+    warnSpy.mockRestore();
+  });
+
+  it('does not warn in a production build', async (): Promise<void> => {
+    devFlag.__DEV__ = false;
+
+    await loadFreshService().initialize();
+
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it('warns in development', async (): Promise<void> => {
+    devFlag.__DEV__ = true;
+
+    await loadFreshService().initialize();
+
+    expect(warnSpy).toHaveBeenCalledWith('Firebase Remote Config fetch failed, using defaults and env overrides');
+  });
+});

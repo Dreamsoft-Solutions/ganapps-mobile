@@ -74,7 +74,9 @@ class RemoteConfigService {
           : parseFeatureFlagStore(remoteConfig().getValue(parameterName).asString());
       this.remoteValues = { ...defaultFlags, ...environmentFlags };
     } catch (_error) {
-      console.warn('Firebase Remote Config fetch failed, using defaults and env overrides');
+      if (__DEV__) {
+        console.warn('Firebase Remote Config fetch failed, using defaults and env overrides');
+      }
     }
   }
 
