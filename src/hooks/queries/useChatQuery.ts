@@ -184,7 +184,9 @@ export function useChatSummariesQuery(enabled = true): UseChatSummariesQueryResu
 export const useMixedChatListQuery: typeof useChatSummariesQuery = useChatSummariesQuery;
 
 /**
- * Resolves one Ganap's server-authoritative Event Chat session.
+ * Resolves one Ganap's server-authoritative Event Chat session. It refetches
+ * every time a chat opens, because send permission can be revoked while the
+ * cached session is still fresh.
  *
  * @param ganapId - Ganap id, potentially empty before route params hydrate
  * @param enabled - Access/route guard
@@ -196,6 +198,7 @@ export function useEventChatSessionQuery(ganapId: string, enabled = true): UseQu
     queryKey: chatQueryKeys.eventSession(ganapId),
     queryFn: (): Promise<EventChatSession> => chatAPI.resolveSession(ganapId),
     ...CHAT_QUERY_OPTIONS,
+    refetchOnMount: 'always',
     retry: shouldRetryChatQuery,
     enabled: Boolean(token && ganapId && enabled),
   });
