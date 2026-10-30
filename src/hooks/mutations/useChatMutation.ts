@@ -8,7 +8,7 @@ import type {
   EventChatSummary,
   EventChatSummaryPage,
 } from '@/types/chat.types';
-import { compareChatMessagePositions, getChatMessagePreview, upsertChatMessage } from '@/utils/chat';
+import { compareChatMessagePositions, getChatMessagePreview, isChatForbidden, upsertChatMessage } from '@/utils/chat';
 import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
 import { type ChatPageParam, chatQueryKeys } from '../queries/useChatQuery';
 
@@ -90,7 +90,8 @@ function patchSummaryPages(
 
 /**
  * Sends Event Chat text through REST and reconciles the canonical response into
- * the active history and list caches.
+ * the active history and list caches. A forbidden response refreshes the
+ * session, so a chat whose send permission was revoked turns read-only.
  *
  * @returns Mutation accepting Ganap id, stable client id, and content
  */
@@ -112,6 +113,9 @@ export function useSendChatMessageMutation(): UseMutationResult<ChatMessage, Err
       void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
       void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
     },
+    onError: (error: Error, { ganapId }: SendChatMessageVariables): void => {
+      if (isChatForbidden(error)) void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventSession(ganapId) });
+    },
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }
@@ -120,7 +124,8 @@ export function useSendChatMessageMutation(): UseMutationResult<ChatMessage, Err
  * Sends one Event Chat image and reconciles only the canonical server response.
  *
  * No optimistic image message is inserted: the server owns moderation, media
- * dimensions, and the short-lived signed URL.
+ * dimensions, and the short-lived signed URL. A forbidden response refreshes
+ * the session, so a chat whose send permission was revoked turns read-only.
  *
  * @returns Mutation accepting Ganap id, stable client id, and one local image
  */
@@ -143,6 +148,9 @@ export function useSendChatImageMutation(): UseMutationResult<ChatMessage, Error
       );
       void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
       void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
+    },
+    onError: (error: Error, { ganapId }: SendChatImageVariables): void => {
+      if (isChatForbidden(error)) void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventSession(ganapId) });
     },
     retry: false,
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
