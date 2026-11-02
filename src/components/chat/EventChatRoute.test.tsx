@@ -37,6 +37,7 @@ jest.mock('@/hooks/mutations/useChatEngagementMutation', (): object => ({
   useUnsendMessageMutation: (): object => ({ isPending: false }),
 }));
 jest.mock('@/hooks/mutations/useModerationMutation', (): object => ({
+  useBlockUserMutation: (): object => ({ mutateAsync: jest.fn() }),
   useCreateReportMutation: (): object => ({ mutateAsync: jest.fn() }),
 }));
 

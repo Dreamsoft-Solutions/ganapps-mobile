@@ -4,7 +4,7 @@ import { DirectChatThreadView } from '@/components/chat/DirectChatThreadView';
 import { ModerationActionSheet, type ModerationActionTarget } from '@/components/moderation/ModerationActionSheet';
 import { Routes } from '@/constants/routes';
 import { useMessageReactionMutation, useUnsendMessageMutation } from '@/hooks/mutations/useChatEngagementMutation';
-import { useCreateReportMutation } from '@/hooks/mutations/useModerationMutation';
+import { useBlockUserMutation, useCreateReportMutation } from '@/hooks/mutations/useModerationMutation';
 import { useDirectChatListQuery } from '@/hooks/queries/useChatQuery';
 import { useDirectChat } from '@/hooks/useDirectChat';
 import { useAuthStore } from '@/store/auth.store';
@@ -82,6 +82,7 @@ export default function DirectChatThreadScreen(): ReactElement {
   });
   const currentUserId: string | null = useAuthStore((state) => state.user?.id ?? null);
   const reportMutation = useCreateReportMutation();
+  const blockMutation = useBlockUserMutation();
   const reactionMutation = useMessageReactionMutation();
   const unsendMutation = useUnsendMessageMutation();
   const [reactionPendingMessageId, setReactionPendingMessageId] = useState<string | null>(null);
@@ -103,6 +104,7 @@ export default function DirectChatThreadScreen(): ReactElement {
         id: message.id,
         senderId: message.senderId,
         senderLabel: message.senderUsername,
+        canBlock: currentUserId !== null && message.senderId !== currentUserId,
         canUnsend: isChatMessageUnsendAvailable(message, currentUserId, chat.session?.canSend === true),
       });
     },
@@ -152,6 +154,11 @@ export default function DirectChatThreadScreen(): ReactElement {
   const submitReport = useCallback(
     (input: CreateReportInput): Promise<ModerationReportReceipt> => reportMutation.mutateAsync(input),
     [reportMutation],
+  );
+
+  const blockUser = useCallback(
+    (userId: string): Promise<void> => blockMutation.mutateAsync({ userId }),
+    [blockMutation],
   );
 
   useEffect((): void => {
@@ -210,6 +217,7 @@ export default function DirectChatThreadScreen(): ReactElement {
         target={moderationTarget}
         onClose={closeModeration}
         onReport={submitReport}
+        onBlock={blockUser}
         onUnsend={unsendFromActions}
       />
     </>
