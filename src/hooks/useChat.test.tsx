@@ -187,6 +187,71 @@ describe('useChat failed drafts', (): void => {
   });
 });
 
+describe('useChat send permission', (): void => {
+  const readOnlySession: EventChatSession = { ...session, capability: 'READ_ONLY', canSend: false };
+
+  function sendRefused(): Error {
+    return Object.assign(new Error('You can read this chat but cannot send messages'), {
+      status: 403,
+      errorCode: 'FORBIDDEN',
+    });
+  }
+
+  it('turns read-only when the server refuses a text message', async (): Promise<void> => {
+    mockedChatAPI.sendMessage.mockRejectedValue(sendRefused());
+    const client: QueryClient = makeClient();
+    const { result, unmount } = await renderHook(() => useChat('ganap-1'), { wrapper: wrapperFor(client) });
+    await waitFor((): void => expect(result.current.session).toEqual(session));
+    mockedChatAPI.resolveSession.mockResolvedValue(readOnlySession);
+
+    await act(async (): Promise<void> => {
+      await result.current.sendMessage('hello');
+    });
+
+    await waitFor((): void => expect(result.current.isReadOnly).toBe(true));
+    expect(result.current.accessLost).toBe(false);
+    expect(result.current.failedDrafts).toEqual([]);
+    await unmount();
+    client.clear();
+  });
+
+  it('turns read-only when the server refuses an image', async (): Promise<void> => {
+    mockedLaunchImageLibraryAsync.mockResolvedValue({ canceled: false, assets: [pickerAsset] });
+    mockedChatAPI.sendImage.mockRejectedValue(sendRefused());
+    const client: QueryClient = makeClient();
+    const { result, unmount } = await renderHook(() => useChat('ganap-1'), { wrapper: wrapperFor(client) });
+    await waitFor((): void => expect(result.current.session).toEqual(session));
+    await act(async (): Promise<void> => {
+      await result.current.pickImage();
+    });
+    mockedChatAPI.resolveSession.mockResolvedValue(readOnlySession);
+
+    await act(async (): Promise<void> => {
+      await result.current.sendImage();
+    });
+
+    await waitFor((): void => expect(result.current.isReadOnly).toBe(true));
+    expect(result.current.accessLost).toBe(false);
+    await unmount();
+    client.clear();
+  });
+
+  it('checks send permission again when the chat is reopened', async (): Promise<void> => {
+    const client: QueryClient = makeClient();
+    const first = await renderHook(() => useChat('ganap-1'), { wrapper: wrapperFor(client) });
+    await waitFor((): void => expect(first.result.current.session).toEqual(session));
+    await first.unmount();
+    mockedChatAPI.resolveSession.mockResolvedValue(readOnlySession);
+
+    const reopened = await renderHook(() => useChat('ganap-1'), { wrapper: wrapperFor(client) });
+
+    await waitFor((): void => expect(reopened.result.current.isReadOnly).toBe(true));
+    expect(mockedChatAPI.resolveSession).toHaveBeenCalledTimes(2);
+    await reopened.unmount();
+    client.clear();
+  });
+});
+
 describe('useChat image drafts', (): void => {
   async function renderImageChat(): Promise<{
     result: RenderHookResult<ReturnType<typeof useChat>, unknown>['result'];

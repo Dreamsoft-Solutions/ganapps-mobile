@@ -453,11 +453,23 @@ async function renderHome(items: GanapListItem[]): Promise<Awaited<ReturnType<ty
   return render(<HomeScreen />);
 }
 
-beforeAll((): void => {
+/**
+ * Renders and discards Home once so the first test doesn't pay the cold first render. On a
+ * loaded CI runner that cost alone can exceed Jest's 5-second per-test limit.
+ *
+ * @returns Resolves once the warm-up render has unmounted
+ */
+async function warmUpHomeScreen(): Promise<void> {
+  const warmUp = await renderHome([]);
+  await warmUp.unmount();
+}
+
+beforeAll(async (): Promise<void> => {
   process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN = 'test-token';
   const homeModule = require('@/app/(app)/(home)/index') as typeof import('@/app/(app)/(home)/index');
   HomeScreen = homeModule.default;
-});
+  await warmUpHomeScreen();
+}, 30_000);
 
 afterAll((): void => {
   if (previousMapboxToken === undefined) {

@@ -27,6 +27,8 @@ export interface MessageModerationTarget {
   id: string;
   senderId: string;
   senderLabel: string;
+  /** True when another User sent the message; Block user is offered only then. */
+  canBlock?: boolean;
   /** True when the message is the authenticated User's currently eligible text/image. */
   canUnsend?: boolean;
 }
@@ -78,7 +80,12 @@ function getTargetDescription(target: ModerationActionTarget): string {
 }
 
 function canBlockTarget(target: ModerationActionTarget): boolean {
-  return target.type === 'USER' && Boolean(target.id) && target.canBlock !== false;
+  if (target.type === 'MESSAGE') return Boolean(target.senderId) && target.canBlock === true;
+  return Boolean(target.id) && target.canBlock !== false;
+}
+
+function getBlockUserId(target: ModerationActionTarget): string {
+  return target.type === 'MESSAGE' ? target.senderId : target.id;
 }
 
 function limitReportDetails(value: string): string {
@@ -110,7 +117,7 @@ function buildReportInput(
 }
 
 /**
- * Renders report and unsend actions for a message, or report and block actions for an authorized profile.
+ * Renders report, block and unsend actions for a message, or report and block actions for an authorized profile.
  *
  * The sheet keeps report details local until submit, sends only the typed
  * server payload, and leaves visibility decisions to the server response.
@@ -176,7 +183,7 @@ export function ModerationActionSheet({
     setIsSubmitting(true);
     setError(null);
     try {
-      await onBlock(target.id);
+      await onBlock(getBlockUserId(target));
       setStep('block-success');
       AccessibilityInfo.announceForAccessibility('User blocked.');
     } catch (caughtError: unknown) {

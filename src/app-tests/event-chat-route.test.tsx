@@ -1,9 +1,12 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { TabRouter } from 'expo-router/build/react-navigation/routers/TabRouter';
 import EventChatThreadScreen from '@/app/(app)/(chat)/event-chat/[ganap-id]';
+import type { ModerationActionSheetProps } from '@/components/moderation/ModerationActionSheet';
 import { Routes } from '@/constants/routes';
+import type { BlockUserVariables } from '@/hooks/mutations/useModerationMutation';
 import type { UseChatResult } from '@/hooks/useChat';
+import type { ChatMessage } from '@/types/chat.types';
 
 const mockRouter = {
   dismiss: jest.fn<() => void>(),
@@ -11,6 +14,11 @@ const mockRouter = {
   navigate: jest.fn<(href: unknown) => void>(),
   replace: jest.fn<(href: unknown) => void>(),
 };
+
+let mockCurrentUser: { id: string } | null = null;
+let mockSheetProps: ModerationActionSheetProps | null = null;
+let mockOnMessageActions: ((message: ChatMessage) => void) | null = null;
+const mockBlockUser = jest.fn<(variables: BlockUserVariables) => Promise<void>>();
 
 interface MockMutation {
   isPending: boolean;
@@ -60,8 +68,17 @@ jest.mock('@/components/chat/EventChatThreadView', () => {
   const ReactNative = require('react-native') as typeof import('react-native');
 
   return {
-    EventChatThreadView: ({ ganapTitle, onBack }: { ganapTitle: string; onBack: () => void }): React.ReactElement =>
-      React.createElement(
+    EventChatThreadView: ({
+      ganapTitle,
+      onBack,
+      onMessageActions,
+    }: {
+      ganapTitle: string;
+      onBack: () => void;
+      onMessageActions: (message: ChatMessage) => void;
+    }): React.ReactElement => {
+      mockOnMessageActions = onMessageActions;
+      return React.createElement(
         React.Fragment,
         null,
         React.createElement(ReactNative.Text, null, ganapTitle),
@@ -70,13 +87,20 @@ jest.mock('@/components/chat/EventChatThreadView', () => {
           accessibilityRole: 'button',
           onPress: onBack,
         }),
-      ),
+      );
+    },
   };
 });
 
-jest.mock('@/components/moderation/ModerationActionSheet', (): { ModerationActionSheet: () => null } => ({
-  ModerationActionSheet: (): null => null,
-}));
+jest.mock(
+  '@/components/moderation/ModerationActionSheet',
+  (): { ModerationActionSheet: (props: ModerationActionSheetProps) => null } => ({
+    ModerationActionSheet: (props: ModerationActionSheetProps): null => {
+      mockSheetProps = props;
+      return null;
+    },
+  }),
+);
 
 jest.mock(
   '@/hooks/mutations/useChatEngagementMutation',
@@ -97,7 +121,11 @@ jest.mock(
 
 jest.mock(
   '@/hooks/mutations/useModerationMutation',
-  (): { useCreateReportMutation: () => { mutateAsync: () => Promise<null> } } => ({
+  (): {
+    useBlockUserMutation: () => { mutateAsync: typeof mockBlockUser };
+    useCreateReportMutation: () => { mutateAsync: () => Promise<null> };
+  } => ({
+    useBlockUserMutation: (): { mutateAsync: typeof mockBlockUser } => ({ mutateAsync: mockBlockUser }),
     useCreateReportMutation: (): { mutateAsync: () => Promise<null> } => ({
       mutateAsync: (): Promise<null> => Promise.resolve(null),
     }),
@@ -112,9 +140,13 @@ jest.mock('@/hooks/useChat', (): { useChat: () => UseChatResult } => ({
   useChat: (): UseChatResult => mockChat,
 }));
 
-jest.mock('@/store/auth.store', (): { useAuthStore: (selector: (state: { user: null }) => unknown) => unknown } => ({
-  useAuthStore: (selector: (state: { user: null }) => unknown): unknown => selector({ user: null }),
-}));
+jest.mock(
+  '@/store/auth.store',
+  (): { useAuthStore: (selector: (state: { user: { id: string } | null }) => unknown) => unknown } => ({
+    useAuthStore: (selector: (state: { user: { id: string } | null }) => unknown): unknown =>
+      selector({ user: mockCurrentUser }),
+  }),
+);
 
 jest.mock('@/store/toast.store', (): { showToast: () => void } => ({
   showToast: (): void => undefined,
@@ -122,7 +154,23 @@ jest.mock('@/store/toast.store', (): { showToast: () => void } => ({
 
 afterEach((): void => {
   jest.clearAllMocks();
+  mockCurrentUser = null;
+  mockSheetProps = null;
+  mockOnMessageActions = null;
 });
+
+function chatMessage(senderId: string): ChatMessage {
+  return {
+    id: `message-from-${senderId}`,
+    conversationId: 'conversation-42',
+    senderId,
+    senderUsername: `${senderId}-name`,
+    senderDisplayPicture: null,
+    content: 'Hello',
+    type: 'TEXT',
+    sentAt: '2026-11-02T08:00:00.000Z',
+  };
+}
 
 describe('Event Chat route navigation', (): void => {
   it('uses a neutral title while loading and navigates to this Ganap’s Event Hub', async (): Promise<void> => {
@@ -173,5 +221,30 @@ describe('Event Chat route navigation', (): void => {
         routerOptions,
       ),
     ).toBeNull();
+  });
+});
+
+describe('Event Chat message actions', (): void => {
+  it("offers Block user on another person's message and blocks its sender", async (): Promise<void> => {
+    mockCurrentUser = { id: 'user-1' };
+    mockBlockUser.mockResolvedValue(undefined);
+    const screen = await render(<EventChatThreadScreen />);
+
+    await act((): void => mockOnMessageActions?.(chatMessage('user-2')));
+
+    expect(mockSheetProps?.target).toMatchObject({ type: 'MESSAGE', senderId: 'user-2', canBlock: true });
+    await mockSheetProps?.onBlock?.('user-2');
+    expect(mockBlockUser).toHaveBeenCalledWith({ userId: 'user-2' });
+    await screen.unmount();
+  });
+
+  it("does not offer Block user on the current user's own message", async (): Promise<void> => {
+    mockCurrentUser = { id: 'user-1' };
+    const screen = await render(<EventChatThreadScreen />);
+
+    await act((): void => mockOnMessageActions?.(chatMessage('user-1')));
+
+    expect(mockSheetProps?.target).toMatchObject({ type: 'MESSAGE', senderId: 'user-1', canBlock: false });
+    await screen.unmount();
   });
 });
