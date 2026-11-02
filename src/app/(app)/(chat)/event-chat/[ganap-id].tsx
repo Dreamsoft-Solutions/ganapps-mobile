@@ -5,7 +5,7 @@ import { EventChatThreadView } from '@/components/chat/EventChatThreadView';
 import { ModerationActionSheet, type ModerationActionTarget } from '@/components/moderation/ModerationActionSheet';
 import { Routes } from '@/constants/routes';
 import { useMessageReactionMutation, useUnsendMessageMutation } from '@/hooks/mutations/useChatEngagementMutation';
-import { useCreateReportMutation } from '@/hooks/mutations/useModerationMutation';
+import { useBlockUserMutation, useCreateReportMutation } from '@/hooks/mutations/useModerationMutation';
 import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { useChat } from '@/hooks/useChat';
 import { useAuthStore } from '@/store/auth.store';
@@ -32,6 +32,7 @@ export default function EventChatThreadScreen(): ReactElement {
   const chat = useChat(ganapId);
   const currentUserId: string | null = useAuthStore((state) => state.user?.id ?? null);
   const reportMutation = useCreateReportMutation();
+  const blockMutation = useBlockUserMutation();
   const reactionMutation = useMessageReactionMutation();
   const unsendMutation = useUnsendMessageMutation();
   const [reactionPendingMessageId, setReactionPendingMessageId] = useState<string | null>(null);
@@ -46,6 +47,7 @@ export default function EventChatThreadScreen(): ReactElement {
         id: message.id,
         senderId: message.senderId,
         senderLabel: message.senderUsername,
+        canBlock: currentUserId !== null && message.senderId !== currentUserId,
         canUnsend: isChatMessageUnsendAvailable(message, currentUserId, chat.session?.canSend === true),
       });
     },
@@ -95,6 +97,11 @@ export default function EventChatThreadScreen(): ReactElement {
   const submitReport = useCallback(
     (input: CreateReportInput): Promise<ModerationReportReceipt> => reportMutation.mutateAsync(input),
     [reportMutation],
+  );
+
+  const blockUser = useCallback(
+    (userId: string): Promise<void> => blockMutation.mutateAsync({ userId }),
+    [blockMutation],
   );
 
   const onBack = useCallback((): void => {
@@ -157,6 +164,7 @@ export default function EventChatThreadScreen(): ReactElement {
         target={moderationTarget}
         onClose={closeModeration}
         onReport={submitReport}
+        onBlock={blockUser}
         onUnsend={unsendFromActions}
       />
     </>
