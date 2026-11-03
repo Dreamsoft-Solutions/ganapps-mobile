@@ -16,7 +16,7 @@ Start with the row matching the task, then trace its imports and callers. Paths 
 | Joined and saved Ganaps | [useJoinedGanaps.ts](<../../src/hooks/useJoinedGanaps.ts>), [useSavedGanaps.ts](<../../src/hooks/useSavedGanaps.ts>), [ganaps.tsx](<../../src/app/(app)/(ganaps)/ganaps.tsx>) |
 | Friends profiles and loading | [[user-id].tsx](<../../src/app/(app)/(chat)/friend-profile/[user-id].tsx>), [useFriendsQuery.ts](<../../src/hooks/queries/useFriendsQuery.ts>), [friends.ts](<../../src/api/endpoints/friends.ts>), [FriendsHubView.tsx](<../../src/components/friends/FriendsHubView.tsx>) |
 | Chat and realtime transport | [chat.tsx](<../../src/app/(app)/(chat)/chat.tsx>), [chat.ts](<../../src/api/endpoints/chat.ts>), [chat-socket.service.ts](<../../src/services/chat-socket.service.ts>) |
-| Routes and screen tests | [routes.ts](<../../src/constants/routes.ts>), [app-tests](<../../src/app-tests>) |
+| Routes and screens | [routes.ts](<../../src/constants/routes.ts>), [app](<../../src/app>) |
 
 Friends profile calls resolve to server `modules/friends`; Chat calls resolve to `modules/chat`. For the HTTP contract, inspect the assigned server checkout’s controller, request/response DTOs, and service.
 
