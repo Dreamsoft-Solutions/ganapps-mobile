@@ -52,6 +52,7 @@ describe('EventActionBar', (): void => {
         isPending={false}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
 
@@ -66,6 +67,7 @@ describe('EventActionBar', (): void => {
         isPending={false}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
 
@@ -80,6 +82,7 @@ describe('EventActionBar', (): void => {
         isPending={false}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
 
@@ -94,6 +97,7 @@ describe('EventActionBar', (): void => {
         isPending={false}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
 
@@ -112,15 +116,35 @@ describe('EventActionBar', (): void => {
         isPending={false}
         onPrimaryAction={onPrimaryAction}
         onSecondaryAction={onSecondaryAction}
+        onReport={(): void => {}}
       />,
     );
 
-    fireEvent.press(screen.getByRole('button', { name: 'Enter Event Hub' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Enter Event Hub' }));
     expect(onPrimaryAction).toHaveBeenCalledTimes(1);
     expect(onSecondaryAction).not.toHaveBeenCalled();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Leave event' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Leave event' }));
     expect(onSecondaryAction).toHaveBeenCalledTimes(1);
     expect(onPrimaryAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the report flow from an enabled Report Event link', async (): Promise<void> => {
+    const onReport = jest.fn<() => void>();
+    const screen = await render(
+      <EventActionBar
+        model={attendedModel}
+        isPending={false}
+        onPrimaryAction={(): void => {}}
+        onSecondaryAction={(): void => {}}
+        onReport={onReport}
+      />,
+    );
+
+    const reportLink = screen.getByRole('button', { name: 'Report Event' });
+    expect(reportLink.props.accessibilityState).toMatchObject({ disabled: false });
+    await fireEvent.press(reportLink);
+
+    expect(onReport).toHaveBeenCalledTimes(1);
   });
 });

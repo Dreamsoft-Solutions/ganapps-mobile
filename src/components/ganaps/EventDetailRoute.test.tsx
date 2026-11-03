@@ -30,6 +30,16 @@ const mockBuildGanapShareUrl = jest.fn<(id: string) => string>(
   (id: string): string => `https://ganapps.example/ganaps/${id}`,
 );
 const mockShowToast = jest.fn<(type: 'error', title: string) => string>().mockReturnValue('toast');
+interface TestReportSheetProps {
+  visible: boolean;
+  ganapTitle: string;
+  onClose: () => void;
+  onSubmit: (input: { reason: string; details?: string }) => Promise<unknown>;
+}
+const mockReportSheet = jest.fn<(props: TestReportSheetProps) => ReactElement>();
+const mockReport = jest
+  .fn<(variables: { ganapId: string; input: { reason: string; details?: string } }) => Promise<unknown>>()
+  .mockResolvedValue({ status: 'SUBMITTED', submittedAt: '2026-11-03T09:00:00.000Z' });
 
 const ganap: GanapDetail = {
   id: 'ganap_1',
@@ -111,6 +121,10 @@ jest.mock('@/components/ganaps/GanapShareModal', () => ({
   GanapShareModal: (props: TestShareModalProps): ReactElement => mockShareModal(props),
 }));
 
+jest.mock('@/components/ganaps/GanapReportSheet', () => ({
+  GanapReportSheet: (props: TestReportSheetProps): ReactElement => mockReportSheet(props),
+}));
+
 jest.mock('@/utils/share-links', () => ({
   buildGanapShareUrl: (id: string): string => mockBuildGanapShareUrl(id),
 }));
@@ -149,6 +163,7 @@ jest.mock('@/hooks/useGanaps', () => ({
     leave: () => Promise<void>;
     toggleLike: () => Promise<void>;
     toggleSave: () => Promise<void>;
+    report: typeof mockReport;
     isJoining: boolean;
     isLeaving: boolean;
     isTogglingLike: boolean;
@@ -158,6 +173,7 @@ jest.mock('@/hooks/useGanaps', () => ({
     leave: async (): Promise<void> => {},
     toggleLike: async (): Promise<void> => {},
     toggleSave: async (): Promise<void> => {},
+    report: mockReport,
     isJoining: false,
     isLeaving: false,
     isTogglingLike: false,
@@ -187,6 +203,7 @@ function latestShareModalProps(): TestShareModalProps {
 function resetState(): void {
   mockBuildGanapShareUrl.mockImplementation((id: string): string => `https://ganapps.example/ganaps/${id}`);
   mockShareModal.mockImplementation((): ReactElement => <MockView />);
+  mockReportSheet.mockImplementation((): ReactElement => <MockView />);
   mockDetailState = {
     data: ganap,
     isLoading: false,
@@ -324,5 +341,25 @@ describe('Event Details route sharing', (): void => {
 
     expect(mockShareModal).not.toHaveBeenCalled();
     expect(mockShowToast).toHaveBeenCalledWith('error', 'Unable to create a share link.');
+  });
+});
+
+describe('Event Details route reporting', (): void => {
+  it('opens the report sheet for the displayed Ganap and submits through the report mutation', async (): Promise<void> => {
+    await render(<GanapDetailScreen />);
+
+    expect(mockReportSheet.mock.calls.at(-1)?.[0].visible ?? false).toBe(false);
+    await act(async (): Promise<void> => {
+      (latestViewProps().onReport as () => void)();
+    });
+
+    const sheet = mockReportSheet.mock.calls.at(-1)?.[0];
+    expect(sheet?.visible).toBe(true);
+    expect(sheet?.ganapTitle).toBe('Test Event');
+    await act(async (): Promise<void> => {
+      await sheet?.onSubmit({ reason: 'SPAM' });
+    });
+
+    expect(mockReport).toHaveBeenCalledWith({ ganapId: 'ganap_1', input: { reason: 'SPAM' } });
   });
 });
