@@ -114,6 +114,8 @@ interface ButtonProps extends VariantProps<typeof buttonVariants> {
   onPress: () => void | Promise<void>;
   disabled?: boolean;
   loading?: boolean;
+  /** Screen-reader label when the visible label needs context, such as which row it acts on; defaults to the label. */
+  accessibilityLabel?: string;
   accessibilityHint?: string;
   children: string;
   leftIcon?: ReactNode;
@@ -123,7 +125,7 @@ interface ButtonProps extends VariantProps<typeof buttonVariants> {
 /**
  * Primary button primitive.
  *
- * @param props - Variant, size, press handler, label, and optional icons.
+ * @param props - Variant, size, press handler, label, optional icons, and optional accessibility label and hint.
  * @returns A themed pressable button.
  */
 export function Button({
@@ -132,6 +134,7 @@ export function Button({
   onPress,
   disabled,
   loading,
+  accessibilityLabel,
   accessibilityHint,
   children,
   leftIcon,
@@ -161,7 +164,7 @@ export function Button({
       onPress={handlePress}
       disabled={disabled || loading}
       accessibilityRole="button"
-      accessibilityLabel={children}
+      accessibilityLabel={accessibilityLabel ?? children}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: Boolean(disabled || loading), busy: Boolean(loading) }}
       hitSlop={buttonSizeTargets[resolvedSize].target.hitSlop}

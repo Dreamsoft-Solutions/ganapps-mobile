@@ -4,6 +4,7 @@ import type { ReactElement, ReactNode } from 'react';
 import SettingsScreen from '@/app/(app)/(profile)/settings';
 import VerifyEmailScreen from '@/app/verify-email';
 import type { DeleteAccountInput } from '@/types/auth.types';
+import type { BlockedUserSummary } from '@/types/moderation.types';
 
 interface MockDeleteAccountMutation {
   error: Error | null;
@@ -19,7 +20,7 @@ interface MockAuthResult {
 }
 
 interface MockBlockedUsersQuery {
-  blockedUsers: [];
+  blockedUsers: BlockedUserSummary[];
   error: Error | null;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
@@ -112,6 +113,28 @@ beforeEach((): void => {
   mockUnblockMutation.error = null;
   mockUnblockMutation.isPending = false;
   mockUnblockMutation.variables = undefined;
+  mockBlockedUsersQuery.blockedUsers = [];
+});
+
+describe('Settings blocked users', (): void => {
+  it('shows a short Unblock label that still names the User for screen readers', async (): Promise<void> => {
+    mockBlockedUsersQuery.blockedUsers = [
+      {
+        userId: 'user-2',
+        username: 'ganapps_review2',
+        displayName: 'App Review Backup',
+        displayPicture: null,
+        blockedAt: '2026-11-03T07:45:00.000Z',
+      },
+    ];
+    const screen = await render(<SettingsScreen />);
+
+    expect(screen.getByText('Unblock')).toBeTruthy();
+    expect(screen.queryByText(/Unblock user/)).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Unblock ganapps_review2' }));
+
+    expect(mockUnblockMutation.mutateAsync).toHaveBeenCalledWith({ userId: 'user-2' });
+  });
 });
 
 describe('account deletion entry points', (): void => {
