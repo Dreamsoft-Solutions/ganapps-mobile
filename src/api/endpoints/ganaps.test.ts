@@ -268,3 +268,17 @@ describe('checkIn', () => {
     expect(result).toEqual(payload);
   });
 });
+
+describe('ganapsAPI.reportGanap', () => {
+  it('posts the reason and details to the Ganap report path and returns the receipt', async () => {
+    const receipt = { status: 'SUBMITTED', submittedAt: '2026-11-03T09:00:00.000Z' };
+    axiosInstance.defaults.adapter = envelopeAdapter(receipt);
+
+    const result = await ganapsAPI.reportGanap('g-1', { reason: 'MISLEADING_INFORMATION', details: 'Wrong venue' });
+
+    expect(captured[0].method).toBe('post');
+    expect(requestedUrl(captured[0])).toContain('/api/v1/ganaps/g-1/report');
+    expect(JSON.parse(String(captured[0].data))).toEqual({ reason: 'MISLEADING_INFORMATION', details: 'Wrong venue' });
+    expect(result).toEqual(receipt);
+  });
+});

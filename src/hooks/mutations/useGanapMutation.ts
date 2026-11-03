@@ -5,8 +5,10 @@ import { enqueueOutbox } from '@/services/sync.service';
 import type {
   CheckInResult,
   GanapRating,
+  GanapReportReceipt,
   JoinGanapResult,
   RateGanapInput,
+  ReportGanapInput,
   SubmitFeedbackInput,
   SubmitFeedbackResponse,
   SubmitFormAnswersInput,
@@ -328,6 +330,29 @@ export function useRateGanapMutation(): UseMutationResult<GanapRating, Error, Ra
     // `400 Already rated this event` as silent step completion rather than a
     // failure at all. A global toast would both duplicate the inline message
     // and surface a reconciliation the student is not meant to see.
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
+  });
+}
+
+/** Variables accepted by the Ganap report mutation. */
+export interface ReportGanapVariables {
+  ganapId: string;
+  input: ReportGanapInput;
+}
+
+/**
+ * Reports a Ganap for review by the Ganapps team.
+ *
+ * Nothing is cached about a report, so there is nothing to invalidate. The report
+ * sheet renders every failure inline, including the duplicate and rate-limit cases,
+ * so the global error toast is suppressed.
+ *
+ * @returns The mutation, resolving to the server's receipt
+ */
+export function useReportGanapMutation(): UseMutationResult<GanapReportReceipt, Error, ReportGanapVariables> {
+  return useMutation<GanapReportReceipt, Error, ReportGanapVariables>({
+    mutationFn: ({ ganapId, input }: ReportGanapVariables): Promise<GanapReportReceipt> =>
+      ganapsAPI.reportGanap(ganapId, input),
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }

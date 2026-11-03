@@ -87,10 +87,12 @@ const mockMapState: MockMapState = {
     leave: jest.fn<MockMapState['feed']['leave']>(),
     toggleLike: jest.fn<MockMapState['feed']['toggleLike']>(),
     toggleSave: jest.fn<MockMapState['feed']['toggleSave']>(),
+    report: jest.fn<MockMapState['feed']['report']>(),
     isJoining: false,
     isLeaving: false,
     isTogglingLike: false,
     isTogglingSave: false,
+    isReporting: false,
   },
   nearby: {
     isActive: false,

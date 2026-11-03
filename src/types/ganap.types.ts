@@ -85,6 +85,27 @@ export interface SubmitFormAnswersInput {
   scope?: FormBlockScope;
 }
 
+/** Reasons a User may give when reporting a Ganap; mirrors the server's `GanapReportReason`. */
+export type GanapReportReason =
+  | 'MISLEADING_INFORMATION'
+  | 'INAPPROPRIATE_CONTENT'
+  | 'SPAM'
+  | 'SAFETY_CONCERN'
+  | 'OTHER';
+
+/** Request body for reporting a Ganap. */
+export interface ReportGanapInput {
+  reason: GanapReportReason;
+  /** Optional context, trimmed, at most 1,000 characters. */
+  details?: string;
+}
+
+/** Privacy-limited confirmation the server returns once a Ganap report is accepted. */
+export interface GanapReportReceipt {
+  status: 'SUBMITTED';
+  submittedAt: string;
+}
+
 /** Request body for rating a Ganap the student attended. */
 export interface RateGanapInput {
   /** Whole-star score from 1 to 5. */

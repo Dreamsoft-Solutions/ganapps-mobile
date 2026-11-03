@@ -111,10 +111,12 @@ function feedState(overrides: Partial<UseGanapsResult> = {}): UseGanapsResult {
     leave: jest.fn<UseGanapsResult['leave']>(),
     toggleLike: jest.fn<UseGanapsResult['toggleLike']>(),
     toggleSave: jest.fn<UseGanapsResult['toggleSave']>(),
+    report: jest.fn<UseGanapsResult['report']>(),
     isJoining: false,
     isLeaving: false,
     isTogglingLike: false,
     isTogglingSave: false,
+    isReporting: false,
     ...overrides,
   };
 }

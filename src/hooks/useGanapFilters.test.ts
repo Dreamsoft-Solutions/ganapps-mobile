@@ -62,8 +62,10 @@ function createWrapper(): (props: { children: ReactNode }) => ReactElement {
 }
 
 const CATALOGUE: GanapListItem[] = [
-  ganapWithTags('sportsfest', ['sports', 'tech']),
-  ganapWithTags('choir-night', ['music']),
+  ganapWithTags('sportsfest', ['Sports & Fitness', 'Running', '10K']),
+  ganapWithTags('choir-night', ['Music & Entertainment', 'choir']),
+  ganapWithTags('photo-walk', ['Arts & Culture', 'photography']),
+  ganapWithTags('legacy', ['concert']),
 ];
 
 describe('useGanapFilters', () => {
@@ -81,17 +83,18 @@ describe('useGanapFilters', () => {
     testClient = null;
   });
 
-  it('exposes the whole catalogue vocabulary, sorted, regardless of the active tag', async (): Promise<void> => {
+  it('offers only the main categories that have events, in category order, regardless of the active tag', async (): Promise<void> => {
     const { result, unmount } = await renderHook(() => useGanapFilters(), { wrapper: createWrapper() });
+    const mainCategories: string[] = ['Music & Entertainment', 'Arts & Culture', 'Sports & Fitness'];
 
-    await waitFor((): void => expect(result.current.tags).toEqual(['music', 'sports', 'tech']));
+    await waitFor((): void => expect(result.current.tags).toEqual(mainCategories));
 
     await act(async (): Promise<void> => {
-      result.current.setTag('music');
+      result.current.setTag('Music & Entertainment');
     });
 
-    expect(result.current.tag).toBe('music');
-    expect(result.current.tags).toEqual(['music', 'sports', 'tech']);
+    expect(result.current.tag).toBe('Music & Entertainment');
+    expect(result.current.tags).toEqual(mainCategories);
     await unmount();
   });
 
