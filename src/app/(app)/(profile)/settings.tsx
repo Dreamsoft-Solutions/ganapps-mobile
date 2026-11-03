@@ -123,10 +123,11 @@ export default function SettingsScreen(): ReactElement {
                     size="sm"
                     loading={unblockMutation.isPending && unblockMutation.variables?.userId === blockedUser.userId}
                     disabled={unblockMutation.isPending}
+                    accessibilityLabel={`Unblock ${blockedUser.username}`}
                     accessibilityHint="Removes this directional block"
                     onPress={(): Promise<void> => handleUnblock(blockedUser.userId, blockedUser.username)}
                   >
-                    {`Unblock user ${blockedUser.username}`}
+                    Unblock
                   </Button>
                 </View>
               ),
