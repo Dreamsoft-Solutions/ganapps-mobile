@@ -35,6 +35,17 @@ describe('Button accessibility', (): void => {
     const button = screen.getByRole('button', { name: 'Join event' });
     expect(button.props.accessibilityState).toMatchObject({ disabled: true, busy: true });
   });
+
+  it('announces a fuller accessibility label while showing a short visible label', async (): Promise<void> => {
+    const screen = await render(
+      <Button accessibilityLabel="Unblock ganapps_review2" onPress={(): void => {}}>
+        Unblock
+      </Button>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Unblock ganapps_review2' })).toBeTruthy();
+    expect(screen.getByText('Unblock')).toBeTruthy();
+  });
 });
 
 describe('Button touch targets', (): void => {
