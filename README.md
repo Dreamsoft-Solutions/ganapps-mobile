@@ -16,7 +16,7 @@ This repo is one of three:
 
 Expo SDK 57 · Expo Router (file-based routing) · TypeScript 6 · NativeWind v4 (Tailwind) ·
 TanStack Query v5 · Zustand v5 · react-hook-form + Zod v4 · Axios · Drizzle ORM (SQLite via
-expo-sqlite) · Firebase Remote Config · Biome · Jest · EAS Build
+expo-sqlite) · Firebase Remote Config · Biome · Pact · Vitest · EAS Build
 
 ## Prerequisites
 
@@ -65,9 +65,8 @@ development build.
 | `npm run format` | Biome format, writing changes |
 | `npm run check` | Biome lint + format check (does not write) |
 | `npm run type-check` | `tsc --noEmit` |
-| `npm run test` | Jest |
-| `npm run test:watch` | Jest in watch mode |
-| `npm run test:coverage` | Jest with coverage |
+| `npm run test` | Generate the mobile Pact contract |
+| `npm run test:watch` | Run Pact tests in watch mode |
 | `npm run db:generate` | Generate Drizzle migrations from `src/db/schema.ts` |
 | `npm run db:migrate` | Apply Drizzle migrations |
 | `npm run eas:preview` | EAS preview build (Android APK / iOS simulator) |

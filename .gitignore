@@ -2,6 +2,7 @@
 
 # dependencies
 node_modules/
+pacts/
 
 # Claude Code — personal settings, not shared
 .claude/settings.local.json

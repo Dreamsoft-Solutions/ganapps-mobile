@@ -36,9 +36,8 @@ Analytics stays installed but is not linked. `react-native.config.js` at the rep
 autolinking resolver treats as "skip this package". `forceStaticLinking` (ADR 0002) lists only the
 Firebase pods that still link: `RNFBApp`, `RNFBAuth` and `RNFBRemoteConfig`.
 
-`app.config.test.ts` runs the same `expo-modules-autolinking react-native-config` command the
-Podfile and `settings.gradle` run, and fails if Analytics links on either platform, if Remote
-Config stops linking, or if `forceStaticLinking` drifts from the linked Firebase pods.
+At adoption, `app.config.test.ts` checked the same `expo-modules-autolinking react-native-config`
+output used by the Podfile and `settings.gradle`. ADR 0007 removed that test.
 
 ## Alternatives Considered
 
@@ -74,9 +73,9 @@ Config stops linking, or if `forceStaticLinking` drifts from the linked Firebase
   build ships.
 - The `null` override holds only while `@react-native-firebase/analytics` ships no
   `react-native.config.js` of its own. If a React Native Firebase release adds one, or an Expo
-  release changes how `null` platforms resolve, Analytics links again and `npm run test` fails
-  rather than shipping silently. The fallback is `expo.autolinking.exclude` (Alternative 4).
-- The test reads only Expo's autolinking output, so it can't see Analytics arriving as a podspec
-  or Gradle dependency of another Firebase module. Re-check this ADR whenever a React Native
+  release changes how `null` platforms resolve, Analytics can link again. Inspect Expo's
+  autolinking output when dependencies change. The fallback is `expo.autolinking.exclude` (Alternative 4).
+- Expo's autolinking output cannot show Analytics arriving as a podspec or Gradle dependency of
+  another Firebase module. Re-check this ADR whenever a React Native
   Firebase version changes in `package-lock.json`; `package.json` uses caret ranges, so a lockfile
   refresh can move it without a deliberate upgrade.

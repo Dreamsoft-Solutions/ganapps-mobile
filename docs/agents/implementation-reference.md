@@ -32,7 +32,13 @@ Sibling paths such as `../ganapps-server` apply only to the normal three-repo ch
 
 ### Navigation checks
 
-Run `node scripts/check-docs.mjs` for documentation changes. Existing CI also runs `node --test scripts/check-docs.test.mjs`. The check covers inline links in root guides, agent references, ADR indexes, and architecture overviews; it validates local Git filename case and Markdown heading anchors. External URLs and links outside this repository are optional workspace references. Use angle-bracket destinations for paths containing spaces or route parentheses. Historical plans and feature snapshots remain outside this navigation check.
+Run `node scripts/check-docs.mjs` for documentation changes. The check covers inline links in root guides, agent references, ADR indexes, and architecture overviews; it validates local Git filename case and Markdown heading anchors. External URLs and links outside this repository are optional workspace references. Use angle-bracket destinations for paths containing spaces or route parentheses. Historical plans and feature snapshots remain outside this navigation check.
+
+### Pact contract checks
+
+Run `npm test` to generate `pacts/ganapps-mobile-ganapps-server.json`. Set `PACT_FILE` to its absolute path and run `pnpm test` in the assigned server checkout to verify it. Pact exercises the mobile API client and server controllers with fixtures; it does not verify native UI, database writes, or live providers.
+
+CI requires `PACT_REPO_TOKEN` with read-only contents access to mobile and server. It checks out the matching `dev` or `master` server branch. For paired PRs with the same head branch name, `PACT_SERVER_REF` can temporarily select that server branch for its PR check. Remove the variable after the server branch merges. Push checks always use the matching branch; rerun the first push check after both initial PRs merge. Fork PRs cannot use the secret and need a trusted branch for verification.
 
 ## API Layer
 
