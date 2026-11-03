@@ -374,10 +374,12 @@ function mapHookResult(
       leave: jest.fn<UseGanapDiscoveryResult['feed']['leave']>(),
       toggleLike: jest.fn<UseGanapDiscoveryResult['feed']['toggleLike']>(),
       toggleSave: jest.fn<UseGanapDiscoveryResult['feed']['toggleSave']>(),
+      report: jest.fn<UseGanapDiscoveryResult['feed']['report']>(),
       isJoining: false,
       isLeaving: false,
       isTogglingLike: false,
       isTogglingSave: false,
+      isReporting: false,
     },
     nearby: {
       isActive: false,

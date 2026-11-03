@@ -16,6 +16,7 @@ import { profileQueryKeys } from '../queries/useProfileQuery';
 import {
   useCheckInMutation,
   useRateGanapMutation,
+  useReportGanapMutation,
   useSaveGanapMutation,
   useSubmitFeedbackMutation,
   useSubmitFormAnswersMutation,
@@ -313,6 +314,28 @@ describe('global error toast suppression', () => {
     });
 
     expect(metaOf(client)).toEqual({ [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true });
+    unmount();
+  });
+});
+
+describe('useReportGanapMutation', () => {
+  it('submits the report and leaves duplicate and rate-limit errors to the report sheet', async () => {
+    axiosInstance.defaults.adapter = serverErrorAdapter(
+      409,
+      'You have already reported this Ganap.',
+      'GANAP_REPORT_DUPLICATE',
+    );
+    const client = queryClient();
+    const { result, unmount } = await renderHook(() => useReportGanapMutation(), { wrapper: wrapperFor(client) });
+
+    await act(async () => {
+      await expect(result.current.mutateAsync({ ganapId: 'g-1', input: { reason: 'SPAM' } })).rejects.toThrow(
+        'You have already reported this Ganap.',
+      );
+    });
+
+    expect(captured[0].url).toBe('/ganaps/g-1/report');
+    expect(client.getMutationCache().getAll()[0]?.meta).toEqual({ [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true });
     unmount();
   });
 });

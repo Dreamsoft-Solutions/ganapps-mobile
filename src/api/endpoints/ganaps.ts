@@ -9,8 +9,10 @@ import type {
   GanapListItem,
   GanapListParams,
   GanapRating,
+  GanapReportReceipt,
   JoinGanapResult,
   RateGanapInput,
+  ReportGanapInput,
   SubmitFeedbackInput,
   SubmitFeedbackResponse,
   SubmitFormAnswersInput,
@@ -158,4 +160,14 @@ export const ganapsAPI = {
    */
   rateGanap: (ganapId: string, input: RateGanapInput): Promise<GanapRating> =>
     axiosInstance.post<GanapRating>(`/ganaps/${ganapId}/rate`, input).then((res) => res.data),
+
+  /**
+   * Reports a Ganap for review by the Ganapps team.
+   *
+   * @param ganapId - Id of the Ganap being reported
+   * @param input - The report reason and optional details
+   * @returns The server's privacy-limited receipt
+   */
+  reportGanap: (ganapId: string, input: ReportGanapInput): Promise<GanapReportReceipt> =>
+    axiosInstance.post<GanapReportReceipt>(`/ganaps/${ganapId}/report`, input).then((res) => res.data),
 };

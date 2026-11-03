@@ -149,24 +149,39 @@ describe('useGanapsMap', () => {
   });
 
   it('holds the previous page on screen while a filter change loads', async (): Promise<void> => {
+    const respond = mockedList.getMockImplementation();
+    if (!respond) throw new Error('respondByFilter must install a list implementation');
+    let releaseMusicPage: () => void = (): void => undefined;
+    const musicPageHeld: Promise<void> = new Promise<void>((resolve: () => void): void => {
+      releaseMusicPage = resolve;
+    });
+    mockedList.mockImplementation(async (params?: GanapListParams): Promise<CursorPage<GanapListItem>> => {
+      if (params?.tag === 'music') await musicPageHeld;
+      return respond(params);
+    });
     const { result, rerender, unmount } = await renderHook(
       ({ filters }: { filters: GanapListFilters }) => useGanapsMap(filters),
       { wrapper: createWrapper(), initialProps: { filters: { tag: 'sports' } as GanapListFilters } },
     );
 
-    await waitFor((): void =>
-      expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['sportsfest']),
-    );
+    try {
+      await waitFor((): void =>
+        expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['sportsfest']),
+      );
 
-    await rerender({ filters: { tag: 'music' } });
+      await rerender({ filters: { tag: 'music' } });
 
-    expect(result.current.isLoading).toBe(false);
-    expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['sportsfest']);
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['sportsfest']);
 
-    await waitFor((): void =>
-      expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['choir-night']),
-    );
-    await unmount();
+      releaseMusicPage();
+      await waitFor((): void =>
+        expect(result.current.items.map((g: GanapListItem): string => g.id)).toEqual(['choir-night']),
+      );
+    } finally {
+      releaseMusicPage();
+      await unmount();
+    }
   });
 });
 

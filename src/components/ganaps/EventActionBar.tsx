@@ -10,19 +10,22 @@ interface EventActionBarProps {
   isPending: boolean;
   onPrimaryAction: () => void | Promise<void>;
   onSecondaryAction: () => void | Promise<void>;
+  /** Opens the report flow for this Ganap. */
+  onReport: () => void;
 }
 
 /**
  * Safe-area-aware sticky action surface for registration and Event Hub entry decisions.
  *
- * @param props - Action model, pending state, and primary/secondary action handlers.
- * @returns The fixed action bar with an optional secondary action beneath the primary.
+ * @param props - Action model, pending state, primary/secondary action handlers, and the report handler.
+ * @returns The fixed action bar with an optional secondary action and the Report Event link.
  */
 export function EventActionBar({
   model,
   isPending,
   onPrimaryAction,
   onSecondaryAction,
+  onReport,
 }: EventActionBarProps): ReactElement {
   const insets = useSafeAreaInsets();
 
@@ -53,13 +56,7 @@ export function EventActionBar({
             </Button>
           </View>
         )}
-        <Button
-          variant="link"
-          size="sm"
-          disabled
-          accessibilityHint="Reporting is not available yet"
-          onPress={(): void => {}}
-        >
+        <Button variant="link" size="sm" accessibilityHint="Opens a form to report this event" onPress={onReport}>
           Report Event
         </Button>
       </View>

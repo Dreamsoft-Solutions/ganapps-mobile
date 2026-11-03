@@ -220,6 +220,7 @@ describe('EventDetailView friends going', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
 
@@ -247,6 +248,7 @@ describe('EventDetailView friends going', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
     expect(loadingScreen.getByText('Checking your friends…')).toBeTruthy();
@@ -269,6 +271,7 @@ describe('EventDetailView friends going', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
     expect(emptyScreen.getByText('No friends have shared that they are going.')).toBeTruthy();
@@ -292,6 +295,7 @@ describe('EventDetailView friends going', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
     expect(errorScreen.getByText('Friends activity is unavailable.')).toBeTruthy();
@@ -320,6 +324,7 @@ describe('EventDetailView refresh', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
 
@@ -336,6 +341,7 @@ describe('EventDetailView action bar wiring', (): void => {
   it('forwards the action model and distinct primary/secondary callbacks unchanged', async (): Promise<void> => {
     const onPrimaryAction = jest.fn<() => void>();
     const onSecondaryAction = jest.fn<() => void>();
+    const onReport = jest.fn<() => void>();
     const registeredModel: GanapActionModel = {
       statusLabel: 'Joined',
       primary: { action: 'enter-hub', label: 'Enter Event Hub', confirmation: null },
@@ -363,6 +369,7 @@ describe('EventDetailView action bar wiring', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={onPrimaryAction}
         onSecondaryAction={onSecondaryAction}
+        onReport={onReport}
       />,
     );
 
@@ -371,6 +378,7 @@ describe('EventDetailView action bar wiring', (): void => {
       isPending: false,
       onPrimaryAction,
       onSecondaryAction,
+      onReport,
     });
   });
 });
@@ -404,6 +412,7 @@ describe('EventDetailView action bar clearance', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
     const singlePadding: number = single.getByTestId('event-detail-scroll').props.contentContainerStyle.paddingBottom;
@@ -426,6 +435,7 @@ describe('EventDetailView action bar clearance', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
     const dualPadding: number = dual.getByTestId('event-detail-scroll').props.contentContainerStyle.paddingBottom;
@@ -453,6 +463,7 @@ describe('EventDetailView media', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
 
@@ -484,6 +495,7 @@ describe('EventDetailView description', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
 
@@ -513,6 +525,7 @@ describe('EventDetailView description', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
 
@@ -546,6 +559,7 @@ describe('EventDetailView social actions', (): void => {
         onToggleSave={onToggleSave}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
 
@@ -580,6 +594,7 @@ describe('EventDetailView social actions', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
 
@@ -609,6 +624,7 @@ describe('EventDetailView icon spacing', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
 
@@ -633,6 +649,7 @@ describe('EventDetailView icon spacing', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
 
@@ -657,6 +674,7 @@ describe('EventDetailView icon spacing', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
 
@@ -681,6 +699,7 @@ describe('EventDetailView icon spacing', (): void => {
         onToggleSave={(): void => {}}
         onPrimaryAction={(): void => {}}
         onSecondaryAction={(): void => {}}
+        onReport={(): void => {}}
       />,
     );
 
