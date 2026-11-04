@@ -114,7 +114,7 @@ the exact stale entry; restoring the filename went green. Pointing `onboarding` 
   `unstable_settings.anchor` and `<Tabs initialRouteName>` both only prepend the anchor to the
   navigator's history — the focused route stays whichever screen the URL matched. The fix is
   always to remove the ambiguity in the file tree, never to declare an anchor.
-  `src/constants/routes.test.ts` fails if this is broken.
+  ADR 0007 removed the route test; inspect the route tree when changing this invariant.
 - Naming a tab's screen after its group has a useful side effect: expo-router's `getLayoutNode`
   sets a layout's anchor to the child whose route name equals the group name, so `(chat)`,
   `(ganaps)` and `(profile)` get a correct `initialRouteName` with nothing declared.

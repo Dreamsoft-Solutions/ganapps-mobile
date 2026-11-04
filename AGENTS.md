@@ -22,7 +22,7 @@ DOM and React Native types), and a **Business** is an organizing body.
 
 **Tech stack:** Expo SDK 57 · Expo Router (file-based) · React Native 0.86 · TypeScript 6 ·
 NativeWind v4 (Tailwind) · TanStack Query v5 · Zustand v5 · react-hook-form · Zod v4 · Axios ·
-Drizzle ORM (SQLite) · Biome · Jest · EAS Build
+Drizzle ORM (SQLite) · Biome · Pact · Vitest · EAS Build
 
 **Package manager:** npm. Not pnpm — do not copy install commands from the server or web repos.
 Expo packages must be added with `npx expo install` so SDK-compatible versions are chosen.
@@ -57,15 +57,14 @@ eas build -p ios --profile testflight --auto-submit  # Internal TestFlight build
 eas build --profile production  # Production build
 
 # Lint & Format (Biome)
-npm run lint                  # Lint only            (biome lint src/)
-npm run lint:fix              # Lint with auto-fix   (biome lint --write src/)
-npm run format                # Format only          (biome format --write src/)
-npm run check                 # Lint + format + assists (biome check src/)
+npm run lint                  # Lint src/ and pact/
+npm run lint:fix              # Lint with auto-fix
+npm run format                # Format src/ and pact/
+npm run check                 # Lint + format + assists
 
-# Test (Jest)
-npm run test                  # Run all unit tests
+# Contract tests (Pact with Vitest)
+npm run test                  # Generate the mobile consumer contract
 npm run test:watch            # Watch mode
-npm run test:coverage         # With coverage
 
 # Type Check
 npm run type-check            # tsc --noEmit
@@ -93,7 +92,7 @@ not an action. The same applies to the runtime migration runner: writing the cod
 
 ```bash
 npm run format
-npx biome check --write --only=assist/source/organizeImports src/
+npx biome check --write --only=assist/source/organizeImports src/ pact/
 ```
 
 `npm run reset-project` still exists in `package.json`. **Do not run it** — it moves `src/`
@@ -261,17 +260,13 @@ because this is a **nursery** rule: a minor bump could change its behaviour and 
 
 ## Testing
 
-Jest with the `jest-expo` preset. Tests generally sit beside the code as `<name>.test.ts`,
-except for Expo Router route tests, which live outside `src/app/` in `src/app-tests/`.
-
-**Write the test first** for hooks, utils, validation schemas, services, and the API layer.
-Screens and layouts are exempt.
+Pact consumer tests live in `pact/` and exercise the real API endpoints and interceptors.
+For contract verification and CI setup, read [Pact contract checks](docs/agents/implementation-reference.md#pact-contract-checks).
 
 ### Expo Router route tree
 
 Expo Router treats every file under `src/app/` as a route module, including files ending in
-`.test.ts`, `.test.tsx`, or similar. Keep all Jest tests for route screens outside `src/app/`;
-route tests can import their screen with the `@/app/...` alias from `src/app-tests/`.
+`.test.ts`, `.test.tsx`, or similar. Keep test files outside `src/app/`.
 
 Never import `@testing-library/react-native` or another test-only module from `src/app/`.
 Those dependencies can import Node standard-library modules such as `console` and `util`,
@@ -283,20 +278,6 @@ Before bundling, this check must return no files:
 ```bash
 rg --files src/app | rg '\.test\.'
 ```
-
-The `src/app-tests/route-tree.test.ts` invariant test enforces this boundary in Jest.
-
-Prefer a fake Axios adapter over mocking modules — it exercises the real instance and its
-interceptors without a network:
-
-```typescript
-axiosInstance.defaults.adapter = async (config) => ({
-  data: { success: true, statusCode: 200, data: payload, message: 'Success' },
-  status: 200, statusText: 'OK', headers: {}, config,
-});
-```
-
-`api-layer.test.ts` uses this to pin both the `/api/v1` URL shape and envelope unwrapping.
 
 ---
 
