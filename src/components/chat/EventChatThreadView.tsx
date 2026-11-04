@@ -30,6 +30,8 @@ export const CHAT_MAX_MESSAGE_LENGTH = 2_000;
 /** Props for the focused Event Chat thread. */
 export interface EventChatThreadViewProps {
   ganapTitle: string;
+  /** Signed-in User's id; their own messages render on the right. `null` renders every message as another's. */
+  currentUserId: string | null;
   session: EventChatSession | null;
   messages: ChatMessage[];
   failedDrafts: FailedDraft[];
@@ -107,8 +109,94 @@ const FALLBACK_REACTION_ANCHOR: MessageReactionAnchor = {
   height: MIN_TOUCH_TARGET,
 };
 
+/** Row, column, bubble, and reaction placement for one side of the thread. */
+interface MessageSideLayout {
+  rowClassName: string;
+  columnClassName: string;
+  bubbleClassName: string;
+  reactionAlignment: 'left' | 'right';
+}
+
+/** The signed-in User's messages sit on the right in the same `primary` bubble Direct Chat uses. */
+const OWN_MESSAGE_LAYOUT: MessageSideLayout = {
+  rowClassName: 'justify-end',
+  columnClassName: '',
+  bubbleClassName: 'bg-primary',
+  reactionAlignment: 'right',
+};
+
+/** Other attendees' messages sit on the left, beside their avatar, in a card bubble. */
+const OTHER_MESSAGE_LAYOUT: MessageSideLayout = {
+  rowClassName: 'justify-start',
+  columnClassName: 'ml-sm',
+  bubbleClassName: 'border border-border bg-card',
+  reactionAlignment: 'left',
+};
+
+interface MessageSide {
+  isMine: boolean;
+  layout: MessageSideLayout;
+  /** How labels and VoiceOver name the sender: "you" for the signed-in User. */
+  senderLabel: string;
+}
+
+function getMessageSide(message: ChatMessage, currentUserId: string | null): MessageSide {
+  const isMine: boolean = currentUserId !== null && message.senderId === currentUserId;
+  return isMine
+    ? { isMine, layout: OWN_MESSAGE_LAYOUT, senderLabel: 'you' }
+    : { isMine, layout: OTHER_MESSAGE_LAYOUT, senderLabel: message.senderUsername };
+}
+
+interface MessageBubbleContentProps {
+  message: ChatMessage;
+  isMine: boolean;
+  messageCopy: string;
+  media: ChatMessage['media'];
+  senderLabel: string;
+  imageLoadState: ImageLoadState;
+  onImageLoadError: (messageId: string, error: string) => void;
+  onRetryImageLoad: (messageId: string) => void;
+}
+
+/**
+ * Sender name, body, and time inside one bubble. Own messages drop the name
+ * and switch to `primary-foreground` text to sit on the `primary` fill.
+ */
+function MessageBubbleContent({
+  message,
+  isMine,
+  messageCopy,
+  media,
+  senderLabel,
+  imageLoadState,
+  onImageLoadError,
+  onRetryImageLoad,
+}: MessageBubbleContentProps): ReactElement {
+  return (
+    <>
+      {!isMine && <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>}
+      {media ? (
+        <ChatImageBubble
+          media={media}
+          senderUsername={senderLabel}
+          reloadToken={imageLoadState.reloadToken}
+          loadFailed={imageLoadState.loadFailed}
+          onLoadError={(error: string): void => onImageLoadError(message.id, error)}
+          onRetry={(): void => onRetryImageLoad(message.id)}
+        />
+      ) : (
+        <Text className={`text-body-md ${isMine ? 'text-primary-foreground' : 'mt-xs'}`}>{messageCopy}</Text>
+      )}
+      <Text className={`mt-xs text-label-sm ${isMine ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
+        {formatMessageTime(message.sentAt)}
+      </Text>
+    </>
+  );
+}
+
 function MessageRow({
   message,
+  currentUserId,
   onMessageActions,
   onOpenReactionPicker,
   onMessageReaction,
@@ -119,6 +207,7 @@ function MessageRow({
   onRetryImageLoad,
 }: {
   message: ChatMessage;
+  currentUserId: string | null;
   onMessageActions: (message: ChatMessage) => void;
   onOpenReactionPicker: (message: ChatMessage, anchor: MessageReactionAnchor, measured: boolean) => void;
   onMessageReaction?: (message: ChatMessage, reaction: ReactionType | null) => void | Promise<void>;
@@ -130,6 +219,7 @@ function MessageRow({
 }): ReactElement {
   const messageRef = useRef<View>(null);
   const [photoOpen, setPhotoOpen] = useState<boolean>(false);
+  const { isMine, layout, senderLabel }: MessageSide = getMessageSide(message, currentUserId);
   const messageCopy: string = getMessageCopy(message);
   const hasImage: boolean = message.type === 'IMAGE' && message.media !== null && message.media !== undefined;
   const media = hasImage ? message.media : null;
@@ -141,8 +231,8 @@ function MessageRow({
     ? 'Long press for message actions; use Add reaction to react'
     : 'Long press to open message actions';
   const messageLabel: string = media
-    ? `Photo sent by ${message.senderUsername}, ${media.width} by ${media.height} pixels`
-    : `${messageCopy} from ${message.senderUsername}`;
+    ? `Photo sent by ${senderLabel}, ${media.width} by ${media.height} pixels`
+    : `${messageCopy} from ${senderLabel}`;
   const requestReactionPicker = (): void => {
     if (!canOpenReactionPicker) return;
     const target: View | null = messageRef.current;
@@ -155,9 +245,9 @@ function MessageRow({
     });
   };
   return (
-    <View className="mb-md flex-row items-end px-md">
-      <Avatar src={message.senderDisplayPicture} name={message.senderUsername} size="xs" />
-      <View className="ml-sm min-w-0 max-w-[82%] flex-1">
+    <View className={`mb-md flex-row items-end px-md ${layout.rowClassName}`}>
+      {!isMine && <Avatar src={message.senderDisplayPicture} name={message.senderUsername} size="xs" />}
+      <View className={`min-w-[30%] max-w-[82%] ${layout.columnClassName}`}>
         <View
           className="relative min-w-0 flex-1"
           style={{ paddingBottom: hasReactionControls ? (MIN_TOUCH_TARGET - Spacing.xs) / 2 : 0 }}
@@ -176,28 +266,24 @@ function MessageRow({
             accessibilityRole="button"
             accessibilityLabel={messageLabel}
             accessibilityHint={accessibilityHint}
-            className="min-w-0 flex-1 rounded-xl border border-border bg-card px-md py-sm active:opacity-70"
+            className={`min-w-0 flex-1 rounded-xl px-md py-sm active:opacity-70 ${layout.bubbleClassName}`}
           >
-            <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>
-            {media ? (
-              <ChatImageBubble
-                media={media}
-                senderUsername={message.senderUsername}
-                reloadToken={imageLoadState.reloadToken}
-                loadFailed={imageLoadState.loadFailed}
-                onLoadError={(error: string): void => onImageLoadError(message.id, error)}
-                onRetry={(): void => onRetryImageLoad(message.id)}
-              />
-            ) : (
-              <Text className="mt-xs text-body-md">{messageCopy}</Text>
-            )}
-            <Text className="mt-xs text-label-sm text-muted-foreground">{formatMessageTime(message.sentAt)}</Text>
+            <MessageBubbleContent
+              message={message}
+              isMine={isMine}
+              messageCopy={messageCopy}
+              media={media}
+              senderLabel={senderLabel}
+              imageLoadState={imageLoadState}
+              onImageLoadError={onImageLoadError}
+              onRetryImageLoad={onRetryImageLoad}
+            />
           </Pressable>
           {media && (
             <ChatImageViewer
               visible={photoOpen}
               media={media}
-              senderUsername={message.senderUsername}
+              senderUsername={senderLabel}
               reloadToken={imageLoadState.reloadToken}
               loadFailed={imageLoadState.loadFailed}
               onLoadError={(error: string): void => onImageLoadError(message.id, error)}
@@ -208,7 +294,7 @@ function MessageRow({
           <MessageReactionBar
             summary={reactionSummary}
             presentation="summary"
-            alignment="left"
+            alignment={layout.reactionAlignment}
             isPending={reactionPendingMessageId === message.id}
             isDisabled={!canReact || reactionPendingMessageId !== null}
             onRequestReactionPicker={canOpenReactionPicker ? requestReactionPicker : undefined}
@@ -265,6 +351,7 @@ function FailedDraftRow({
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The thread intentionally branches across guarded, loading, read-only, and composer states.
 export function EventChatThreadView({
   ganapTitle,
+  currentUserId,
   session,
   messages,
   failedDrafts,
@@ -441,6 +528,7 @@ export function EventChatThreadView({
               {dateSeparatorLabel !== null && <ChatDateSeparator label={dateSeparatorLabel} />}
               <MessageRow
                 message={item}
+                currentUserId={currentUserId}
                 onMessageActions={onMessageActions}
                 onOpenReactionPicker={handleOpenReactionPicker}
                 onMessageReaction={onMessageReaction}
