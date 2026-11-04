@@ -64,6 +64,11 @@ jobs:
           token: ${{ secrets.PACT_REPO_TOKEN }}
           path: .pact-provider
           persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: .pact-provider/pnpm-lock.yaml
       - run: pnpm --dir .pact-provider install --frozen-lockfile
       - name: Verify the mobile contract against the server
         run: pnpm --dir .pact-provider test
