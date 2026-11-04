@@ -5,7 +5,8 @@
 /* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind CSS directive */
 @tailwind utilities;
 
-:root {
+:root,
+.light {
   --radius: 0.75rem;
   --background: #ffffff;
   --foreground: #000000;

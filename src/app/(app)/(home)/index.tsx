@@ -76,6 +76,11 @@ const BUILDING_EXTRUSION_STYLE: FillExtrusionLayerStyle = {
 
 /**
  * Selects a built-in map style with compatible composite building sources.
+ *
+ * Changing the style on a live map drops rnmapbox's MarkerViews on iOS: they do not
+ * come back after the new style loads. `HomeScreen` keys the markers on a style
+ * revision, so they are re-created once each style has loaded.
+ *
  * @param theme - Resolved application appearance.
  * @returns The style URL without changing camera state.
  */
@@ -274,6 +279,7 @@ export default function HomeScreen(): ReactElement {
   const [cameraPitch, setCameraPitch] = useState<number>(OVERHEAD_PITCH);
   const [buildingsVisible, setBuildingsVisible] = useState<boolean>(true);
   const [isMapReady, setIsMapReady] = useState<boolean>(false);
+  const [mapStyleRevision, setMapStyleRevision] = useState<number>(0);
   const [selectedGanap, setSelectedGanap] = useState<GanapListItem | null>(null);
   const [selectedCluster, setSelectedCluster] = useState<GanapClusterFeature | null>(null);
   const [selectedClusterIndex, setSelectedClusterIndex] = useState<GanapClusterIndex | null>(null);
@@ -342,6 +348,10 @@ export default function HomeScreen(): ReactElement {
 
   const handleMapReady = useCallback((): void => {
     setIsMapReady(true);
+  }, []);
+
+  const handleMapStyleLoaded = useCallback((): void => {
+    setMapStyleRevision((revision: number): number => revision + 1);
   }, []);
 
   const handleMapIdle = useCallback((state: MapState): void => {
@@ -630,12 +640,14 @@ export default function HomeScreen(): ReactElement {
         onCameraChanged={handleCameraChanged}
         onPress={handleMapPress}
         onDidFinishLoadingMap={handleMapReady}
+        onDidFinishLoadingStyle={handleMapStyleLoaded}
       >
         <Camera ref={cameraRef} centerCoordinate={ILOILO_CITY_CENTER} zoomLevel={CITY_ZOOM} animationMode="none" />
         <SelectionTerrain isActive={hasActiveSelection} />
         <BuildingExtrusions isEnabled={buildingsVisible} pitch={cameraPitch} />
         {userCoords !== null && <LocationPuck puckBearing="heading" puckBearingEnabled />}
         <ClusteredGanapMarkers
+          key={`markers-${mapStyleRevision}`}
           features={visibleFeatures}
           onGanapPress={handleGanapPress}
           onClusterPress={handleClusterPress}
