@@ -17,6 +17,14 @@ interface ThemeProviderProps {
  * Resolves the user's theme preference against the device color scheme and applies
  * it to NativeWind's global color scheme.
  *
+ * The root view always carries exactly one theme class, `light` or `dark`, and both
+ * set the full palette in `global.css`. That keeps a CSS variable on the view from
+ * its first render: react-native-css-interop re-wraps a view that gains variables
+ * later, which remounts the whole navigation tree and threw the user from Settings
+ * to the home screen on the first theme switch. Scoping the palette to the view also
+ * keeps it independent of the native appearance, which a newly opened window can
+ * reset while an explicit theme is chosen.
+ *
  * Renders nothing until the theme store has hydrated so a persisted dark
  * preference cannot flash light on a cold start.
  *
@@ -58,7 +66,7 @@ export function ThemeProvider({ children }: ThemeProviderProps): ReactElement | 
 
   return (
     <NavigationThemeProvider value={navigationTheme}>
-      <View className={`flex-1 bg-background${isDark ? ' dark' : ''}`} style={{ flex: 1 }}>
+      <View className={`flex-1 bg-background ${isDark ? 'dark' : 'light'}`} style={{ flex: 1 }}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
         {children}
       </View>
