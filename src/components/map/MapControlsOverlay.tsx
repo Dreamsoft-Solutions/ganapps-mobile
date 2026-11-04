@@ -5,7 +5,8 @@ import { FEED_SHEET_PEEK_HEIGHT } from '@/utils/feed-sheet';
 
 interface MapControlsOverlayProps {
   readonly side: 'left' | 'right';
-  readonly hasSelection: boolean;
+  /** Whether the event list sheet is on screen, for a selection or for Nearby. */
+  readonly isSheetVisible: boolean;
   readonly mapHeight: SharedValue<number>;
   readonly sheetPosition: SharedValue<number>;
   readonly topOverlayHeight: number;
@@ -19,7 +20,7 @@ interface MapControlsOverlayProps {
  */
 export function MapControlsOverlay({
   side,
-  hasSelection,
+  isSheetVisible,
   mapHeight,
   sheetPosition,
   topOverlayHeight,
@@ -28,9 +29,9 @@ export function MapControlsOverlay({
   const controlHeight = useSharedValue<number>(48);
   const animatedStyle = useAnimatedStyle((): { bottom: number; display: 'flex' | 'none' } => {
     const position: number = sheetPosition.value < 0 ? mapHeight.value - FEED_SHEET_PEEK_HEIGHT : sheetPosition.value;
-    const bottom: number = hasSelection ? Math.max(0, mapHeight.value - position) + 12 : 40;
+    const bottom: number = isSheetVisible ? Math.max(0, mapHeight.value - position) + 12 : 40;
     const hasRoom: boolean =
-      !hasSelection || mapHeight.value === 0 || position >= topOverlayHeight + controlHeight.value + 12;
+      !isSheetVisible || mapHeight.value === 0 || position >= topOverlayHeight + controlHeight.value + 12;
     return { bottom, display: hasRoom ? 'flex' : 'none' };
   });
   return (
