@@ -130,6 +130,7 @@ export default function EventChatThreadScreen(): ReactElement {
       <Stack.Screen options={{ gestureEnabled: isFriendsOrigin }} />
       <EventChatThreadView
         ganapTitle={headerTitle}
+        currentUserId={currentUserId}
         session={chat.session}
         messages={chat.messages}
         failedDrafts={chat.failedDrafts}

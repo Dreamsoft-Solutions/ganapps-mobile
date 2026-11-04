@@ -291,7 +291,8 @@ export type AnnouncementType = 'GENERAL' | 'REMINDER' | 'UPDATE';
  * One announcement as returned by the attendee-facing announcement endpoint.
  *
  * Mirrors the item shape built by the server's `listPublicAnnouncements`. There
- * is no author image field; clients derive an avatar from `createdByUsername`.
+ * is no author image field. Attendee screens show the hosting organization as
+ * the author rather than `createdByUsername`, which can be an email address.
  */
 export interface GanapAnnouncement {
   id: string;

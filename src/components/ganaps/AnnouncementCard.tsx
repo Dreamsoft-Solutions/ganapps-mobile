@@ -1,6 +1,6 @@
 import { BellRing, Megaphone, RefreshCw } from 'lucide-react-native';
 import type { ComponentType, ReactElement } from 'react';
-import { View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 import { MessageReactionBar } from '@/components/chat/MessageReactionBar';
 import { Avatar } from '@/components/common/Avatar';
 import { Card } from '@/components/common/Card';
@@ -13,6 +13,10 @@ import { formatDateTime } from '@/utils/formatting';
 
 interface AnnouncementCardProps {
   announcement: GanapAnnouncement;
+  /** Name of the organization hosting the Ganap, shown as the announcement author. */
+  organizationName: string;
+  /** Organization logo URL; the avatar falls back to initials when it is absent. */
+  organizationLogo?: string | null;
   /** Sets or removes the attendee's acknowledgement reaction. */
   onReaction?: (reaction: ReactionType | null) => void;
   /** Whether this announcement reaction is being reconciled. */
@@ -74,14 +78,18 @@ const announcementTypeConfig: Record<AnnouncementType, AnnouncementTypeConfig> =
 /**
  * Renders one organizer announcement with its author, type, and timestamp.
  *
- * The author avatar is built from `createdByUsername` initials because the
- * announcement contract carries no author image.
+ * The author is the hosting organization, not the member account that posted:
+ * attendees follow organizations, and a member's username can be an email
+ * address. The heading stays on one line so long names truncate. At large text
+ * sizes the timestamp moves under the author, so it cannot squeeze the name out.
  *
- * @param props - The announcement to present.
+ * @param props - The announcement, its organization's name and logo, and reaction state.
  * @returns An announcement card.
  */
 export function AnnouncementCard({
   announcement,
+  organizationName,
+  organizationLogo = null,
   onReaction = (): void => {},
   reactionPending = false,
 }: AnnouncementCardProps): ReactElement {
@@ -89,14 +97,18 @@ export function AnnouncementCard({
   const TypeIcon: ComponentType<AnnouncementIconProps> = config.Icon;
   const title: string | null = announcement.title?.trim() || null;
   const theme = useResolvedTheme();
+  const { fontScale } = useWindowDimensions();
+  const stackHeader: boolean = fontScale >= 1.3;
 
   return (
     <Card className="mb-sm">
-      <View className="flex-row items-start justify-between gap-sm">
-        <View className="min-w-0 flex-1 flex-row items-center">
-          <Avatar name={announcement.createdByUsername} size="xs" />
+      <View className={stackHeader ? 'gap-xs' : 'flex-row items-start justify-between gap-sm'}>
+        <View className={`min-w-0 flex-row items-center ${stackHeader ? '' : 'flex-1'}`}>
+          <Avatar src={organizationLogo} name={organizationName} size="xs" />
           <View className="ml-xs min-w-0 flex-1">
-            <Text className="font-inter-semibold text-headline-sm">{announcement.createdByUsername}</Text>
+            <Text numberOfLines={1} className="font-inter-semibold text-headline-sm">
+              {organizationName}
+            </Text>
             <Text className="mt-1 font-inter-medium text-label-sm text-muted-foreground">Event organizer</Text>
           </View>
         </View>

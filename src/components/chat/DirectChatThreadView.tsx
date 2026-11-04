@@ -246,7 +246,7 @@ function MessageBubble({
 
   return (
     <View
-      className="relative min-w-0 flex-1"
+      className="relative min-w-0 shrink grow"
       style={{ paddingBottom: reactionState.hasReactionControls ? (MIN_TOUCH_TARGET - Spacing.xs) / 2 : 0 }}
     >
       <Pressable
@@ -333,7 +333,7 @@ function MessageRow({
   return (
     <View className={`mb-md flex-row items-end px-md ${isMine ? 'justify-end' : 'justify-start'}`}>
       {!isMine && <Avatar src={message.senderDisplayPicture} name={message.senderUsername} size="xs" />}
-      <View className={`min-w-0 max-w-[82%] flex-1 flex-row items-end ${isMine ? '' : 'ml-sm'}`}>
+      <View className={`min-w-[30%] max-w-[82%] flex-row items-end ${isMine ? '' : 'ml-sm'}`}>
         <MessageBubble
           message={message}
           isMine={isMine}
