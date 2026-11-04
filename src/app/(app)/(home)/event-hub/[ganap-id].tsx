@@ -10,10 +10,12 @@ import { EventHubView } from '@/components/ganaps/EventHubView';
 import { GanapShareModal } from '@/components/ganaps/GanapShareModal';
 import { Routes } from '@/constants/routes';
 import { useAnnouncementReactionMutation } from '@/hooks/mutations/useChatEngagementMutation';
+import { useBusinessDetailQuery } from '@/hooks/queries/useBusinessesQuery';
 import { useFriendGoingQuery } from '@/hooks/queries/useFriendsQuery';
 import { useFormBlocksQuery, useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { type UseGanapAnnouncementsResult, useGanapAnnouncements } from '@/hooks/useGanapAnnouncements';
 import { showToast } from '@/store/toast.store';
+import type { BusinessDetail } from '@/types/business.types';
 import type { ReactionType } from '@/types/chat.types';
 import type { FriendGoingRecord, FriendUserSummary } from '@/types/friends.types';
 import type { FormBlock, GanapAnnouncement, GanapDetail, RegistrationStatus } from '@/types/ganap.types';
@@ -82,6 +84,7 @@ function EligibleEventHub({
 }: EligibleEventHubProps): ReactElement {
   const announcements: UseGanapAnnouncementsResult = useGanapAnnouncements(ganap.id, true);
   const friendsGoingQuery = useFriendGoingQuery(true, ganap.id);
+  const businessQuery: UseQueryResult<BusinessDetail, Error> = useBusinessDetailQuery(ganap.businessId);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const schedule: GanapScheduleModel = getGanapScheduleModel(ganap.startDate, ganap.endDate);
@@ -150,6 +153,7 @@ function EligibleEventHub({
     <>
       <EventHubView
         ganap={ganap}
+        business={businessQuery.data}
         schedule={schedule}
         announcements={accessLost ? [] : announcements.announcements}
         total={accessLost ? 0 : announcements.total}
