@@ -7,6 +7,7 @@ import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { EventDetailView } from '@/components/ganaps/EventDetailView';
+import { GanapReportSheet } from '@/components/ganaps/GanapReportSheet';
 import { GanapShareModal } from '@/components/ganaps/GanapShareModal';
 import { Routes } from '@/constants/routes';
 import { Spacing } from '@/constants/theme';
@@ -17,6 +18,7 @@ import { useEventTime } from '@/hooks/useEventTime';
 import { useGanaps } from '@/hooks/useGanaps';
 import { showToast } from '@/store/toast.store';
 import type { FriendGoingRecord, FriendUserSummary } from '@/types/friends.types';
+import type { GanapReportReceipt, ReportGanapInput } from '@/types/ganap.types';
 import type { GanapAction, GanapActionConfirmation } from '@/utils/ganap-detail';
 import {
   buildGanapShareMessage,
@@ -40,8 +42,10 @@ export default function GanapDetailScreen(): ReactElement {
   const businessQuery = useBusinessDetailQuery(ganap?.businessId);
   const now = useEventTime(ganap?.endDate);
   const friendsGoingQuery = useFriendGoingQuery(true, ganapId);
-  const { join, leave, toggleLike, toggleSave, isJoining, isLeaving, isTogglingLike, isTogglingSave } = useGanaps();
+  const { join, leave, toggleLike, toggleSave, report, isJoining, isLeaving, isTogglingLike, isTogglingSave } =
+    useGanaps();
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
   const screenOptions: ReactElement = <Stack.Screen options={{ gestureEnabled: !isMyEventsOrigin }} />;
 
   const handleBack = useCallback((): void => {
@@ -196,6 +200,13 @@ export default function GanapDetailScreen(): ReactElement {
         onToggleSave={(): Promise<void> => toggleSave({ ganapId: ganap.id, isSaved: ganap.isSaved ?? false })}
         onPrimaryAction={handlePrimaryAction}
         onSecondaryAction={handleSecondaryAction}
+        onReport={(): void => setIsReportOpen(true)}
+      />
+      <GanapReportSheet
+        visible={isReportOpen}
+        ganapTitle={ganap.title}
+        onClose={(): void => setIsReportOpen(false)}
+        onSubmit={(input: ReportGanapInput): Promise<GanapReportReceipt> => report({ ganapId: ganap.id, input })}
       />
       {shareUrl !== null ? (
         <GanapShareModal

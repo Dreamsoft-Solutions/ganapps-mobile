@@ -50,6 +50,8 @@ interface EventDetailViewProps {
   onToggleSave: () => void | Promise<void>;
   onPrimaryAction: () => void | Promise<void>;
   onSecondaryAction: () => void | Promise<void>;
+  /** Opens the route-owned report sheet for this Ganap. */
+  onReport: () => void;
 }
 
 /**
@@ -442,6 +444,7 @@ export function EventDetailView({
   onToggleSave,
   onPrimaryAction,
   onSecondaryAction,
+  onReport,
 }: EventDetailViewProps): ReactElement {
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
@@ -594,6 +597,7 @@ export function EventDetailView({
         isPending={isPrimaryPending}
         onPrimaryAction={onPrimaryAction}
         onSecondaryAction={onSecondaryAction}
+        onReport={onReport}
       />
     </View>
   );

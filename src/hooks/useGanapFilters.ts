@@ -3,13 +3,14 @@ import { useCallback, useMemo, useState } from 'react';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { CursorPage } from '@/api/types/api-response';
 import type { GanapListItem } from '@/types/ganap.types';
+import { collectMainTags } from '@/utils/ganap-tags';
 import { ganapQueryKeys } from './queries/useGanapsQuery';
 import { useDebouncedValue } from './useDebouncedValue';
 
 /** How long typing settles before a search reaches a query key. */
 export const SEARCH_DEBOUNCE_MS = 350;
 
-/** Page size for the vocabulary query. Large enough to see the whole catalogue's tags. */
+/** Page size for the vocabulary query. Large enough to see the whole catalogue's main categories. */
 const VOCABULARY_LIMIT = 100;
 
 export interface UseGanapFiltersResult {
@@ -20,7 +21,10 @@ export interface UseGanapFiltersResult {
   debouncedSearch: string | undefined;
   tag: string | null;
   setTag: (value: string | null) => void;
-  /** Every tag in the catalogue, sorted. Never narrowed by the active filters. */
+  /**
+   * Main categories with at least one event in the catalogue, in the fixed category order.
+   * Sub tags are never included. Never narrowed by the active filters.
+   */
   tags: string[];
 }
 
@@ -35,7 +39,7 @@ export interface UseGanapFiltersResult {
  * comes from its own unfiltered query rather than from the filtered response, so
  * no active filter can collapse the chip row to its own results.
  *
- * @returns The filter values, their setters, and the tag vocabulary.
+ * @returns The filter values, their setters, and the main categories offered as chips.
  */
 export function useGanapFilters(): UseGanapFiltersResult {
   const [search, setSearch] = useState<string>('');
@@ -52,15 +56,7 @@ export function useGanapFilters(): UseGanapFiltersResult {
     retry: 1,
   });
 
-  const tags = useMemo((): string[] => {
-    const unique = new Set<string>();
-    for (const ganap of vocabularyQuery.data?.items ?? []) {
-      for (const value of ganap.tags) {
-        unique.add(value);
-      }
-    }
-    return Array.from(unique).sort();
-  }, [vocabularyQuery.data]);
+  const tags = useMemo((): string[] => collectMainTags(vocabularyQuery.data?.items ?? []), [vocabularyQuery.data]);
 
   const handleSetSearch = useCallback((value: string): void => {
     setSearch(value);

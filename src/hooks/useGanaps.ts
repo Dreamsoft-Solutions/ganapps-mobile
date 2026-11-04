@@ -7,13 +7,15 @@ import {
 } from '@tanstack/react-query';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { CursorPage } from '@/api/types/api-response';
-import type { GanapListItem, JoinGanapResult } from '@/types/ganap.types';
+import type { GanapListItem, GanapReportReceipt, JoinGanapResult } from '@/types/ganap.types';
 import {
+  type ReportGanapVariables,
   type ToggleLikeVariables,
   type ToggleSaveVariables,
   useJoinGanapMutation,
   useLeaveGanapMutation,
   useLikeGanapMutation,
+  useReportGanapMutation,
   useSaveGanapMutation,
 } from './mutations/useGanapMutation';
 import { type GanapListFilters, ganapQueryKeys } from './queries/useGanapsQuery';
@@ -51,10 +53,13 @@ export interface UseGanapsResult {
   leave: UseMutateAsyncFunction<void, Error, string>;
   toggleLike: UseMutateAsyncFunction<void, Error, ToggleLikeVariables>;
   toggleSave: UseMutateAsyncFunction<void, Error, ToggleSaveVariables>;
+  /** Reports a Ganap for review; failures are left to the caller to render. */
+  report: UseMutateAsyncFunction<GanapReportReceipt, Error, ReportGanapVariables>;
   isJoining: boolean;
   isLeaving: boolean;
   isTogglingLike: boolean;
   isTogglingSave: boolean;
+  isReporting: boolean;
 }
 
 /**
@@ -69,7 +74,7 @@ export interface UseGanapsResult {
  * filtering would only ever see the rows already loaded.
  *
  * @param filters - Active discovery filters; omitted means the whole catalogue
- * @returns Flattened items, paging state, and the four student actions
+ * @returns Flattened items, paging state, and the student actions, including reporting
  */
 export function useGanaps(filters?: GanapListFilters): UseGanapsResult {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } = useInfiniteQuery<
@@ -99,6 +104,7 @@ export function useGanaps(filters?: GanapListFilters): UseGanapsResult {
   const leaveMutation = useLeaveGanapMutation();
   const likeMutation = useLikeGanapMutation();
   const saveMutation = useSaveGanapMutation();
+  const reportMutation = useReportGanapMutation();
 
   return {
     items: data?.pages.flatMap((page: GanapPage) => page.items) ?? [],
@@ -111,9 +117,11 @@ export function useGanaps(filters?: GanapListFilters): UseGanapsResult {
     leave: leaveMutation.mutateAsync,
     toggleLike: likeMutation.mutateAsync,
     toggleSave: saveMutation.mutateAsync,
+    report: reportMutation.mutateAsync,
     isJoining: joinMutation.isPending,
     isLeaving: leaveMutation.isPending,
     isTogglingLike: likeMutation.isPending,
     isTogglingSave: saveMutation.isPending,
+    isReporting: reportMutation.isPending,
   };
 }
