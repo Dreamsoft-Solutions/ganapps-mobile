@@ -31,7 +31,12 @@ import { useGanapDiscovery } from '@/hooks/useGanapDiscovery';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
-import { FEED_SHEET_PEEK_HEIGHT, resolveClusterZoomTarget } from '@/utils/feed-sheet';
+import {
+  FEED_SHEET_PEEK_HEIGHT,
+  resolveClusterZoomTarget,
+  selectFeedSheetCloseHandler,
+  shouldShowFeedSheet,
+} from '@/utils/feed-sheet';
 import {
   CLUSTER_EXPANSION_MAX_ZOOM,
   type ClusterZoomTarget,
@@ -71,6 +76,11 @@ const BUILDING_EXTRUSION_STYLE: FillExtrusionLayerStyle = {
 
 /**
  * Selects a built-in map style with compatible composite building sources.
+ *
+ * Changing the style on a live map drops rnmapbox's MarkerViews on iOS: they do not
+ * come back after the new style loads. `HomeScreen` keys the markers on a style
+ * revision, so they are re-created once each style has loaded.
+ *
  * @param theme - Resolved application appearance.
  * @returns The style URL without changing camera state.
  */
@@ -216,8 +226,9 @@ const MAP_OVERLAY_BOTTOM: number = FEED_SHEET_PEEK_HEIGHT;
  * Home screen for authenticated users.
  *
  * Full-screen Mapbox map of discoverable Ganaps across Iloilo City, with a
- * floating search bar, category chips, the Nearby distance filter, and a
- * selected-event card.
+ * floating search bar, category chips, the Nearby distance filter, and an
+ * event list sheet. The sheet shows a selected pin or cluster, or the Nearby
+ * list while Nearby is on; closing a Nearby list turns Nearby off.
  *
  * @returns The map home screen
  */
@@ -268,6 +279,7 @@ export default function HomeScreen(): ReactElement {
   const [cameraPitch, setCameraPitch] = useState<number>(OVERHEAD_PITCH);
   const [buildingsVisible, setBuildingsVisible] = useState<boolean>(true);
   const [isMapReady, setIsMapReady] = useState<boolean>(false);
+  const [mapStyleRevision, setMapStyleRevision] = useState<number>(0);
   const [selectedGanap, setSelectedGanap] = useState<GanapListItem | null>(null);
   const [selectedCluster, setSelectedCluster] = useState<GanapClusterFeature | null>(null);
   const [selectedClusterIndex, setSelectedClusterIndex] = useState<GanapClusterIndex | null>(null);
@@ -277,6 +289,7 @@ export default function HomeScreen(): ReactElement {
 
   const activeCluster: GanapClusterFeature | null = selectedClusterIndex === clusterIndex ? selectedCluster : null;
   const hasActiveSelection: boolean = selectedGanap !== null || activeCluster !== null;
+  const isFeedSheetVisible: boolean = shouldShowFeedSheet({ hasSelection: hasActiveSelection, isNearbyActive });
 
   useEffect(() => {
     if (MAPBOX_TOKEN) {
@@ -335,6 +348,10 @@ export default function HomeScreen(): ReactElement {
 
   const handleMapReady = useCallback((): void => {
     setIsMapReady(true);
+  }, []);
+
+  const handleMapStyleLoaded = useCallback((): void => {
+    setMapStyleRevision((revision: number): number => revision + 1);
   }, []);
 
   const handleMapIdle = useCallback((state: MapState): void => {
@@ -495,6 +512,17 @@ export default function HomeScreen(): ReactElement {
     });
   }, []);
 
+  const handleFeedSheetClose = useMemo(
+    (): (() => void) =>
+      selectFeedSheetCloseHandler({
+        hasSelection: hasActiveSelection,
+        isNearbyActive,
+        clearSelection: (): void => handleClearSelection(),
+        turnOffNearby: nearby.toggle,
+      }),
+    [handleClearSelection, hasActiveSelection, isNearbyActive, nearby.toggle],
+  );
+
   const handleMapPress = useCallback((): void => {
     handleMapPressWithGuard({
       isSelectionActive: isSelectionActiveRef,
@@ -612,12 +640,14 @@ export default function HomeScreen(): ReactElement {
         onCameraChanged={handleCameraChanged}
         onPress={handleMapPress}
         onDidFinishLoadingMap={handleMapReady}
+        onDidFinishLoadingStyle={handleMapStyleLoaded}
       >
         <Camera ref={cameraRef} centerCoordinate={ILOILO_CITY_CENTER} zoomLevel={CITY_ZOOM} animationMode="none" />
         <SelectionTerrain isActive={hasActiveSelection} />
         <BuildingExtrusions isEnabled={buildingsVisible} pitch={cameraPitch} />
         {userCoords !== null && <LocationPuck puckBearing="heading" puckBearingEnabled />}
         <ClusteredGanapMarkers
+          key={`markers-${mapStyleRevision}`}
           features={visibleFeatures}
           onGanapPress={handleGanapPress}
           onClusterPress={handleClusterPress}
@@ -676,7 +706,7 @@ export default function HomeScreen(): ReactElement {
 
       <MapControlsOverlay
         side="left"
-        hasSelection={hasActiveSelection}
+        isSheetVisible={isFeedSheetVisible}
         mapHeight={mapHeight}
         sheetPosition={sheetPosition}
         topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
@@ -692,7 +722,7 @@ export default function HomeScreen(): ReactElement {
 
       <MapControlsOverlay
         side="right"
-        hasSelection={hasActiveSelection}
+        isSheetVisible={isFeedSheetVisible}
         mapHeight={mapHeight}
         sheetPosition={sheetPosition}
         topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
@@ -708,7 +738,7 @@ export default function HomeScreen(): ReactElement {
         onDismiss={nearby.dismissPriming}
       />
 
-      {hasActiveSelection && (
+      {isFeedSheetVisible && (
         <GanapFeedSheet
           feed={feed}
           hasActiveFilters={hasActiveFilters}
@@ -720,6 +750,7 @@ export default function HomeScreen(): ReactElement {
           clusterIndex={clusterIndex}
           onSelectGanap={handleOpenGanap}
           onClearSelection={handleClearSelection}
+          onClose={handleFeedSheetClose}
           onZoomToCluster={handleClusterZoomIn}
         />
       )}

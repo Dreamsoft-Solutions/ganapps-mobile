@@ -77,6 +77,51 @@ export function resolveFeedSheetMode(selection: FeedSheetSelection): FeedSheetSt
   return { mode: 'browse', snapIndex: 0 };
 }
 
+export interface FeedSheetCloseInput {
+  /** Whether a pin or cluster is selected. */
+  hasSelection: boolean;
+  /** Whether the Nearby chip is on. */
+  isNearbyActive: boolean;
+  /** Clears the pin or cluster selection. */
+  clearSelection: () => void;
+  /** Turns the Nearby chip off. */
+  turnOffNearby: () => void;
+}
+
+/**
+ * Whether the map tab shows the sheet: for a selected pin or cluster, or as the
+ * Nearby list while the Nearby chip is on. Otherwise the map stays unobstructed.
+ *
+ * @param input - Whether a pin or cluster is selected and whether Nearby is on
+ * @returns True when the sheet should be mounted
+ */
+export function shouldShowFeedSheet({
+  hasSelection,
+  isNearbyActive,
+}: Pick<FeedSheetCloseInput, 'hasSelection' | 'isNearbyActive'>): boolean {
+  return hasSelection || isNearbyActive;
+}
+
+/**
+ * Picks what closing the sheet does, from why the sheet is open.
+ *
+ * A selection is closed first, so with Nearby on the sheet falls back to the
+ * Nearby list. With no selection the sheet is the Nearby list itself, and
+ * closing it turns Nearby off so the chip and the list stay in step.
+ *
+ * @param input - The sheet's reasons to be open and the two ways to close it
+ * @returns The handler to run when the user closes the sheet
+ */
+export function selectFeedSheetCloseHandler({
+  hasSelection,
+  isNearbyActive,
+  clearSelection,
+  turnOffNearby,
+}: FeedSheetCloseInput): () => void {
+  if (hasSelection) return clearSelection;
+  return isNearbyActive ? turnOffNearby : (): void => {};
+}
+
 /**
  * Where the camera should move to expand a cluster the sheet is showing.
  *

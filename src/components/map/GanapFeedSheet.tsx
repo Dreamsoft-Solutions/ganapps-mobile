@@ -10,6 +10,7 @@ import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { GanapFeedCard } from '@/components/lists/GanapFeedCard';
 import { Colors } from '@/constants/theme';
+import { MIN_TOUCH_TARGET } from '@/constants/touch-target';
 import type { UseGanapsResult } from '@/hooks/useGanaps';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { GanapListItem } from '@/types/ganap.types';
@@ -47,14 +48,29 @@ export interface GanapFeedSheetProps {
   clusterIndex: GanapClusterIndex;
   onSelectGanap: (ganap: GanapListItem) => void;
   onClearSelection: (reason?: 'keep-current') => void;
+  /**
+   * The user closed the sheet, by swiping it down or with the close button. The
+   * screen decides what that means: clearing a selection, or turning Nearby off.
+   */
+  onClose: () => void;
   onZoomToCluster: (target: ClusterZoomTarget) => void;
 }
+
+/** Icon size of the header's zoom-in and close buttons, in points. */
+const HEADER_ACTION_ICON_SIZE = 20;
+
+/**
+ * Slop on each edge that brings the header icons up to the 48-point floor in
+ * `docs/DESIGN.md` without making them look bigger. The header's `gap-xl` keeps
+ * the two slopped areas from overlapping.
+ */
+const HEADER_ACTION_HIT_SLOP: number = (MIN_TOUCH_TARGET - HEADER_ACTION_ICON_SIZE) / 2;
 
 interface FeedSheetHeaderProps {
   title: string;
   mode: FeedSheetMode;
   onZoomIn: () => void;
-  onClearSelection: () => void;
+  onClose: () => void;
 }
 
 /**
@@ -74,7 +90,7 @@ interface FeedSheetHeaderProps {
  * @param props - The title, the current mode, and the two actions
  * @returns The handle
  */
-function FeedSheetHeader({ title, mode, onZoomIn, onClearSelection }: FeedSheetHeaderProps): ReactElement {
+function FeedSheetHeader({ title, mode, onZoomIn, onClose }: FeedSheetHeaderProps): ReactElement {
   const theme = useResolvedTheme();
 
   return (
@@ -86,17 +102,25 @@ function FeedSheetHeader({ title, mode, onZoomIn, onClearSelection }: FeedSheetH
           {title}
         </Text>
 
-        <View className="flex-row items-center gap-sm">
+        <View className="flex-row items-center gap-xl">
           {mode === 'cluster' && (
-            <Pressable onPress={onZoomIn} accessibilityRole="button" accessibilityLabel="Zoom in to this area">
-              <ZoomIn size={20} color={Colors[theme].primary} />
+            <Pressable
+              onPress={onZoomIn}
+              hitSlop={HEADER_ACTION_HIT_SLOP}
+              accessibilityRole="button"
+              accessibilityLabel="Zoom in to this area"
+            >
+              <ZoomIn size={HEADER_ACTION_ICON_SIZE} color={Colors[theme].primary} />
             </Pressable>
           )}
-          {mode !== 'browse' && (
-            <Pressable onPress={onClearSelection} accessibilityRole="button" accessibilityLabel="Close events list">
-              <X size={20} color={Colors[theme]['muted-foreground']} />
-            </Pressable>
-          )}
+          <Pressable
+            onPress={onClose}
+            hitSlop={HEADER_ACTION_HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel="Close events list"
+          >
+            <X size={HEADER_ACTION_ICON_SIZE} color={Colors[theme]['muted-foreground']} />
+          </Pressable>
         </View>
       </View>
     </View>
@@ -176,10 +200,12 @@ function FeedSheetBody({
 }
 
 /**
- * The map tab's selection sheet, mounted for a selected pin or cluster.
+ * The map tab's event list sheet, mounted for a selected pin or cluster, or
+ * while the Nearby filter is on.
  *
- * It keeps the map unobstructed until the user selects a map feature, then shows
- * the selected Ganap or the selected cluster's leaves.
+ * It keeps the map unobstructed otherwise. A selection shows the selected Ganap
+ * or the selected cluster's leaves; with no selection, the sheet is the Nearby
+ * list, which is the same filtered feed the map's pins come from.
  *
  * In `cluster` mode the list is the cluster's leaves — a local array derived
  * from the map's single large page — not the infinite feed.
@@ -198,6 +224,7 @@ export function GanapFeedSheet({
   clusterIndex,
   onSelectGanap,
   onClearSelection,
+  onClose,
   onZoomToCluster,
 }: GanapFeedSheetProps): ReactElement {
   const sheetRef = useRef<BottomSheet>(null);
@@ -238,9 +265,9 @@ export function GanapFeedSheet({
 
   const handleSheetChange = useCallback(
     (index: number): void => {
-      if (index < 0) onClearSelection();
+      if (index < 0) onClose();
     },
-    [onClearSelection],
+    [onClose],
   );
 
   const handleZoomIn = useCallback((): void => {
@@ -257,10 +284,8 @@ export function GanapFeedSheet({
   }, [clusterIndex, onZoomToCluster, onClearSelection, selectedCluster]);
 
   const renderHandle = useCallback(
-    (): ReactElement => (
-      <FeedSheetHeader title={title} mode={mode} onZoomIn={handleZoomIn} onClearSelection={onClearSelection} />
-    ),
-    [title, mode, handleZoomIn, onClearSelection],
+    (): ReactElement => <FeedSheetHeader title={title} mode={mode} onZoomIn={handleZoomIn} onClose={onClose} />,
+    [title, mode, handleZoomIn, onClose],
   );
 
   return (

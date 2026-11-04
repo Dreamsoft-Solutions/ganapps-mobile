@@ -302,9 +302,22 @@ Used for selectable items such as interests.
 
 ## Dark mode
 
-Dark mode is driven by `react-native`'s `useColorScheme` hook. A `ThemeProvider`
-applies the `.dark` class to the root view. Tailwind is configured with
-`darkMode: 'class'`.
+The user picks Light, Dark or System in Settings; `useResolvedTheme` resolves that
+against the device. `ThemeProvider` passes the choice to NativeWind's
+`colorScheme.set`, and Tailwind is configured with `darkMode: 'class'`.
+
+`ThemeProvider`'s root view always carries exactly one theme class, `light` or
+`dark`. In `src/global.css` the light palette is declared under `:root, .light` and
+the dark palette under `.dark`, so the root view sets CSS variables from its first
+render. Keep it that way:
+
+- Don't drop the `light` class or apply a theme class only in dark mode.
+  react-native-css-interop re-wraps a view that gains CSS variables after its first
+  render, which remounts everything under it. On the root view that meant the first
+  theme switch in a session reset navigation to the home screen (DS-215).
+- Don't move the dark palette to `.dark:root`. Those root variables follow the
+  native appearance, which a newly opened window (the dev LogBox, for one) can reset
+  to the system theme while the user has chosen Light or Dark.
 
 Always test both themes when adding new UI.
 
