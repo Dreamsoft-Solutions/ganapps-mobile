@@ -31,7 +31,12 @@ import { useGanapDiscovery } from '@/hooks/useGanapDiscovery';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
-import { FEED_SHEET_PEEK_HEIGHT, resolveClusterZoomTarget } from '@/utils/feed-sheet';
+import {
+  FEED_SHEET_PEEK_HEIGHT,
+  resolveClusterZoomTarget,
+  selectFeedSheetCloseHandler,
+  shouldShowFeedSheet,
+} from '@/utils/feed-sheet';
 import {
   CLUSTER_EXPANSION_MAX_ZOOM,
   type ClusterZoomTarget,
@@ -216,8 +221,9 @@ const MAP_OVERLAY_BOTTOM: number = FEED_SHEET_PEEK_HEIGHT;
  * Home screen for authenticated users.
  *
  * Full-screen Mapbox map of discoverable Ganaps across Iloilo City, with a
- * floating search bar, category chips, the Nearby distance filter, and a
- * selected-event card.
+ * floating search bar, category chips, the Nearby distance filter, and an
+ * event list sheet. The sheet shows a selected pin or cluster, or the Nearby
+ * list while Nearby is on; closing a Nearby list turns Nearby off.
  *
  * @returns The map home screen
  */
@@ -277,6 +283,7 @@ export default function HomeScreen(): ReactElement {
 
   const activeCluster: GanapClusterFeature | null = selectedClusterIndex === clusterIndex ? selectedCluster : null;
   const hasActiveSelection: boolean = selectedGanap !== null || activeCluster !== null;
+  const isFeedSheetVisible: boolean = shouldShowFeedSheet({ hasSelection: hasActiveSelection, isNearbyActive });
 
   useEffect(() => {
     if (MAPBOX_TOKEN) {
@@ -495,6 +502,17 @@ export default function HomeScreen(): ReactElement {
     });
   }, []);
 
+  const handleFeedSheetClose = useMemo(
+    (): (() => void) =>
+      selectFeedSheetCloseHandler({
+        hasSelection: hasActiveSelection,
+        isNearbyActive,
+        clearSelection: (): void => handleClearSelection(),
+        turnOffNearby: nearby.toggle,
+      }),
+    [handleClearSelection, hasActiveSelection, isNearbyActive, nearby.toggle],
+  );
+
   const handleMapPress = useCallback((): void => {
     handleMapPressWithGuard({
       isSelectionActive: isSelectionActiveRef,
@@ -676,7 +694,7 @@ export default function HomeScreen(): ReactElement {
 
       <MapControlsOverlay
         side="left"
-        hasSelection={hasActiveSelection}
+        isSheetVisible={isFeedSheetVisible}
         mapHeight={mapHeight}
         sheetPosition={sheetPosition}
         topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
@@ -692,7 +710,7 @@ export default function HomeScreen(): ReactElement {
 
       <MapControlsOverlay
         side="right"
-        hasSelection={hasActiveSelection}
+        isSheetVisible={isFeedSheetVisible}
         mapHeight={mapHeight}
         sheetPosition={sheetPosition}
         topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
@@ -708,7 +726,7 @@ export default function HomeScreen(): ReactElement {
         onDismiss={nearby.dismissPriming}
       />
 
-      {hasActiveSelection && (
+      {isFeedSheetVisible && (
         <GanapFeedSheet
           feed={feed}
           hasActiveFilters={hasActiveFilters}
@@ -720,6 +738,7 @@ export default function HomeScreen(): ReactElement {
           clusterIndex={clusterIndex}
           onSelectGanap={handleOpenGanap}
           onClearSelection={handleClearSelection}
+          onClose={handleFeedSheetClose}
           onZoomToCluster={handleClusterZoomIn}
         />
       )}
