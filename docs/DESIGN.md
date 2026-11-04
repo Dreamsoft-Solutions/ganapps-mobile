@@ -311,6 +311,9 @@ Always test both themes when adding new UI.
 ## Brand assets
 
 - Logo mark (square): `assets/brand/ganap-logo-1.png`
+- Logo mark (round): `assets/brand/ganap-logo-round.png` — the square mark cut to the centered
+  circle Android's splash mask shows, used for the iOS splash so both platforms launch with the
+  same round mark
 - Logo with wordmark: `assets/brand/ganap-logo-white-text.png`
 - Default avatar: `assets/images/default-avatar.jpg`
 

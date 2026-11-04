@@ -1,6 +1,5 @@
 import {
   ArrowLeft,
-  BellRing,
   Calendar,
   Clock,
   Globe,
@@ -24,6 +23,7 @@ import { formatInterestLabel } from '@/constants/interests';
 import { Colors, Spacing } from '@/constants/theme';
 import { useEventTime } from '@/hooks/useEventTime';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import type { BusinessDetail } from '@/types/business.types';
 import type { ReactionType } from '@/types/chat.types';
 import type { FriendUserSummary } from '@/types/friends.types';
 import type { GanapAnnouncement, GanapDetail } from '@/types/ganap.types';
@@ -41,6 +41,8 @@ function noop(): void {}
 /** Data and callbacks the Event Hub screen needs to render, with no API ownership. */
 export interface EventHubViewProps {
   ganap: GanapDetail;
+  /** Organization profile, used for the announcement author's name and logo once it loads. */
+  business?: BusinessDetail;
   schedule: GanapScheduleModel;
   announcements: GanapAnnouncement[];
   total: number;
@@ -179,34 +181,6 @@ function ScheduleItem({ icon, label, value }: ScheduleItemProps): ReactElement {
         <Text className="font-inter-semibold text-label-md text-muted-foreground">{label}</Text>
         <Text className="mt-1 font-inter-semibold text-body-md">{value}</Text>
       </View>
-    </View>
-  );
-}
-
-/**
- * Compact disabled row standing in for event reminders until DS-39 lands.
- *
- * @returns A visibly unavailable reminders row with disabled accessibility state.
- */
-function EventRemindersRow(): ReactElement {
-  const theme = useResolvedTheme();
-
-  return (
-    <View
-      accessible
-      accessibilityRole="button"
-      accessibilityLabel="Event reminders, coming soon"
-      accessibilityHint="Event reminders will be available in a later release"
-      accessibilityState={{ disabled: true }}
-      className="flex-row items-center justify-between rounded-lg border border-border bg-muted px-md py-sm opacity-50"
-    >
-      <View className="min-w-0 flex-1 flex-row items-center">
-        <View className="mr-sm">
-          <BellRing size={16} color={Colors[theme]['muted-foreground']} />
-        </View>
-        <Text className="min-w-0 flex-1 text-body-md text-muted-foreground">Event Reminders</Text>
-      </View>
-      <Text className="ml-sm text-label-sm text-muted-foreground">Coming soon</Text>
     </View>
   );
 }
@@ -497,10 +471,7 @@ function EventHubFooter({
             onPress={scanState === 'available' ? onScanAttendance : noop}
           />
         </View>
-        <View className="mb-sm">
-          <FeedbackRow state={feedbackState} onPress={feedbackState.kind === 'actionable' ? onGiveFeedback : noop} />
-        </View>
-        <EventRemindersRow />
+        <FeedbackRow state={feedbackState} onPress={feedbackState.kind === 'actionable' ? onGiveFeedback : noop} />
       </View>
     </>
   );
@@ -519,6 +490,7 @@ function EventHubFooter({
  */
 export function EventHubView({
   ganap,
+  business,
   schedule,
   announcements,
   total,
@@ -553,6 +525,8 @@ export function EventHubView({
   const theme = useResolvedTheme();
   const stackSchedule: boolean = width < 375 || fontScale >= 1.3;
   const address: string | null = ganap.address?.trim() || null;
+  const organizerName: string = business?.name || ganap.businessName;
+  const organizerLogo: string | null = business?.displayPicture ?? null;
   const hasInitialError: boolean = Boolean(announcementError) && announcements.length === 0;
   const announcementEmptyState: ReactElement = (
     <EventHubEmptyState
@@ -601,6 +575,8 @@ export function EventHubView({
           renderItem={({ item }: ListRenderItemInfo<GanapAnnouncement>): ReactElement => (
             <AnnouncementCard
               announcement={item}
+              organizationName={organizerName}
+              organizationLogo={organizerLogo}
               onReaction={(reaction: ReactionType | null): void => onAnnouncementReaction(item, reaction)}
               reactionPending={announcementReactionPendingId === item.id}
             />

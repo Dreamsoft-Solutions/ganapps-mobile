@@ -104,8 +104,8 @@ accepted in exchange for a binary that launches.
 module without adding its pod name breaks the build with an error that points at a header, not
 at this list. DS-92 removed `RNFBAnalytics` when Firebase Analytics stopped being autolinked
 (ADR 0006), so the Decision block above shows the list as it stood on 2026-09-06.
-`app.config.test.ts` now compares the list with the Firebase pods Expo actually autolinks, so a
-missing or stale name fails `npm run test`.
+ADR 0007 removed the test that compared the list with the Firebase pods Expo autolinks. Inspect
+the autolinking output when Firebase modules change.
 
 **The three settings are a set.** Removing any one reintroduces a distinct failure, one of which
 (the dyld symbol mismatch) appears only at launch and not at build time. `AGENTS.md` carries the

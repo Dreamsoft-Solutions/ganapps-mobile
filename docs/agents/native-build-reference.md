@@ -110,8 +110,8 @@ breaks the build again, in a way whose error message does not point back here.
   (`usePrecompiledModules` covers only Expo's modules), and on RN 0.84+ / Expo 54+ with
   prebuilt core every RNFB native module must be listed here. Otherwise its headers fail
   `-Werror=non-modular-include-in-framework-module` on `#import <React/RCTBridgeModule.h>`.
-  It must name exactly the `RNFB*` pods Expo autolinks; `app.config.test.ts` runs the Podfile's
-  own autolinking command and fails on a missing or stale entry.
+  It must name exactly the `RNFB*` pods Expo autolinks. Check the Podfile's autolinking output
+  when Firebase modules change; Pact does not check this list.
 
 `@react-native-firebase/app` is pinned at 25.1.0, which has no SPM support and so no
 `disableSPM` plugin option — the package contains no such string. RNFirebase's docs pair
@@ -170,7 +170,7 @@ with **ITMS-90683** if the key is missing — "while your app might not use thes
 purpose string is still required". That is what happened to build 3 on 2026-09-25, after
 `motionUsagePermission: false` had removed the key (DS-144). The app never requests motion
 access, so iOS never shows this string, and the App Privacy labels (DS-83) must not declare
-Motion & Fitness data. A test in `app.config.test.ts` fails if the string is removed.
+Motion & Fitness data. Check the resolved native configuration when this setting changes.
 
 `microphonePermission: false` on `expo-camera` and `expo-image-picker` stays. expo-camera
 contains audio-capture code, but Apple's ITMS-90683 check on build 3 listed only the motion key.
@@ -180,7 +180,7 @@ Re-check the processing email after upgrading either library.
 `expo-media-library`. Whichever runs last wins, and `photosPermission: false` on either one
 deletes the key outright. For a while `expo-media-library` had `false`, which silently removed the
 image picker's string from the resolved Info.plist. Both plugins must carry the same app-written
-`photosPermission`, and a test in `app.config.test.ts` enforces it. Saving the QR image uses the
+`photosPermission`. Check the resolved native configuration when either plugin changes. Saving the QR image uses the
 separate `NSPhotoLibraryAddUsageDescription` (`savePhotosPermission`).
 
 ---

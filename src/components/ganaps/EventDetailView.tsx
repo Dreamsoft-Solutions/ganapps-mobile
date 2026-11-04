@@ -153,12 +153,9 @@ function ScheduleItem({ icon, label, value }: ScheduleItemProps): ReactElement {
 
 type EventDetailTheme = 'light' | 'dark';
 
-interface EventDetailHeroProps {
-  ganap: GanapDetail;
+interface EventDetailTopBarProps {
   insetsTop: number;
-  sourceUrl: string | null;
-  imageFailed: boolean;
-  imageTransition: number;
+  theme: EventDetailTheme;
   isLiked: boolean;
   isLikePending: boolean;
   likeColor: string;
@@ -169,15 +166,16 @@ interface EventDetailHeroProps {
   onShare: () => void | Promise<void>;
   onToggleLike: () => void | Promise<void>;
   onToggleSave: () => void | Promise<void>;
-  onImageError: () => void;
 }
 
-function EventDetailHero({
-  ganap,
+/**
+ * Fixed header above the scrolling content, matching the Event Hub's top bar.
+ * Kept outside the `ScrollView` so the banner is never covered and the buttons
+ * stay put while the content scrolls or is pulled to refresh.
+ */
+function EventDetailTopBar({
   insetsTop,
-  sourceUrl,
-  imageFailed,
-  imageTransition,
+  theme,
   isLiked,
   isLikePending,
   likeColor,
@@ -188,6 +186,71 @@ function EventDetailHero({
   onShare,
   onToggleLike,
   onToggleSave,
+}: EventDetailTopBarProps): ReactElement {
+  return (
+    <View className="border-b border-border bg-background px-md pb-sm" style={{ paddingTop: insetsTop + Spacing.md }}>
+      <View className="flex-row items-center justify-between">
+        <IconButton
+          variant="default"
+          accessibilityLabel="Go back"
+          accessibilityHint="Returns to the previous screen"
+          onPress={onBack}
+        >
+          <ArrowLeft size={20} color={Colors[theme].foreground} />
+        </IconButton>
+
+        <View className="flex-row gap-sm">
+          <IconButton
+            variant="default"
+            accessibilityLabel="Share event"
+            accessibilityHint="Opens the device share sheet"
+            onPress={(): void => {
+              void onShare();
+            }}
+          >
+            <Share2 size={18} color={Colors[theme].foreground} />
+          </IconButton>
+          <IconButton
+            variant="default"
+            selected={isLiked}
+            disabled={isLikePending}
+            accessibilityLabel={isLiked ? 'Unlike event' : 'Like event'}
+            onPress={(): void => {
+              void onToggleLike();
+            }}
+          >
+            <Heart size={18} color={likeColor} fill={isLiked ? likeColor : 'none'} />
+          </IconButton>
+          <IconButton
+            variant="default"
+            selected={isSaved}
+            disabled={isSavePending}
+            accessibilityLabel={isSaved ? 'Unsave event' : 'Save event'}
+            onPress={(): void => {
+              void onToggleSave();
+            }}
+          >
+            <Bookmark size={18} color={saveColor} fill={isSaved ? saveColor : 'none'} />
+          </IconButton>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+interface EventDetailHeroProps {
+  ganap: GanapDetail;
+  sourceUrl: string | null;
+  imageFailed: boolean;
+  imageTransition: number;
+  onImageError: () => void;
+}
+
+function EventDetailHero({
+  ganap,
+  sourceUrl,
+  imageFailed,
+  imageTransition,
   onImageError,
 }: EventDetailHeroProps): ReactElement {
   return (
@@ -206,55 +269,6 @@ function EventDetailHero({
           <Calendar size={48} className="text-muted-foreground" />
         </View>
       )}
-
-      <View
-        className="absolute left-0 right-0 flex-row items-center justify-between px-md"
-        style={{ top: insetsTop + 8 }}
-      >
-        <IconButton
-          variant="default"
-          accessibilityLabel="Go back"
-          accessibilityHint="Returns to the previous screen"
-          onPress={onBack}
-        >
-          <ArrowLeft size={24} className="text-foreground" />
-        </IconButton>
-
-        <View className="flex-row gap-sm">
-          <IconButton
-            variant="default"
-            accessibilityLabel="Share event"
-            accessibilityHint="Opens the device share sheet"
-            onPress={(): void => {
-              void onShare();
-            }}
-          >
-            <Share2 size={22} className="text-foreground" />
-          </IconButton>
-          <IconButton
-            variant="default"
-            selected={isLiked}
-            disabled={isLikePending}
-            accessibilityLabel={isLiked ? 'Unlike event' : 'Like event'}
-            onPress={(): void => {
-              void onToggleLike();
-            }}
-          >
-            <Heart size={22} color={likeColor} fill={isLiked ? likeColor : 'none'} />
-          </IconButton>
-          <IconButton
-            variant="default"
-            selected={isSaved}
-            disabled={isSavePending}
-            accessibilityLabel={isSaved ? 'Unsave event' : 'Save event'}
-            onPress={(): void => {
-              void onToggleSave();
-            }}
-          >
-            <Bookmark size={22} color={saveColor} fill={isSaved ? saveColor : 'none'} />
-          </IconButton>
-        </View>
-      </View>
     </View>
   );
 }
@@ -539,6 +553,21 @@ export function EventDetailView({
 
   return (
     <View className="flex-1 bg-background">
+      <EventDetailTopBar
+        insetsTop={insets.top}
+        theme={theme}
+        isLiked={isLiked}
+        isLikePending={isLikePending}
+        likeColor={likeColor}
+        isSaved={isSaved}
+        isSavePending={isSavePending}
+        saveColor={saveColor}
+        onBack={onBack}
+        onShare={onShare}
+        onToggleLike={onToggleLike}
+        onToggleSave={onToggleSave}
+      />
+
       <ScrollView
         testID="event-detail-scroll"
         className="flex-1"
@@ -555,20 +584,9 @@ export function EventDetailView({
         <View className="w-full max-w-3xl self-center">
           <EventDetailHero
             ganap={ganap}
-            insetsTop={insets.top}
             sourceUrl={sourceUrl}
             imageFailed={imageFailed}
             imageTransition={imageTransition}
-            isLiked={isLiked}
-            isLikePending={isLikePending}
-            likeColor={likeColor}
-            isSaved={isSaved}
-            isSavePending={isSavePending}
-            saveColor={saveColor}
-            onBack={onBack}
-            onShare={onShare}
-            onToggleLike={onToggleLike}
-            onToggleSave={onToggleSave}
             onImageError={(): void => setImageFailed(true)}
           />
 

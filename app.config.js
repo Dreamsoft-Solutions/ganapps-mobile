@@ -221,6 +221,9 @@ module.exports = {
           backgroundColor: '#22C55E',
           image: './assets/brand/ganap-logo-1.png',
           imageWidth: 200,
+          ios: {
+            image: './assets/brand/ganap-logo-round.png',
+          },
         },
       ],
       [

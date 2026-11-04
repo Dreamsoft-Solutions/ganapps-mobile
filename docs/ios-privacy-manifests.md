@@ -80,8 +80,7 @@ Not counted: `ExpoSharing` reads App Group defaults only when receiving shares, 
 App Group entitlement. RNFBAuth's `creationDate` is Firebase account metadata, not a file timestamp.
 `libdav1d` calls `mach_absolute_time` only in its command-line tool, which is not compiled in.
 
-`app.config.js` declares these four reasons itself under `ios.privacyManifests`, and
-`app.config.test.ts` pins them. Other SDK manifests and React Native core already declared the same
+`app.config.js` declares these four reasons itself under `ios.privacyManifests`. Other SDK manifests and React Native core already declared the same
 reasons, so after `npx expo prebuild --clean` the generated manifest lists the same categories and
 reasons as before. Its only new key is an empty `NSPrivacyTrackingDomains` array, which Expo always
 writes. Declaring the reasons in `app.config.js` keeps the manifest correct if another SDK's
@@ -207,8 +206,8 @@ Chat images are re-encoded to WebP by the server without metadata.
 - iOS push ships (DS-135).
 - An analytics or crash-reporting SDK is added.
 - Mapbox, Google Sign-In or Firebase change what they collect.
-- A Ganapps feature collects a new kind of data: update `ios.privacyManifests` in `app.config.js`,
-  its test in `app.config.test.ts`, and this table together.
+- A Ganapps feature collects a new kind of data: update `ios.privacyManifests` in `app.config.js`
+  and this table together, then inspect the resolved manifest.
 - The server starts keeping something it discards today, such as chat image originals.
 
 ## Re-check

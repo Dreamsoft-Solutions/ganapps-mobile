@@ -63,9 +63,8 @@ narrowest screen the app supports. The iOS deployment target is 16.4, which excl
 | iPhone 15 / 16 / 17 | 393 pt | 2.80 km |
 | iPhone 17 Pro Max | 440 pt | 3.13 km |
 
-`src/utils/map-viewport.test.ts` asserts this for every width in
-`SUPPORTED_VIEWPORT_WIDTHS_POINTS`, so raising the zoom past roughly 13.49 fails a test
-rather than quietly cropping the map on small phones.
+ADR 0007 removed the test for `SUPPORTED_VIEWPORT_WIDTHS_POINTS`. Check these widths when
+changing the zoom; a value above roughly 13.49 crops the map on small phones.
 
 **The viewport deliberately does not cover the whole matched area.** At
 `NEARBY_RADIUS_KM = 2` the filter spans 4 km, while the widest screen shows 3.13 km. Nearby
