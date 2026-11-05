@@ -31,8 +31,12 @@ const TAB_ROUTES: TabRoute[] = [
     name: '(home)',
     label: 'Map',
     renderIcon: (isActive: boolean): ReactNode => (
-      <View className={`overflow-hidden rounded-full border-2 ${isActive ? ACTIVE_BORDER : INACTIVE_BORDER}`}>
-        <Image source={Assets.logoIcon} style={{ width: LOGO_SIZE, height: LOGO_SIZE }} contentFit="cover" />
+      <View className={`rounded-full border-2 ${isActive ? ACTIVE_BORDER : INACTIVE_BORDER}`}>
+        <Image
+          source={Assets.logoIcon}
+          style={{ width: LOGO_SIZE, height: LOGO_SIZE, borderRadius: LOGO_SIZE / 2 }}
+          contentFit="cover"
+        />
       </View>
     ),
   },
@@ -87,6 +91,11 @@ export const BAR_HEIGHT: number = 72;
  * Bottom tab bar with brand elements: the logo anchors the Map tab and the
  * user's avatar anchors the Profile tab, both framed by a primary border when
  * active. The Friends tab shows a primary dot and announces its unread state.
+ *
+ * The logo image rounds itself rather than relying on its ring to clip it. The
+ * logo file is an opaque square, and on iOS a view clips to the outer edge of
+ * its border, so a ring that is transparent while the Map tab is inactive left
+ * the square's flat sides showing (DS-216).
  *
  * The surface colour and the hairline live on the outer wrapper so they cover
  * the safe-area inset too. Painting only the {@link BAR_HEIGHT} row leaves the
