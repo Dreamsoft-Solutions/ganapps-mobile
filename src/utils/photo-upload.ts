@@ -17,6 +17,7 @@ function isHeifExtension(value: string | null | undefined): boolean {
 }
 
 type PhotoFormat = 'jpeg' | 'png' | 'webp' | 'gif' | 'heif' | 'heif-sequence' | 'unsupported' | 'unknown';
+type UploadablePhotoFormat = Exclude<PhotoFormat, 'heif' | 'heif-sequence' | 'unsupported' | 'unknown'>;
 
 function ascii(bytes: Uint8Array, start: number, end: number): string {
   return String.fromCharCode(...bytes.slice(start, end));
@@ -92,9 +93,7 @@ function filenameForMime(mimeType: string): string {
   return 'photo.jpg';
 }
 
-function mimeForPhotoFormat(
-  format: Exclude<PhotoFormat, 'heif' | 'heif-sequence' | 'unsupported' | 'unknown'>,
-): string {
+function mimeForPhotoFormat(format: UploadablePhotoFormat): string {
   return `image/${format}`;
 }
 
@@ -136,22 +135,39 @@ async function photoToJpegWithinLimit(original: ImageRef, asset: ImagePickerAsse
   );
 
   for (const edge of edges) {
-    const resized: ImageRef =
-      edge < longestEdge
-        ? await ImageManipulator.manipulate(original)
-            .resize(original.width >= original.height ? { width: edge } : { height: edge })
-            .renderAsync()
-        : original;
-    const prepared: ImagePickerAsset | null = await saveJpegWithinLimit(resized, asset);
-    if (prepared) return prepared;
+    const resized: ImageRef = edge < longestEdge ? await resizePhoto(original, edge) : original;
+    try {
+      const prepared: ImagePickerAsset | null = await saveJpegWithinLimit(resized, asset);
+      if (prepared) return prepared;
+    } finally {
+      if (resized !== original) resized.release();
+    }
   }
   throw new Error('Photo is too large.');
 }
 
 async function decodePhoto(uri: string): Promise<ImageRef> {
-  const image: ImageRef = await ImageManipulator.manipulate(uri).renderAsync();
-  if (image.width <= 0 || image.height <= 0) throw new Error('Could not read the photo.');
-  return image;
+  const context = ImageManipulator.manipulate(uri);
+  let image: ImageRef | null = null;
+  try {
+    image = await context.renderAsync();
+    if (image.width <= 0 || image.height <= 0) throw new Error('Could not read the photo.');
+    return image;
+  } finally {
+    context.release();
+    if (image && (image.width <= 0 || image.height <= 0)) image.release();
+  }
+}
+
+async function resizePhoto(image: ImageRef, edge: number): Promise<ImageRef> {
+  const context = ImageManipulator.manipulate(image).resize(
+    image.width >= image.height ? { width: edge } : { height: edge },
+  );
+  try {
+    return await context.renderAsync();
+  } finally {
+    context.release();
+  }
 }
 
 function isOversizedJpeg(format: PhotoFormat, fileSize: number): boolean {
@@ -160,6 +176,31 @@ function isOversizedJpeg(format: PhotoFormat, fileSize: number): boolean {
 
 function resolveHeifPhotoFormat(format: PhotoFormat, asset: ImagePickerAsset): PhotoFormat {
   return format === 'unknown' && hasHeifMetadata(asset) ? 'heif' : format;
+}
+
+function photoWithDetectedFormat(
+  asset: ImagePickerAsset,
+  format: UploadablePhotoFormat,
+  fileSize: number,
+  image: ImageRef,
+): ImagePickerAsset {
+  const mimeType: string = mimeForPhotoFormat(format);
+  const extensionMatchesFormat: boolean =
+    (mimeType === 'image/jpeg' && ['jpg', 'jpeg'].includes(extension(asset.fileName))) ||
+    (mimeType === 'image/png' && extension(asset.fileName) === 'png') ||
+    (mimeType === 'image/webp' && extension(asset.fileName) === 'webp') ||
+    (mimeType === 'image/gif' && extension(asset.fileName) === 'gif');
+  return {
+    ...asset,
+    mimeType,
+    fileName:
+      asset.fileName && (!extension(asset.fileName) || extensionMatchesFormat)
+        ? asset.fileName
+        : filenameForMime(mimeType),
+    fileSize,
+    width: image.width,
+    height: image.height,
+  };
 }
 
 /**
@@ -178,32 +219,24 @@ async function preparePhotoForUpload(
   if (format === 'heif-sequence') throw new Error('Choose a still photo.');
   if (format === 'heif') {
     const image: ImageRef = await decodePhoto(asset.uri);
-    return photoToJpegWithinLimit(image, asset);
+    try {
+      return await photoToJpegWithinLimit(image, asset);
+    } finally {
+      image.release();
+    }
   }
   if (format === 'unknown' || format === 'unsupported') {
     throw new Error('Choose a JPEG, PNG, WebP, or GIF photo.');
   }
   const image: ImageRef = await decodePhoto(asset.uri);
-  if (compressOversizedJpeg && isOversizedJpeg(format, inspected.fileSize)) {
-    return photoToJpegWithinLimit(image, asset);
+  try {
+    if (compressOversizedJpeg && isOversizedJpeg(format, inspected.fileSize)) {
+      return await photoToJpegWithinLimit(image, asset);
+    }
+    return photoWithDetectedFormat(asset, format, inspected.fileSize, image);
+  } finally {
+    image.release();
   }
-  const mimeType: string = mimeForPhotoFormat(format);
-  const extensionMatchesFormat: boolean =
-    (mimeType === 'image/jpeg' && ['jpg', 'jpeg'].includes(extension(asset.fileName))) ||
-    (mimeType === 'image/png' && extension(asset.fileName) === 'png') ||
-    (mimeType === 'image/webp' && extension(asset.fileName) === 'webp') ||
-    (mimeType === 'image/gif' && extension(asset.fileName) === 'gif');
-  return {
-    ...asset,
-    mimeType,
-    fileName:
-      asset.fileName && (!extension(asset.fileName) || extensionMatchesFormat)
-        ? asset.fileName
-        : filenameForMime(mimeType),
-    fileSize: inspected.fileSize,
-    width: image.width,
-    height: image.height,
-  };
 }
 
 /**

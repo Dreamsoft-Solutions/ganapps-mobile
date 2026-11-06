@@ -43,6 +43,7 @@ export function OnboardingForm(): ReactElement {
   const { user, updateProfile, updateProfileMutation } = useAuth();
   const [step, setStep] = useState<Step>('names');
   const [localAvatar, setLocalAvatar] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [isPreparingAvatar, setIsPreparingAvatar] = useState<boolean>(false);
 
   const methods = useForm<OnboardingFormData>({
     resolver: zodResolver(onboardingSchema),
@@ -68,12 +69,15 @@ export function OnboardingForm(): ReactElement {
         quality: 0.8,
       });
       if (!result.canceled && result.assets[0]) {
+        setIsPreparingAvatar(true);
         const photo: ImagePicker.ImagePickerAsset = await prepareProfileUploadPhoto(result.assets[0]);
         setLocalAvatar(photo);
         methods.setValue('displayPicture', photo.uri);
       }
     } catch {
       showToast('error', 'Could not use this photo. Choose another photo or try again.');
+    } finally {
+      setIsPreparingAvatar(false);
     }
   }, [methods]);
 
@@ -120,6 +124,7 @@ export function OnboardingForm(): ReactElement {
   }, [user]);
 
   const submitExtras = useCallback(async (): Promise<void> => {
+    if (isPreparingAvatar) return;
     const { interests } = methods.getValues();
     const hasInterests = !!interests && interests.length > 0;
 
@@ -146,13 +151,14 @@ export function OnboardingForm(): ReactElement {
     } catch (_error) {
       // Rendered below. Step two is optional, so the user can still skip past a failure.
     }
-  }, [methods, localAvatar, seedPromptCooldown, updateProfile, router]);
+  }, [isPreparingAvatar, methods, localAvatar, seedPromptCooldown, updateProfile, router]);
 
   const skipExtras = useCallback((): void => {
+    if (isPreparingAvatar) return;
     // Names were already saved in step one, so skipping needs no request and cannot fail.
     seedPromptCooldown();
     router.replace(Routes.app.home);
-  }, [seedPromptCooldown, router]);
+  }, [isPreparingAvatar, seedPromptCooldown, router]);
 
   const fullName = `${methods.watch('firstName') ?? ''} ${methods.watch('lastName') ?? ''}`.trim();
 
@@ -201,7 +207,7 @@ export function OnboardingForm(): ReactElement {
             </View>
 
             <View className="items-center mb-8">
-              <Pressable onPress={pickAvatar} className="relative">
+              <Pressable onPress={pickAvatar} className="relative" disabled={isPreparingAvatar}>
                 <Avatar src={localAvatar?.uri ?? null} name={fullName} size="lg" />
                 <View className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary items-center justify-center border-2 border-background shadow">
                   <Camera size={14} color="#FFFFFF" />
@@ -228,12 +234,12 @@ export function OnboardingForm(): ReactElement {
 
             {submitError && <Text className="text-destructive text-body-md mb-2">{submitError.message}</Text>}
 
-            <Button onPress={submitExtras} loading={updateProfileMutation.isPending} size="lg">
+            <Button onPress={submitExtras} loading={isPreparingAvatar || updateProfileMutation.isPending} size="lg">
               Finish
             </Button>
 
             <View className="items-center mt-2">
-              <Button variant="ghost" size="sm" onPress={skipExtras}>
+              <Button variant="ghost" size="sm" onPress={skipExtras} disabled={isPreparingAvatar}>
                 Skip for Now
               </Button>
             </View>

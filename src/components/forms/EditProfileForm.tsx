@@ -33,6 +33,7 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
   const router = useRouter();
   const updateProfileMutation = useUpdateProfileMutation();
   const [localAvatar, setLocalAvatar] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [isPreparingAvatar, setIsPreparingAvatar] = useState<boolean>(false);
   const methods = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: getProfileDefaults(user),
@@ -54,10 +55,13 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
         quality: 0.8,
       });
       if (!result.canceled && result.assets[0]) {
+        setIsPreparingAvatar(true);
         setLocalAvatar(await prepareProfileUploadPhoto(result.assets[0]));
       }
     } catch {
       showToast('error', 'Could not use this photo. Choose another photo or try again.');
+    } finally {
+      setIsPreparingAvatar(false);
     }
   }, []);
 
@@ -76,6 +80,7 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
 
   const onSubmit = useCallback(
     async (data: ProfileFormData): Promise<void> => {
+      if (isPreparingAvatar) return;
       const profileData = {
         firstName: data.firstName.trim(),
         lastName: data.lastName.trim(),
@@ -99,7 +104,7 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
 
       router.replace(Routes.app.profile);
     },
-    [localAvatar, router, updateProfileMutation],
+    [isPreparingAvatar, localAvatar, router, updateProfileMutation],
   );
 
   const displayName: string = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.username;
@@ -108,7 +113,7 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
     <FormProvider {...methods}>
       <View className="gap-lg pb-xl">
         <View className="items-center">
-          <Pressable onPress={pickAvatar} className="relative">
+          <Pressable onPress={pickAvatar} className="relative" disabled={isPreparingAvatar}>
             <Avatar src={localAvatar?.uri ?? user.displayPicture} name={displayName} size="lg" />
             <View className="absolute bottom-0 right-0 h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-primary">
               <Camera size={14} className="text-primary-foreground" />
@@ -163,7 +168,7 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
 
         <Button
           onPress={methods.handleSubmit(onSubmit)}
-          loading={updateProfileMutation.isPending}
+          loading={isPreparingAvatar || updateProfileMutation.isPending}
           size="lg"
           leftIcon={<Save size={18} />}
         >
