@@ -157,7 +157,7 @@ export function useLikeGanapMutation(): UseMutationResult<void, Error, ToggleLik
     },
     onError: (error: Error, { ganapId, isLiked }: ToggleLikeVariables): void => {
       if (shouldQueueForReplay(error)) {
-        void enqueueOutbox('ganap', isLiked ? 'unlike' : 'like', { ganapId });
+        void enqueueOutbox({ action: isLiked ? 'unlike' : 'like', ganapId });
       }
     },
   });
@@ -241,7 +241,7 @@ export function useSaveGanapMutation(): UseMutationResult<void, Error, ToggleSav
       context: SaveMutationContext | undefined,
     ): void => {
       if (shouldQueueForReplay(error)) {
-        void enqueueOutbox('ganap', isSaved ? 'unsave' : 'save', { ganapId });
+        void enqueueOutbox({ action: isSaved ? 'unsave' : 'save', ganapId });
         return;
       }
 
@@ -287,7 +287,7 @@ export function useCheckInMutation(): UseMutationResult<CheckInOutcome, Error, C
         return { kind: 'recorded', result };
       } catch (error) {
         if (error instanceof Error && shouldQueueForReplay(error)) {
-          await enqueueOutbox('ganap', 'check-in', { ganapId, qrHash, scannedAt });
+          await enqueueOutbox({ action: 'check-in', ganapId, qrHash, scannedAt });
           return { kind: 'queued' };
         }
         throw error;

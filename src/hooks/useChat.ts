@@ -12,6 +12,7 @@ import {
 import {
   type ChatPageParam,
   chatQueryKeys,
+  upsertChatMessagePages,
   useEventChatMessagesQuery,
   useEventChatSessionQuery,
 } from '@/hooks/queries/useChatQuery';
@@ -36,20 +37,21 @@ import type { BlockedUsersPage } from '@/types/moderation.types';
 import {
   compareChatMessagePositions,
   compareChatMessages,
+  createChatClientMessageId,
   getChatMessagePreview,
   greatestChatMessage,
   isChatForbidden,
   isChatNetworkError,
-  upsertChatMessage,
 } from '@/utils/chat';
 import { markMessageUnsent, patchMessageInPages } from '@/utils/chat-engagement';
 import {
   CHAT_IMAGE_PICKER_OPTIONS,
-  getChatImageErrorCode,
+  canSubmitChatImageDraft,
   getChatImagePrecheckError,
-  getChatImageRetryAfterSeconds,
-  isRetryableChatImageError,
+  isChatImageMessageIdReused,
+  normalizeChatImageError,
   toChatImageAsset,
+  updateChatImageDraftAfterFailure,
 } from '@/utils/chat-image';
 import { isUserBlocked } from '@/utils/moderation';
 import { prepareUploadPhoto } from '@/utils/photo-upload';
@@ -93,71 +95,6 @@ export interface UseChatResult {
   accessLost: boolean;
   accessRevoked: boolean;
   isReadOnly: boolean;
-}
-
-function createClientMessageId(): string {
-  const cryptoObject: Crypto | undefined = typeof globalThis.crypto === 'object' ? globalThis.crypto : undefined;
-  if (cryptoObject && typeof cryptoObject.randomUUID === 'function') return cryptoObject.randomUUID();
-  return `mobile-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`.slice(0, 100);
-}
-
-function normalizeCaughtError(error: unknown): Error {
-  return error instanceof Error ? error : new Error('Image could not be sent.');
-}
-
-function canSubmitImageDraft(
-  draft: ChatImageDraft,
-  canSend: boolean,
-  accessLost: boolean,
-  inFlightIds: Set<string>,
-): boolean {
-  return (
-    canSend &&
-    !accessLost &&
-    draft.status !== 'checking' &&
-    draft.status !== 'permanent-failure' &&
-    !inFlightIds.has(draft.clientMessageId)
-  );
-}
-
-function updateImageDraftAfterFailure(
-  current: ChatImageDraft | null,
-  draft: ChatImageDraft,
-  error: Error,
-): ChatImageDraft | null {
-  if (!current || current.clientMessageId !== draft.clientMessageId) return current;
-  const retryable: boolean = isRetryableChatImageError(error);
-  const retryAfterSeconds: number | null = retryable ? getChatImageRetryAfterSeconds(error) : null;
-  return {
-    ...current,
-    status: retryable ? 'retryable-failure' : 'permanent-failure',
-    error,
-    retryAfterUntil: retryAfterSeconds ? Date.now() + retryAfterSeconds * 1000 : undefined,
-  };
-}
-
-function upsertMessageInPages(
-  data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined,
-  message: ChatMessage,
-): InfiniteData<ChatMessagesPage, ChatPageParam> | undefined {
-  if (!data || data.pages.length === 0) return data;
-  const [firstPage, ...remainingPages]: ChatMessagesPage[] = data.pages;
-  const nextFirstPage: ChatMessagesPage = {
-    ...firstPage,
-    items: upsertChatMessage(firstPage.items, message),
-  };
-  return {
-    ...data,
-    pages: [
-      nextFirstPage,
-      ...remainingPages.map(
-        (page: ChatMessagesPage): ChatMessagesPage => ({
-          ...page,
-          items: page.items.filter((item: ChatMessage): boolean => item.id !== message.id),
-        }),
-      ),
-    ],
-  };
 }
 
 function patchSummaryForMessage(
@@ -343,7 +280,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
       if (isUserBlocked(queryClient, incoming.senderId)) return;
       queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
         chatQueryKeys.eventMessages(ganapId),
-        (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => upsertMessageInPages(data, incoming),
+        (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => upsertChatMessagePages(data, incoming),
       );
       queryClient.setQueryData<InfiniteData<EventChatSummaryPage, ChatPageParam>>(
         chatQueryKeys.eventList(),
@@ -514,7 +451,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
       if (!sessionQuery.data?.canSend || accessLost) return;
       const trimmed: string = content.trim();
       if (!trimmed) return;
-      await submitMessage({ ganapId, clientMessageId: createClientMessageId(), content: trimmed });
+      await submitMessage({ ganapId, clientMessageId: createChatClientMessageId(), content: trimmed });
     },
     [accessLost, ganapId, sessionQuery.data, submitMessage],
   );
@@ -560,7 +497,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
         return;
       }
       setImageDraft({
-        clientMessageId: createClientMessageId(),
+        clientMessageId: createChatClientMessageId(),
         asset: toChatImageAsset(selected),
         status: 'ready',
       });
@@ -580,7 +517,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
 
   const submitImage = useCallback(
     async (draft: ChatImageDraft): Promise<void> => {
-      if (!canSubmitImageDraft(draft, sessionQuery.data?.canSend === true, accessLost, inFlightImageIds.current))
+      if (!canSubmitChatImageDraft(draft, sessionQuery.data?.canSend === true, accessLost, inFlightImageIds.current))
         return;
       inFlightImageIds.current.add(draft.clientMessageId);
       setImageDraft((current: ChatImageDraft | null): ChatImageDraft | null =>
@@ -599,9 +536,8 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
         );
         setImagePickerError(null);
       } catch (caughtError: unknown) {
-        const error: Error = normalizeCaughtError(caughtError);
-        const errorCode: string | undefined = getChatImageErrorCode(error);
-        if (errorCode === 'CLIENT_MESSAGE_ID_REUSED') {
+        const error: Error = normalizeChatImageError(caughtError);
+        if (isChatImageMessageIdReused(error)) {
           try {
             await messagesQuery.refetch();
           } catch {
@@ -613,7 +549,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
           setImagePickerError(new Error('This image could not be sent. Choose it again.'));
         } else {
           setImageDraft((current: ChatImageDraft | null): ChatImageDraft | null =>
-            updateImageDraftAfterFailure(current, draft, error),
+            updateChatImageDraftAfterFailure(current, draft, error),
           );
         }
       } finally {

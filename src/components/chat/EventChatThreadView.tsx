@@ -13,6 +13,7 @@ import { ErrorView } from '@/components/common/Error';
 import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
+import { CHAT_MAX_MESSAGE_LENGTH } from '@/constants/chat';
 import { Colors, Spacing } from '@/constants/theme';
 import { MIN_TOUCH_TARGET } from '@/constants/touch-target';
 import type { FailedDraft } from '@/hooks/useChat';
@@ -23,9 +24,6 @@ import type { ChatImageDraft, ChatMessage, EventChatSession, ReactionSummary, Re
 import { getChatMessageDateSeparatorLabel } from '@/utils/chat-date-groups';
 import { getChatImageErrorMessage, isChatImageAuthorizationError } from '@/utils/chat-image';
 import { useChatKeyboardVisible } from './useChatKeyboardVisible';
-
-/** Maximum text size accepted by the Event Chat server contract. */
-export const CHAT_MAX_MESSAGE_LENGTH = 2_000;
 
 /** Props for the focused Event Chat thread. */
 export interface EventChatThreadViewProps {
@@ -642,7 +640,7 @@ export function EventChatThreadView({
             )}
             <TextInput
               accessibilityLabel="Message"
-              accessibilityHint="Enter a text message up to 2,000 characters"
+              accessibilityHint={`Enter a text message up to ${CHAT_MAX_MESSAGE_LENGTH.toLocaleString('en-US')} characters`}
               aria-labelledby="event-chat-composer-label"
               multiline
               maxLength={CHAT_MAX_MESSAGE_LENGTH}

@@ -5,13 +5,14 @@ import { db } from '@/db';
 import { outbox } from '@/db/schema';
 import { useAuthStore } from '@/store/auth.store';
 
-/** Actions that can be queued for replay. */
-export type OutboxAction = 'like' | 'unlike' | 'save' | 'unsave' | 'check-in';
+type OutboxAction = 'like' | 'unlike' | 'save' | 'unsave' | 'check-in';
+type ToggleAction = Exclude<OutboxAction, 'check-in'>;
+type OutboxCommand =
+  | { action: ToggleAction; ganapId: string }
+  | { action: 'check-in'; ganapId: string; qrHash: string; scannedAt: string };
 
-/** How many queued items one drain pass attempts. */
 const DRAIN_BATCH = 10;
 
-/** Attempts before an item is abandoned as failed. */
 const MAX_RETRIES = 3;
 
 /** Result of a replayed offline attendance scan reaching a final state. */
@@ -63,20 +64,15 @@ export function classifyReplayError(action: OutboxAction, error: unknown): 'succ
 /**
  * Queues an action for replay when connectivity returns.
  *
- * @param entityType - Domain the action belongs to, currently only 'ganap'
- * @param action - Which action to replay
- * @param payload - Data the replay needs, serialised as JSON
+ * @param command - A Ganap toggle or attendance scan to replay
  * @returns Nothing
  */
-export async function enqueueOutbox(
-  entityType: string,
-  action: OutboxAction,
-  payload: Record<string, unknown>,
-): Promise<void> {
+export async function enqueueOutbox(command: OutboxCommand): Promise<void> {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  const { action, ...payload } = command;
   await db.insert(outbox).values({
     id,
-    entityType,
+    entityType: 'ganap',
     action,
     payload: JSON.stringify(payload),
     status: 'pending',
@@ -112,32 +108,51 @@ function readGanapId(item: typeof outbox.$inferSelect): string | null {
 export async function syncOutbox(onCheckInSettled?: CheckInReplayListener): Promise<void> {
   const pendingItems = await db.select().from(outbox).where(eq(outbox.status, 'pending')).limit(DRAIN_BATCH);
 
-  for (const item of pendingItems) {
-    const retries = (item.retries ?? 0) + 1;
-    const action = item.action as OutboxAction;
+  for (const item of pendingItems) await processPendingOutboxItem(item, onCheckInSettled);
+}
 
-    const notify = (recorded: boolean, error?: Error): void => {
-      if (action !== 'check-in' || !onCheckInSettled) return;
-      const ganapId = readGanapId(item);
-      if (ganapId !== null) onCheckInSettled({ ganapId, recorded, error });
-    };
+async function processPendingOutboxItem(
+  item: typeof outbox.$inferSelect,
+  onCheckInSettled?: CheckInReplayListener,
+): Promise<void> {
+  const retries = (item.retries ?? 0) + 1;
+  const action: OutboxAction | null = isOutboxAction(item.action) ? item.action : null;
+  if (action === null) {
+    await db.update(outbox).set({ status: 'failed', retries, updatedAt: new Date() }).where(eq(outbox.id, item.id));
+    return;
+  }
 
-    try {
-      await processOutboxItem(item);
-      await db.update(outbox).set({ status: 'success', updatedAt: new Date() }).where(eq(outbox.id, item.id));
-      notify(true);
-    } catch (error) {
-      const classification = classifyReplayError(action, error);
-      if (classification === 'success') {
-        await db.update(outbox).set({ status: 'success', updatedAt: new Date() }).where(eq(outbox.id, item.id));
-        notify(true);
-      } else if (classification === 'failed' || retries >= MAX_RETRIES) {
-        await db.update(outbox).set({ status: 'failed', retries, updatedAt: new Date() }).where(eq(outbox.id, item.id));
-        notify(false, error instanceof Error ? error : new Error(String(error)));
-      } else {
-        await db.update(outbox).set({ retries, updatedAt: new Date() }).where(eq(outbox.id, item.id));
-      }
-    }
+  const notify = (recorded: boolean, error?: Error): void => {
+    if (action !== 'check-in' || !onCheckInSettled) return;
+    const ganapId = readGanapId(item);
+    if (ganapId !== null) onCheckInSettled({ ganapId, recorded, error });
+  };
+
+  try {
+    await processOutboxItem(parseOutboxCommand(item, action));
+    await db.update(outbox).set({ status: 'success', updatedAt: new Date() }).where(eq(outbox.id, item.id));
+    notify(true);
+  } catch (error) {
+    await handleReplayFailure(item, retries, action, error, notify);
+  }
+}
+
+async function handleReplayFailure(
+  item: typeof outbox.$inferSelect,
+  retries: number,
+  action: OutboxAction,
+  error: unknown,
+  notify: (recorded: boolean, error?: Error) => void,
+): Promise<void> {
+  const classification = classifyReplayError(action, error);
+  if (classification === 'success') {
+    await db.update(outbox).set({ status: 'success', updatedAt: new Date() }).where(eq(outbox.id, item.id));
+    notify(true);
+  } else if (classification === 'failed' || retries >= MAX_RETRIES) {
+    await db.update(outbox).set({ status: 'failed', retries, updatedAt: new Date() }).where(eq(outbox.id, item.id));
+    notify(false, error instanceof Error ? error : new Error(String(error)));
+  } else {
+    await db.update(outbox).set({ retries, updatedAt: new Date() }).where(eq(outbox.id, item.id));
   }
 }
 
@@ -162,26 +177,28 @@ export function startOutboxDrain(onCheckInSettled?: CheckInReplayListener): () =
   return (): void => subscription.remove();
 }
 
-/** Payload shape queued for the Ganap like/save toggles. */
-interface TogglePayload {
-  ganapId: string;
-}
-
-/** Payload shape queued for an offline attendance scan. */
-interface CheckInPayload {
-  ganapId: string;
-  qrHash: string;
-  scannedAt: string;
+/**
+ * Identifies one action stored in the outbox table.
+ *
+ * @param action - Action read from persisted state
+ * @returns Whether the action is supported
+ */
+function isOutboxAction(action: string): action is OutboxAction {
+  return action === 'like' || action === 'unlike' || action === 'save' || action === 'unsave' || action === 'check-in';
 }
 
 /**
- * Parses and validates a queued item's payload for its action.
+ * Parses and validates a persisted outbox command at the database boundary.
  *
  * @param item - The outbox row being replayed
- * @returns The typed payload
- * @throws OutboxPayloadError when the payload is malformed for the action
+ * @param action - Validated action stored on the row
+ * @returns The typed Ganap command
+ * @throws OutboxPayloadError when its entity or payload is malformed
  */
-function parseOutboxPayload(item: typeof outbox.$inferSelect): TogglePayload | CheckInPayload {
+function parseOutboxCommand(item: typeof outbox.$inferSelect, action: OutboxAction): OutboxCommand {
+  if (item.entityType !== 'ganap') {
+    throw new OutboxPayloadError(`Unknown outbox entity type: ${item.entityType}`);
+  }
   let raw: unknown;
   try {
     raw = JSON.parse(item.payload);
@@ -191,66 +208,53 @@ function parseOutboxPayload(item: typeof outbox.$inferSelect): TogglePayload | C
   if (typeof raw !== 'object' || raw === null || typeof (raw as { ganapId?: unknown }).ganapId !== 'string') {
     throw new OutboxPayloadError(`Outbox payload missing ganapId for ${item.id}`);
   }
-  if (item.action === 'check-in') {
+  if (action === 'check-in') {
     const candidate = raw as { ganapId: string; qrHash?: unknown; scannedAt?: unknown };
     if (typeof candidate.qrHash !== 'string' || typeof candidate.scannedAt !== 'string') {
       throw new OutboxPayloadError(`Check-in payload missing fields for ${item.id}`);
     }
-    return { ganapId: candidate.ganapId, qrHash: candidate.qrHash, scannedAt: candidate.scannedAt };
+    return { action, ganapId: candidate.ganapId, qrHash: candidate.qrHash, scannedAt: candidate.scannedAt };
   }
-  return { ganapId: (raw as { ganapId: string }).ganapId };
+  return { action, ganapId: (raw as { ganapId: string }).ganapId };
 }
 
 /**
  * Replays one queued item.
  *
- * @param item - The outbox row to replay
+ * @param command - A validated Ganap command
  * @returns Nothing
- * @throws When the user is unauthenticated or the entity type is unknown
+ * @throws When the user is unauthenticated
  */
-async function processOutboxItem(item: typeof outbox.$inferSelect): Promise<void> {
+async function processOutboxItem(command: OutboxCommand): Promise<void> {
   const token = useAuthStore.getState().token;
   if (!token) throw new Error('Not authenticated');
 
-  const payload = parseOutboxPayload(item);
-
-  switch (item.entityType) {
-    case 'ganap':
-      await syncGanapAction(item.action as OutboxAction, payload);
-      break;
-    default:
-      throw new Error(`Unknown entity type: ${item.entityType}`);
-  }
+  await syncGanapAction(command);
 }
 
 /**
  * Replays a single Ganap action.
  *
- * @param action - Which action to replay
- * @param payload - The parsed payload for the action
+ * @param command - The persisted command to replay
  * @returns Nothing
- * @throws When the action is unrecognised
  */
-async function syncGanapAction(action: OutboxAction, payload: TogglePayload | CheckInPayload): Promise<void> {
-  switch (action) {
+async function syncGanapAction(command: OutboxCommand): Promise<void> {
+  switch (command.action) {
     case 'like':
-      await ganapsAPI.like(payload.ganapId);
+      await ganapsAPI.like(command.ganapId);
       break;
     case 'unlike':
-      await ganapsAPI.unlike(payload.ganapId);
+      await ganapsAPI.unlike(command.ganapId);
       break;
     case 'save':
-      await ganapsAPI.save(payload.ganapId);
+      await ganapsAPI.save(command.ganapId);
       break;
     case 'unsave':
-      await ganapsAPI.unsave(payload.ganapId);
+      await ganapsAPI.unsave(command.ganapId);
       break;
     case 'check-in': {
-      const checkIn = payload as CheckInPayload;
-      await ganapsAPI.checkIn(checkIn.ganapId, { qrHash: checkIn.qrHash, scannedAt: checkIn.scannedAt });
+      await ganapsAPI.checkIn(command.ganapId, { qrHash: command.qrHash, scannedAt: command.scannedAt });
       break;
     }
-    default:
-      throw new Error(`Unknown ganap action: ${action}`);
   }
 }

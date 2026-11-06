@@ -17,7 +17,6 @@ import {
   type UseFriendsQueryResult,
   useFriendGoingQuery,
   useFriendPresenceQuery,
-  useFriendProfileQuery,
   useFriendRequestsQuery,
   useFriendsCodeQuery,
   useFriendsQuery,
@@ -25,7 +24,6 @@ import {
 import type {
   FriendCode,
   FriendGoingRecord,
-  FriendPage,
   FriendPresenceResponse,
   FriendRequestDirection,
   FriendRequestItem,
@@ -169,9 +167,3 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
     updateSettingsMutation,
   };
 }
-
-/** Reads one profile through the aggregate hook's relationship query contract. */
-export const useFriendsProfileQuery: typeof useFriendProfileQuery = useFriendProfileQuery;
-
-/** Compile-time discoverability alias for a cursor page used by Friends consumers. */
-export type FriendsCursorPage<T> = FriendPage<T>;
