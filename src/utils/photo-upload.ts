@@ -154,10 +154,6 @@ async function decodePhoto(uri: string): Promise<ImageRef> {
   return image;
 }
 
-function isHeifFormat(format: PhotoFormat, asset: ImagePickerAsset): format is 'heif' | 'unknown' {
-  return format === 'heif' || (format === 'unknown' && hasHeifMetadata(asset));
-}
-
 function isOversizedJpeg(format: PhotoFormat, fileSize: number): boolean {
   return format === 'jpeg' && fileSize > MAX_PHOTO_BYTES;
 }
@@ -172,11 +168,11 @@ function isOversizedJpeg(format: PhotoFormat, fileSize: number): boolean {
 export async function prepareUploadPhoto(asset: ImagePickerAsset): Promise<ImagePickerAsset> {
   const inspected: { format: PhotoFormat; fileSize: number } = inspectPhoto(asset);
   if (inspected.format === 'heif-sequence') throw new Error('Choose a still photo.');
-  if (isHeifFormat(inspected.format, asset)) {
+  if (inspected.format === 'heif' || (inspected.format === 'unknown' && hasHeifMetadata(asset))) {
     const image: ImageRef = await decodePhoto(asset.uri);
     return photoToJpegWithinLimit(image, asset);
   }
-  if (inspected.format === 'unsupported') {
+  if (inspected.format === 'unknown' || inspected.format === 'unsupported') {
     throw new Error('Choose a JPEG, PNG, WebP, or GIF photo.');
   }
   const image: ImageRef = await decodePhoto(asset.uri);
