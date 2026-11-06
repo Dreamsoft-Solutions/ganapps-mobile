@@ -16,7 +16,7 @@ import { Routes } from '@/constants/routes';
 import { useAuth } from '@/hooks/useAuth';
 import { recordPromptDismissal } from '@/hooks/useProfilePrompt';
 import { showToast } from '@/store/toast.store';
-import { prepareUploadPhoto, profilePhotoFile } from '@/utils/photo-upload';
+import { prepareProfileUploadPhoto, profilePhotoFile } from '@/utils/photo-upload';
 import {
   type OnboardingFormData,
   onboardingNamesSchema,
@@ -68,7 +68,7 @@ export function OnboardingForm(): ReactElement {
         quality: 0.8,
       });
       if (!result.canceled && result.assets[0]) {
-        const photo: ImagePicker.ImagePickerAsset = await prepareUploadPhoto(result.assets[0]);
+        const photo: ImagePicker.ImagePickerAsset = await prepareProfileUploadPhoto(result.assets[0]);
         setLocalAvatar(photo);
         methods.setValue('displayPicture', photo.uri);
       }

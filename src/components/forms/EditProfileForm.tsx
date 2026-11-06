@@ -16,7 +16,7 @@ import { Routes } from '@/constants/routes';
 import { useUpdateProfileMutation } from '@/hooks/mutations/useAuthMutation';
 import { showToast } from '@/store/toast.store';
 import type { User } from '@/types/user.types';
-import { prepareUploadPhoto, profilePhotoFile } from '@/utils/photo-upload';
+import { prepareProfileUploadPhoto, profilePhotoFile } from '@/utils/photo-upload';
 import { PROFILE_FIELD_LIMITS, type ProfileFormData, profileSchema } from '@/utils/validation';
 
 interface EditProfileFormProps {
@@ -54,7 +54,7 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
         quality: 0.8,
       });
       if (!result.canceled && result.assets[0]) {
-        setLocalAvatar(await prepareUploadPhoto(result.assets[0]));
+        setLocalAvatar(await prepareProfileUploadPhoto(result.assets[0]));
       }
     } catch {
       showToast('error', 'Could not use this photo. Choose another photo or try again.');

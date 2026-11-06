@@ -158,6 +158,10 @@ function isOversizedJpeg(format: PhotoFormat, fileSize: number): boolean {
   return format === 'jpeg' && fileSize > MAX_PHOTO_BYTES;
 }
 
+function resolveHeifPhotoFormat(format: PhotoFormat, asset: ImagePickerAsset): PhotoFormat {
+  return format === 'unknown' && hasHeifMetadata(asset) ? 'heif' : format;
+}
+
 /**
  * Validates a selected image and prepares a bounded JPEG when required for upload.
  *
@@ -165,19 +169,25 @@ function isOversizedJpeg(format: PhotoFormat, fileSize: number): boolean {
  * @returns The original supported photo or a JPEG with matching metadata
  * @throws When the photo cannot be decoded or reduced to the upload limit
  */
-export async function prepareUploadPhoto(asset: ImagePickerAsset): Promise<ImagePickerAsset> {
+async function preparePhotoForUpload(
+  asset: ImagePickerAsset,
+  compressOversizedJpeg: boolean,
+): Promise<ImagePickerAsset> {
   const inspected: { format: PhotoFormat; fileSize: number } = inspectPhoto(asset);
-  if (inspected.format === 'heif-sequence') throw new Error('Choose a still photo.');
-  if (inspected.format === 'heif' || (inspected.format === 'unknown' && hasHeifMetadata(asset))) {
+  const format: PhotoFormat = resolveHeifPhotoFormat(inspected.format, asset);
+  if (format === 'heif-sequence') throw new Error('Choose a still photo.');
+  if (format === 'heif') {
     const image: ImageRef = await decodePhoto(asset.uri);
     return photoToJpegWithinLimit(image, asset);
   }
-  if (inspected.format === 'unknown' || inspected.format === 'unsupported') {
+  if (format === 'unknown' || format === 'unsupported') {
     throw new Error('Choose a JPEG, PNG, WebP, or GIF photo.');
   }
   const image: ImageRef = await decodePhoto(asset.uri);
-  if (isOversizedJpeg(inspected.format, inspected.fileSize)) return photoToJpegWithinLimit(image, asset);
-  const mimeType: string = mimeForPhotoFormat(inspected.format);
+  if (compressOversizedJpeg && isOversizedJpeg(format, inspected.fileSize)) {
+    return photoToJpegWithinLimit(image, asset);
+  }
+  const mimeType: string = mimeForPhotoFormat(format);
   const extensionMatchesFormat: boolean =
     (mimeType === 'image/jpeg' && ['jpg', 'jpeg'].includes(extension(asset.fileName))) ||
     (mimeType === 'image/png' && extension(asset.fileName) === 'png') ||
@@ -194,6 +204,28 @@ export async function prepareUploadPhoto(asset: ImagePickerAsset): Promise<Image
     width: image.width,
     height: image.height,
   };
+}
+
+/**
+ * Validates a selected chat image and converts HEIF to a bounded JPEG.
+ *
+ * @param asset - Photo returned by the native image picker
+ * @returns The original supported photo or a JPEG with matching metadata
+ * @throws When the photo cannot be decoded or reduced to the upload limit
+ */
+export function prepareUploadPhoto(asset: ImagePickerAsset): Promise<ImagePickerAsset> {
+  return preparePhotoForUpload(asset, false);
+}
+
+/**
+ * Validates a selected profile photo and keeps JPEG output under the storage limit.
+ *
+ * @param asset - Photo returned by the native image picker
+ * @returns The original supported photo or a JPEG with matching metadata
+ * @throws When the photo cannot be decoded or reduced to the upload limit
+ */
+export function prepareProfileUploadPhoto(asset: ImagePickerAsset): Promise<ImagePickerAsset> {
+  return preparePhotoForUpload(asset, true);
 }
 
 /**
