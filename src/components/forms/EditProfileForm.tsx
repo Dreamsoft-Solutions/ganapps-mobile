@@ -14,7 +14,9 @@ import { Text } from '@/components/common/Text';
 import { getInterestOptions } from '@/constants/interests';
 import { Routes } from '@/constants/routes';
 import { useUpdateProfileMutation } from '@/hooks/mutations/useAuthMutation';
+import { showToast } from '@/store/toast.store';
 import type { User } from '@/types/user.types';
+import { prepareUploadPhoto, profilePhotoFile } from '@/utils/photo-upload';
 import { PROFILE_FIELD_LIMITS, type ProfileFormData, profileSchema } from '@/utils/validation';
 
 interface EditProfileFormProps {
@@ -30,7 +32,7 @@ interface EditProfileFormProps {
 export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
   const router = useRouter();
   const updateProfileMutation = useUpdateProfileMutation();
-  const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
+  const [localAvatar, setLocalAvatar] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const methods = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: getProfileDefaults(user),
@@ -40,19 +42,22 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
 
   useEffect((): void => {
     methods.reset(getProfileDefaults(user));
-    setLocalAvatarUri(null);
+    setLocalAvatar(null);
   }, [methods, user]);
 
   const pickAvatar = useCallback(async (): Promise<void> => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setLocalAvatarUri(result.assets[0].uri);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setLocalAvatar(await prepareUploadPhoto(result.assets[0]));
+      }
+    } catch {
+      showToast('error', 'Could not use this photo. Choose another photo or try again.');
     }
   }, []);
 
@@ -78,7 +83,7 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
         interests: data.interests,
       };
 
-      if (!localAvatarUri) {
+      if (!localAvatar) {
         await updateProfileMutation.mutateAsync(profileData);
       } else {
         const formData = new FormData();
@@ -87,22 +92,14 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
         formData.append('bio', profileData.bio);
         formData.append('interests', JSON.stringify(profileData.interests));
 
-        const filename: string = localAvatarUri.split('/').pop() ?? 'avatar.jpg';
-        const match: RegExpExecArray | null = /\.(\w+)$/.exec(filename);
-        const extension: string = match?.[1]?.toLowerCase() ?? 'jpeg';
-        const type: string = extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
-        formData.append('file', {
-          uri: localAvatarUri,
-          name: filename,
-          type,
-        } as unknown as Blob);
+        formData.append('file', profilePhotoFile(localAvatar) as unknown as Blob);
 
         await updateProfileMutation.mutateAsync(formData);
       }
 
       router.replace(Routes.app.profile);
     },
-    [localAvatarUri, router, updateProfileMutation],
+    [localAvatar, router, updateProfileMutation],
   );
 
   const displayName: string = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.username;
@@ -112,7 +109,7 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
       <View className="gap-lg pb-xl">
         <View className="items-center">
           <Pressable onPress={pickAvatar} className="relative">
-            <Avatar src={localAvatarUri ?? user.displayPicture} name={displayName} size="lg" />
+            <Avatar src={localAvatar?.uri ?? user.displayPicture} name={displayName} size="lg" />
             <View className="absolute bottom-0 right-0 h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-primary">
               <Camera size={14} className="text-primary-foreground" />
             </View>

@@ -15,6 +15,8 @@ import { INTEREST_OPTIONS } from '@/constants/interests';
 import { Routes } from '@/constants/routes';
 import { useAuth } from '@/hooks/useAuth';
 import { recordPromptDismissal } from '@/hooks/useProfilePrompt';
+import { showToast } from '@/store/toast.store';
+import { prepareUploadPhoto, profilePhotoFile } from '@/utils/photo-upload';
 import {
   type OnboardingFormData,
   onboardingNamesSchema,
@@ -40,7 +42,7 @@ export function OnboardingForm(): ReactElement {
   const router = useRouter();
   const { user, updateProfile, updateProfileMutation } = useAuth();
   const [step, setStep] = useState<Step>('names');
-  const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
+  const [localAvatar, setLocalAvatar] = useState<ImagePicker.ImagePickerAsset | null>(null);
 
   const methods = useForm<OnboardingFormData>({
     resolver: zodResolver(onboardingSchema),
@@ -58,16 +60,20 @@ export function OnboardingForm(): ReactElement {
   const submitError = updateProfileMutation.error;
 
   const pickAvatar = useCallback(async (): Promise<void> => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setLocalAvatarUri(result.assets[0].uri);
-      methods.setValue('displayPicture', result.assets[0].uri);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const photo: ImagePicker.ImagePickerAsset = await prepareUploadPhoto(result.assets[0]);
+        setLocalAvatar(photo);
+        methods.setValue('displayPicture', photo.uri);
+      }
+    } catch {
+      showToast('error', 'Could not use this photo. Choose another photo or try again.');
     }
   }, [methods]);
 
@@ -117,7 +123,7 @@ export function OnboardingForm(): ReactElement {
     const { interests } = methods.getValues();
     const hasInterests = !!interests && interests.length > 0;
 
-    if (!hasInterests && !localAvatarUri) {
+    if (!hasInterests && !localAvatar) {
       seedPromptCooldown();
       router.replace(Routes.app.home);
       return;
@@ -129,16 +135,8 @@ export function OnboardingForm(): ReactElement {
       formData.append('interests', JSON.stringify(interests));
     }
 
-    if (localAvatarUri) {
-      const filename = localAvatarUri.split('/').pop() ?? 'avatar.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-      formData.append('file', {
-        uri: localAvatarUri,
-        name: filename,
-        type,
-      } as unknown as Blob);
+    if (localAvatar) {
+      formData.append('file', profilePhotoFile(localAvatar) as unknown as Blob);
     }
 
     try {
@@ -148,7 +146,7 @@ export function OnboardingForm(): ReactElement {
     } catch (_error) {
       // Rendered below. Step two is optional, so the user can still skip past a failure.
     }
-  }, [methods, localAvatarUri, seedPromptCooldown, updateProfile, router]);
+  }, [methods, localAvatar, seedPromptCooldown, updateProfile, router]);
 
   const skipExtras = useCallback((): void => {
     // Names were already saved in step one, so skipping needs no request and cannot fail.
@@ -204,7 +202,7 @@ export function OnboardingForm(): ReactElement {
 
             <View className="items-center mb-8">
               <Pressable onPress={pickAvatar} className="relative">
-                <Avatar src={localAvatarUri} name={fullName} size="lg" />
+                <Avatar src={localAvatar?.uri ?? null} name={fullName} size="lg" />
                 <View className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary items-center justify-center border-2 border-background shadow">
                   <Camera size={14} color="#FFFFFF" />
                 </View>

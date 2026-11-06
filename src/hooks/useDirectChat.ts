@@ -46,6 +46,7 @@ import {
   toChatImageAsset,
 } from '@/utils/chat-image';
 import { isUserBlocked } from '@/utils/moderation';
+import { prepareUploadPhoto } from '@/utils/photo-upload';
 
 /** A failed in-memory Direct send that can be retried with the same client id. */
 export interface DirectFailedDraft {
@@ -610,7 +611,7 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
       const result: ImagePicker.ImagePickerResult =
         await ImagePicker.launchImageLibraryAsync(CHAT_IMAGE_PICKER_OPTIONS);
       if (result.canceled || result.assets.length === 0) return;
-      const selected: ImagePicker.ImagePickerAsset = result.assets[0];
+      const selected: ImagePicker.ImagePickerAsset = await prepareUploadPhoto(result.assets[0]);
       const precheckError: string | null = getChatImagePrecheckError(selected);
       if (precheckError) {
         setImagePickerError(new Error(precheckError));
@@ -618,7 +619,7 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
       }
       setImageDraft({ clientMessageId: createClientMessageId(), asset: toChatImageAsset(selected), status: 'ready' });
     } catch {
-      setImagePickerError(new Error('Unable to open your photo library.'));
+      setImagePickerError(new Error('Could not use this photo. Choose another photo or try again.'));
     }
   }, [accessLost, canSend, imageDraft, sendImageByFriendMutation.isPending, sendImageMutation.isPending]);
 
