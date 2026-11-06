@@ -92,6 +92,7 @@ export interface UseDirectChatResult {
   retryDraft: (clientMessageId: string) => Promise<void>;
   discardDraft: (clientMessageId: string) => void;
   imageDraft: import('@/types/chat.types').ChatImageDraft | null;
+  isPreparingImage: boolean;
   imagePickerError: Error | null;
   imageRetryAfterSeconds: number | null;
   pickImage: () => Promise<void>;
@@ -273,11 +274,13 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
   const [latestOutgoingSeenAt, setLatestOutgoingSeenAt] = useState<string | null>(options.latestOutgoingSeenAt ?? null);
   const [failedDraftMap, setFailedDraftMap] = useState<Record<string, DirectFailedDraft>>({});
   const [imageDraft, setImageDraft] = useState<import('@/types/chat.types').ChatImageDraft | null>(null);
+  const [isPreparingImage, setIsPreparingImage] = useState<boolean>(false);
   const [imagePickerError, setImagePickerError] = useState<Error | null>(null);
   const [imageRetryClock, setImageRetryClock] = useState<number>(Date.now());
   const [connectionState, setConnectionState] = useState<ChatConnectionState>(chatSocketClient.getConnectionState());
   const inFlightIds = useRef<Set<string>>(new Set<string>());
   const inFlightImageIds = useRef<Set<string>>(new Set<string>());
+  const imagePreparationInFlight = useRef<boolean>(false);
   const readCursor = useRef<ChatMessage | null>(null);
   const pendingReadCursor = useRef<ChatMessage | null>(null);
   const previousTarget = useRef<string>(`${options.conversationId ?? ''}:${options.friendUserId ?? ''}`);
@@ -604,8 +607,18 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
   );
 
   const pickImage = useCallback(async (): Promise<void> => {
-    if (!canSend || accessLost || imageDraft || sendImageMutation.isPending || sendImageByFriendMutation.isPending)
+    if (
+      !canSend ||
+      accessLost ||
+      imageDraft ||
+      imagePreparationInFlight.current ||
+      sendImageMutation.isPending ||
+      sendImageByFriendMutation.isPending
+    ) {
       return;
+    }
+    imagePreparationInFlight.current = true;
+    setIsPreparingImage(true);
     setImagePickerError(null);
     try {
       const result: ImagePicker.ImagePickerResult =
@@ -620,6 +633,9 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
       setImageDraft({ clientMessageId: createClientMessageId(), asset: toChatImageAsset(selected), status: 'ready' });
     } catch {
       setImagePickerError(new Error('Could not use this photo. Choose another photo or try again.'));
+    } finally {
+      imagePreparationInFlight.current = false;
+      setIsPreparingImage(false);
     }
   }, [accessLost, canSend, imageDraft, sendImageByFriendMutation.isPending, sendImageMutation.isPending]);
 
@@ -784,6 +800,7 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
     retryDraft,
     discardDraft,
     imageDraft,
+    isPreparingImage,
     imagePickerError,
     imageRetryAfterSeconds,
     pickImage,

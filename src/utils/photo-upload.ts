@@ -11,11 +11,6 @@ function extension(value: string | null | undefined): string {
   return /\.([a-z0-9]+)$/i.exec(path)?.[1]?.toLowerCase() ?? '';
 }
 
-function isHeifExtension(value: string | null | undefined): boolean {
-  const suffix: string = extension(value);
-  return suffix === 'heic' || suffix === 'heif' || suffix === 'hif';
-}
-
 type PhotoFormat = 'jpeg' | 'png' | 'webp' | 'gif' | 'heif' | 'heif-sequence' | 'unsupported' | 'unknown';
 type UploadablePhotoFormat = Exclude<PhotoFormat, 'heif' | 'heif-sequence' | 'unsupported' | 'unknown'>;
 
@@ -65,16 +60,6 @@ function inspectPhoto(asset: ImagePickerAsset): { format: PhotoFormat; fileSize:
   } finally {
     handle.close();
   }
-}
-
-function hasHeifMetadata(asset: ImagePickerAsset): boolean {
-  const mimeType: string = asset.mimeType?.toLowerCase() ?? '';
-  return (
-    mimeType === 'image/heic' ||
-    mimeType === 'image/heif' ||
-    isHeifExtension(asset.uri) ||
-    isHeifExtension(asset.fileName)
-  );
 }
 
 function mimeFromExtension(value: string | null | undefined): string | undefined {
@@ -174,15 +159,11 @@ function isOversizedJpeg(format: PhotoFormat, fileSize: number): boolean {
   return format === 'jpeg' && fileSize > MAX_PHOTO_BYTES;
 }
 
-function resolveHeifPhotoFormat(format: PhotoFormat, asset: ImagePickerAsset): PhotoFormat {
-  return format === 'unknown' && hasHeifMetadata(asset) ? 'heif' : format;
-}
-
 function photoWithDetectedFormat(
   asset: ImagePickerAsset,
   format: UploadablePhotoFormat,
   fileSize: number,
-  image: ImageRef,
+  image: Pick<ImagePickerAsset, 'width' | 'height'>,
 ): ImagePickerAsset {
   const mimeType: string = mimeForPhotoFormat(format);
   const extensionMatchesFormat: boolean =
@@ -215,7 +196,7 @@ async function preparePhotoForUpload(
   compressOversizedJpeg: boolean,
 ): Promise<ImagePickerAsset> {
   const inspected: { format: PhotoFormat; fileSize: number } = inspectPhoto(asset);
-  const format: PhotoFormat = resolveHeifPhotoFormat(inspected.format, asset);
+  const format: PhotoFormat = inspected.format;
   if (format === 'heif-sequence') throw new Error('Choose a still photo.');
   if (format === 'heif') {
     const image: ImageRef = await decodePhoto(asset.uri);
@@ -227,6 +208,9 @@ async function preparePhotoForUpload(
   }
   if (format === 'unknown' || format === 'unsupported') {
     throw new Error('Choose a JPEG, PNG, WebP, or GIF photo.');
+  }
+  if (!compressOversizedJpeg && inspected.fileSize > MAX_PHOTO_BYTES) {
+    return photoWithDetectedFormat(asset, format, inspected.fileSize, asset);
   }
   const image: ImageRef = await decodePhoto(asset.uri);
   try {

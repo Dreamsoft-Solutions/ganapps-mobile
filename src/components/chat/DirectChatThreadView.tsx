@@ -56,6 +56,7 @@ export interface DirectChatThreadViewProps {
   onRetryDraft: (clientMessageId: string) => void | Promise<void>;
   onDiscardDraft: (clientMessageId: string) => void;
   imageDraft?: BaseChatImageDraft | null;
+  isPreparingImage?: boolean;
   imagePickerError?: Error | null;
   imageRetryAfterSeconds?: number | null;
   onPickImage?: () => void | Promise<void>;
@@ -422,6 +423,7 @@ export function DirectChatThreadView({
   onMessageReaction,
   reactionPendingMessageId = null,
   imageDraft = null,
+  isPreparingImage = false,
   imagePickerError = null,
   imageRetryAfterSeconds = null,
   onPickImage = async (): Promise<void> => {},
@@ -687,14 +689,16 @@ export function DirectChatThreadView({
               <IconButton
                 accessibilityLabel="Add image"
                 accessibilityHint="Opens the existing photo library to select one image"
-                disabled={isSending || imageDraft !== null}
+                disabled={isSending || imageDraft !== null || isPreparingImage}
                 onPress={(): void => {
                   void onPickImage();
                 }}
                 size="md"
                 variant="default"
               >
-                {ImagePlus ? (
+                {isPreparingImage ? (
+                  <ActivityIndicator color={Colors[theme].foreground} accessibilityLabel="Preparing photo" />
+                ) : ImagePlus ? (
                   <ImagePlus size={20} color={Colors[theme].foreground} />
                 ) : (
                   <Text accessible={false} className="text-lg text-foreground">

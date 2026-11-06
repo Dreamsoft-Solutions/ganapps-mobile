@@ -200,6 +200,7 @@ export default function DirectChatThreadScreen(): ReactElement {
         onRetryDraft={chat.retryDraft}
         onDiscardDraft={chat.discardDraft}
         imageDraft={chat.imageDraft}
+        isPreparingImage={chat.isPreparingImage}
         imagePickerError={chat.imagePickerError}
         imageRetryAfterSeconds={chat.imageRetryAfterSeconds}
         onPickImage={chat.pickImage}

@@ -50,6 +50,8 @@ export interface EventChatThreadViewProps {
   onDiscardDraft: (clientMessageId: string) => void;
   /** Current local image draft, if one is selected. */
   imageDraft?: ChatImageDraft | null;
+  /** Whether one selected image is being decoded before preview. */
+  isPreparingImage?: boolean;
   /** Safe picker/precheck error copy. */
   imagePickerError?: Error | null;
   /** Capacity gate countdown in seconds, when applicable. */
@@ -371,6 +373,7 @@ export function EventChatThreadView({
   onMessageReaction,
   reactionPendingMessageId = null,
   imageDraft = null,
+  isPreparingImage = false,
   imagePickerError = null,
   imageRetryAfterSeconds = null,
   onPickImage = async (): Promise<void> => {},
@@ -619,14 +622,16 @@ export function EventChatThreadView({
               <IconButton
                 accessibilityLabel="Add image"
                 accessibilityHint="Opens the existing photo library to select one image"
-                disabled={isSending || imageDraft !== null}
+                disabled={isSending || imageDraft !== null || isPreparingImage}
                 onPress={(): void => {
                   void onPickImage();
                 }}
                 size="md"
                 variant="default"
               >
-                {ImagePlus ? (
+                {isPreparingImage ? (
+                  <ActivityIndicator color={Colors[theme].foreground} accessibilityLabel="Preparing photo" />
+                ) : ImagePlus ? (
                   <ImagePlus size={20} color={Colors[theme].foreground} />
                 ) : (
                   <Text accessible={false} className="text-lg text-foreground">

@@ -81,6 +81,7 @@ export interface UseChatResult {
   retryDraft: (clientMessageId: string) => Promise<void>;
   discardDraft: (clientMessageId: string) => void;
   imageDraft: ChatImageDraft | null;
+  isPreparingImage: boolean;
   imagePickerError: Error | null;
   imageRetryAfterSeconds: number | null;
   pickImage: () => Promise<void>;
@@ -258,11 +259,13 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
   const readMutation = useMarkChatReadMutation();
   const [failedDraftMap, setFailedDraftMap] = useState<Record<string, FailedDraft>>({});
   const [imageDraft, setImageDraft] = useState<ChatImageDraft | null>(null);
+  const [isPreparingImage, setIsPreparingImage] = useState<boolean>(false);
   const [imagePickerError, setImagePickerError] = useState<Error | null>(null);
   const [imageRetryClock, setImageRetryClock] = useState<number>(Date.now());
   const [connectionState, setConnectionState] = useState<ChatConnectionState>(chatSocketClient.getConnectionState());
   const inFlightIds = useRef<Set<string>>(new Set<string>());
   const inFlightImageIds = useRef<Set<string>>(new Set<string>());
+  const imagePreparationInFlight = useRef<boolean>(false);
   const readCursor = useRef<ChatMessage | null>(null);
   const previousConversationId = useRef<string | null>(null);
   const previousGanapId = useRef<string>(ganapId);
@@ -533,7 +536,17 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
   );
 
   const pickImage = useCallback(async (): Promise<void> => {
-    if (!sessionQuery.data?.canSend || accessLost || imageDraft || sendImageMutation.isPending) return;
+    if (
+      !sessionQuery.data?.canSend ||
+      accessLost ||
+      imageDraft ||
+      imagePreparationInFlight.current ||
+      sendImageMutation.isPending
+    ) {
+      return;
+    }
+    imagePreparationInFlight.current = true;
+    setIsPreparingImage(true);
     setImagePickerError(null);
 
     try {
@@ -553,6 +566,9 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
       });
     } catch {
       setImagePickerError(new Error('Could not use this photo. Choose another photo or try again.'));
+    } finally {
+      imagePreparationInFlight.current = false;
+      setIsPreparingImage(false);
     }
   }, [accessLost, imageDraft, sendImageMutation.isPending, sessionQuery.data]);
 
@@ -665,6 +681,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
     retryDraft,
     discardDraft,
     imageDraft,
+    isPreparingImage,
     imagePickerError,
     imageRetryAfterSeconds,
     pickImage,
