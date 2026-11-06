@@ -127,8 +127,7 @@ async function saveJpegWithinLimit(image: ImageRef, asset: ImagePickerAsset): Pr
   return null;
 }
 
-async function convertHeifPhoto(asset: ImagePickerAsset): Promise<ImagePickerAsset> {
-  const original: ImageRef = await ImageManipulator.manipulate(asset.uri).renderAsync();
+async function photoToJpegWithinLimit(original: ImageRef, asset: ImagePickerAsset): Promise<ImagePickerAsset> {
   const longestEdge: number = Math.max(original.width, original.height);
   if (longestEdge <= 0) throw new Error('Could not read the photo.');
   const firstEdge: number = Math.min(longestEdge, MAX_PHOTO_EDGE);
@@ -137,20 +136,34 @@ async function convertHeifPhoto(asset: ImagePickerAsset): Promise<ImagePickerAss
   );
 
   for (const edge of edges) {
-    const image: ImageRef =
+    const resized: ImageRef =
       edge < longestEdge
         ? await ImageManipulator.manipulate(original)
             .resize(original.width >= original.height ? { width: edge } : { height: edge })
             .renderAsync()
         : original;
-    const prepared: ImagePickerAsset | null = await saveJpegWithinLimit(image, asset);
+    const prepared: ImagePickerAsset | null = await saveJpegWithinLimit(resized, asset);
     if (prepared) return prepared;
   }
   throw new Error('Photo is too large.');
 }
 
+async function decodePhoto(uri: string): Promise<ImageRef> {
+  const image: ImageRef = await ImageManipulator.manipulate(uri).renderAsync();
+  if (image.width <= 0 || image.height <= 0) throw new Error('Could not read the photo.');
+  return image;
+}
+
+function isHeifFormat(format: PhotoFormat, asset: ImagePickerAsset): format is 'heif' | 'unknown' {
+  return format === 'heif' || (format === 'unknown' && hasHeifMetadata(asset));
+}
+
+function isOversizedJpeg(format: PhotoFormat, fileSize: number): boolean {
+  return format === 'jpeg' && fileSize > MAX_PHOTO_BYTES;
+}
+
 /**
- * Converts a selected HEIC or HEIF photo to a bounded JPEG for upload.
+ * Validates a selected image and prepares a bounded JPEG when required for upload.
  *
  * @param asset - Photo returned by the native image picker
  * @returns The original supported photo or a JPEG with matching metadata
@@ -159,12 +172,15 @@ async function convertHeifPhoto(asset: ImagePickerAsset): Promise<ImagePickerAss
 export async function prepareUploadPhoto(asset: ImagePickerAsset): Promise<ImagePickerAsset> {
   const inspected: { format: PhotoFormat; fileSize: number } = inspectPhoto(asset);
   if (inspected.format === 'heif-sequence') throw new Error('Choose a still photo.');
-  if (inspected.format === 'heif' || (inspected.format === 'unknown' && hasHeifMetadata(asset))) {
-    return convertHeifPhoto(asset);
+  if (isHeifFormat(inspected.format, asset)) {
+    const image: ImageRef = await decodePhoto(asset.uri);
+    return photoToJpegWithinLimit(image, asset);
   }
-  if (inspected.format === 'unknown' || inspected.format === 'unsupported') {
+  if (inspected.format === 'unsupported') {
     throw new Error('Choose a JPEG, PNG, WebP, or GIF photo.');
   }
+  const image: ImageRef = await decodePhoto(asset.uri);
+  if (isOversizedJpeg(inspected.format, inspected.fileSize)) return photoToJpegWithinLimit(image, asset);
   const mimeType: string = mimeForPhotoFormat(inspected.format);
   const extensionMatchesFormat: boolean =
     (mimeType === 'image/jpeg' && ['jpg', 'jpeg'].includes(extension(asset.fileName))) ||
@@ -179,6 +195,8 @@ export async function prepareUploadPhoto(asset: ImagePickerAsset): Promise<Image
         ? asset.fileName
         : filenameForMime(mimeType),
     fileSize: inspected.fileSize,
+    width: image.width,
+    height: image.height,
   };
 }
 
