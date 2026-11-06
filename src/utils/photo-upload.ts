@@ -209,7 +209,8 @@ async function preparePhotoForUpload(
   if (format === 'unknown' || format === 'unsupported') {
     throw new Error('Choose a JPEG, PNG, WebP, or GIF photo.');
   }
-  if (!compressOversizedJpeg && inspected.fileSize > MAX_PHOTO_BYTES) {
+  if (!compressOversizedJpeg && (format === 'gif' || inspected.fileSize > MAX_PHOTO_BYTES)) {
+    // Let chat's existing precheck reject GIFs and oversized originals before native decode.
     return photoWithDetectedFormat(asset, format, inspected.fileSize, asset);
   }
   const image: ImageRef = await decodePhoto(asset.uri);
