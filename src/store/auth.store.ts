@@ -2,13 +2,16 @@ import { create } from 'zustand';
 import type { User } from '@/types/user.types';
 import { secureStorage } from '@/utils/secure-storage';
 
-interface AuthState {
+interface AuthSession {
   token: string | null;
   expiresAt: number | null;
   user: User | null;
   isHydrated: boolean;
   sessionVersion: number;
+}
 
+interface AuthState extends AuthSession {
+  getStableSession: () => Promise<AuthSession>;
   setAuth: (
     accessToken: string,
     refreshToken: string,
@@ -32,6 +35,16 @@ function serializePersistence(operation: () => Promise<void>): Promise<void> {
   return result;
 }
 
+async function getStableSession(): Promise<AuthSession> {
+  while (true) {
+    const pending = persistenceQueue;
+    await pending;
+    if (pending !== persistenceQueue) continue;
+    const { token, expiresAt, user, isHydrated, sessionVersion } = useAuthStore.getState();
+    return { token, expiresAt, user, isHydrated, sessionVersion };
+  }
+}
+
 /** In-memory session state with explicit encrypted token persistence. */
 export const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
@@ -39,6 +52,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isHydrated: false,
   sessionVersion: 0,
+  getStableSession,
 
   setAuth: async (
     accessToken: string,
@@ -51,7 +65,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     const previousVersion = get().sessionVersion;
     const revision = ++authRevision;
-    set({ sessionVersion: revision });
+    set({ sessionVersion: revision, ...(expectedSessionVersion === undefined ? { user: null } : {}) });
     try {
       await serializePersistence(async () => {
         if (revision !== authRevision) throw new Error('Authenticated session changed before token persistence');

@@ -104,6 +104,58 @@ describe('mobile auth transitions', () => {
     expect(useAuthStore.getState().token).toBe('next-access');
   });
 
+  it('waits for an in-flight refresh write before sending a new request or handling a 401', async () => {
+    let finishPersistence: (() => void) | undefined;
+    runtime.setTokens.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishPersistence = resolve;
+        }),
+    );
+    const [{ useAuthStore }, { refreshAccessToken }, { requestInterceptor }, { errorInterceptor }] = await Promise.all([
+      import('./auth.store'),
+      import('../api/interceptors/refresh-token'),
+      import('../api/interceptors/request.interceptor'),
+      import('../api/interceptors/error.interceptor'),
+    ]);
+    useAuthStore.setState({
+      token: 'access-a',
+      expiresAt: Date.now() + 60_000,
+      user: { id: 'user-a' } as User,
+    });
+
+    const refresh = refreshAccessToken('refresh-a', 'user-a', useAuthStore.getState().sessionVersion);
+    await vi.waitFor(() => expect(runtime.setTokens).toHaveBeenCalledTimes(1));
+    let requestSettled = false;
+    let unauthorizedSettled = false;
+    const request = requestInterceptor
+      .onFulfilled({ headers: {} } as unknown as InternalAxiosRequestConfig)
+      .then((config) => {
+        requestSettled = true;
+        return config;
+      });
+    const unauthorized = errorInterceptor.onRejected(unauthorizedRequest('user-a', 'access-a')).then((response) => {
+      unauthorizedSettled = true;
+      return response;
+    });
+    await Promise.resolve();
+
+    expect(requestSettled).toBe(false);
+    expect(unauthorizedSettled).toBe(false);
+    expect(runtime.getRefreshToken).not.toHaveBeenCalled();
+    expect(runtime.post).toHaveBeenCalledTimes(1);
+
+    finishPersistence?.();
+    await expect(refresh).resolves.toMatchObject({ accessToken: 'next-access' });
+    const [requestConfig, retriedResponse] = await Promise.all([request, unauthorized]);
+
+    expect(requestConfig.headers.Authorization).toBe('Bearer next-access');
+    expect(retriedResponse).toMatchObject({ data: 'retried response' });
+    expect(runtime.post).toHaveBeenCalledTimes(1);
+    expect(runtime.request).toHaveBeenCalledTimes(1);
+    expect(runtime.clearTokens).not.toHaveBeenCalled();
+  });
+
   it('keeps refreshes for different session tokens independent', async () => {
     let finishRefreshA:
       | ((response: { data: { accessToken: string; refreshToken: string; expiresIn: number } }) => void)
