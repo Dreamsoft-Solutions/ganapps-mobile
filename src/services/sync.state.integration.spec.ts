@@ -113,6 +113,29 @@ describe('mobile outbox state transitions', () => {
     expect(runtime.api.checkIn).toHaveBeenCalledTimes(1);
   });
 
+  it('does not let foreign-owner rows starve the current owner past one batch', async () => {
+    for (let index = 0; index < 11; index += 1) {
+      sqlite
+        .prepare(
+          `INSERT INTO outbox (id, entity_type, action, payload, status, retries, created_at, updated_at)
+           VALUES (?, 'ganap', 'like', ?, 'pending', 0, ?, ?)`,
+        )
+        .run(
+          `foreign-${index}`,
+          JSON.stringify({ ganapId: `foreign-${index}`, ownerId: 'user-b' }),
+          Date.now(),
+          Date.now(),
+        );
+    }
+    await service.enqueueOutbox('ganap', 'like', { ganapId: 'ganap-user-a' });
+
+    await service.syncOutbox();
+
+    expect(runtime.api.like).toHaveBeenCalledTimes(1);
+    expect(runtime.api.like).toHaveBeenCalledWith('ganap-user-a', 'user-a');
+    expect(sqlite.prepare("SELECT status FROM outbox WHERE id LIKE 'foreign-%'").all()).toHaveLength(11);
+  });
+
   it('serializes concurrent drains so a pending row is sent once', async () => {
     await service.enqueueOutbox('ganap', 'like', { ganapId: 'ganap-2' });
     let releaseRequest: (() => void) | undefined;
@@ -130,7 +153,28 @@ describe('mobile outbox state transitions', () => {
     await Promise.all([firstDrain, secondDrain]);
 
     expect(runtime.api.like).toHaveBeenCalledTimes(1);
+    expect(runtime.api.like).toHaveBeenCalledWith('ganap-2', 'user-a');
     expect(outboxRow(sqlite).status).toBe('success');
+  });
+
+  it('counts one retry when multiple drain triggers overlap a failed request', async () => {
+    await service.enqueueOutbox('ganap', 'like', { ganapId: 'ganap-retry' });
+    let rejectRequest: ((error: unknown) => void) | undefined;
+    runtime.api.like.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectRequest = reject;
+        }),
+    );
+
+    const firstDrain = service.syncOutbox();
+    await vi.waitFor(() => expect(runtime.api.like).toHaveBeenCalledTimes(1));
+    const secondDrain = service.syncOutbox();
+    rejectRequest?.(new Error('temporary network failure'));
+    await Promise.all([firstDrain, secondDrain]);
+
+    expect(runtime.api.like).toHaveBeenCalledTimes(1);
+    expect(outboxRow(sqlite)).toMatchObject({ status: 'pending', retries: 1 });
   });
 });
 

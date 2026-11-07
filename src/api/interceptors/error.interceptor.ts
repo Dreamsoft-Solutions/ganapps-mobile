@@ -3,6 +3,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { parseApiError } from '@/utils/error-handling';
 import { secureStorage } from '@/utils/secure-storage';
 import axiosInstance from '../axios-instance';
+import type { SessionBoundRequestConfig } from '../types/session-bound-request';
 import { refreshAccessToken } from './refresh-token';
 
 interface QueueItem {
@@ -39,11 +40,18 @@ export const errorInterceptor = {
       return Promise.reject(parseApiError(error));
     }
 
+    const expectedUserId = (originalRequest as SessionBoundRequestConfig).expectedAuthUserId;
+    if (expectedUserId && useAuthStore.getState().user?.id !== expectedUserId) {
+      return Promise.reject(parseApiError(error));
+    }
+
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       const refreshToken = await secureStorage.getRefreshToken();
 
       if (!refreshToken) {
-        await useAuthStore.getState().clearAuth();
+        if (!expectedUserId || useAuthStore.getState().user?.id === expectedUserId) {
+          await useAuthStore.getState().clearAuth();
+        }
         return Promise.reject(parseApiError(error));
       }
 
@@ -63,13 +71,15 @@ export const errorInterceptor = {
       isRefreshing = true;
 
       try {
-        const tokens = await refreshAccessToken(refreshToken);
+        const tokens = await refreshAccessToken(refreshToken, expectedUserId);
         processQueue(null, tokens.accessToken);
         originalRequest.headers.Authorization = `Bearer ${tokens.accessToken}`;
         return axiosInstance(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        await useAuthStore.getState().clearAuth();
+        if (!expectedUserId || useAuthStore.getState().user?.id === expectedUserId) {
+          await useAuthStore.getState().clearAuth();
+        }
         return Promise.reject(parseApiError(refreshError as AxiosError));
       } finally {
         isRefreshing = false;

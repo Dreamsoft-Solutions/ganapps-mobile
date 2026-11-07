@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, or, sql } from 'drizzle-orm';
 import { AppState, type AppStateStatus } from 'react-native';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import { db } from '@/db';
@@ -124,7 +124,7 @@ function readOwnerId(item: typeof outbox.$inferSelect): string | null {
  * @returns Nothing
  */
 export function syncOutbox(onCheckInSettled?: CheckInReplayListener): Promise<void> {
-  if (outboxDrainPromise) return outboxDrainPromise.then(() => syncOutbox(onCheckInSettled));
+  if (outboxDrainPromise) return outboxDrainPromise;
   outboxDrainPromise = drainOutbox(onCheckInSettled).finally(() => {
     outboxDrainPromise = null;
   });
@@ -135,7 +135,14 @@ async function drainOutbox(onCheckInSettled?: CheckInReplayListener): Promise<vo
   const { isHydrated, token, user } = useAuthStore.getState();
   if (!isHydrated || !token || !user?.id) return;
 
-  const pendingItems = await db.select().from(outbox).where(eq(outbox.status, 'pending')).limit(DRAIN_BATCH);
+  const ownerIdExpression = sql<
+    string | null
+  >`CASE WHEN json_valid(${outbox.payload}) THEN CASE WHEN json_type(${outbox.payload}, '$.ownerId') = 'text' THEN json_extract(${outbox.payload}, '$.ownerId') END END`;
+  const pendingItems = await db
+    .select()
+    .from(outbox)
+    .where(and(eq(outbox.status, 'pending'), or(eq(ownerIdExpression, user.id), isNull(ownerIdExpression))))
+    .limit(DRAIN_BATCH);
 
   for (const item of pendingItems) {
     if (!isCurrentOutboxOwner(user.id)) return;
@@ -293,7 +300,7 @@ async function processOutboxItem(command: OutboxCommand, ownerId: string): Promi
   if (command.ownerId !== ownerId) throw new OutboxPayloadError('Outbox item belongs to another user');
   if (!isCurrentOutboxOwner(ownerId)) throw new Error('Authenticated User changed before replay');
 
-  await syncGanapAction(command);
+  await syncGanapAction(command, ownerId);
 }
 
 /**
@@ -302,22 +309,22 @@ async function processOutboxItem(command: OutboxCommand, ownerId: string): Promi
  * @param command - The persisted command to replay
  * @returns Nothing
  */
-async function syncGanapAction(command: OutboxCommand): Promise<void> {
+async function syncGanapAction(command: OutboxCommand, ownerId: string): Promise<void> {
   switch (command.action) {
     case 'like':
-      await ganapsAPI.like(command.ganapId);
+      await ganapsAPI.like(command.ganapId, ownerId);
       break;
     case 'unlike':
-      await ganapsAPI.unlike(command.ganapId);
+      await ganapsAPI.unlike(command.ganapId, ownerId);
       break;
     case 'save':
-      await ganapsAPI.save(command.ganapId);
+      await ganapsAPI.save(command.ganapId, ownerId);
       break;
     case 'unsave':
-      await ganapsAPI.unsave(command.ganapId);
+      await ganapsAPI.unsave(command.ganapId, ownerId);
       break;
     case 'check-in': {
-      await ganapsAPI.checkIn(command.ganapId, { qrHash: command.qrHash, scannedAt: command.scannedAt });
+      await ganapsAPI.checkIn(command.ganapId, { qrHash: command.qrHash, scannedAt: command.scannedAt }, ownerId);
       break;
     }
   }
