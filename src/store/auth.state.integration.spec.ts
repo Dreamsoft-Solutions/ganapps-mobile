@@ -153,6 +153,9 @@ describe('mobile auth transitions', () => {
     expect(retriedResponse).toMatchObject({ data: 'retried response' });
     expect(runtime.post).toHaveBeenCalledTimes(1);
     expect(runtime.request).toHaveBeenCalledTimes(1);
+    expect(runtime.request.mock.calls[0]?.[0]).toMatchObject({
+      headers: { Authorization: 'Bearer next-access' },
+    });
     expect(runtime.clearTokens).not.toHaveBeenCalled();
   });
 
