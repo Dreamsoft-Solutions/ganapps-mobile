@@ -79,13 +79,14 @@ describe('mobile outbox state transitions', () => {
     runtime.session.token = null;
     runtime.session.user = null;
 
-    await expect(service.enqueueOutbox('ganap', 'like', { ganapId: 'ganap-1' })).resolves.toBe(false);
+    await expect(service.enqueueOutbox({ action: 'like', ganapId: 'ganap-1' })).resolves.toBe(false);
     expect(sqlite.prepare('SELECT id FROM outbox').all()).toHaveLength(0);
   });
 
   it('waits for hydrated auth and replays only for the queued owner', async () => {
     await expect(
-      service.enqueueOutbox('ganap', 'check-in', {
+      service.enqueueOutbox({
+        action: 'check-in',
         ganapId: 'ganap-1',
         qrHash: 'qr-hash',
         scannedAt: '2026-11-01T00:00:00.000Z',
@@ -127,7 +128,7 @@ describe('mobile outbox state transitions', () => {
           Date.now(),
         );
     }
-    await service.enqueueOutbox('ganap', 'like', { ganapId: 'ganap-user-a' });
+    await service.enqueueOutbox({ action: 'like', ganapId: 'ganap-user-a' });
 
     await service.syncOutbox();
 
@@ -137,7 +138,7 @@ describe('mobile outbox state transitions', () => {
   });
 
   it('serializes concurrent drains so a pending row is sent once', async () => {
-    await service.enqueueOutbox('ganap', 'like', { ganapId: 'ganap-2' });
+    await service.enqueueOutbox({ action: 'like', ganapId: 'ganap-2' });
     let releaseRequest: (() => void) | undefined;
     runtime.api.like.mockImplementationOnce(
       () =>
@@ -158,7 +159,7 @@ describe('mobile outbox state transitions', () => {
   });
 
   it('counts one retry when multiple drain triggers overlap a failed request', async () => {
-    await service.enqueueOutbox('ganap', 'like', { ganapId: 'ganap-retry' });
+    await service.enqueueOutbox({ action: 'like', ganapId: 'ganap-retry' });
     let rejectRequest: ((error: unknown) => void) | undefined;
     runtime.api.like.mockImplementationOnce(
       () =>
@@ -175,6 +176,29 @@ describe('mobile outbox state transitions', () => {
 
     expect(runtime.api.like).toHaveBeenCalledTimes(1);
     expect(outboxRow(sqlite)).toMatchObject({ status: 'pending', retries: 1 });
+  });
+
+  it('drains a new row queued during an active pass when another trigger arrives', async () => {
+    await service.enqueueOutbox({ action: 'like', ganapId: 'ganap-first' });
+    let releaseRequest: (() => void) | undefined;
+    runtime.api.like.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseRequest = resolve;
+        }),
+    );
+
+    const firstDrain = service.syncOutbox();
+    await vi.waitFor(() => expect(runtime.api.like).toHaveBeenCalledTimes(1));
+    await service.enqueueOutbox({ action: 'like', ganapId: 'ganap-second' });
+    const overlappingTrigger = service.syncOutbox();
+    releaseRequest?.();
+    await Promise.all([firstDrain, overlappingTrigger]);
+
+    expect(runtime.api.like).toHaveBeenCalledTimes(2);
+    expect(runtime.api.like).toHaveBeenNthCalledWith(1, 'ganap-first', 'user-a');
+    expect(runtime.api.like).toHaveBeenNthCalledWith(2, 'ganap-second', 'user-a');
+    expect(sqlite.prepare("SELECT status FROM outbox WHERE status = 'success'").all()).toHaveLength(2);
   });
 });
 

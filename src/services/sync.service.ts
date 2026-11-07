@@ -1,4 +1,4 @@
-import { and, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, isNull, notInArray, or, sql } from 'drizzle-orm';
 import { AppState, type AppStateStatus } from 'react-native';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import { db } from '@/db';
@@ -19,6 +19,7 @@ const DRAIN_BATCH = 10;
 const MAX_RETRIES = 3;
 
 let outboxDrainPromise: Promise<void> | null = null;
+let outboxDrainRequested = false;
 
 /** Result of a replayed offline attendance scan reaching a final state. */
 export interface CheckInReplayOutcome {
@@ -124,31 +125,61 @@ function readOwnerId(item: typeof outbox.$inferSelect): string | null {
  * @returns Nothing
  */
 export function syncOutbox(onCheckInSettled?: CheckInReplayListener): Promise<void> {
-  if (outboxDrainPromise) return outboxDrainPromise;
+  if (outboxDrainPromise) {
+    outboxDrainRequested = true;
+    return outboxDrainPromise;
+  }
+  outboxDrainRequested = false;
   outboxDrainPromise = drainOutbox(onCheckInSettled).finally(() => {
     outboxDrainPromise = null;
+    outboxDrainRequested = false;
   });
   return outboxDrainPromise;
 }
 
 async function drainOutbox(onCheckInSettled?: CheckInReplayListener): Promise<void> {
-  const { isHydrated, token, user } = useAuthStore.getState();
-  if (!isHydrated || !token || !user?.id) return;
+  const attemptedByOwner = new Map<string, Set<string>>();
+  do {
+    outboxDrainRequested = false;
+    const { isHydrated, token, user } = useAuthStore.getState();
+    if (!isHydrated || !token || !user?.id) return;
 
+    let attemptedIds = attemptedByOwner.get(user.id);
+    if (!attemptedIds) {
+      attemptedIds = new Set();
+      attemptedByOwner.set(user.id, attemptedIds);
+    }
+    await drainOutboxBatch(user.id, attemptedIds, onCheckInSettled);
+  } while (outboxDrainRequested);
+}
+
+async function drainOutboxBatch(
+  ownerId: string,
+  attemptedIds: Set<string>,
+  onCheckInSettled?: CheckInReplayListener,
+): Promise<void> {
   const ownerIdExpression = sql<
     string | null
   >`CASE WHEN json_valid(${outbox.payload}) THEN CASE WHEN json_type(${outbox.payload}, '$.ownerId') = 'text' THEN json_extract(${outbox.payload}, '$.ownerId') END END`;
+  const excludedIds = [...attemptedIds];
   const pendingItems = await db
     .select()
     .from(outbox)
-    .where(and(eq(outbox.status, 'pending'), or(eq(ownerIdExpression, user.id), isNull(ownerIdExpression))))
+    .where(
+      and(
+        eq(outbox.status, 'pending'),
+        or(eq(ownerIdExpression, ownerId), isNull(ownerIdExpression)),
+        excludedIds.length > 0 ? notInArray(outbox.id, excludedIds) : undefined,
+      ),
+    )
     .limit(DRAIN_BATCH);
 
   for (const item of pendingItems) {
-    if (!isCurrentOutboxOwner(user.id)) return;
+    if (!isCurrentOutboxOwner(ownerId)) return;
+    attemptedIds.add(item.id);
     const itemOwnerId = readOwnerId(item);
-    if (itemOwnerId !== null && itemOwnerId !== user.id) continue;
-    await processPendingOutboxItem(item, user.id, onCheckInSettled);
+    if (itemOwnerId !== null && itemOwnerId !== ownerId) continue;
+    await processPendingOutboxItem(item, ownerId, onCheckInSettled);
   }
 }
 

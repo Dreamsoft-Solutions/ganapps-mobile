@@ -23,14 +23,22 @@ const refreshPromises = new Map<string, Promise<TokenResponse>>();
  * @returns New token pair
  * @throws When the refresh request fails
  */
-export async function refreshAccessToken(refreshToken: string, expectedUserId?: string): Promise<TokenResponse> {
+export async function refreshAccessToken(
+  refreshToken: string,
+  expectedUserId?: string,
+  expectedSessionVersion?: number,
+): Promise<TokenResponse> {
   const startedSession = useAuthStore.getState();
   if (expectedUserId && startedSession.user?.id !== expectedUserId) {
     throw new Error('Authenticated User changed before token refresh');
   }
+  if (expectedSessionVersion !== undefined && startedSession.sessionVersion !== expectedSessionVersion) {
+    throw new Error('Authenticated session changed before token refresh');
+  }
   const startedToken = startedSession.token;
   const startedUserId = startedSession.user?.id;
-  const inFlight = refreshPromises.get(refreshToken);
+  const promiseKey = `${refreshToken}:${startedSession.sessionVersion}`;
+  const inFlight = refreshPromises.get(promiseKey);
   if (inFlight) return inFlight;
 
   const refresh = axios
@@ -41,16 +49,22 @@ export async function refreshAccessToken(refreshToken: string, expectedUserId?: 
       if (
         currentSession.token !== startedToken ||
         (startedUserId && currentSession.user?.id !== startedUserId) ||
-        (expectedUserId && currentSession.user?.id !== expectedUserId)
+        (expectedUserId && currentSession.user?.id !== expectedUserId) ||
+        currentSession.sessionVersion !== startedSession.sessionVersion
       ) {
         throw new Error('Authenticated session changed during token refresh');
       }
-      await currentSession.setAuth(tokens.accessToken, tokens.refreshToken, tokens.expiresIn);
+      await currentSession.setAuth(
+        tokens.accessToken,
+        tokens.refreshToken,
+        tokens.expiresIn,
+        startedSession.sessionVersion,
+      );
       return tokens;
     })
     .finally(() => {
-      refreshPromises.delete(refreshToken);
+      refreshPromises.delete(promiseKey);
     });
-  refreshPromises.set(refreshToken, refresh);
+  refreshPromises.set(promiseKey, refresh);
   return refresh;
 }
