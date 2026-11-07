@@ -64,7 +64,9 @@ export const errorInterceptor = {
     if (error.response?.status !== 401 || !originalRequest || originalRequest._retry) {
       return Promise.reject(parseApiError(error));
     }
+    await useAuthStore.getState().getStableSession();
     if (!originalRequest.requestAuthToken) return Promise.reject(parseApiError(error));
+    await useAuthStore.getState().getStableSession();
     if (!isRequestOwnerCurrent(originalRequest)) return Promise.reject(parseApiError(error));
 
     const newerTokenRetry = retryWithCurrentToken(originalRequest);
@@ -97,7 +99,7 @@ export const errorInterceptor = {
         originalRequest.requestAuthVersion,
       );
       originalRequest.requestAuthToken = tokens.accessToken;
-      originalRequest.requestAuthVersion = useAuthStore.getState().sessionVersion;
+      originalRequest.requestAuthVersion = (await useAuthStore.getState().getStableSession()).sessionVersion;
       originalRequest.headers.Authorization = `Bearer ${tokens.accessToken}`;
       return axiosInstance(originalRequest);
     } catch (refreshError) {

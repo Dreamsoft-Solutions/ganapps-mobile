@@ -10,7 +10,7 @@ export const requestInterceptor = {
   onFulfilled: async (config: InternalAxiosRequestConfig): Promise<InternalAxiosRequestConfig> => {
     const sessionConfig = config as InternalAxiosRequestConfig & SessionBoundRequestConfig;
     const expectedUserId = sessionConfig.expectedAuthUserId;
-    const state = useAuthStore.getState();
+    const state = await useAuthStore.getState().getStableSession();
     const requestUserId =
       sessionConfig.requestAuthUserId !== undefined
         ? sessionConfig.requestAuthUserId
@@ -26,7 +26,7 @@ export const requestInterceptor = {
       if (remaining < PREEMPTIVE_REFRESH_MS) {
         try {
           const refreshToken = await secureStorage.getRefreshToken();
-          const current = useAuthStore.getState();
+          const current = await useAuthStore.getState().getStableSession();
           if ((current.user?.id ?? null) !== requestUserId) {
             throw new Error('Authenticated User changed before token refresh');
           }
@@ -43,7 +43,7 @@ export const requestInterceptor = {
           } else if (refreshToken) {
             const tokens = await refreshAccessToken(refreshToken, requestUserId ?? undefined, requestVersion);
             token = tokens.accessToken;
-            requestVersion = useAuthStore.getState().sessionVersion;
+            requestVersion = (await useAuthStore.getState().getStableSession()).sessionVersion;
           }
         } catch {
           // will be caught by error interceptor
@@ -51,7 +51,7 @@ export const requestInterceptor = {
       }
     }
 
-    const current = useAuthStore.getState();
+    const current = await useAuthStore.getState().getStableSession();
     if ((current.user?.id ?? null) !== requestUserId || (expectedUserId && requestUserId !== expectedUserId)) {
       throw new Error('Authenticated User changed before the request was sent');
     }
