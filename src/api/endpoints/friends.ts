@@ -204,6 +204,3 @@ export const friendsAPI = {
   heartbeat: (deviceId: string): Promise<void> =>
     axiosInstance.post<void>('/presence/heartbeat', { deviceId }).then((): undefined => undefined),
 };
-
-/** Backwards-readable aliases for callers that use operation-oriented names. */
-export const friendAPI: typeof friendsAPI = friendsAPI;

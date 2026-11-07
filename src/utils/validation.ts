@@ -210,8 +210,6 @@ export type RequestPasswordResetFormData = z.infer<typeof requestPasswordResetSc
 export type CompletePasswordResetFormData = z.infer<typeof completePasswordResetSchema>;
 export type RegisterFormData = z.infer<typeof registerSchema>;
 export type VerifyEmailFormData = z.infer<typeof verifyEmailSchema>;
-export type OnboardingNamesData = z.infer<typeof onboardingNamesSchema>;
-export type OnboardingExtrasData = z.infer<typeof onboardingExtrasSchema>;
 export type OnboardingFormData = z.infer<typeof onboardingSchema>;
 export type ProfileFormData = z.infer<typeof profileSchema>;
 

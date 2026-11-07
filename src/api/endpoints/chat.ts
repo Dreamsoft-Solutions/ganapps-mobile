@@ -77,9 +77,6 @@ export const chatAPI = {
   getSocketTicket: (): Promise<ChatSocketTicket> =>
     axiosInstance.post<ChatSocketTicket>('/chat/socket-ticket').then((res) => res.data),
 
-  /** Alias for callers that use the server operation's verb. */
-  issueSocketTicket: (): Promise<ChatSocketTicket> => chatAPI.getSocketTicket(),
-
   /**
    * Lists readable Event Chat summaries in server order.
    *
@@ -92,10 +89,6 @@ export const chatAPI = {
         params: { type: 'EVENT', ...params },
       })
       .then((res) => res.data),
-
-  /** Alias for the Event-only summary list. */
-  getConversations: (params: EventChatListParams = { type: 'EVENT' }): Promise<EventChatSummaryPage> =>
-    chatAPI.listConversations(params),
 
   /**
    * Lists the server-owned mixed Event and Direct summary feed for the Friends hub.
@@ -110,11 +103,6 @@ export const chatAPI = {
       })
       .then((res) => res.data),
 
-  /** Alias for the Friends hub's mixed Event/Direct summary list. */
-  listConversationSummaries: (
-    params: Omit<ChatConversationListParams, 'type'> = {},
-  ): Promise<ChatConversationSummaryPage> => chatAPI.listAllConversations(params),
-
   /**
    * Resolves one Ganap's Event Chat session and current capabilities.
    *
@@ -123,9 +111,6 @@ export const chatAPI = {
    */
   resolveSession: (ganapId: string): Promise<EventChatSession> =>
     axiosInstance.post<EventChatSession>(`/ganaps/${ganapId}/chat`).then((res) => res.data),
-
-  /** Alias for resolving the server-authoritative Event Chat session. */
-  getSession: (ganapId: string): Promise<EventChatSession> => chatAPI.resolveSession(ganapId),
 
   /**
    * Reads one cursor page of newest-first Event Chat history.
@@ -140,10 +125,6 @@ export const chatAPI = {
         params: { cursor: params.cursor, limit: params.limit },
       })
       .then((res) => res.data),
-
-  /** Alias for reading Event Chat history. */
-  getMessages: (ganapId: string, params: ChatMessagesParams = {}): Promise<ChatMessagesPage> =>
-    chatAPI.listMessages(ganapId, params),
 
   /**
    * Sends one text message through the Ganap-scoped REST endpoint.
@@ -276,11 +257,4 @@ export const chatAPI = {
    */
   markRead: (ganapId: string, input: MarkChatReadInput): Promise<ChatReadResult> =>
     axiosInstance.post<ChatReadResult>(`/ganaps/${ganapId}/chat/read`, input).then((res) => res.data),
-
-  /** Alias for marking the current User's Event Chat cursor read. */
-  markMessagesRead: (ganapId: string, input: MarkChatReadInput): Promise<ChatReadResult> =>
-    chatAPI.markRead(ganapId, input),
 };
-
-/** Backwards-readable alias for callers that name the ticket operation explicitly. */
-export const issueSocketTicket: typeof chatAPI.getSocketTicket = chatAPI.getSocketTicket;

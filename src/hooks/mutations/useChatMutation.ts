@@ -8,9 +8,9 @@ import type {
   EventChatSummary,
   EventChatSummaryPage,
 } from '@/types/chat.types';
-import { compareChatMessagePositions, getChatMessagePreview, isChatForbidden, upsertChatMessage } from '@/utils/chat';
+import { compareChatMessagePositions, getChatMessagePreview, isChatForbidden } from '@/utils/chat';
 import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
-import { type ChatPageParam, chatQueryKeys } from '../queries/useChatQuery';
+import { type ChatPageParam, chatQueryKeys, upsertChatMessagePages } from '../queries/useChatQuery';
 
 /** Variables accepted by the idempotent Event Chat send mutation. */
 export interface SendChatMessageVariables {
@@ -30,30 +30,6 @@ export interface SendChatImageVariables {
 export interface MarkChatReadVariables {
   ganapId: string;
   throughMessageId: string;
-}
-
-function patchMessagePages(
-  data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined,
-  message: ChatMessage,
-): InfiniteData<ChatMessagesPage, ChatPageParam> | undefined {
-  if (!data || data.pages.length === 0) return data;
-  const [firstPage, ...restPages]: ChatMessagesPage[] = data.pages;
-  const nextFirstPage: ChatMessagesPage = {
-    ...firstPage,
-    items: upsertChatMessage(firstPage.items, message),
-  };
-  return {
-    ...data,
-    pages: [
-      nextFirstPage,
-      ...restPages.map(
-        (page: ChatMessagesPage): ChatMessagesPage => ({
-          ...page,
-          items: page.items.filter((item: ChatMessage): boolean => item.id !== message.id),
-        }),
-      ),
-    ],
-  };
 }
 
 function patchSummaryPages(
@@ -103,7 +79,7 @@ export function useSendChatMessageMutation(): UseMutationResult<ChatMessage, Err
     onSuccess: (message: ChatMessage, { ganapId }: SendChatMessageVariables): void => {
       queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
         chatQueryKeys.eventMessages(ganapId),
-        (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => patchMessagePages(data, message),
+        (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => upsertChatMessagePages(data, message),
       );
       queryClient.setQueryData<InfiniteData<EventChatSummaryPage, ChatPageParam>>(
         chatQueryKeys.eventList(),
@@ -139,7 +115,7 @@ export function useSendChatImageMutation(): UseMutationResult<ChatMessage, Error
     onSuccess: (message: ChatMessage, { ganapId }: SendChatImageVariables): void => {
       queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
         chatQueryKeys.eventMessages(ganapId),
-        (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => patchMessagePages(data, message),
+        (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => upsertChatMessagePages(data, message),
       );
       queryClient.setQueryData<InfiniteData<EventChatSummaryPage, ChatPageParam>>(
         chatQueryKeys.eventList(),

@@ -45,9 +45,6 @@ export interface ChatSummaryQuerySnapshot {
     | undefined;
 }
 
-/** Backwards-readable name for Event Chat summary snapshots. */
-export type EventChatSummaryQuerySnapshot = ChatSummaryQuerySnapshot;
-
 /** Variables accepted by the directional block mutation. */
 export interface BlockUserVariables {
   userId: string;
@@ -288,13 +285,6 @@ export function useUnblockUserMutation(): UseMutationResult<void, Error, Unblock
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }
-
-/**
- * Backwards-readable alias for report callers that use the report operation name.
- *
- * @returns The report mutation hook
- */
-export const useReportMutation: typeof useCreateReportMutation = useCreateReportMutation;
 
 /** Keeps the blocked page type discoverable to cache consumers. */
 export type ModerationBlockedUsersData = InfiniteData<BlockedUsersPage, string | undefined>;

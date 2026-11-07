@@ -148,9 +148,10 @@ export function useLogoutMutation(): UseMutationResult<void, Error, void> {
       void revokeRegisteredAndroidPushToken();
       return authAPI.logout();
     },
-    onSuccess: () => {
-      clearAuth();
+    onSuccess: async (): Promise<void> => {
+      const tokenCleanup = clearAuth();
       queryClient.clear();
+      await tokenCleanup;
     },
   });
 }

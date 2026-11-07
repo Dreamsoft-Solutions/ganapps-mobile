@@ -25,9 +25,11 @@
     "expo-constants": "~57.0.2",
     "expo-crypto": "~57.0.4",
     "expo-device": "~57.0.0",
+    "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.0",
     "expo-glass-effect": "~57.0.0",
     "expo-image": "~57.0.0",
+    "expo-image-manipulator": "~57.0.22",
     "expo-image-picker": "~57.0.6",
     "expo-linking": "~57.0.1",
     "expo-location": "~57.0.16",
@@ -103,8 +105,7 @@
     "eas-build-post-install": "node scripts/check-play-release.cjs",
     "check:play-release": "node --env-file-if-exists=.env scripts/check-play-release.cjs --production",
     "eas:preview": "eas build --platform all --profile preview",
-    "prepare": "husky",
-    "reset-project": "node ./scripts/reset-project.js"
+    "prepare": "husky"
   },
   "private": true
 }

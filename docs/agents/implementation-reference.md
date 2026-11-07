@@ -12,10 +12,10 @@ Start with the row matching the task, then trace its imports and callers. Paths 
 | --- | --- |
 | Password fields and shared input | [LoginForm.tsx](<../../src/components/forms/LoginForm.tsx>), [Input.tsx](<../../src/components/common/Input.tsx>) |
 | Auth, refresh, response unwrapping | [useAuth.ts](<../../src/hooks/useAuth.ts>), [axios-instance.ts](<../../src/api/axios-instance.ts>), [interceptors](<../../src/api/interceptors>), [auth.store.ts](<../../src/store/auth.store.ts>) |
-| Map, categories, nearby discovery | [useGanapsMap.ts](<../../src/hooks/useGanapsMap.ts>), [ganaps.ts](<../../src/api/endpoints/ganaps.ts>), [map](<../../src/components/map>) |
+| Map, categories, nearby discovery | [home route](<../../src/app/(app)/(home)/index.tsx>), [useGanapsMap.ts](<../../src/hooks/useGanapsMap.ts>), [ganaps.ts](<../../src/api/endpoints/ganaps.ts>), [map](<../../src/components/map>) |
 | Joined and saved Ganaps | [useJoinedGanaps.ts](<../../src/hooks/useJoinedGanaps.ts>), [useSavedGanaps.ts](<../../src/hooks/useSavedGanaps.ts>), [ganaps.tsx](<../../src/app/(app)/(ganaps)/ganaps.tsx>) |
 | Friends profiles and loading | [[user-id].tsx](<../../src/app/(app)/(chat)/friend-profile/[user-id].tsx>), [useFriendsQuery.ts](<../../src/hooks/queries/useFriendsQuery.ts>), [friends.ts](<../../src/api/endpoints/friends.ts>), [FriendsHubView.tsx](<../../src/components/friends/FriendsHubView.tsx>) |
-| Chat and realtime transport | [chat.tsx](<../../src/app/(app)/(chat)/chat.tsx>), [chat.ts](<../../src/api/endpoints/chat.ts>), [chat-socket.service.ts](<../../src/services/chat-socket.service.ts>) |
+| Chat and realtime transport | [chat list](<../../src/app/(app)/(chat)/chat.tsx>), [Direct Chat route](<../../src/app/(app)/(chat)/direct-chat/[conversation-id].tsx>), [useChat.ts](<../../src/hooks/useChat.ts>), [useDirectChat.ts](<../../src/hooks/useDirectChat.ts>), [thread views](<../../src/components/chat>), [chat.ts](<../../src/api/endpoints/chat.ts>), [chat-socket.service.ts](<../../src/services/chat-socket.service.ts>) |
 | Routes and screens | [routes.ts](<../../src/constants/routes.ts>), [app](<../../src/app>) |
 
 Friends profile calls resolve to server `modules/friends`; Chat calls resolve to `modules/chat`. For the HTTP contract, inspect the assigned server checkout’s controller, request/response DTOs, and service.

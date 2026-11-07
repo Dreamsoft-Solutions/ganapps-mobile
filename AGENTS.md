@@ -37,7 +37,6 @@ CI steps and Pact provider selection live in .github/workflows/ci.yml; read it b
 ## Database and build safety
 
 - Editing src/db/schema.ts is normal work. Never run Drizzle migration generation or application. If a change needs either command, give the human the exact command. Do not launch the app when it would apply a pending migration.
-- Do not run reset-project; it moves src and scaffolds a blank app.
 - Run npx expo customize tsconfig.json after a fresh checkout or route-tree change and before type-checking; it generates the gitignored route types.
 - Biome check includes organize-imports assists; format alone does not.
 
