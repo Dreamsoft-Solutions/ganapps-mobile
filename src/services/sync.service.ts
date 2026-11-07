@@ -1,4 +1,4 @@
-import { and, eq, isNull, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, isNull, notInArray, sql } from 'drizzle-orm';
 import { AppState, type AppStateStatus } from 'react-native';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import { db } from '@/db';
@@ -11,8 +11,8 @@ type OutboxCommand =
   | { action: ToggleAction; ganapId: string; ownerId: string }
   | { action: 'check-in'; ganapId: string; ownerId: string; qrHash: string; scannedAt: string };
 type OutboxInput =
-  | { action: ToggleAction; ganapId: string }
-  | { action: 'check-in'; ganapId: string; qrHash: string; scannedAt: string };
+  | { action: ToggleAction; ganapId: string; ownerId: string }
+  | { action: 'check-in'; ganapId: string; ownerId: string; qrHash: string; scannedAt: string };
 
 const DRAIN_BATCH = 10;
 
@@ -71,11 +71,10 @@ export function classifyReplayError(action: OutboxAction, error: unknown): 'succ
  * Queues an action for replay when connectivity returns.
  *
  * @param command - A Ganap toggle or attendance scan to replay
- * @returns Whether the action was queued for the current signed-in User
+ * @returns Whether the action had a captured owner and was queued
  */
 export async function enqueueOutbox(command: OutboxInput): Promise<boolean> {
-  const { isHydrated, token, user } = useAuthStore.getState();
-  if (!isHydrated || !token || !user?.id) return false;
+  if (!command.ownerId.trim()) return false;
 
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   const { action, ...payload } = command;
@@ -83,7 +82,7 @@ export async function enqueueOutbox(command: OutboxInput): Promise<boolean> {
     id,
     entityType: 'ganap',
     action,
-    payload: JSON.stringify({ ...payload, ownerId: user.id }),
+    payload: JSON.stringify(payload),
     status: 'pending',
   });
   return true;
@@ -168,11 +167,26 @@ async function drainOutboxBatch(
     .where(
       and(
         eq(outbox.status, 'pending'),
-        or(eq(ownerIdExpression, ownerId), isNull(ownerIdExpression)),
+        eq(ownerIdExpression, ownerId),
         excludedIds.length > 0 ? notInArray(outbox.id, excludedIds) : undefined,
       ),
     )
     .limit(DRAIN_BATCH);
+  const legacyLimit = DRAIN_BATCH - pendingItems.length;
+  if (legacyLimit > 0) {
+    const legacyItems = await db
+      .select()
+      .from(outbox)
+      .where(
+        and(
+          eq(outbox.status, 'pending'),
+          isNull(ownerIdExpression),
+          excludedIds.length > 0 ? notInArray(outbox.id, excludedIds) : undefined,
+        ),
+      )
+      .limit(legacyLimit);
+    pendingItems.push(...legacyItems);
+  }
 
   for (const item of pendingItems) {
     if (!isCurrentOutboxOwner(ownerId)) return;
