@@ -265,9 +265,9 @@ export function useEventChatMessagesQuery(ganapId: string, enabled = true): UseE
 }
 
 /**
- * Lists server-owned Direct Chat summaries without loading any message history.
+ * Lists server-owned Direct Chat summaries and refreshes them on entry to the thread.
  *
- * @param enabled - Whether the Direct list is currently visible
+ * @param enabled - Whether a Direct Chat target is selected
  * @returns Infinite Direct summary query and flattened rows
  */
 export function useDirectChatListQuery(enabled = true): UseDirectChatListQueryResult {
@@ -293,6 +293,7 @@ export function useDirectChatListQuery(enabled = true): UseDirectChatListQueryRe
     initialPageParam: undefined,
     getNextPageParam: getNextChatPageParam,
     ...CHAT_QUERY_OPTIONS,
+    staleTime: 0,
     retry: shouldRetryChatQuery,
     enabled: Boolean(token && enabled),
   });
@@ -306,7 +307,7 @@ export function useDirectChatListQuery(enabled = true): UseDirectChatListQueryRe
 }
 
 /**
- * Reads Direct history only for a selected canonical conversation.
+ * Reads Direct history for the selected canonical conversation and refreshes it on entry.
  *
  * @param conversationId - Canonical Direct conversation id
  * @param enabled - Selected-thread/access/focus guard
@@ -329,6 +330,7 @@ export function useDirectChatMessagesQuery(conversationId: string, enabled = tru
     initialPageParam: undefined,
     getNextPageParam: getNextChatPageParam,
     ...CHAT_QUERY_OPTIONS,
+    staleTime: 0,
     retry: shouldRetryChatQuery,
     enabled: Boolean(token && conversationId && enabled),
   });

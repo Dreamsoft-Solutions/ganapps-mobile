@@ -39,6 +39,7 @@ import {
   createChatClientMessageId,
   getChatMessagePreview,
   greatestChatMessage,
+  isChatForbidden,
   isChatNetworkError,
 } from '@/utils/chat';
 import { markMessageUnsent, patchMessageInPages } from '@/utils/chat-engagement';
@@ -214,7 +215,10 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
   const currentUserId: string | null = useAuthStore((state) => state.user?.id ?? null);
   const enabled: boolean = options.enabled ?? true;
   const focused: boolean = options.focused ?? false;
-  const [createdConversationId, setCreatedConversationId] = useState<string | null>(null);
+  const [createdConversation, setCreatedConversation] = useState<{
+    conversationId: string;
+    friendUserId: string;
+  } | null>(null);
   const [accessRevoked, setAccessRevoked] = useState<boolean>(false);
   const [latestOutgoingSeenAt, setLatestOutgoingSeenAt] = useState<string | null>(options.latestOutgoingSeenAt ?? null);
   const [failedDraftMap, setFailedDraftMap] = useState<Record<string, DirectFailedDraft>>({});
@@ -228,15 +232,20 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
   const imagePreparationInFlight = useRef<boolean>(false);
   const readCursor = useRef<ChatMessage | null>(null);
   const pendingReadCursor = useRef<ChatMessage | null>(null);
-  const previousTarget = useRef<string>(`${options.conversationId ?? ''}:${options.friendUserId ?? ''}`);
   const previousConnectionState = useRef<ChatConnectionState>(connectionState);
 
-  const conversationId: string = options.conversationId ?? createdConversationId ?? '';
   const friendUserId: string = options.friendUserId ?? '';
-  const canRead: boolean = options.canRead === true || createdConversationId !== null;
-  const canSend: boolean = options.canSend === true || createdConversationId !== null;
-  const accessLost: boolean = accessRevoked || (Boolean(conversationId) && !canRead);
-  const messagesQuery = useDirectChatMessagesQuery(conversationId, enabled && canRead && !accessLost);
+  const createdConversationId: string | null =
+    createdConversation?.friendUserId === friendUserId ? createdConversation.conversationId : null;
+  const conversationId: string = options.conversationId ?? createdConversationId ?? '';
+  const target: string = friendUserId ? `friend:${friendUserId}` : `conversation:${options.conversationId ?? ''}`;
+  const previousTarget = useRef<string>(target);
+  const hasCreatedConversation: boolean = !options.conversationId && createdConversationId !== null;
+  const canRead: boolean = options.canRead === true || hasCreatedConversation;
+  const canSend: boolean = options.canSend === true || hasCreatedConversation;
+  const messagesQuery = useDirectChatMessagesQuery(conversationId, enabled && canRead && !accessRevoked);
+  const accessLost: boolean =
+    accessRevoked || (Boolean(conversationId) && !canRead) || isChatForbidden(messagesQuery.error);
   const messagesRef = useRef<ChatMessage[]>(messagesQuery.messages);
   messagesRef.current = messagesQuery.messages;
   const sendByFriendMutation = useSendDirectMessageByFriendMutation();
@@ -258,11 +267,11 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
 
   useEffect((): (() => void) => chatSocketClient.setBeforeJoin(refreshBlocksBeforeJoin), [refreshBlocksBeforeJoin]);
 
-  useEffect((): (() => void) | undefined => {
-    const target: string = `${options.conversationId ?? ''}:${options.friendUserId ?? ''}`;
-    if (target === previousTarget.current) return undefined;
+  useEffect((): void => {
+    const targetChanged: boolean = target !== previousTarget.current;
+    if (createdConversation && (targetChanged || options.conversationId)) setCreatedConversation(null);
+    if (!targetChanged) return;
     previousTarget.current = target;
-    setCreatedConversationId(null);
     setAccessRevoked(false);
     setLatestOutgoingSeenAt(options.latestOutgoingSeenAt ?? null);
     setFailedDraftMap({});
@@ -270,7 +279,7 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
     setImagePickerError(null);
     readCursor.current = null;
     pendingReadCursor.current = null;
-  }, [options.conversationId, options.friendUserId, options.latestOutgoingSeenAt]);
+  }, [createdConversation, options.conversationId, options.latestOutgoingSeenAt, target]);
 
   useEffect((): void => {
     setLatestOutgoingSeenAt(options.latestOutgoingSeenAt ?? null);
@@ -485,9 +494,11 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
 
   const rememberConversation = useCallback(
     (message: ChatMessage): void => {
-      if (!conversationId && message.conversationId) setCreatedConversationId(message.conversationId);
+      if (!conversationId && message.conversationId && previousTarget.current === target) {
+        setCreatedConversation({ conversationId: message.conversationId, friendUserId });
+      }
     },
-    [conversationId],
+    [conversationId, friendUserId, target],
   );
 
   const submitMessage = useCallback(
@@ -732,7 +743,9 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
     isFetchingNextPage: !accessLost && messagesQuery.isFetchingNextPage,
     loadMore,
     fetchNextPage: loadMore,
-    isLoading: Boolean(conversationId && canRead && !accessLost && messagesQuery.isLoading),
+    isLoading: Boolean(
+      conversationId && canRead && !accessLost && (messagesQuery.isPending || messagesQuery.fetchStatus !== 'idle'),
+    ),
     error,
     refetch,
     isSending:

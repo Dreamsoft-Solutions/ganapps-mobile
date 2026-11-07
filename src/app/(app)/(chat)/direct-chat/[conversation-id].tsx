@@ -1,5 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactElement, useCallback, useEffect, useState } from 'react';
 import { DirectChatThreadView } from '@/components/chat/DirectChatThreadView';
 import { ModerationActionSheet, type ModerationActionTarget } from '@/components/moderation/ModerationActionSheet';
 import { Routes } from '@/constants/routes';
@@ -10,8 +10,9 @@ import { useDirectChat } from '@/hooks/useDirectChat';
 import { useAuthStore } from '@/store/auth.store';
 import { showToast } from '@/store/toast.store';
 import type { ChatMessage, ReactionType } from '@/types/chat.types';
-import type { DirectChatFriendSummary } from '@/types/direct-chat.types';
+import type { DirectChatFriendSummary, DirectChatSummary } from '@/types/direct-chat.types';
 import type { CreateReportInput, ModerationReportReceipt } from '@/types/moderation.types';
+import { isChatForbidden } from '@/utils/chat';
 import { getChatEngagementErrorMessage, isChatMessageUnsendAvailable } from '@/utils/chat-engagement';
 
 function firstParam(value: string | string[] | undefined): string {
@@ -34,9 +35,8 @@ function getRouteFriend(
 }
 
 /**
- * Focused Direct Chat route. `conversation-id=new` is the profile entry point:
- * it keeps the friend target while allowing the first send to create the server
- * conversation lazily.
+ * Resolves a Direct Chat by conversation ID or by friend for the profile entry point.
+ * The first send creates a conversation only when the friend has no existing thread.
  *
  * @returns Guarded Direct Chat thread
  */
@@ -56,11 +56,21 @@ export default function DirectChatThreadScreen(): ReactElement {
   const routeFriendUsername: string = firstParam(params['friend-username']);
   const routeFriendDisplayName: string = firstParam(params['friend-display-name']);
   const routeFriendDisplayPicture: string = firstParam(params['friend-display-picture']);
-  const summariesQuery = useDirectChatListQuery(Boolean(conversationId));
-  const summary = useMemo(
-    () => summariesQuery.summaries.find((item) => item.conversationId === conversationId),
-    [conversationId, summariesQuery.summaries],
+  const hasTarget: boolean = Boolean(conversationId || routeFriendUserId);
+  const {
+    summaries,
+    hasNextPage,
+    fetchNextPage,
+    fetchStatus,
+    isSuccess,
+    error: summaryError,
+    refetch: refetchSummaries,
+  } = useDirectChatListQuery(hasTarget);
+  const summary: DirectChatSummary | undefined = summaries.find((item: DirectChatSummary): boolean =>
+    conversationId ? item.conversationId === conversationId : item.friend.userId === routeFriendUserId,
   );
+  const hasMissingSummary: boolean = !summary && isSuccess && fetchStatus === 'idle' && !hasNextPage;
+  const isResolving: boolean = hasTarget && !summary && !hasMissingSummary && (!summaryError || fetchStatus !== 'idle');
   const routeFriend: DirectChatFriendSummary | null = getRouteFriend(
     routeFriendUserId,
     routeFriendUsername,
@@ -71,13 +81,12 @@ export default function DirectChatThreadScreen(): ReactElement {
   const friendUserId: string | undefined = friend?.userId ?? (routeFriendUserId || undefined);
   const [focused, setFocused] = useState<boolean>(false);
   const chat = useDirectChat({
-    conversationId,
+    conversationId: summary?.conversationId,
     friendUserId,
     friend,
     canRead: summary?.canRead ?? false,
-    canSend: summary?.canSend ?? (conversationId === undefined && Boolean(friendUserId)),
+    canSend: summary?.canSend ?? (!conversationId && Boolean(friendUserId) && hasMissingSummary),
     latestOutgoingSeenAt: summary?.latestOutgoingSeenAt ?? null,
-    enabled: conversationId === undefined || !summariesQuery.isLoading,
     focused,
   });
   const currentUserId: string | null = useAuthStore((state) => state.user?.id ?? null);
@@ -95,6 +104,12 @@ export default function DirectChatThreadScreen(): ReactElement {
       return (): void => setFocused(false);
     }, []),
   );
+
+  useEffect((): void => {
+    if (focused && isResolving && fetchStatus === 'idle' && hasNextPage) {
+      void fetchNextPage({ cancelRefetch: false });
+    }
+  }, [fetchNextPage, fetchStatus, focused, hasNextPage, isResolving]);
 
   const openMessageActions = useCallback(
     (message: ChatMessage): void => {
@@ -184,8 +199,8 @@ export default function DirectChatThreadScreen(): ReactElement {
         messages={chat.messages}
         failedDrafts={chat.failedDrafts}
         latestOutgoingSeenAt={chat.latestOutgoingSeenAt}
-        isLoading={chat.isLoading || (Boolean(conversationId) && summariesQuery.isLoading)}
-        error={chat.error ?? summariesQuery.error ?? null}
+        isLoading={chat.isLoading || isResolving}
+        error={chat.error ?? (summary ? null : summaryError)}
         isSending={chat.isSending}
         isMarkingRead={chat.isMarkingRead}
         connectionState={chat.connectionState}
@@ -193,7 +208,7 @@ export default function DirectChatThreadScreen(): ReactElement {
         isFetchingNextPage={chat.isFetchingNextPage}
         onBack={onBack}
         onRetry={async (): Promise<void> => {
-          await Promise.all([chat.refetch(), summariesQuery.refetch()]);
+          await Promise.all([chat.refetch(), refetchSummaries()]);
         }}
         onLoadMore={chat.loadMore}
         onSend={chat.sendMessage}
@@ -211,7 +226,9 @@ export default function DirectChatThreadScreen(): ReactElement {
         onMessageActions={openMessageActions}
         onMessageReaction={onReaction}
         reactionPendingMessageId={reactionPendingMessageId}
-        accessLost={chat.accessLost}
+        accessLost={
+          chat.accessLost || !hasTarget || isChatForbidden(summaryError) || Boolean(conversationId && hasMissingSummary)
+        }
       />
       <ModerationActionSheet
         visible={moderationTarget !== null}
