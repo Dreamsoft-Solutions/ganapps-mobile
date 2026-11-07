@@ -50,6 +50,7 @@ function RootLayoutNav(): ReactElement {
   const queryClient = useQueryClient();
   const token = useAuthStore((s) => s.token);
   const isHydrated = useAuthStore((s) => s.isHydrated);
+  const userId = useAuthStore((s) => s.user?.id);
   const [hasHiddenSplash, setHasHiddenSplash] = useState(false);
   const { success: migrationsReady, error: migrationError } = useMigrations(db, migrations);
 
@@ -75,11 +76,11 @@ function RootLayoutNav(): ReactElement {
   useEffect(() => {
     // The drain reads the outbox table, so it cannot start before migrations have
     // created it. Returns the listener's cleanup so it is torn down on unmount.
-    if (!migrationsReady) return;
+    if (!migrationsReady || !isHydrated || !token || !userId) return;
     return startOutboxDrain((outcome: CheckInReplayOutcome): void => {
       handleCheckInReplayOutcome(queryClient, outcome);
     });
-  }, [migrationsReady, queryClient]);
+  }, [migrationsReady, isHydrated, token, userId, queryClient]);
 
   useEffect(() => {
     if (!isHydrated || !migrationsReady) return;
