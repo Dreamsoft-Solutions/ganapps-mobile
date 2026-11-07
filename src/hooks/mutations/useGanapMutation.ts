@@ -155,9 +155,9 @@ export function useLikeGanapMutation(): UseMutationResult<void, Error, ToggleLik
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
     },
-    onError: (error: Error, { ganapId, isLiked }: ToggleLikeVariables): void => {
+    onError: async (error: Error, { ganapId, isLiked }: ToggleLikeVariables): Promise<void> => {
       if (shouldQueueForReplay(error)) {
-        void enqueueOutbox({ action: isLiked ? 'unlike' : 'like', ganapId });
+        await enqueueOutbox({ action: isLiked ? 'unlike' : 'like', ganapId }).catch(() => false);
       }
     },
   });
@@ -235,14 +235,14 @@ export function useSaveGanapMutation(): UseMutationResult<void, Error, ToggleSav
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });
     },
-    onError: (
+    onError: async (
       error: Error,
       { ganapId, isSaved }: ToggleSaveVariables,
       context: SaveMutationContext | undefined,
-    ): void => {
+    ): Promise<void> => {
       if (shouldQueueForReplay(error)) {
-        void enqueueOutbox({ action: isSaved ? 'unsave' : 'save', ganapId });
-        return;
+        const queued = await enqueueOutbox({ action: isSaved ? 'unsave' : 'save', ganapId }).catch(() => false);
+        if (queued) return;
       }
 
       context?.previousSaved.forEach(([key, data]: [readonly unknown[], SavedGanapsData | undefined]): void => {
@@ -287,8 +287,8 @@ export function useCheckInMutation(): UseMutationResult<CheckInOutcome, Error, C
         return { kind: 'recorded', result };
       } catch (error) {
         if (error instanceof Error && shouldQueueForReplay(error)) {
-          await enqueueOutbox({ action: 'check-in', ganapId, qrHash, scannedAt });
-          return { kind: 'queued' };
+          const queued = await enqueueOutbox({ action: 'check-in', ganapId, qrHash, scannedAt }).catch(() => false);
+          if (queued) return { kind: 'queued' };
         }
         throw error;
       }

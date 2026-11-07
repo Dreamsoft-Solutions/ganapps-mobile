@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { AppState, type AppStateStatus } from 'react-native';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import { db } from '@/db';
@@ -8,12 +8,17 @@ import { useAuthStore } from '@/store/auth.store';
 type OutboxAction = 'like' | 'unlike' | 'save' | 'unsave' | 'check-in';
 type ToggleAction = Exclude<OutboxAction, 'check-in'>;
 type OutboxCommand =
+  | { action: ToggleAction; ganapId: string; ownerId: string }
+  | { action: 'check-in'; ganapId: string; ownerId: string; qrHash: string; scannedAt: string };
+type OutboxInput =
   | { action: ToggleAction; ganapId: string }
   | { action: 'check-in'; ganapId: string; qrHash: string; scannedAt: string };
 
 const DRAIN_BATCH = 10;
 
 const MAX_RETRIES = 3;
+
+let outboxDrainPromise: Promise<void> | null = null;
 
 /** Result of a replayed offline attendance scan reaching a final state. */
 export interface CheckInReplayOutcome {
@@ -65,18 +70,22 @@ export function classifyReplayError(action: OutboxAction, error: unknown): 'succ
  * Queues an action for replay when connectivity returns.
  *
  * @param command - A Ganap toggle or attendance scan to replay
- * @returns Nothing
+ * @returns Whether the action was queued for the current signed-in User
  */
-export async function enqueueOutbox(command: OutboxCommand): Promise<void> {
+export async function enqueueOutbox(command: OutboxInput): Promise<boolean> {
+  const { isHydrated, token, user } = useAuthStore.getState();
+  if (!isHydrated || !token || !user?.id) return false;
+
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   const { action, ...payload } = command;
   await db.insert(outbox).values({
     id,
     entityType: 'ganap',
     action,
-    payload: JSON.stringify(payload),
+    payload: JSON.stringify({ ...payload, ownerId: user.id }),
     status: 'pending',
   });
+  return true;
 }
 
 /**
@@ -94,6 +103,15 @@ function readGanapId(item: typeof outbox.$inferSelect): string | null {
   }
 }
 
+function readOwnerId(item: typeof outbox.$inferSelect): string | null {
+  try {
+    const raw = JSON.parse(item.payload) as { ownerId?: unknown };
+    return typeof raw.ownerId === 'string' ? raw.ownerId : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Replays pending queued actions against the server.
  *
@@ -105,20 +123,41 @@ function readGanapId(item: typeof outbox.$inferSelect): string | null {
  * @param onCheckInSettled - Called when a queued attendance scan succeeds or permanently fails
  * @returns Nothing
  */
-export async function syncOutbox(onCheckInSettled?: CheckInReplayListener): Promise<void> {
+export function syncOutbox(onCheckInSettled?: CheckInReplayListener): Promise<void> {
+  if (outboxDrainPromise) return outboxDrainPromise.then(() => syncOutbox(onCheckInSettled));
+  outboxDrainPromise = drainOutbox(onCheckInSettled).finally(() => {
+    outboxDrainPromise = null;
+  });
+  return outboxDrainPromise;
+}
+
+async function drainOutbox(onCheckInSettled?: CheckInReplayListener): Promise<void> {
+  const { isHydrated, token, user } = useAuthStore.getState();
+  if (!isHydrated || !token || !user?.id) return;
+
   const pendingItems = await db.select().from(outbox).where(eq(outbox.status, 'pending')).limit(DRAIN_BATCH);
 
-  for (const item of pendingItems) await processPendingOutboxItem(item, onCheckInSettled);
+  for (const item of pendingItems) {
+    if (!isCurrentOutboxOwner(user.id)) return;
+    const itemOwnerId = readOwnerId(item);
+    if (itemOwnerId !== null && itemOwnerId !== user.id) continue;
+    await processPendingOutboxItem(item, user.id, onCheckInSettled);
+  }
 }
 
 async function processPendingOutboxItem(
   item: typeof outbox.$inferSelect,
+  ownerId: string,
   onCheckInSettled?: CheckInReplayListener,
 ): Promise<void> {
+  if (!isCurrentOutboxOwner(ownerId)) return;
   const retries = (item.retries ?? 0) + 1;
   const action: OutboxAction | null = isOutboxAction(item.action) ? item.action : null;
   if (action === null) {
-    await db.update(outbox).set({ status: 'failed', retries, updatedAt: new Date() }).where(eq(outbox.id, item.id));
+    await db
+      .update(outbox)
+      .set({ status: 'failed', retries, updatedAt: new Date() })
+      .where(and(eq(outbox.id, item.id), eq(outbox.status, 'pending')));
     return;
   }
 
@@ -129,11 +168,16 @@ async function processPendingOutboxItem(
   };
 
   try {
-    await processOutboxItem(parseOutboxCommand(item, action));
-    await db.update(outbox).set({ status: 'success', updatedAt: new Date() }).where(eq(outbox.id, item.id));
+    await processOutboxItem(parseOutboxCommand(item, action), ownerId);
+    if (!isCurrentOutboxOwner(ownerId)) return;
+    await db
+      .update(outbox)
+      .set({ status: 'success', updatedAt: new Date() })
+      .where(and(eq(outbox.id, item.id), eq(outbox.status, 'pending')));
     notify(true);
   } catch (error) {
-    await handleReplayFailure(item, retries, action, error, notify);
+    if (!isCurrentOutboxOwner(ownerId)) return;
+    await handleReplayFailure(item, retries, action, error, ownerId, notify);
   }
 }
 
@@ -142,17 +186,28 @@ async function handleReplayFailure(
   retries: number,
   action: OutboxAction,
   error: unknown,
+  ownerId: string,
   notify: (recorded: boolean, error?: Error) => void,
 ): Promise<void> {
+  if (!isCurrentOutboxOwner(ownerId)) return;
   const classification = classifyReplayError(action, error);
   if (classification === 'success') {
-    await db.update(outbox).set({ status: 'success', updatedAt: new Date() }).where(eq(outbox.id, item.id));
+    await db
+      .update(outbox)
+      .set({ status: 'success', updatedAt: new Date() })
+      .where(and(eq(outbox.id, item.id), eq(outbox.status, 'pending')));
     notify(true);
   } else if (classification === 'failed' || retries >= MAX_RETRIES) {
-    await db.update(outbox).set({ status: 'failed', retries, updatedAt: new Date() }).where(eq(outbox.id, item.id));
+    await db
+      .update(outbox)
+      .set({ status: 'failed', retries, updatedAt: new Date() })
+      .where(and(eq(outbox.id, item.id), eq(outbox.status, 'pending')));
     notify(false, error instanceof Error ? error : new Error(String(error)));
   } else {
-    await db.update(outbox).set({ retries, updatedAt: new Date() }).where(eq(outbox.id, item.id));
+    await db
+      .update(outbox)
+      .set({ retries, updatedAt: new Date() })
+      .where(and(eq(outbox.id, item.id), eq(outbox.status, 'pending')));
   }
 }
 
@@ -175,6 +230,11 @@ export function startOutboxDrain(onCheckInSettled?: CheckInReplayListener): () =
   void syncOutbox(onCheckInSettled);
 
   return (): void => subscription.remove();
+}
+
+function isCurrentOutboxOwner(ownerId: string): boolean {
+  const session = useAuthStore.getState();
+  return session.isHydrated && Boolean(session.token) && session.user?.id === ownerId;
 }
 
 /**
@@ -208,14 +268,18 @@ function parseOutboxCommand(item: typeof outbox.$inferSelect, action: OutboxActi
   if (typeof raw !== 'object' || raw === null || typeof (raw as { ganapId?: unknown }).ganapId !== 'string') {
     throw new OutboxPayloadError(`Outbox payload missing ganapId for ${item.id}`);
   }
+  if (typeof (raw as { ownerId?: unknown }).ownerId !== 'string') {
+    throw new OutboxPayloadError(`Outbox payload missing ownerId for ${item.id}`);
+  }
+  const ownerId = (raw as { ownerId: string }).ownerId;
   if (action === 'check-in') {
     const candidate = raw as { ganapId: string; qrHash?: unknown; scannedAt?: unknown };
     if (typeof candidate.qrHash !== 'string' || typeof candidate.scannedAt !== 'string') {
       throw new OutboxPayloadError(`Check-in payload missing fields for ${item.id}`);
     }
-    return { action, ganapId: candidate.ganapId, qrHash: candidate.qrHash, scannedAt: candidate.scannedAt };
+    return { action, ganapId: candidate.ganapId, ownerId, qrHash: candidate.qrHash, scannedAt: candidate.scannedAt };
   }
-  return { action, ganapId: (raw as { ganapId: string }).ganapId };
+  return { action, ganapId: (raw as { ganapId: string }).ganapId, ownerId };
 }
 
 /**
@@ -225,9 +289,9 @@ function parseOutboxCommand(item: typeof outbox.$inferSelect, action: OutboxActi
  * @returns Nothing
  * @throws When the user is unauthenticated
  */
-async function processOutboxItem(command: OutboxCommand): Promise<void> {
-  const token = useAuthStore.getState().token;
-  if (!token) throw new Error('Not authenticated');
+async function processOutboxItem(command: OutboxCommand, ownerId: string): Promise<void> {
+  if (command.ownerId !== ownerId) throw new OutboxPayloadError('Outbox item belongs to another user');
+  if (!isCurrentOutboxOwner(ownerId)) throw new Error('Authenticated User changed before replay');
 
   await syncGanapAction(command);
 }

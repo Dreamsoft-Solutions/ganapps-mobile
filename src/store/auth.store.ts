@@ -43,8 +43,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   hydrate: async (): Promise<void> => {
     if (get().isHydrated) return;
-    const token = await secureStorage.getAccessToken();
-    const expiresAt = await secureStorage.getExpiresAt();
-    set({ token, expiresAt, isHydrated: true });
+    try {
+      const token = await secureStorage.getAccessToken();
+      const expiresAt = await secureStorage.getExpiresAt();
+      set({ token, expiresAt, isHydrated: true });
+    } catch {
+      set({ token: null, expiresAt: null, isHydrated: true });
+    }
   },
 }));

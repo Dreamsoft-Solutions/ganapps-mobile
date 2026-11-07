@@ -27,8 +27,8 @@ export async function refreshAccessToken(refreshToken: string): Promise<TokenRes
     refreshPromise = axios
       .post<ApiResponse<TokenResponse> | TokenResponse>(`${API_BASE_URL}/auth/refresh`, { refreshToken })
       .then((res) => (isApiResponse<TokenResponse>(res.data) ? res.data.data : res.data))
-      .then((tokens) => {
-        useAuthStore.getState().setAuth(tokens.accessToken, tokens.refreshToken, tokens.expiresIn);
+      .then(async (tokens) => {
+        await useAuthStore.getState().setAuth(tokens.accessToken, tokens.refreshToken, tokens.expiresIn);
         return tokens;
       })
       .finally(() => {
