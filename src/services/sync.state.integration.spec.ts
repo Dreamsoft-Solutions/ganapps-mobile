@@ -176,6 +176,29 @@ describe('mobile outbox state transitions', () => {
     expect(runtime.api.like).toHaveBeenCalledTimes(1);
     expect(outboxRow(sqlite)).toMatchObject({ status: 'pending', retries: 1 });
   });
+
+  it('drains a new row queued during an active pass when another trigger arrives', async () => {
+    await service.enqueueOutbox('ganap', 'like', { ganapId: 'ganap-first' });
+    let releaseRequest: (() => void) | undefined;
+    runtime.api.like.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseRequest = resolve;
+        }),
+    );
+
+    const firstDrain = service.syncOutbox();
+    await vi.waitFor(() => expect(runtime.api.like).toHaveBeenCalledTimes(1));
+    await service.enqueueOutbox('ganap', 'like', { ganapId: 'ganap-second' });
+    const overlappingTrigger = service.syncOutbox();
+    releaseRequest?.();
+    await Promise.all([firstDrain, overlappingTrigger]);
+
+    expect(runtime.api.like).toHaveBeenCalledTimes(2);
+    expect(runtime.api.like).toHaveBeenNthCalledWith(1, 'ganap-first', 'user-a');
+    expect(runtime.api.like).toHaveBeenNthCalledWith(2, 'ganap-second', 'user-a');
+    expect(sqlite.prepare("SELECT status FROM outbox WHERE status = 'success'").all()).toHaveLength(2);
+  });
 });
 
 function outboxRow(database: DatabaseSync): { status: string; retries: number } {

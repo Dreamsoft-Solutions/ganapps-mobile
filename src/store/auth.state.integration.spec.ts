@@ -1,4 +1,4 @@
-import type { InternalAxiosRequestConfig } from 'axios';
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SessionBoundRequestConfig } from '@/api/types/session-bound-request';
 import type { User } from '@/types/user.types';
@@ -10,6 +10,7 @@ const runtime = vi.hoisted(() => ({
   setTokens: vi.fn(),
   clearTokens: vi.fn(),
   post: vi.fn(),
+  request: vi.fn(),
 }));
 
 vi.mock('@/utils/secure-storage', () => ({
@@ -22,6 +23,7 @@ vi.mock('@/utils/secure-storage', () => ({
   },
 }));
 vi.mock('axios', () => ({ default: { post: runtime.post } }));
+vi.mock('@/api/axios-instance', () => ({ default: runtime.request }));
 
 describe('mobile auth transitions', () => {
   beforeEach(() => {
@@ -33,6 +35,7 @@ describe('mobile auth transitions', () => {
     runtime.post.mockReset().mockResolvedValue({
       data: { accessToken: 'next-access', refreshToken: 'next-refresh', expiresIn: 3600 },
     });
+    runtime.request.mockReset().mockResolvedValue({ data: 'retried response' });
     vi.resetModules();
   });
 
@@ -123,7 +126,9 @@ describe('mobile auth transitions', () => {
 
     const refreshA = refreshAccessToken('refresh-a');
     await vi.waitFor(() => expect(runtime.post).toHaveBeenCalledTimes(1));
-    useAuthStore.setState({ token: 'access-b', expiresAt: Date.now() + 60_000, user: { id: 'user-b' } as User });
+    await useAuthStore.getState().clearAuth();
+    await useAuthStore.getState().setAuth('access-b', 'refresh-b', 3600);
+    useAuthStore.getState().setUser({ id: 'user-b' } as User);
     const refreshB = refreshAccessToken('refresh-b');
 
     await expect(refreshB).resolves.toMatchObject({ accessToken: 'access-b-next' });
@@ -132,6 +137,76 @@ describe('mobile auth transitions', () => {
     await expect(refreshA).rejects.toThrow('Authenticated session changed during token refresh');
     expect(useAuthStore.getState()).toMatchObject({ token: 'access-b-next', user: { id: 'user-b' } });
     expect(runtime.post).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not persist a refresh after a newer session starts during SecureStore write', async () => {
+    let finishRefreshPersistence: (() => void) | undefined;
+    runtime.setTokens.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishRefreshPersistence = resolve;
+        }),
+    );
+    const [{ useAuthStore }, { refreshAccessToken }] = await Promise.all([
+      import('./auth.store'),
+      import('../api/interceptors/refresh-token'),
+    ]);
+    useAuthStore.setState({ token: 'access-a', expiresAt: Date.now() + 60_000, user: { id: 'user-a' } as User });
+
+    const refreshA = refreshAccessToken('refresh-a');
+    await vi.waitFor(() => expect(runtime.setTokens).toHaveBeenCalledTimes(1));
+    const loginB = useAuthStore.getState().setAuth('access-b', 'refresh-b', 3600);
+    finishRefreshPersistence?.();
+
+    await expect(refreshA).rejects.toThrow('Authenticated session changed during token persistence');
+    await loginB;
+    useAuthStore.getState().setUser({ id: 'user-b' } as User);
+
+    expect(runtime.setTokens).toHaveBeenNthCalledWith(1, 'next-access', 'next-refresh', 3600);
+    expect(runtime.setTokens).toHaveBeenNthCalledWith(2, 'access-b', 'refresh-b', 3600);
+    expect(useAuthStore.getState()).toMatchObject({ token: 'access-b', user: { id: 'user-b' } });
+  });
+
+  it('keeps concurrent 401 refreshes separate and does not clear the newer User', async () => {
+    let rejectRefreshA: ((error: Error) => void) | undefined;
+    runtime.getRefreshToken.mockResolvedValueOnce('refresh-a').mockResolvedValueOnce('refresh-b');
+    runtime.post.mockImplementation((_url, body: { refreshToken: string }) => {
+      if (body.refreshToken === 'refresh-a') {
+        return new Promise((_resolve, reject) => {
+          rejectRefreshA = reject;
+        });
+      }
+      return Promise.resolve({
+        data: { accessToken: 'access-b-next', refreshToken: 'refresh-b-next', expiresIn: 3600 },
+      });
+    });
+    const [{ useAuthStore }, { errorInterceptor }] = await Promise.all([
+      import('./auth.store'),
+      import('../api/interceptors/error.interceptor'),
+    ]);
+    useAuthStore.setState({ token: 'access-a', expiresAt: Date.now() + 60_000, user: { id: 'user-a' } as User });
+
+    const refreshA = errorInterceptor.onRejected(unauthorizedRequest('user-a', 'access-a'));
+    await vi.waitFor(() => expect(runtime.post).toHaveBeenCalledTimes(1));
+    await useAuthStore.getState().clearAuth();
+    await useAuthStore.getState().setAuth('access-b', 'refresh-b', 3600);
+    useAuthStore.getState().setUser({ id: 'user-b' } as User);
+    const refreshB = errorInterceptor.onRejected(
+      unauthorizedRequest('user-b', 'access-b', useAuthStore.getState().sessionVersion),
+    );
+
+    await expect(refreshB).resolves.toMatchObject({ data: 'retried response' });
+    rejectRefreshA?.(new Error('User A refresh failed'));
+    await expect(refreshA).rejects.toThrow('User A refresh failed');
+
+    expect(runtime.post).toHaveBeenCalledTimes(2);
+    expect(runtime.request).toHaveBeenCalledTimes(1);
+    expect(runtime.request.mock.calls[0]?.[0]).toMatchObject({
+      requestAuthUserId: 'user-b',
+      headers: { Authorization: 'Bearer access-b-next' },
+    });
+    expect(runtime.clearTokens).toHaveBeenCalledTimes(1);
+    expect(useAuthStore.getState()).toMatchObject({ token: 'access-b-next', user: { id: 'user-b' } });
   });
 
   it('rejects an outbox request when the User changes while token refresh is in flight', async () => {
@@ -174,3 +249,19 @@ describe('mobile auth transitions', () => {
     expect(config.headers.Authorization).toBeUndefined();
   });
 });
+
+function unauthorizedRequest(userId: string, token: string, version = 0): AxiosError {
+  return {
+    name: 'AxiosError',
+    message: 'Access token expired',
+    config: {
+      method: 'get',
+      url: '/businesses',
+      headers: { Authorization: `Bearer ${token}` },
+      requestAuthUserId: userId,
+      requestAuthToken: token,
+      requestAuthVersion: version,
+    } as unknown as InternalAxiosRequestConfig & SessionBoundRequestConfig,
+    response: { status: 401, data: { message: 'Access token expired' } },
+  } as unknown as AxiosError;
+}
