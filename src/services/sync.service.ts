@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, or, sql } from 'drizzle-orm';
 import { AppState, type AppStateStatus } from 'react-native';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import { db } from '@/db';
@@ -125,7 +125,7 @@ function readOwnerId(item: typeof outbox.$inferSelect): string | null {
  * @returns Nothing
  */
 export function syncOutbox(onCheckInSettled?: CheckInReplayListener): Promise<void> {
-  if (outboxDrainPromise) return outboxDrainPromise.then(() => syncOutbox(onCheckInSettled));
+  if (outboxDrainPromise) return outboxDrainPromise;
   outboxDrainPromise = drainOutbox(onCheckInSettled).finally(() => {
     outboxDrainPromise = null;
   });
@@ -136,7 +136,14 @@ async function drainOutbox(onCheckInSettled?: CheckInReplayListener): Promise<vo
   const { isHydrated, token, user } = useAuthStore.getState();
   if (!isHydrated || !token || !user?.id) return;
 
-  const pendingItems = await db.select().from(outbox).where(eq(outbox.status, 'pending')).limit(DRAIN_BATCH);
+  const ownerIdExpression = sql<
+    string | null
+  >`CASE WHEN json_valid(${outbox.payload}) THEN CASE WHEN json_type(${outbox.payload}, '$.ownerId') = 'text' THEN json_extract(${outbox.payload}, '$.ownerId') END END`;
+  const pendingItems = await db
+    .select()
+    .from(outbox)
+    .where(and(eq(outbox.status, 'pending'), or(eq(ownerIdExpression, user.id), isNull(ownerIdExpression))))
+    .limit(DRAIN_BATCH);
 
   for (const item of pendingItems) {
     if (!isCurrentOutboxOwner(user.id)) return;
@@ -273,7 +280,7 @@ async function processOutboxItem(item: typeof outbox.$inferSelect, ownerId: stri
 
   switch (item.entityType) {
     case 'ganap':
-      await syncGanapAction(item.action as OutboxAction, payload);
+      await syncGanapAction(item.action as OutboxAction, payload, ownerId);
       break;
     default:
       throw new Error(`Unknown entity type: ${item.entityType}`);
@@ -288,23 +295,27 @@ async function processOutboxItem(item: typeof outbox.$inferSelect, ownerId: stri
  * @returns Nothing
  * @throws When the action is unrecognised
  */
-async function syncGanapAction(action: OutboxAction, payload: TogglePayload | CheckInPayload): Promise<void> {
+async function syncGanapAction(
+  action: OutboxAction,
+  payload: TogglePayload | CheckInPayload,
+  ownerId: string,
+): Promise<void> {
   switch (action) {
     case 'like':
-      await ganapsAPI.like(payload.ganapId);
+      await ganapsAPI.like(payload.ganapId, ownerId);
       break;
     case 'unlike':
-      await ganapsAPI.unlike(payload.ganapId);
+      await ganapsAPI.unlike(payload.ganapId, ownerId);
       break;
     case 'save':
-      await ganapsAPI.save(payload.ganapId);
+      await ganapsAPI.save(payload.ganapId, ownerId);
       break;
     case 'unsave':
-      await ganapsAPI.unsave(payload.ganapId);
+      await ganapsAPI.unsave(payload.ganapId, ownerId);
       break;
     case 'check-in': {
       const checkIn = payload as CheckInPayload;
-      await ganapsAPI.checkIn(checkIn.ganapId, { qrHash: checkIn.qrHash, scannedAt: checkIn.scannedAt });
+      await ganapsAPI.checkIn(checkIn.ganapId, { qrHash: checkIn.qrHash, scannedAt: checkIn.scannedAt }, ownerId);
       break;
     }
     default:

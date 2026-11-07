@@ -4,13 +4,13 @@ import type { TokenResponse } from '@/types/auth.types';
 import { API_BASE_URL } from '../config';
 import { type ApiResponse, isApiResponse } from '../types/api-response';
 
-let refreshPromise: Promise<TokenResponse> | null = null;
+const refreshPromises = new Map<string, Promise<TokenResponse>>();
 
 /**
  * Calls POST /auth/refresh with a stored refresh token.
  *
- * Deduplicates concurrent refresh calls by sharing a single
- * in-flight promise.
+ * Deduplicates concurrent calls for the same refresh token. A different
+ * session uses its own promise and cannot consume another User's token pair.
  *
  * Uses the bare `axios` module rather than `axiosInstance` on purpose: routing
  * the refresh call through the instance would re-enter the error interceptor on
@@ -19,21 +19,38 @@ let refreshPromise: Promise<TokenResponse> | null = null;
  * has to be unwrapped explicitly.
  *
  * @param refreshToken - The refresh token to exchange
+ * @param expectedUserId - Expected User for a session-bound replay, when present
  * @returns New token pair
  * @throws When the refresh request fails
  */
-export async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> {
-  if (!refreshPromise) {
-    refreshPromise = axios
-      .post<ApiResponse<TokenResponse> | TokenResponse>(`${API_BASE_URL}/auth/refresh`, { refreshToken })
-      .then((res) => (isApiResponse<TokenResponse>(res.data) ? res.data.data : res.data))
-      .then(async (tokens) => {
-        await useAuthStore.getState().setAuth(tokens.accessToken, tokens.refreshToken, tokens.expiresIn);
-        return tokens;
-      })
-      .finally(() => {
-        refreshPromise = null;
-      });
+export async function refreshAccessToken(refreshToken: string, expectedUserId?: string): Promise<TokenResponse> {
+  const startedSession = useAuthStore.getState();
+  if (expectedUserId && startedSession.user?.id !== expectedUserId) {
+    throw new Error('Authenticated User changed before token refresh');
   }
-  return refreshPromise;
+  const startedToken = startedSession.token;
+  const startedUserId = startedSession.user?.id;
+  const inFlight = refreshPromises.get(refreshToken);
+  if (inFlight) return inFlight;
+
+  const refresh = axios
+    .post<ApiResponse<TokenResponse> | TokenResponse>(`${API_BASE_URL}/auth/refresh`, { refreshToken })
+    .then((res) => (isApiResponse<TokenResponse>(res.data) ? res.data.data : res.data))
+    .then(async (tokens) => {
+      const currentSession = useAuthStore.getState();
+      if (
+        currentSession.token !== startedToken ||
+        (startedUserId && currentSession.user?.id !== startedUserId) ||
+        (expectedUserId && currentSession.user?.id !== expectedUserId)
+      ) {
+        throw new Error('Authenticated session changed during token refresh');
+      }
+      await currentSession.setAuth(tokens.accessToken, tokens.refreshToken, tokens.expiresIn);
+      return tokens;
+    })
+    .finally(() => {
+      refreshPromises.delete(refreshToken);
+    });
+  refreshPromises.set(refreshToken, refresh);
+  return refresh;
 }
