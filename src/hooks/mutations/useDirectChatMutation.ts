@@ -1,13 +1,13 @@
 import { type InfiniteData, type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatAPI, type SendDirectChatImageInput } from '@/api/endpoints/chat';
-import { type ChatPageParam, chatQueryKeys } from '@/hooks/queries/useChatQuery';
+import { type ChatPageParam, chatQueryKeys, upsertChatMessagePages } from '@/hooks/queries/useChatQuery';
 import type { ChatImageAsset, ChatMessage, ChatMessagesPage } from '@/types/chat.types';
 import type {
   ChatConversationSummary,
   ChatConversationSummaryPage,
   DirectChatReadResult,
 } from '@/types/direct-chat.types';
-import { compareChatMessagePositions, getChatMessagePreview, upsertChatMessage } from '@/utils/chat';
+import { compareChatMessagePositions, getChatMessagePreview } from '@/utils/chat';
 import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
 
 /** Variables for the first Direct text send, keyed by accepted friend User. */
@@ -42,26 +42,6 @@ export interface SendDirectImageVariables {
 export interface MarkDirectReadVariables {
   conversationId: string;
   throughMessageId: string;
-}
-
-function patchMessagePages(
-  data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined,
-  message: ChatMessage,
-): InfiniteData<ChatMessagesPage, ChatPageParam> | undefined {
-  if (!data || data.pages.length === 0) return data;
-  const [firstPage, ...remainingPages]: ChatMessagesPage[] = data.pages;
-  return {
-    ...data,
-    pages: [
-      { ...firstPage, items: upsertChatMessage(firstPage.items, message) },
-      ...remainingPages.map(
-        (page: ChatMessagesPage): ChatMessagesPage => ({
-          ...page,
-          items: page.items.filter((item: ChatMessage): boolean => item.id !== message.id),
-        }),
-      ),
-    ],
-  };
 }
 
 function patchSummaryPages(
@@ -117,7 +97,7 @@ function patchSummaryRead(
 function reconcileDirectMessage(queryClient: ReturnType<typeof useQueryClient>, message: ChatMessage): void {
   queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
     chatQueryKeys.directMessages(message.conversationId),
-    (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => patchMessagePages(data, message),
+    (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => upsertChatMessagePages(data, message),
   );
   queryClient.setQueryData<InfiniteData<ChatConversationSummaryPage, ChatPageParam>>(
     chatQueryKeys.directSummaries(),
@@ -234,13 +214,3 @@ export function useMarkDirectReadMutation(): UseMutationResult<DirectChatReadRes
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }
-
-/** Backwards-readable alias for the Direct first-send text mutation. */
-export const useSendDirectChatMessageByFriendMutation: typeof useSendDirectMessageByFriendMutation =
-  useSendDirectMessageByFriendMutation;
-
-/** Backwards-readable alias for the existing-conversation text mutation. */
-export const useSendDirectChatMessageMutation: typeof useSendDirectMessageMutation = useSendDirectMessageMutation;
-
-/** Backwards-readable alias for the Direct read-cursor mutation. */
-export const useMarkDirectChatReadMutation: typeof useMarkDirectReadMutation = useMarkDirectReadMutation;

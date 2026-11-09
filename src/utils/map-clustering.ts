@@ -40,7 +40,6 @@ export interface GanapPointProperties {
   readonly ganap: GanapListItem;
 }
 
-export type GanapClusterProperties = Supercluster.ClusterProperties;
 export type GanapPointFeature = Supercluster.PointFeature<GanapPointProperties>;
 export type GanapClusterFeature = Supercluster.ClusterFeature<Record<string, unknown>>;
 export type GanapMapFeature = GanapPointFeature | GanapClusterFeature;
@@ -154,11 +153,6 @@ export function getVisibleMapFeatures(index: GanapClusterIndex, viewport: MapVie
 /** Identifies a Supercluster cluster in the visible feature union. */
 export function isClusterFeature(feature: GanapMapFeature): feature is GanapClusterFeature {
   return 'cluster' in feature.properties && feature.properties.cluster === true;
-}
-
-/** Identifies an individual Ganap point in the visible feature union. */
-export function isGanapPointFeature(feature: GanapMapFeature): feature is GanapPointFeature {
-  return 'kind' in feature.properties && feature.properties.kind === 'ganap';
 }
 
 /** Converts either a cluster or a point feature into a validated MarkerView coordinate. */

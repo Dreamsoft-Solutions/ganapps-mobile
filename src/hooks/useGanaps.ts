@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-query';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { CursorPage } from '@/api/types/api-response';
+import { useAuthStore } from '@/store/auth.store';
 import type { GanapListItem, GanapReportReceipt, JoinGanapResult } from '@/types/ganap.types';
 import {
   type ReportGanapVariables,
@@ -51,8 +52,8 @@ export interface UseGanapsResult {
   isFetchingNextPage: boolean;
   join: UseMutateAsyncFunction<JoinGanapResult, Error, string>;
   leave: UseMutateAsyncFunction<void, Error, string>;
-  toggleLike: UseMutateAsyncFunction<void, Error, ToggleLikeVariables>;
-  toggleSave: UseMutateAsyncFunction<void, Error, ToggleSaveVariables>;
+  toggleLike: UseMutateAsyncFunction<void, Error, Omit<ToggleLikeVariables, 'ownerId'>>;
+  toggleSave: UseMutateAsyncFunction<void, Error, Omit<ToggleSaveVariables, 'ownerId'>>;
   /** Reports a Ganap for review; failures are left to the caller to render. */
   report: UseMutateAsyncFunction<GanapReportReceipt, Error, ReportGanapVariables>;
   isJoining: boolean;
@@ -105,6 +106,16 @@ export function useGanaps(filters?: GanapListFilters): UseGanapsResult {
   const likeMutation = useLikeGanapMutation();
   const saveMutation = useSaveGanapMutation();
   const reportMutation = useReportGanapMutation();
+  const toggleLike = async (input: Omit<ToggleLikeVariables, 'ownerId'>): Promise<void> => {
+    const ownerId = useAuthStore.getState().user?.id;
+    if (!ownerId) throw new Error('Authenticated User is required to like a Ganap.');
+    await likeMutation.mutateAsync({ ...input, ownerId });
+  };
+  const toggleSave = async (input: Omit<ToggleSaveVariables, 'ownerId'>): Promise<void> => {
+    const ownerId = useAuthStore.getState().user?.id;
+    if (!ownerId) throw new Error('Authenticated User is required to save a Ganap.');
+    await saveMutation.mutateAsync({ ...input, ownerId });
+  };
 
   return {
     items: data?.pages.flatMap((page: GanapPage) => page.items) ?? [],
@@ -115,8 +126,8 @@ export function useGanaps(filters?: GanapListFilters): UseGanapsResult {
     isFetchingNextPage,
     join: joinMutation.mutateAsync,
     leave: leaveMutation.mutateAsync,
-    toggleLike: likeMutation.mutateAsync,
-    toggleSave: saveMutation.mutateAsync,
+    toggleLike,
+    toggleSave,
     report: reportMutation.mutateAsync,
     isJoining: joinMutation.isPending,
     isLeaving: leaveMutation.isPending,

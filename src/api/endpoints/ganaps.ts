@@ -19,6 +19,11 @@ import type {
 } from '@/types/ganap.types';
 import axiosInstance from '../axios-instance';
 import type { CursorPage, PaginatedResponse } from '../types/api-response';
+import type { SessionBoundRequestConfig } from '../types/session-bound-request';
+
+function sessionBoundConfig(expectedUserId?: string): SessionBoundRequestConfig | undefined {
+  return expectedUserId ? { expectedAuthUserId: expectedUserId } : undefined;
+}
 
 /**
  * Public Ganap discovery and action endpoints.
@@ -96,35 +101,45 @@ export const ganapsAPI = {
    * Likes a Ganap. Requires an existing registration server-side.
    *
    * @param ganapId - Id of the Ganap to like
+   * @param expectedUserId - Expected authenticated User for an outbox replay
    * @returns Nothing
    */
-  like: (ganapId: string): Promise<void> => axiosInstance.post<void>(`/ganaps/${ganapId}/like`).then((res) => res.data),
+  like: (ganapId: string, expectedUserId?: string): Promise<void> =>
+    axiosInstance
+      .post<void>(`/ganaps/${ganapId}/like`, undefined, sessionBoundConfig(expectedUserId))
+      .then((res) => res.data),
 
   /**
    * Removes the current user's like.
    *
    * @param ganapId - Id of the Ganap to unlike
+   * @param expectedUserId - Expected authenticated User for an outbox replay
    * @returns Nothing
    */
-  unlike: (ganapId: string): Promise<void> =>
-    axiosInstance.delete<void>(`/ganaps/${ganapId}/like`).then((res) => res.data),
+  unlike: (ganapId: string, expectedUserId?: string): Promise<void> =>
+    axiosInstance.delete<void>(`/ganaps/${ganapId}/like`, sessionBoundConfig(expectedUserId)).then((res) => res.data),
 
   /**
    * Saves a Ganap for later. Requires an existing registration server-side.
    *
    * @param ganapId - Id of the Ganap to save
+   * @param expectedUserId - Expected authenticated User for an outbox replay
    * @returns Nothing
    */
-  save: (ganapId: string): Promise<void> => axiosInstance.post<void>(`/ganaps/${ganapId}/save`).then((res) => res.data),
+  save: (ganapId: string, expectedUserId?: string): Promise<void> =>
+    axiosInstance
+      .post<void>(`/ganaps/${ganapId}/save`, undefined, sessionBoundConfig(expectedUserId))
+      .then((res) => res.data),
 
   /**
    * Removes the current user's save.
    *
    * @param ganapId - Id of the Ganap to unsave
+   * @param expectedUserId - Expected authenticated User for an outbox replay
    * @returns Nothing
    */
-  unsave: (ganapId: string): Promise<void> =>
-    axiosInstance.delete<void>(`/ganaps/${ganapId}/save`).then((res) => res.data),
+  unsave: (ganapId: string, expectedUserId?: string): Promise<void> =>
+    axiosInstance.delete<void>(`/ganaps/${ganapId}/save`, sessionBoundConfig(expectedUserId)).then((res) => res.data),
 
   /**
    * Fetches one offset page of attendee-facing announcements for a Ganap.
@@ -146,10 +161,13 @@ export const ganapsAPI = {
    *
    * @param ganapId - Id of the Ganap being attended
    * @param input - Scanned QR hash and the client-side scan time
+   * @param expectedUserId - Expected authenticated User for an outbox replay
    * @returns The registration, now `ATTENDED`
    */
-  checkIn: (ganapId: string, input: CheckInInput): Promise<CheckInResult> =>
-    axiosInstance.post<CheckInResult>(`/ganaps/${ganapId}/check-in`, input).then((res) => res.data),
+  checkIn: (ganapId: string, input: CheckInInput, expectedUserId?: string): Promise<CheckInResult> =>
+    axiosInstance
+      .post<CheckInResult>(`/ganaps/${ganapId}/check-in`, input, sessionBoundConfig(expectedUserId))
+      .then((res) => res.data),
 
   /**
    * Rates a Ganap the current user attended.

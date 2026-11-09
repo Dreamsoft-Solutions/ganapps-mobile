@@ -9,6 +9,7 @@ import { type AttendanceScanPhase, AttendanceScanView } from '@/components/ganap
 import { Routes } from '@/constants/routes';
 import { type CheckInOutcome, useCheckInMutation } from '@/hooks/mutations/useGanapMutation';
 import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
+import { useAuthStore } from '@/store/auth.store';
 import type { CheckInErrorModel } from '@/utils/attendance';
 import { mapCheckInError } from '@/utils/attendance';
 
@@ -63,11 +64,13 @@ export default function AttendanceScanScreen(): ReactElement {
 
   function handleBarcodeScanned(data: string): void {
     if (hasSubmittedRef.current) return;
+    const ownerId = useAuthStore.getState().user?.id;
+    if (!ownerId) return;
     hasSubmittedRef.current = true;
     setPhase({ name: 'submitting' });
 
     checkIn.mutate(
-      { ganapId, qrHash: data, scannedAt: new Date().toISOString() },
+      { ganapId, ownerId, qrHash: data, scannedAt: new Date().toISOString() },
       {
         onSuccess: (outcome: CheckInOutcome): void => {
           if (outcome.kind === 'recorded') {

@@ -1,5 +1,5 @@
 import type * as ImagePicker from 'expo-image-picker';
-import type { ChatImageAsset, ChatImageMimeType } from '@/types/chat.types';
+import type { ChatImageAsset, ChatImageDraft, ChatImageMimeType } from '@/types/chat.types';
 
 /** Maximum input size accepted by the DS-97 multipart image endpoint. */
 export const CHAT_IMAGE_MAX_BYTES: number = 5 * 1024 * 1024;
@@ -135,6 +135,74 @@ export function getChatImageRetryAfterSeconds(error: Error): number | null {
 export function getChatImageErrorCode(error: Error): string | undefined {
   const candidate: unknown = (error as Error & { errorCode?: unknown }).errorCode;
   return typeof candidate === 'string' ? candidate : undefined;
+}
+
+/**
+ * Converts a thrown image-send value to a safe Error for composer state.
+ *
+ * @param error - Value thrown by a picker or image mutation
+ * @returns The original Error, or generic image-send failure copy
+ */
+export function normalizeChatImageError(error: unknown): Error {
+  return error instanceof Error ? error : new Error('Image could not be sent.');
+}
+
+/**
+ * Returns whether the current image draft can start a send attempt.
+ *
+ * @param draft - Selected or retryable image draft
+ * @param canSend - Server-owned send capability
+ * @param accessLost - Whether chat access has been lost
+ * @param inFlightIds - Client message IDs already being submitted
+ * @returns Whether the draft may be submitted now
+ */
+export function canSubmitChatImageDraft(
+  draft: ChatImageDraft,
+  canSend: boolean,
+  accessLost: boolean,
+  inFlightIds: Set<string>,
+): boolean {
+  return (
+    canSend &&
+    !accessLost &&
+    draft.status !== 'checking' &&
+    draft.status !== 'permanent-failure' &&
+    !inFlightIds.has(draft.clientMessageId)
+  );
+}
+
+/**
+ * Marks the active image draft as retryable or permanent after a send failure.
+ *
+ * @param current - Draft currently shown in the composer
+ * @param submitted - Draft that failed
+ * @param error - Normalized API failure
+ * @returns Updated draft, or the current draft when it has since changed
+ */
+export function updateChatImageDraftAfterFailure(
+  current: ChatImageDraft | null,
+  submitted: ChatImageDraft,
+  error: Error,
+): ChatImageDraft | null {
+  if (!current || current.clientMessageId !== submitted.clientMessageId) return current;
+  const retryable: boolean = isRetryableChatImageError(error);
+  const retryAfterSeconds: number | null = retryable ? getChatImageRetryAfterSeconds(error) : null;
+  return {
+    ...current,
+    status: retryable ? 'retryable-failure' : 'permanent-failure',
+    error,
+    retryAfterUntil: retryAfterSeconds ? Date.now() + retryAfterSeconds * 1000 : undefined,
+  };
+}
+
+/**
+ * Identifies an image send rejected because its client ID belongs to another request.
+ *
+ * @param error - Normalized image-send failure
+ * @returns Whether the composer must reconcile and ask for a new image attempt
+ */
+export function isChatImageMessageIdReused(error: Error): boolean {
+  return getChatImageErrorCode(error) === 'CLIENT_MESSAGE_ID_REUSED';
 }
 
 /**
