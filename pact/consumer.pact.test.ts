@@ -189,8 +189,10 @@ describe('mobile to server contract', () => {
         response.headers(responseHeaders).jsonBody({ success: true, statusCode: 200, data: user });
       })
       .executeTest(async ({ url }) => {
-        const { authAPI } = await client(url, true);
-        await expect(authAPI.getMe()).resolves.toMatchObject({
+        const { authAPI, useAuthStore } = await client(url, true);
+        await expect(
+          authAPI.getMe({ expectedAuthSessionId: useAuthStore.getState().accountSessionId }),
+        ).resolves.toMatchObject({
           id: 'user-1',
           email: 'user@example.com',
         });

@@ -7,18 +7,18 @@ interface AuthSession {
   expiresAt: number | null;
   user: User | null;
   isHydrated: boolean;
+  accountSessionId: number;
   sessionVersion: number;
 }
 
+type AuthOptions = { user: User } | { expectedSessionVersion: number };
+
 interface AuthState extends AuthSession {
   getStableSession: () => Promise<AuthSession>;
-  setAuth: (
-    accessToken: string,
-    refreshToken: string,
-    expiresIn: number,
-    expectedSessionVersion?: number,
-  ) => Promise<void>;
-  setUser: (user: User) => void;
+  /** Starts a sign-in session or rotates its credentials when a refresh supplies a version. */
+  setAuth: (accessToken: string, refreshToken: string, expiresIn: number, options?: AuthOptions) => Promise<void>;
+  /** Associates an authenticated profile with the session that requested it. */
+  setUser: (user: User, accountSessionId: number) => void;
   clearAuth: () => Promise<void>;
   hydrate: () => Promise<void>;
 }
@@ -40,8 +40,8 @@ async function getStableSession(): Promise<AuthSession> {
     const pending = persistenceQueue;
     await pending;
     if (pending !== persistenceQueue) continue;
-    const { token, expiresAt, user, isHydrated, sessionVersion } = useAuthStore.getState();
-    return { token, expiresAt, user, isHydrated, sessionVersion };
+    const { token, expiresAt, user, isHydrated, accountSessionId, sessionVersion } = useAuthStore.getState();
+    return { token, expiresAt, user, isHydrated, accountSessionId, sessionVersion };
   }
 }
 
@@ -51,6 +51,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   expiresAt: null,
   user: null,
   isHydrated: false,
+  accountSessionId: 0,
   sessionVersion: 0,
   getStableSession,
 
@@ -58,20 +59,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     accessToken: string,
     refreshToken: string,
     expiresIn: number,
-    expectedSessionVersion?: number,
+    options?: AuthOptions,
   ): Promise<void> => {
+    const expectedSessionVersion =
+      options && 'expectedSessionVersion' in options ? options.expectedSessionVersion : undefined;
     if (expectedSessionVersion !== undefined && get().sessionVersion !== expectedSessionVersion) {
       throw new Error('Authenticated session changed before token persistence');
     }
     const previousVersion = get().sessionVersion;
     const revision = ++authRevision;
-    set({ sessionVersion: revision, ...(expectedSessionVersion === undefined ? { user: null } : {}) });
+    set({ sessionVersion: revision });
     try {
       await serializePersistence(async () => {
         if (revision !== authRevision) throw new Error('Authenticated session changed before token persistence');
         await secureStorage.setTokens(accessToken, refreshToken, expiresIn);
         if (revision !== authRevision) throw new Error('Authenticated session changed during token persistence');
-        set({ token: accessToken, expiresAt: Date.now() + expiresIn * 1000, sessionVersion: revision });
+        set({
+          token: accessToken,
+          expiresAt: Date.now() + expiresIn * 1000,
+          sessionVersion: revision,
+          ...(expectedSessionVersion === undefined
+            ? { accountSessionId: revision, user: options && 'user' in options ? options.user : null }
+            : {}),
+        });
       });
     } catch (error) {
       if (revision === authRevision) set({ sessionVersion: previousVersion });
@@ -79,13 +89,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  setUser: (user: User): void => {
-    if (get().user?.id === user.id) {
-      set({ user });
-      return;
+  setUser: (user: User, accountSessionId: number): void => {
+    const current = get();
+    if (
+      !current.token ||
+      current.accountSessionId !== accountSessionId ||
+      (current.user && current.user.id !== user.id)
+    ) {
+      throw new Error('Authenticated session changed before the profile could be saved');
     }
-    const revision = ++authRevision;
-    set({ user, sessionVersion: revision });
+    set({ user });
   },
 
   /**
@@ -95,7 +108,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    */
   clearAuth: async (): Promise<void> => {
     const revision = ++authRevision;
-    set({ token: null, expiresAt: null, user: null, sessionVersion: revision });
+    set({ token: null, expiresAt: null, user: null, accountSessionId: revision, sessionVersion: revision });
     await serializePersistence(async () => {
       if (revision === authRevision) await secureStorage.clearTokens();
     });

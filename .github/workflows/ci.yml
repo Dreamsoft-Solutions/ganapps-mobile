@@ -64,9 +64,23 @@ jobs:
           token: ${{ secrets.PACT_REPO_TOKEN }}
           path: .pact-provider
           persist-credentials: false
+      - name: Check out dev Pact provider for legacy master
+        if: >-
+          (github.base_ref || github.ref_name) == 'master' &&
+          !(vars.PACT_SERVER_REF && github.head_ref == vars.PACT_SERVER_REF) &&
+          hashFiles('.pact-provider/pact/provider.pact.test.ts') == ''
+        uses: actions/checkout@v7
+        with:
+          repository: Dreamsoft-Solutions/ganapps-server
+          ref: dev
+          token: ${{ secrets.PACT_REPO_TOKEN }}
+          path: .pact-provider
+          persist-credentials: false
       - run: pnpm --dir .pact-provider install --frozen-lockfile
       - name: Verify the mobile contract against the server
-        run: pnpm --dir .pact-provider test
+        run: |
+          test -s "$PACT_FILE"
+          pnpm --dir .pact-provider exec vitest run pact/provider.pact.test.ts
         env:
           PACT_FILE: ${{ github.workspace }}/pacts/ganapps-mobile-ganapps-server.json
           PACT_DO_NOT_TRACK: 'true'

@@ -54,9 +54,9 @@ export async function refreshAccessToken(
       ) {
         throw new Error('Authenticated session changed during token refresh');
       }
-      await useAuthStore
-        .getState()
-        .setAuth(tokens.accessToken, tokens.refreshToken, tokens.expiresIn, startedSession.sessionVersion);
+      await useAuthStore.getState().setAuth(tokens.accessToken, tokens.refreshToken, tokens.expiresIn, {
+        expectedSessionVersion: startedSession.sessionVersion,
+      });
       return tokens;
     })
     .finally(() => {
