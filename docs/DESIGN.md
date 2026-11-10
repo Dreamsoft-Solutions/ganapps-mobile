@@ -75,7 +75,8 @@ window insets from React context and is unaffected. `GanapShareModal` and `onboa
 show the pattern.
 
 A bottom sheet in a transparent `Modal` pads its last row with `insets.bottom` so actions clear
-the home indicator.
+the home indicator. A screen shown above the app tab bar does not add `insets.bottom` itself:
+the tab bar already reserves it.
 
 The reasoning behind binding both, and behind the affordance/ornament split, is in
 [ADR 0005](adr/0005-platform-design-guidelines.md).

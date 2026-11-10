@@ -1,6 +1,5 @@
 import type { ReactElement } from 'react';
 import { View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { Text } from '@/components/common/Text';
 import type { GanapActionModel } from '@/utils/ganap-detail';
@@ -15,7 +14,10 @@ interface EventActionBarProps {
 }
 
 /**
- * Safe-area-aware sticky action surface for registration and Event Hub entry decisions.
+ * Sticky action surface for registration and Event Hub entry decisions.
+ *
+ * It sits directly above the app tab bar, which already reserves the bottom safe-area
+ * inset, so the bar adds only its own padding.
  *
  * @param props - Action model, pending state, primary/secondary action handlers, and the report handler.
  * @returns The fixed action bar with an optional secondary action and the Report Event link.
@@ -27,13 +29,8 @@ export function EventActionBar({
   onSecondaryAction,
   onReport,
 }: EventActionBarProps): ReactElement {
-  const insets = useSafeAreaInsets();
-
   return (
-    <View
-      className="absolute bottom-0 left-0 right-0 border-t border-border bg-background px-md pt-sm"
-      style={{ paddingBottom: insets.bottom + 8 }}
-    >
+    <View className="absolute bottom-0 left-0 right-0 border-t border-border bg-background px-md pb-xs pt-sm">
       <View className="w-full max-w-3xl self-center">
         {model.statusLabel && (
           <Text className="mb-sm text-center text-body-md text-muted-foreground">{model.statusLabel}</Text>
