@@ -58,7 +58,7 @@ export function MapSearchBar({
           onChangeText={handleChangeText}
           onFocus={handleFocus}
           placeholder={placeholder}
-          className="flex-1 text-body-md text-foreground placeholder:text-muted-foreground"
+          className="flex-1 text-input-md text-foreground placeholder:text-muted-foreground"
           accessibilityLabel="Search events"
           accessibilityHint="Shows matching Ganaps on the map"
         />

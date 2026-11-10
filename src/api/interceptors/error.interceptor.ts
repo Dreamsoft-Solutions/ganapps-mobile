@@ -3,25 +3,52 @@ import { useAuthStore } from '@/store/auth.store';
 import { parseApiError } from '@/utils/error-handling';
 import { secureStorage } from '@/utils/secure-storage';
 import axiosInstance from '../axios-instance';
+import type { SessionBoundRequestConfig } from '../types/session-bound-request';
 import { refreshAccessToken } from './refresh-token';
 
-interface QueueItem {
-  resolve: (token: string) => void;
-  reject: (error: unknown) => void;
+type RetriableRequest = InternalAxiosRequestConfig & SessionBoundRequestConfig & { _retry?: boolean };
+
+function requestUserId(request: RetriableRequest): string | null | undefined {
+  return request.requestAuthUserId;
 }
 
-let isRefreshing = false;
-let failedQueue: QueueItem[] = [];
+function isRequestOwnerCurrent(request: RetriableRequest): boolean {
+  const expectedUserId = requestUserId(request);
+  const current = useAuthStore.getState();
+  return (
+    expectedUserId !== undefined &&
+    (current.user?.id ?? null) === expectedUserId &&
+    (request.expectedAuthSessionId === undefined || request.expectedAuthSessionId === current.accountSessionId)
+  );
+}
 
-function processQueue(error: unknown, token: string | null): void {
-  failedQueue.forEach((item) => {
-    if (error || !token) {
-      item.reject(error);
-    } else {
-      item.resolve(token);
-    }
-  });
-  failedQueue = [];
+function isRequestCredentialsCurrent(request: RetriableRequest): boolean {
+  const current = useAuthStore.getState();
+  return (
+    isRequestOwnerCurrent(request) &&
+    current.token === request.requestAuthToken &&
+    current.sessionVersion === request.requestAuthVersion
+  );
+}
+
+function retryWithCurrentToken(request: RetriableRequest): Promise<AxiosResponse> | null {
+  const current = useAuthStore.getState();
+  const expectedUserId = requestUserId(request);
+  if (
+    expectedUserId === undefined ||
+    expectedUserId === null ||
+    !isRequestOwnerCurrent(request) ||
+    !current.token ||
+    current.token === request.requestAuthToken
+  ) {
+    return null;
+  }
+
+  request._retry = true;
+  request.requestAuthToken = current.token;
+  request.requestAuthVersion = current.sessionVersion;
+  request.headers.Authorization = `Bearer ${current.token}`;
+  return axiosInstance(request);
 }
 
 /** Normalizes API failures and refreshes retryable authenticated requests. */
@@ -33,49 +60,58 @@ export const errorInterceptor = {
    * @throws The parsed API error when the request cannot be retried.
    */
   onRejected: async (error: AxiosError): Promise<AxiosResponse> => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as RetriableRequest | undefined;
 
     if (originalRequest?.method === 'delete' && originalRequest.url === '/auth/me') {
       return Promise.reject(parseApiError(error));
     }
 
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
-      const refreshToken = await secureStorage.getRefreshToken();
+    if (error.response?.status !== 401 || !originalRequest || originalRequest._retry) {
+      return Promise.reject(parseApiError(error));
+    }
+    await useAuthStore.getState().getStableSession();
+    if (!originalRequest.requestAuthToken) return Promise.reject(parseApiError(error));
+    await useAuthStore.getState().getStableSession();
+    if (!isRequestOwnerCurrent(originalRequest)) return Promise.reject(parseApiError(error));
 
-      if (!refreshToken) {
-        await useAuthStore.getState().clearAuth();
-        return Promise.reject(parseApiError(error));
-      }
+    const newerTokenRetry = retryWithCurrentToken(originalRequest);
+    if (newerTokenRetry) return newerTokenRetry;
+    if (!isRequestCredentialsCurrent(originalRequest)) return Promise.reject(parseApiError(error));
 
-      if (isRefreshing) {
-        return new Promise<string>((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then((token) => {
-            originalRequest._retry = true;
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            return axiosInstance(originalRequest);
-          })
-          .catch((err) => Promise.reject(err));
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        const tokens = await refreshAccessToken(refreshToken);
-        processQueue(null, tokens.accessToken);
-        originalRequest.headers.Authorization = `Bearer ${tokens.accessToken}`;
-        return axiosInstance(originalRequest);
-      } catch (refreshError) {
-        processQueue(refreshError, null);
-        await useAuthStore.getState().clearAuth();
-        return Promise.reject(parseApiError(refreshError as AxiosError));
-      } finally {
-        isRefreshing = false;
-      }
+    let refreshToken: string | null;
+    try {
+      refreshToken = await secureStorage.getRefreshToken();
+    } catch (storageError) {
+      if (isRequestCredentialsCurrent(originalRequest)) await useAuthStore.getState().clearAuth();
+      return Promise.reject(parseApiError(storageError as AxiosError));
     }
 
-    return Promise.reject(parseApiError(error));
+    if (!isRequestOwnerCurrent(originalRequest)) return Promise.reject(parseApiError(error));
+    const afterTokenReadRetry = retryWithCurrentToken(originalRequest);
+    if (afterTokenReadRetry) return afterTokenReadRetry;
+    if (!isRequestCredentialsCurrent(originalRequest)) return Promise.reject(parseApiError(error));
+
+    if (!refreshToken) {
+      if (isRequestCredentialsCurrent(originalRequest)) await useAuthStore.getState().clearAuth();
+      return Promise.reject(parseApiError(error));
+    }
+
+    originalRequest._retry = true;
+    try {
+      const tokens = await refreshAccessToken(
+        refreshToken,
+        requestUserId(originalRequest) ?? undefined,
+        originalRequest.requestAuthVersion,
+      );
+      originalRequest.requestAuthToken = tokens.accessToken;
+      originalRequest.requestAuthVersion = (await useAuthStore.getState().getStableSession()).sessionVersion;
+      originalRequest.headers.Authorization = `Bearer ${tokens.accessToken}`;
+      return axiosInstance(originalRequest);
+    } catch (refreshError) {
+      const latestTokenRetry = retryWithCurrentToken(originalRequest);
+      if (latestTokenRetry) return latestTokenRetry;
+      if (isRequestCredentialsCurrent(originalRequest)) await useAuthStore.getState().clearAuth();
+      return Promise.reject(parseApiError(refreshError as AxiosError));
+    }
   },
 };

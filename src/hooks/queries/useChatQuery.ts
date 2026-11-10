@@ -18,7 +18,7 @@ import type {
   EventChatSummary,
   EventChatSummaryPage,
 } from '@/types/chat.types';
-import { isChatForbidden } from '@/utils/chat';
+import { isChatForbidden, upsertChatMessage } from '@/utils/chat';
 
 /** Shared page parameter type for opaque cursors and the initial undefined page. */
 export type ChatPageParam = string | undefined;
@@ -35,6 +35,33 @@ export const chatQueryKeys = {
   eventList: () => [...chatQueryKeys.all, 'event-list'] as const,
   summaries: () => [...chatQueryKeys.all, 'summaries'] as const,
 };
+
+/**
+ * Inserts a canonical message into the newest page and removes it from older pages.
+ *
+ * @param data - Cached message pages, when they have loaded
+ * @param message - Canonical message to insert
+ * @returns Updated pages, or the original empty cache
+ */
+export function upsertChatMessagePages(
+  data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined,
+  message: ChatMessage,
+): InfiniteData<ChatMessagesPage, ChatPageParam> | undefined {
+  if (!data || data.pages.length === 0) return data;
+  const [firstPage, ...remainingPages]: ChatMessagesPage[] = data.pages;
+  return {
+    ...data,
+    pages: [
+      { ...firstPage, items: upsertChatMessage(firstPage.items, message) },
+      ...remainingPages.map(
+        (page: ChatMessagesPage): ChatMessagesPage => ({
+          ...page,
+          items: page.items.filter((item: ChatMessage): boolean => item.id !== message.id),
+        }),
+      ),
+    ],
+  };
+}
 
 /** Fixed page size for Event Chat summary rows. */
 export const EVENT_CHAT_LIST_PAGE_SIZE = 20;
@@ -180,9 +207,6 @@ export function useChatSummariesQuery(enabled = true): UseChatSummariesQueryResu
   return { ...result, summaries, hasUnreadMessages };
 }
 
-/** Backwards-readable alias for the Friends hub summary query. */
-export const useMixedChatListQuery: typeof useChatSummariesQuery = useChatSummariesQuery;
-
 /**
  * Resolves one Ganap's server-authoritative Event Chat session. It refetches
  * every time a chat opens, because send permission can be revoked while the
@@ -241,9 +265,9 @@ export function useEventChatMessagesQuery(ganapId: string, enabled = true): UseE
 }
 
 /**
- * Lists server-owned Direct Chat summaries without loading any message history.
+ * Lists server-owned Direct Chat summaries and refreshes them on entry to the thread.
  *
- * @param enabled - Whether the Direct list is currently visible
+ * @param enabled - Whether a Direct Chat target is selected
  * @returns Infinite Direct summary query and flattened rows
  */
 export function useDirectChatListQuery(enabled = true): UseDirectChatListQueryResult {
@@ -269,6 +293,7 @@ export function useDirectChatListQuery(enabled = true): UseDirectChatListQueryRe
     initialPageParam: undefined,
     getNextPageParam: getNextChatPageParam,
     ...CHAT_QUERY_OPTIONS,
+    staleTime: 0,
     retry: shouldRetryChatQuery,
     enabled: Boolean(token && enabled),
   });
@@ -282,7 +307,7 @@ export function useDirectChatListQuery(enabled = true): UseDirectChatListQueryRe
 }
 
 /**
- * Reads Direct history only for a selected canonical conversation.
+ * Reads Direct history for the selected canonical conversation and refreshes it on entry.
  *
  * @param conversationId - Canonical Direct conversation id
  * @param enabled - Selected-thread/access/focus guard
@@ -305,6 +330,7 @@ export function useDirectChatMessagesQuery(conversationId: string, enabled = tru
     initialPageParam: undefined,
     getNextPageParam: getNextChatPageParam,
     ...CHAT_QUERY_OPTIONS,
+    staleTime: 0,
     retry: shouldRetryChatQuery,
     enabled: Boolean(token && conversationId && enabled),
   });

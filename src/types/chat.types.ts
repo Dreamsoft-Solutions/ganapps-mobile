@@ -52,7 +52,7 @@ export interface ChatImageAsset {
 /** Explicit in-memory image draft states; no state is persisted to SQLite or storage. */
 export type ChatImageDraftStatus = 'ready' | 'checking' | 'retryable-failure' | 'permanent-failure';
 
-/** Image draft owned by the focused Event Chat composer. */
+/** Local image draft retained by a focused chat composer. */
 export interface ChatImageDraft {
   clientMessageId: string;
   asset: ChatImageAsset;

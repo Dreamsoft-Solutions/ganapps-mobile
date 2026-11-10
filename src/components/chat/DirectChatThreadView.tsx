@@ -13,6 +13,7 @@ import { ErrorView } from '@/components/common/Error';
 import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
+import { CHAT_MAX_MESSAGE_LENGTH } from '@/constants/chat';
 import { Colors, Spacing } from '@/constants/theme';
 import { MIN_TOUCH_TARGET } from '@/constants/touch-target';
 import type { DirectFailedDraft } from '@/hooks/useDirectChat';
@@ -30,9 +31,6 @@ import { compareChatMessages } from '@/utils/chat';
 import { getChatMessageDateSeparatorLabel } from '@/utils/chat-date-groups';
 import { getChatImageErrorMessage, isChatImageAuthorizationError } from '@/utils/chat-image';
 import { useChatKeyboardVisible } from './useChatKeyboardVisible';
-
-/** Maximum text size accepted by the Direct Chat server contract. */
-export const DIRECT_CHAT_MAX_MESSAGE_LENGTH = 2_000;
 
 /** Props for the focused Direct Chat thread. */
 export interface DirectChatThreadViewProps {
@@ -56,6 +54,7 @@ export interface DirectChatThreadViewProps {
   onRetryDraft: (clientMessageId: string) => void | Promise<void>;
   onDiscardDraft: (clientMessageId: string) => void;
   imageDraft?: BaseChatImageDraft | null;
+  isPreparingImage?: boolean;
   imagePickerError?: Error | null;
   imageRetryAfterSeconds?: number | null;
   onPickImage?: () => void | Promise<void>;
@@ -422,6 +421,7 @@ export function DirectChatThreadView({
   onMessageReaction,
   reactionPendingMessageId = null,
   imageDraft = null,
+  isPreparingImage = false,
   imagePickerError = null,
   imageRetryAfterSeconds = null,
   onPickImage = async (): Promise<void> => {},
@@ -687,14 +687,16 @@ export function DirectChatThreadView({
               <IconButton
                 accessibilityLabel="Add image"
                 accessibilityHint="Opens the existing photo library to select one image"
-                disabled={isSending || imageDraft !== null}
+                disabled={isSending || imageDraft !== null || isPreparingImage}
                 onPress={(): void => {
                   void onPickImage();
                 }}
                 size="md"
                 variant="default"
               >
-                {ImagePlus ? (
+                {isPreparingImage ? (
+                  <ActivityIndicator color={Colors[theme].foreground} accessibilityLabel="Preparing photo" />
+                ) : ImagePlus ? (
                   <ImagePlus size={20} color={Colors[theme].foreground} />
                 ) : (
                   <Text accessible={false} className="text-lg text-foreground">
@@ -705,10 +707,10 @@ export function DirectChatThreadView({
             )}
             <TextInput
               accessibilityLabel="Message"
-              accessibilityHint="Enter a direct message up to 2,000 characters"
+              accessibilityHint={`Enter a direct message up to ${CHAT_MAX_MESSAGE_LENGTH.toLocaleString('en-US')} characters`}
               aria-labelledby="direct-chat-composer-label"
               multiline
-              maxLength={DIRECT_CHAT_MAX_MESSAGE_LENGTH}
+              maxLength={CHAT_MAX_MESSAGE_LENGTH}
               value={draftText}
               onChangeText={setDraftText}
               editable={!isSending}

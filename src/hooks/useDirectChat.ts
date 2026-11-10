@@ -10,7 +10,12 @@ import {
   useSendDirectMessageByFriendMutation,
   useSendDirectMessageMutation,
 } from '@/hooks/mutations/useDirectChatMutation';
-import { type ChatPageParam, chatQueryKeys, useDirectChatMessagesQuery } from '@/hooks/queries/useChatQuery';
+import {
+  type ChatPageParam,
+  chatQueryKeys,
+  upsertChatMessagePages,
+  useDirectChatMessagesQuery,
+} from '@/hooks/queries/useChatQuery';
 import { type ModerationPageParam, moderationQueryKeys } from '@/hooks/queries/useModerationQuery';
 import {
   type ChatConnectionState,
@@ -19,7 +24,7 @@ import {
   chatSocketClient,
 } from '@/services/chat-socket.service';
 import { useAuthStore } from '@/store/auth.store';
-import type { ChatMessage, ChatMessagesPage } from '@/types/chat.types';
+import type { ChatImageDraft, ChatMessage, ChatMessagesPage } from '@/types/chat.types';
 import type {
   ChatConversationSummary,
   ChatConversationSummaryPage,
@@ -31,21 +36,24 @@ import type { BlockedUsersPage } from '@/types/moderation.types';
 import {
   compareChatMessagePositions,
   compareChatMessages,
+  createChatClientMessageId,
   getChatMessagePreview,
   greatestChatMessage,
+  isChatForbidden,
   isChatNetworkError,
-  upsertChatMessage,
 } from '@/utils/chat';
 import { markMessageUnsent, patchMessageInPages } from '@/utils/chat-engagement';
 import {
   CHAT_IMAGE_PICKER_OPTIONS,
-  getChatImageErrorCode,
+  canSubmitChatImageDraft,
   getChatImagePrecheckError,
-  getChatImageRetryAfterSeconds,
-  isRetryableChatImageError,
+  isChatImageMessageIdReused,
+  normalizeChatImageError,
   toChatImageAsset,
+  updateChatImageDraftAfterFailure,
 } from '@/utils/chat-image';
 import { isUserBlocked } from '@/utils/moderation';
+import { prepareUploadPhoto } from '@/utils/photo-upload';
 
 /** A failed in-memory Direct send that can be retried with the same client id. */
 export interface DirectFailedDraft {
@@ -90,7 +98,8 @@ export interface UseDirectChatResult {
   send: (content: string) => Promise<void>;
   retryDraft: (clientMessageId: string) => Promise<void>;
   discardDraft: (clientMessageId: string) => void;
-  imageDraft: import('@/types/chat.types').ChatImageDraft | null;
+  imageDraft: ChatImageDraft | null;
+  isPreparingImage: boolean;
   imagePickerError: Error | null;
   imageRetryAfterSeconds: number | null;
   pickImage: () => Promise<void>;
@@ -102,67 +111,6 @@ export interface UseDirectChatResult {
   accessLost: boolean;
   accessRevoked: boolean;
   isReadOnly: boolean;
-}
-
-function createClientMessageId(): string {
-  const cryptoObject: Crypto | undefined = typeof globalThis.crypto === 'object' ? globalThis.crypto : undefined;
-  if (cryptoObject && typeof cryptoObject.randomUUID === 'function') return cryptoObject.randomUUID();
-  return `mobile-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`.slice(0, 100);
-}
-
-function normalizeCaughtError(error: unknown): Error {
-  return error instanceof Error ? error : new Error('Image could not be sent.');
-}
-
-function canSubmitImageDraft(
-  draft: import('@/types/chat.types').ChatImageDraft,
-  canSend: boolean,
-  accessLost: boolean,
-  inFlightIds: Set<string>,
-): boolean {
-  return (
-    canSend &&
-    !accessLost &&
-    draft.status !== 'checking' &&
-    draft.status !== 'permanent-failure' &&
-    !inFlightIds.has(draft.clientMessageId)
-  );
-}
-
-function updateImageDraftAfterFailure(
-  current: import('@/types/chat.types').ChatImageDraft | null,
-  draft: import('@/types/chat.types').ChatImageDraft,
-  error: Error,
-): import('@/types/chat.types').ChatImageDraft | null {
-  if (!current || current.clientMessageId !== draft.clientMessageId) return current;
-  const retryable: boolean = isRetryableChatImageError(error);
-  const retryAfterSeconds: number | null = retryable ? getChatImageRetryAfterSeconds(error) : null;
-  return {
-    ...current,
-    status: retryable ? 'retryable-failure' : 'permanent-failure',
-    error,
-    retryAfterUntil: retryAfterSeconds ? Date.now() + retryAfterSeconds * 1000 : undefined,
-  };
-}
-
-function upsertMessageInPages(
-  data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined,
-  message: ChatMessage,
-): InfiniteData<ChatMessagesPage, ChatPageParam> | undefined {
-  if (!data || data.pages.length === 0) return data;
-  const [firstPage, ...remainingPages]: ChatMessagesPage[] = data.pages;
-  return {
-    ...data,
-    pages: [
-      { ...firstPage, items: upsertChatMessage(firstPage.items, message) },
-      ...remainingPages.map(
-        (page: ChatMessagesPage): ChatMessagesPage => ({
-          ...page,
-          items: page.items.filter((item: ChatMessage): boolean => item.id !== message.id),
-        }),
-      ),
-    ],
-  };
 }
 
 function removeMessageFromPages(
@@ -267,27 +215,37 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
   const currentUserId: string | null = useAuthStore((state) => state.user?.id ?? null);
   const enabled: boolean = options.enabled ?? true;
   const focused: boolean = options.focused ?? false;
-  const [createdConversationId, setCreatedConversationId] = useState<string | null>(null);
+  const [createdConversation, setCreatedConversation] = useState<{
+    conversationId: string;
+    friendUserId: string;
+  } | null>(null);
   const [accessRevoked, setAccessRevoked] = useState<boolean>(false);
   const [latestOutgoingSeenAt, setLatestOutgoingSeenAt] = useState<string | null>(options.latestOutgoingSeenAt ?? null);
   const [failedDraftMap, setFailedDraftMap] = useState<Record<string, DirectFailedDraft>>({});
   const [imageDraft, setImageDraft] = useState<import('@/types/chat.types').ChatImageDraft | null>(null);
+  const [isPreparingImage, setIsPreparingImage] = useState<boolean>(false);
   const [imagePickerError, setImagePickerError] = useState<Error | null>(null);
   const [imageRetryClock, setImageRetryClock] = useState<number>(Date.now());
   const [connectionState, setConnectionState] = useState<ChatConnectionState>(chatSocketClient.getConnectionState());
   const inFlightIds = useRef<Set<string>>(new Set<string>());
   const inFlightImageIds = useRef<Set<string>>(new Set<string>());
+  const imagePreparationInFlight = useRef<boolean>(false);
   const readCursor = useRef<ChatMessage | null>(null);
   const pendingReadCursor = useRef<ChatMessage | null>(null);
-  const previousTarget = useRef<string>(`${options.conversationId ?? ''}:${options.friendUserId ?? ''}`);
   const previousConnectionState = useRef<ChatConnectionState>(connectionState);
 
-  const conversationId: string = options.conversationId ?? createdConversationId ?? '';
   const friendUserId: string = options.friendUserId ?? '';
-  const canRead: boolean = options.canRead === true || createdConversationId !== null;
-  const canSend: boolean = options.canSend === true || createdConversationId !== null;
-  const accessLost: boolean = accessRevoked || (Boolean(conversationId) && !canRead);
-  const messagesQuery = useDirectChatMessagesQuery(conversationId, enabled && canRead && !accessLost);
+  const createdConversationId: string | null =
+    createdConversation?.friendUserId === friendUserId ? createdConversation.conversationId : null;
+  const conversationId: string = options.conversationId ?? createdConversationId ?? '';
+  const target: string = friendUserId ? `friend:${friendUserId}` : `conversation:${options.conversationId ?? ''}`;
+  const previousTarget = useRef<string>(target);
+  const hasCreatedConversation: boolean = !options.conversationId && createdConversationId !== null;
+  const canRead: boolean = options.canRead === true || hasCreatedConversation;
+  const canSend: boolean = options.canSend === true || hasCreatedConversation;
+  const messagesQuery = useDirectChatMessagesQuery(conversationId, enabled && canRead && !accessRevoked);
+  const accessLost: boolean =
+    accessRevoked || (Boolean(conversationId) && !canRead) || isChatForbidden(messagesQuery.error);
   const messagesRef = useRef<ChatMessage[]>(messagesQuery.messages);
   messagesRef.current = messagesQuery.messages;
   const sendByFriendMutation = useSendDirectMessageByFriendMutation();
@@ -309,11 +267,11 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
 
   useEffect((): (() => void) => chatSocketClient.setBeforeJoin(refreshBlocksBeforeJoin), [refreshBlocksBeforeJoin]);
 
-  useEffect((): (() => void) | undefined => {
-    const target: string = `${options.conversationId ?? ''}:${options.friendUserId ?? ''}`;
-    if (target === previousTarget.current) return undefined;
+  useEffect((): void => {
+    const targetChanged: boolean = target !== previousTarget.current;
+    if (createdConversation && (targetChanged || options.conversationId)) setCreatedConversation(null);
+    if (!targetChanged) return;
     previousTarget.current = target;
-    setCreatedConversationId(null);
     setAccessRevoked(false);
     setLatestOutgoingSeenAt(options.latestOutgoingSeenAt ?? null);
     setFailedDraftMap({});
@@ -321,7 +279,7 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
     setImagePickerError(null);
     readCursor.current = null;
     pendingReadCursor.current = null;
-  }, [options.conversationId, options.friendUserId, options.latestOutgoingSeenAt]);
+  }, [createdConversation, options.conversationId, options.latestOutgoingSeenAt, target]);
 
   useEffect((): void => {
     setLatestOutgoingSeenAt(options.latestOutgoingSeenAt ?? null);
@@ -365,7 +323,7 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
       if (incoming.conversationId !== conversationId || isUserBlocked(queryClient, incoming.senderId)) return;
       queryClient.setQueryData<InfiniteData<ChatMessagesPage, ChatPageParam>>(
         chatQueryKeys.directMessages(conversationId),
-        (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => upsertMessageInPages(data, incoming),
+        (data: InfiniteData<ChatMessagesPage, ChatPageParam> | undefined) => upsertChatMessagePages(data, incoming),
       );
       queryClient.setQueryData<InfiniteData<ChatConversationSummaryPage, ChatPageParam>>(
         chatQueryKeys.directSummaries(),
@@ -536,15 +494,17 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
 
   const rememberConversation = useCallback(
     (message: ChatMessage): void => {
-      if (!conversationId && message.conversationId) setCreatedConversationId(message.conversationId);
+      if (!conversationId && message.conversationId && previousTarget.current === target) {
+        setCreatedConversation({ conversationId: message.conversationId, friendUserId });
+      }
     },
-    [conversationId],
+    [conversationId, friendUserId, target],
   );
 
   const submitMessage = useCallback(
     async (
       content: string,
-      clientMessageId: string = createClientMessageId(),
+      clientMessageId: string = createChatClientMessageId(),
       targetOverride?: DirectFailedDraft['target'],
     ): Promise<void> => {
       if (!canSend || accessLost || inFlightIds.current.has(clientMessageId)) return;
@@ -603,22 +563,39 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
   );
 
   const pickImage = useCallback(async (): Promise<void> => {
-    if (!canSend || accessLost || imageDraft || sendImageMutation.isPending || sendImageByFriendMutation.isPending)
+    if (
+      !canSend ||
+      accessLost ||
+      imageDraft ||
+      imagePreparationInFlight.current ||
+      sendImageMutation.isPending ||
+      sendImageByFriendMutation.isPending
+    ) {
       return;
+    }
+    imagePreparationInFlight.current = true;
+    setIsPreparingImage(true);
     setImagePickerError(null);
     try {
       const result: ImagePicker.ImagePickerResult =
         await ImagePicker.launchImageLibraryAsync(CHAT_IMAGE_PICKER_OPTIONS);
       if (result.canceled || result.assets.length === 0) return;
-      const selected: ImagePicker.ImagePickerAsset = result.assets[0];
+      const selected: ImagePicker.ImagePickerAsset = await prepareUploadPhoto(result.assets[0]);
       const precheckError: string | null = getChatImagePrecheckError(selected);
       if (precheckError) {
         setImagePickerError(new Error(precheckError));
         return;
       }
-      setImageDraft({ clientMessageId: createClientMessageId(), asset: toChatImageAsset(selected), status: 'ready' });
+      setImageDraft({
+        clientMessageId: createChatClientMessageId(),
+        asset: toChatImageAsset(selected),
+        status: 'ready',
+      });
     } catch {
-      setImagePickerError(new Error('Unable to open your photo library.'));
+      setImagePickerError(new Error('Could not use this photo. Choose another photo or try again.'));
+    } finally {
+      imagePreparationInFlight.current = false;
+      setIsPreparingImage(false);
     }
   }, [accessLost, canSend, imageDraft, sendImageByFriendMutation.isPending, sendImageMutation.isPending]);
 
@@ -644,8 +621,8 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
   );
 
   const submitImage = useCallback(
-    async (draft: import('@/types/chat.types').ChatImageDraft): Promise<void> => {
-      if (!canSubmitImageDraft(draft, canSend, accessLost, inFlightImageIds.current)) return;
+    async (draft: ChatImageDraft): Promise<void> => {
+      if (!canSubmitChatImageDraft(draft, canSend, accessLost, inFlightImageIds.current)) return;
       inFlightImageIds.current.add(draft.clientMessageId);
       setImageDraft((current): import('@/types/chat.types').ChatImageDraft | null =>
         current?.clientMessageId === draft.clientMessageId
@@ -672,12 +649,12 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
         clearImageDraft(draft.clientMessageId);
         setImagePickerError(null);
       } catch (caughtError: unknown) {
-        const error: Error = normalizeCaughtError(caughtError);
-        if (getChatImageErrorCode(error) === 'CLIENT_MESSAGE_ID_REUSED') {
+        const error: Error = normalizeChatImageError(caughtError);
+        if (isChatImageMessageIdReused(error)) {
           await reconcileReusedImage(draft.clientMessageId);
         } else {
           setImageDraft((current): import('@/types/chat.types').ChatImageDraft | null =>
-            updateImageDraftAfterFailure(current, draft, error),
+            updateChatImageDraftAfterFailure(current, draft, error),
           );
         }
       } finally {
@@ -766,7 +743,9 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
     isFetchingNextPage: !accessLost && messagesQuery.isFetchingNextPage,
     loadMore,
     fetchNextPage: loadMore,
-    isLoading: Boolean(conversationId && canRead && !accessLost && messagesQuery.isLoading),
+    isLoading: Boolean(
+      conversationId && canRead && !accessLost && (messagesQuery.isPending || messagesQuery.fetchStatus !== 'idle'),
+    ),
     error,
     refetch,
     isSending:
@@ -783,6 +762,7 @@ export function useDirectChat(options: UseDirectChatOptions = {}): UseDirectChat
     retryDraft,
     discardDraft,
     imageDraft,
+    isPreparingImage,
     imagePickerError,
     imageRetryAfterSeconds,
     pickImage,

@@ -1,0 +1,295 @@
+import type { SQLInputValue } from 'node:sqlite';
+import { DatabaseSync } from 'node:sqlite';
+import { drizzle } from 'drizzle-orm/sqlite-proxy';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const runtime = vi.hoisted(() => ({
+  db: undefined as unknown,
+  session: {
+    isHydrated: false,
+    token: null as string | null,
+    user: null as { id: string } | null,
+  },
+  api: {
+    like: vi.fn(),
+    unlike: vi.fn(),
+    save: vi.fn(),
+    unsave: vi.fn(),
+    checkIn: vi.fn(),
+  },
+  mutationOptions: undefined as unknown,
+}));
+
+vi.mock('@/db', () => ({
+  get db(): unknown {
+    return runtime.db;
+  },
+}));
+vi.mock('@/store/auth.store', () => ({ useAuthStore: { getState: () => runtime.session } }));
+vi.mock('@/api/endpoints/ganaps', () => ({ ganapsAPI: runtime.api }));
+vi.mock('@/hooks/queries/useGanapsQuery', () => ({
+  ganapQueryKeys: { detail: vi.fn(), lists: vi.fn() },
+}));
+vi.mock('@/hooks/queries/useProfileQuery', () => ({
+  profileQueryKeys: { all: ['profile'], savedGanapsRoot: () => ['profile', 'saved'] },
+}));
+vi.mock('@/utils/toast-message', () => ({ SUPPRESS_GLOBAL_ERROR_TOAST_META: 'suppressGlobalErrorToast' }));
+vi.mock('@tanstack/react-query', () => ({
+  useMutation: (options: unknown): unknown => {
+    runtime.mutationOptions = options;
+    return options;
+  },
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+}));
+vi.mock('react-native', () => ({ AppState: { addEventListener: () => ({ remove: vi.fn() }) } }));
+
+describe('mobile outbox state transitions', () => {
+  let sqlite: DatabaseSync;
+  let service: typeof import('./sync.service');
+
+  beforeEach(async () => {
+    sqlite = new DatabaseSync(':memory:');
+    sqlite.exec(`CREATE TABLE outbox (
+      id TEXT PRIMARY KEY,
+      entity_type TEXT NOT NULL,
+      action TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      retries INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )`);
+    runtime.db = drizzle(async (sql, params, method) => {
+      const statement = sqlite.prepare(sql);
+      const bindings = params as SQLInputValue[];
+      if (method === 'run') {
+        statement.run(...bindings);
+        return { rows: [] };
+      }
+      if (method === 'get') {
+        const row = statement.get(...bindings);
+        return { rows: row ? Object.values(row) : [] };
+      }
+      const rows = statement.all(...bindings).map((row) => Object.values(row));
+      return { rows };
+    });
+    runtime.session.isHydrated = true;
+    runtime.session.token = 'access-token-a';
+    runtime.session.user = { id: 'user-a' };
+    runtime.api.like.mockReset().mockResolvedValue(undefined);
+    runtime.api.unlike.mockReset().mockResolvedValue(undefined);
+    runtime.api.save.mockReset().mockResolvedValue(undefined);
+    runtime.api.unsave.mockReset().mockResolvedValue(undefined);
+    runtime.api.checkIn.mockReset().mockResolvedValue(undefined);
+    runtime.mutationOptions = undefined;
+    vi.resetModules();
+    service = await import('./sync.service');
+  });
+
+  afterEach(() => {
+    sqlite.close();
+    runtime.db = undefined;
+  });
+
+  it('does not queue a replay without a captured owner', async () => {
+    await expect(service.enqueueOutbox({ action: 'like', ganapId: 'ganap-1', ownerId: '' })).resolves.toBe(false);
+    expect(sqlite.prepare('SELECT id FROM outbox').all()).toHaveLength(0);
+  });
+
+  it('waits for hydrated auth and replays only for the queued owner', async () => {
+    await expect(
+      service.enqueueOutbox({
+        action: 'check-in',
+        ganapId: 'ganap-1',
+        ownerId: 'user-a',
+        qrHash: 'qr-hash',
+        scannedAt: '2026-11-01T00:00:00.000Z',
+      }),
+    ).resolves.toBe(true);
+
+    runtime.session.isHydrated = false;
+    runtime.session.token = null;
+    runtime.session.user = null;
+    await service.syncOutbox();
+    expect(outboxRow(sqlite).status).toBe('pending');
+    expect(runtime.api.checkIn).not.toHaveBeenCalled();
+
+    runtime.session.isHydrated = true;
+    runtime.session.token = 'access-token-b';
+    runtime.session.user = { id: 'user-b' };
+    await service.syncOutbox();
+    expect(outboxRow(sqlite).status).toBe('pending');
+    expect(runtime.api.checkIn).not.toHaveBeenCalled();
+
+    runtime.session.token = 'access-token-a';
+    runtime.session.user = { id: 'user-a' };
+    await service.syncOutbox();
+    expect(outboxRow(sqlite).status).toBe('success');
+    expect(runtime.api.checkIn).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let foreign-owner rows starve the current owner past one batch', async () => {
+    for (let index = 0; index < 11; index += 1) {
+      sqlite
+        .prepare(
+          `INSERT INTO outbox (id, entity_type, action, payload, status, retries, created_at, updated_at)
+           VALUES (?, 'ganap', 'like', ?, 'pending', 0, ?, ?)`,
+        )
+        .run(
+          `foreign-${index}`,
+          JSON.stringify({ ganapId: `foreign-${index}`, ownerId: 'user-b' }),
+          Date.now(),
+          Date.now(),
+        );
+    }
+    await service.enqueueOutbox({ action: 'like', ganapId: 'ganap-user-a', ownerId: 'user-a' });
+
+    await service.syncOutbox();
+
+    expect(runtime.api.like).toHaveBeenCalledTimes(1);
+    expect(runtime.api.like).toHaveBeenCalledWith('ganap-user-a', 'user-a');
+    expect(sqlite.prepare("SELECT status FROM outbox WHERE id LIKE 'foreign-%'").all()).toHaveLength(11);
+  });
+
+  it('does not let legacy rows without an owner starve the current owner past one batch', async () => {
+    for (let index = 0; index < 11; index += 1) {
+      sqlite
+        .prepare(
+          `INSERT INTO outbox (id, entity_type, action, payload, status, retries, created_at, updated_at)
+           VALUES (?, 'ganap', 'like', ?, 'pending', 0, ?, ?)`,
+        )
+        .run(`legacy-${index}`, JSON.stringify({ ganapId: `legacy-${index}` }), index, index);
+    }
+    await service.enqueueOutbox({ action: 'like', ganapId: 'ganap-user-a', ownerId: 'user-a' });
+
+    await service.syncOutbox();
+
+    expect(runtime.api.like).toHaveBeenCalledTimes(1);
+    expect(runtime.api.like).toHaveBeenCalledWith('ganap-user-a', 'user-a');
+  });
+
+  it('queues a failed request for the User who started it after the session changes', async () => {
+    const mutationHooks = await import('@/hooks/mutations/useGanapMutation');
+    mutationHooks.useCheckInMutation();
+    const options = runtime.mutationOptions as {
+      mutationFn: (input: {
+        ganapId: string;
+        ownerId: string;
+        qrHash: string;
+        scannedAt: string;
+      }) => Promise<{ kind: string }>;
+    };
+    let rejectRequest: ((error: Error) => void) | undefined;
+    runtime.api.checkIn.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectRequest = reject;
+        }),
+    );
+
+    const pending = options.mutationFn({
+      ganapId: 'ganap-user-a',
+      ownerId: 'user-a',
+      qrHash: 'qr-a',
+      scannedAt: '2026-11-07T00:00:00.000Z',
+    });
+    await vi.waitFor(() => expect(runtime.api.checkIn).toHaveBeenCalledTimes(1));
+    runtime.session.token = 'access-token-b';
+    runtime.session.user = { id: 'user-b' };
+    rejectRequest?.(new Error('Network Error'));
+
+    await expect(pending).resolves.toMatchObject({ kind: 'queued' });
+    expect(runtime.api.checkIn).toHaveBeenNthCalledWith(
+      1,
+      'ganap-user-a',
+      { qrHash: 'qr-a', scannedAt: '2026-11-07T00:00:00.000Z' },
+      'user-a',
+    );
+    const row = sqlite.prepare('SELECT payload FROM outbox LIMIT 1').get();
+    if (typeof row?.payload !== 'string') throw new Error('Expected a queued payload');
+    expect(JSON.parse(row.payload)).toMatchObject({ ownerId: 'user-a' });
+
+    await service.syncOutbox();
+    expect(runtime.api.checkIn).toHaveBeenCalledTimes(1);
+    runtime.session.token = 'access-token-a';
+    runtime.session.user = { id: 'user-a' };
+    await service.syncOutbox();
+    expect(runtime.api.checkIn).toHaveBeenNthCalledWith(
+      2,
+      'ganap-user-a',
+      { qrHash: 'qr-a', scannedAt: '2026-11-07T00:00:00.000Z' },
+      'user-a',
+    );
+    expect(sqlite.prepare('SELECT status FROM outbox LIMIT 1').get()).toEqual({ status: 'success' });
+  });
+
+  it('serializes concurrent drains so a pending row is sent once', async () => {
+    await service.enqueueOutbox({ action: 'like', ganapId: 'ganap-2', ownerId: 'user-a' });
+    let releaseRequest: (() => void) | undefined;
+    runtime.api.like.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseRequest = resolve;
+        }),
+    );
+
+    const firstDrain = service.syncOutbox();
+    await vi.waitFor(() => expect(runtime.api.like).toHaveBeenCalledTimes(1));
+    const secondDrain = service.syncOutbox();
+    releaseRequest?.();
+    await Promise.all([firstDrain, secondDrain]);
+
+    expect(runtime.api.like).toHaveBeenCalledTimes(1);
+    expect(runtime.api.like).toHaveBeenCalledWith('ganap-2', 'user-a');
+    expect(outboxRow(sqlite).status).toBe('success');
+  });
+
+  it('counts one retry when multiple drain triggers overlap a failed request', async () => {
+    await service.enqueueOutbox({ action: 'like', ganapId: 'ganap-retry', ownerId: 'user-a' });
+    let rejectRequest: ((error: unknown) => void) | undefined;
+    runtime.api.like.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectRequest = reject;
+        }),
+    );
+
+    const firstDrain = service.syncOutbox();
+    await vi.waitFor(() => expect(runtime.api.like).toHaveBeenCalledTimes(1));
+    const secondDrain = service.syncOutbox();
+    rejectRequest?.(new Error('temporary network failure'));
+    await Promise.all([firstDrain, secondDrain]);
+
+    expect(runtime.api.like).toHaveBeenCalledTimes(1);
+    expect(outboxRow(sqlite)).toMatchObject({ status: 'pending', retries: 1 });
+  });
+
+  it('drains a new row queued during an active pass when another trigger arrives', async () => {
+    await service.enqueueOutbox({ action: 'like', ganapId: 'ganap-first', ownerId: 'user-a' });
+    let releaseRequest: (() => void) | undefined;
+    runtime.api.like.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseRequest = resolve;
+        }),
+    );
+
+    const firstDrain = service.syncOutbox();
+    await vi.waitFor(() => expect(runtime.api.like).toHaveBeenCalledTimes(1));
+    await service.enqueueOutbox({ action: 'like', ganapId: 'ganap-second', ownerId: 'user-a' });
+    const overlappingTrigger = service.syncOutbox();
+    releaseRequest?.();
+    await Promise.all([firstDrain, overlappingTrigger]);
+
+    expect(runtime.api.like).toHaveBeenCalledTimes(2);
+    expect(runtime.api.like).toHaveBeenNthCalledWith(1, 'ganap-first', 'user-a');
+    expect(runtime.api.like).toHaveBeenNthCalledWith(2, 'ganap-second', 'user-a');
+    expect(sqlite.prepare("SELECT status FROM outbox WHERE status = 'success'").all()).toHaveLength(2);
+  });
+});
+
+function outboxRow(database: DatabaseSync): { status: string; retries: number } {
+  const row = database.prepare('SELECT status, retries FROM outbox LIMIT 1').get();
+  if (!row) throw new Error('Expected one outbox row');
+  return row as { status: string; retries: number };
+}

@@ -18,6 +18,7 @@ import type {
 } from '@/types/auth.types';
 import type { User } from '@/types/user.types';
 import axiosInstance from '../axios-instance';
+import type { SessionBoundRequestConfig } from '../types/session-bound-request';
 
 /** Version-free authentication endpoints using the shared envelope-aware client. */
 export const authAPI = {
@@ -51,28 +52,33 @@ export const authAPI = {
   logout: (refreshToken?: string): Promise<void> =>
     axiosInstance.post<void>('/auth/logout', { refreshToken }).then((res) => res.data),
 
-  getMe: (): Promise<User> => axiosInstance.get<User>('/auth/me').then((res) => res.data),
+  /** Reads the profile using credentials from the selected sign-in session. */
+  getMe: (config: SessionBoundRequestConfig): Promise<User> =>
+    axiosInstance.get<User>('/auth/me', config).then((res) => res.data),
 
   refreshToken: (dto: RefreshRequest): Promise<TokenResponse> =>
     axiosInstance.post<TokenResponse>('/auth/refresh', dto).then((res) => res.data),
 
-  verifyEmail: (dto: VerifyEmailRequest): Promise<User> =>
-    axiosInstance.post<User>('/auth/verify-email', dto).then((res) => res.data),
+  /** Verifies email using credentials from the selected sign-in session. */
+  verifyEmail: (dto: VerifyEmailRequest, config: SessionBoundRequestConfig): Promise<User> =>
+    axiosInstance.post<User>('/auth/verify-email', dto, config).then((res) => res.data),
 
   resendVerification: (): Promise<{ message: string }> =>
     axiosInstance.post<{ message: string }>('/auth/resend-verification').then((res) => res.data),
 
-  updateProfile: (dto: UpdateProfileRequest | FormData): Promise<User> =>
+  /** Updates the profile using credentials from the selected sign-in session. */
+  updateProfile: (dto: UpdateProfileRequest | FormData, config: SessionBoundRequestConfig): Promise<User> =>
     axiosInstance
       .patch<User>(
         '/auth/me',
         dto,
         isFormData(dto)
           ? {
+              ...config,
               headers: { 'Content-Type': undefined },
               transformRequest: [(data: unknown): unknown => data],
             }
-          : undefined,
+          : config,
       )
       .then((res) => res.data),
 

@@ -1,5 +1,16 @@
 import type { ChatMessage } from '@/types/chat.types';
 
+/**
+ * Creates one client-generated message identifier for text or image sends.
+ *
+ * @returns A UUID when available, otherwise a bounded mobile identifier
+ */
+export function createChatClientMessageId(): string {
+  const cryptoObject: Crypto | undefined = typeof globalThis.crypto === 'object' ? globalThis.crypto : undefined;
+  if (cryptoObject && typeof cryptoObject.randomUUID === 'function') return cryptoObject.randomUUID();
+  return `mobile-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`.slice(0, 100);
+}
+
 /** Error fields added by the mobile API error normalizer. */
 export interface ChatNormalizedError extends Error {
   status?: number;
@@ -28,21 +39,6 @@ export function isChatForbidden(error: Error | null | undefined): boolean {
     normalized.errorCode === 'FORBIDDEN' ||
     normalized.errorCode === 'DIRECT_ACCESS_FORBIDDEN'
   );
-}
-
-/**
- * Returns whether an error is the server's generic Direct Chat access denial.
- *
- * The code intentionally does not expose whether a block, unfriend, deletion,
- * or suspension caused the denial.
- *
- * @param error - Query or mutation error
- * @returns True when Direct Chat mutation/read authority was denied
- */
-export function isDirectChatForbidden(error: Error | null | undefined): boolean {
-  if (!error) return false;
-  const normalized: ChatNormalizedError = asChatError(error);
-  return normalized.status === 403 || normalized.errorCode === 'DIRECT_ACCESS_FORBIDDEN';
 }
 
 /**

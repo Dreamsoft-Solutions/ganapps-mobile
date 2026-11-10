@@ -71,6 +71,8 @@ module.exports = {
         'body-md': ['14px', { lineHeight: '20px', fontWeight: '400' }],
         'label-md': ['12px', { lineHeight: '16px', fontWeight: '600', letterSpacing: '0.05em' }],
         'label-sm': ['11px', { lineHeight: '14px', fontWeight: '500' }],
+        'input-lg': ['16px', { fontWeight: '400' }],
+        'input-md': ['14px', { fontWeight: '400' }],
       },
       spacing: {
         /**
@@ -80,6 +82,7 @@ module.exports = {
          * its size from here rather than from that scale. See DS-119.
          */
         touch: '48px',
+        'sign-in': '41px',
         base: '4px',
         xs: '8px',
         sm: '12px',

@@ -22,12 +22,14 @@ import { profileQueryKeys } from '../queries/useProfileQuery';
 export interface ToggleLikeVariables {
   ganapId: string;
   isLiked: boolean;
+  ownerId: string;
 }
 
 /** Arguments for the save toggle: the Ganap and whether it is already saved. */
 export interface ToggleSaveVariables {
   ganapId: string;
   isSaved: boolean;
+  ownerId: string;
 }
 
 /** Arguments for submitting a Ganap registration form. */
@@ -149,15 +151,15 @@ export function useLikeGanapMutation(): UseMutationResult<void, Error, ToggleLik
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, ToggleLikeVariables>({
-    mutationFn: ({ ganapId, isLiked }: ToggleLikeVariables): Promise<void> =>
-      isLiked ? ganapsAPI.unlike(ganapId) : ganapsAPI.like(ganapId),
+    mutationFn: ({ ganapId, isLiked, ownerId }: ToggleLikeVariables): Promise<void> =>
+      isLiked ? ganapsAPI.unlike(ganapId, ownerId) : ganapsAPI.like(ganapId, ownerId),
     onSuccess: (_result: unknown, { ganapId }: ToggleLikeVariables): void => {
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
     },
-    onError: (error: Error, { ganapId, isLiked }: ToggleLikeVariables): void => {
+    onError: async (error: Error, { ganapId, isLiked, ownerId }: ToggleLikeVariables): Promise<void> => {
       if (shouldQueueForReplay(error)) {
-        void enqueueOutbox('ganap', isLiked ? 'unlike' : 'like', { ganapId });
+        await enqueueOutbox({ action: isLiked ? 'unlike' : 'like', ganapId, ownerId }).catch(() => false);
       }
     },
   });
@@ -213,8 +215,8 @@ export function useSaveGanapMutation(): UseMutationResult<void, Error, ToggleSav
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, ToggleSaveVariables, SaveMutationContext>({
-    mutationFn: ({ ganapId, isSaved }: ToggleSaveVariables): Promise<void> =>
-      isSaved ? ganapsAPI.unsave(ganapId) : ganapsAPI.save(ganapId),
+    mutationFn: ({ ganapId, isSaved, ownerId }: ToggleSaveVariables): Promise<void> =>
+      isSaved ? ganapsAPI.unsave(ganapId, ownerId) : ganapsAPI.save(ganapId, ownerId),
     onMutate: async ({ ganapId, isSaved }: ToggleSaveVariables): Promise<SaveMutationContext> => {
       if (!isSaved) return { previousSaved: [] };
 
@@ -235,14 +237,16 @@ export function useSaveGanapMutation(): UseMutationResult<void, Error, ToggleSav
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });
     },
-    onError: (
+    onError: async (
       error: Error,
-      { ganapId, isSaved }: ToggleSaveVariables,
+      { ganapId, isSaved, ownerId }: ToggleSaveVariables,
       context: SaveMutationContext | undefined,
-    ): void => {
+    ): Promise<void> => {
       if (shouldQueueForReplay(error)) {
-        void enqueueOutbox('ganap', isSaved ? 'unsave' : 'save', { ganapId });
-        return;
+        const queued = await enqueueOutbox({ action: isSaved ? 'unsave' : 'save', ganapId, ownerId }).catch(
+          () => false,
+        );
+        if (queued) return;
       }
 
       context?.previousSaved.forEach(([key, data]: [readonly unknown[], SavedGanapsData | undefined]): void => {
@@ -255,6 +259,7 @@ export function useSaveGanapMutation(): UseMutationResult<void, Error, ToggleSav
 /** Arguments for recording attendance from a scanned QR. */
 export interface CheckInVariables {
   ganapId: string;
+  ownerId: string;
   qrHash: string;
   scannedAt: string;
 }
@@ -281,14 +286,16 @@ export function useCheckInMutation(): UseMutationResult<CheckInOutcome, Error, C
   const queryClient = useQueryClient();
 
   return useMutation<CheckInOutcome, Error, CheckInVariables>({
-    mutationFn: async ({ ganapId, qrHash, scannedAt }: CheckInVariables): Promise<CheckInOutcome> => {
+    mutationFn: async ({ ganapId, ownerId, qrHash, scannedAt }: CheckInVariables): Promise<CheckInOutcome> => {
       try {
-        const result = await ganapsAPI.checkIn(ganapId, { qrHash, scannedAt });
+        const result = await ganapsAPI.checkIn(ganapId, { qrHash, scannedAt }, ownerId);
         return { kind: 'recorded', result };
       } catch (error) {
         if (error instanceof Error && shouldQueueForReplay(error)) {
-          await enqueueOutbox('ganap', 'check-in', { ganapId, qrHash, scannedAt });
-          return { kind: 'queued' };
+          const queued = await enqueueOutbox({ action: 'check-in', ganapId, ownerId, qrHash, scannedAt }).catch(
+            () => false,
+          );
+          if (queued) return { kind: 'queued' };
         }
         throw error;
       }

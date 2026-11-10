@@ -283,7 +283,3 @@ export function useFriendSettingsQuery(enabled = true): UseQueryResult<FriendSet
     enabled: Boolean(token && enabled),
   });
 }
-
-/** Backwards-readable aliases for list/query consumers. */
-export const useFriendListQuery: typeof useFriendsQuery = useFriendsQuery;
-export const useFriendGoingListQuery: typeof useFriendGoingQuery = useFriendGoingQuery;

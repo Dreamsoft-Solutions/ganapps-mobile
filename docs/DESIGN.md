@@ -58,11 +58,25 @@ motion curves — this design system wins, so the app still looks like itself on
 | Back | Left edge-swipe plus a visible back control | System back gesture and button | Pushed screens and modals answer to both; `BackHandler` covers the Android half |
 | Text scaling | Dynamic Type | Font size setting | Text scales by default — keep layouts working as it grows |
 | Screen reader | VoiceOver | TalkBack | `accessibilityLabel` and `accessibilityRole` on every control, `accessibilityHint` where the result is not obvious |
-| Safe area | Notch, home indicator | Display cutout, gesture bar | `useSafeAreaInsets` or `SafeAreaView`, never a hardcoded inset |
+| Safe area | Notch, home indicator | Display cutout, gesture bar | `useSafeAreaInsets` or `SafeAreaView`, never a hardcoded inset — see [Safe areas in modals](#safe-areas-in-modals) |
 | Reduced motion | Reduce Motion | Remove animations | `ReduceMotion.System` on Reanimated entering/exiting animations, as `components/common/Toast.tsx` does |
 
 Both guidelines are also App Store and Play review surface, so a violation is a release risk,
 not only a polish one.
+
+### Safe areas in modals
+
+Inside a full-screen React Native `Modal`, or a route presented as `fullScreenModal`, pad the
+root view with `useSafeAreaInsets()` instead of wrapping it in `SafeAreaView`. Those surfaces
+sit outside the native view tree of the root `SafeAreaProvider`, so `SafeAreaView` measures its
+own insets once, when it attaches mid-presentation, and keeps 0. The header then renders under
+the status bar, where its close button cannot be tapped. `useSafeAreaInsets()` reads the
+window insets from React context and is unaffected. `GanapShareModal` and `onboarding.tsx`
+show the pattern.
+
+A bottom sheet in a transparent `Modal` pads its last row with `insets.bottom` so actions clear
+the home indicator. A screen shown above the app tab bar does not add `insets.bottom` itself:
+the tab bar already reserves it.
 
 The reasoning behind binding both, and behind the affordance/ornament split, is in
 [ADR 0005](adr/0005-platform-design-guidelines.md).
@@ -80,7 +94,7 @@ Tailwind's default numeric scale therefore renders at 0.875x its documented valu
 | `w-8` / `h-8` | 32 | 28dp |
 | `py-3` | 12 | 10.5dp |
 
-The named tokens in `tailwind.config.js` — `xs`, `sm`, `md`, `lg`, `xl`, `touch` — are
+The named tokens in `tailwind.config.js` — `xs`, `sm`, `md`, `lg`, `xl`, `touch`, `sign-in` — are
 declared in literal px and are **not** affected. `gap-sm` really is 12dp.
 
 **So a touch target never sizes itself from the numeric scale.** Use the `touch` token:
@@ -93,6 +107,14 @@ shipped `w-12` believing it was 48dp; it measured 42dp on a device.
 Both mark secondary actions in dense rows where 48dp would crowd the layout, so both
 reach the minimum with `hitSlop` instead of growing — 9dp and 10dp per edge. `Button`
 `size="md"` cannot reach it on padding alone either, so it carries `min-h-touch`.
+
+`Button` `size="social"` renders 41dp tall (`h-sign-in`) and reaches 48dp with 3.5dp of
+`hitSlop`. It exists for the sign-in buttons. Apple's native Continue with Apple button sizes
+its title from its own height, and 41pt is where that title measures the same as the `lg`
+label beside it: 15.75px, matching Log In. Taller makes the Apple title larger than every
+other button label; shorter makes it smaller. The native button has no `hitSlop`, so
+`LoginForm` wraps it in a `Pressable` that owns the press and turns the native view's touches
+off.
 
 The arithmetic lives in `buttonSizeTargets` and `iconButtonSizeStyles` beside each
 primitive. Their tests resolve it against the real Tailwind theme via
@@ -188,6 +210,13 @@ Font family: **Inter**.
 | `body-md` | 14px | 20px | 400 | — |
 | `label-md` | 12px | 16px | 600 | 0.05em |
 | `label-sm` | 11px | 14px | 500 | — |
+| `input-lg` | 16px | — | 400 | — |
+| `input-md` | 14px | — | 400 | — |
+
+Single-line `TextInput`s use the `input-*` sizes, never `body-*`. iOS clips the descenders of
+g, j, p, q and y when a single-line text field has a line height, so these tokens set only
+size and weight and let the field take the font's natural height. Multiline inputs keep their
+`body-*` size.
 
 Default body color is `text-foreground`. Each size token carries its own
 `fontWeight`, which is what gives headings their weight by default — Android
@@ -262,7 +291,7 @@ Add these to `tailwind.config.js` under `extend.boxShadow`.
 ### Button
 
 Variants: `default`, `secondary`, `outline`, `ghost`, `destructive`, `link`.
-Sizes: `sm`, `md`, `lg`.
+Sizes: `sm`, `md`, `lg`, and `social` for third-party sign-in buttons only.
 
 - `default`: filled `primary` with `primary-foreground` text.
 - `secondary`: filled `secondary` with `secondary-foreground` text.

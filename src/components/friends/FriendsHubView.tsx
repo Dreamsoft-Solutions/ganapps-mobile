@@ -459,7 +459,7 @@ function AddFriendModal({
             maxLength={14}
             placeholder="XXXX XXXX XXXX"
             placeholderTextColor={Colors[theme]['muted-foreground']}
-            className="rounded-lg border border-input bg-background px-md py-3 text-body-lg text-foreground"
+            className="rounded-lg border border-input bg-background px-md py-3 text-input-lg text-foreground"
           />
           <View className="mt-sm">
             <Button
