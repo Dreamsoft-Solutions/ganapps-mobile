@@ -9,8 +9,12 @@ const PREEMPTIVE_REFRESH_MS = 2 * 60 * 1000;
 export const requestInterceptor = {
   onFulfilled: async (config: InternalAxiosRequestConfig): Promise<InternalAxiosRequestConfig> => {
     const sessionConfig = config as InternalAxiosRequestConfig & SessionBoundRequestConfig;
+    const expectedSessionId = sessionConfig.expectedAuthSessionId;
     const expectedUserId = sessionConfig.expectedAuthUserId;
     const state = await useAuthStore.getState().getStableSession();
+    if (expectedSessionId !== undefined && expectedSessionId !== state.accountSessionId) {
+      throw new Error('Authenticated session changed before the request was sent');
+    }
     const requestUserId =
       sessionConfig.requestAuthUserId !== undefined
         ? sessionConfig.requestAuthUserId
@@ -52,6 +56,9 @@ export const requestInterceptor = {
     }
 
     const current = await useAuthStore.getState().getStableSession();
+    if (expectedSessionId !== undefined && expectedSessionId !== current.accountSessionId) {
+      throw new Error('Authenticated session changed before the request was sent');
+    }
     if ((current.user?.id ?? null) !== requestUserId || (expectedUserId && requestUserId !== expectedUserId)) {
       throw new Error('Authenticated User changed before the request was sent');
     }
