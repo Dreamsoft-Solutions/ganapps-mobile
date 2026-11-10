@@ -58,11 +58,24 @@ motion curves — this design system wins, so the app still looks like itself on
 | Back | Left edge-swipe plus a visible back control | System back gesture and button | Pushed screens and modals answer to both; `BackHandler` covers the Android half |
 | Text scaling | Dynamic Type | Font size setting | Text scales by default — keep layouts working as it grows |
 | Screen reader | VoiceOver | TalkBack | `accessibilityLabel` and `accessibilityRole` on every control, `accessibilityHint` where the result is not obvious |
-| Safe area | Notch, home indicator | Display cutout, gesture bar | `useSafeAreaInsets` or `SafeAreaView`, never a hardcoded inset |
+| Safe area | Notch, home indicator | Display cutout, gesture bar | `useSafeAreaInsets` or `SafeAreaView`, never a hardcoded inset — see [Safe areas in modals](#safe-areas-in-modals) |
 | Reduced motion | Reduce Motion | Remove animations | `ReduceMotion.System` on Reanimated entering/exiting animations, as `components/common/Toast.tsx` does |
 
 Both guidelines are also App Store and Play review surface, so a violation is a release risk,
 not only a polish one.
+
+### Safe areas in modals
+
+Inside a full-screen React Native `Modal`, or a route presented as `fullScreenModal`, pad the
+root view with `useSafeAreaInsets()` instead of wrapping it in `SafeAreaView`. Those surfaces
+sit outside the native view tree of the root `SafeAreaProvider`, so `SafeAreaView` measures its
+own insets once, when it attaches mid-presentation, and keeps 0. The header then renders under
+the status bar, where its close button cannot be tapped. `useSafeAreaInsets()` reads the
+window insets from React context and is unaffected. `GanapShareModal` and `onboarding.tsx`
+show the pattern.
+
+A bottom sheet in a transparent `Modal` pads its last row with `insets.bottom` so actions clear
+the home indicator.
 
 The reasoning behind binding both, and behind the affordance/ornament split, is in
 [ADR 0005](adr/0005-platform-design-guidelines.md).

@@ -1,7 +1,9 @@
 import type { ReactElement } from 'react';
 import { Modal, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { Text } from '@/components/common/Text';
+import { Spacing } from '@/constants/theme';
 
 interface LocationPrimingSheetProps {
   visible: boolean;
@@ -19,10 +21,12 @@ interface LocationPrimingSheetProps {
  * @returns The priming sheet
  */
 export function LocationPrimingSheet({ visible, onConfirm, onDismiss }: LocationPrimingSheetProps): ReactElement {
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
       <View className="flex-1 justify-end bg-black/40">
-        <View className="bg-card rounded-t-xl p-lg gap-sm">
+        <View className="bg-card rounded-t-xl p-lg gap-sm" style={{ paddingBottom: insets.bottom + Spacing.lg }}>
           <Text className="text-headline-md text-card-foreground">See events near you</Text>
           <Text className="text-body-md text-muted-foreground">
             Ganapps uses your location to show events happening near you in Iloilo City. Your exact position never
