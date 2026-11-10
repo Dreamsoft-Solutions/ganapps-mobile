@@ -18,7 +18,6 @@ import {
   startAndroidPushTokenSync,
   subscribeToPendingNotification,
 } from '@/services/push-notification.service';
-import { useAuthStore } from '@/store/auth.store';
 import { shouldHideAppTabBar } from '@/utils/navigation';
 import { needsOnboarding } from '@/utils/onboarding';
 
@@ -33,7 +32,6 @@ export default function AppLayout(): ReactElement {
   const segments = useSegments();
   const rootNavigationState = useRootNavigationState();
   const { data: user, isLoading } = useAuthQuery();
-  const setUser = useAuthStore((s) => s.setUser);
   const hideTabBar: boolean = shouldHideAppTabBar(segments);
   const [pendingNotificationTarget, setPendingNotificationTarget] = useState<Href | null>((): Href | null =>
     getPendingNotificationTarget(),
@@ -69,8 +67,6 @@ export default function AppLayout(): ReactElement {
   useEffect(() => {
     if (!user) return;
 
-    setUser(user);
-
     // This layout stays mounted underneath the full-screen onboarding and verify-email
     // modals, so its effect re-runs whenever the user object changes — including right
     // after step 1 saves. Re-issuing `replace` for the screen already on top would remount
@@ -83,7 +79,7 @@ export default function AppLayout(): ReactElement {
     } else if (needsOnboarding(user)) {
       router.replace(Routes.onboarding);
     }
-  }, [user, segments, router, setUser]);
+  }, [user, segments, router]);
 
   useEffect((): (() => void) => {
     return subscribeToPendingNotification((target: Href | null): void => {

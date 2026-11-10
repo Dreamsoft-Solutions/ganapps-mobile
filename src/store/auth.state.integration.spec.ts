@@ -182,8 +182,7 @@ describe('mobile auth transitions', () => {
     const refreshA = refreshAccessToken('refresh-a');
     await vi.waitFor(() => expect(runtime.post).toHaveBeenCalledTimes(1));
     await useAuthStore.getState().clearAuth();
-    await useAuthStore.getState().setAuth('access-b', 'refresh-b', 3600);
-    useAuthStore.getState().setUser({ id: 'user-b' } as User);
+    await useAuthStore.getState().setAuth('access-b', 'refresh-b', 3600, { user: { id: 'user-b' } as User });
     const refreshB = refreshAccessToken('refresh-b');
 
     await expect(refreshB).resolves.toMatchObject({ accessToken: 'access-b-next' });
@@ -210,12 +209,11 @@ describe('mobile auth transitions', () => {
 
     const refreshA = refreshAccessToken('refresh-a');
     await vi.waitFor(() => expect(runtime.setTokens).toHaveBeenCalledTimes(1));
-    const loginB = useAuthStore.getState().setAuth('access-b', 'refresh-b', 3600);
+    const loginB = useAuthStore.getState().setAuth('access-b', 'refresh-b', 3600, { user: { id: 'user-b' } as User });
     finishRefreshPersistence?.();
 
     await expect(refreshA).rejects.toThrow('Authenticated session changed during token persistence');
     await loginB;
-    useAuthStore.getState().setUser({ id: 'user-b' } as User);
 
     expect(runtime.setTokens).toHaveBeenNthCalledWith(1, 'next-access', 'next-refresh', 3600);
     expect(runtime.setTokens).toHaveBeenNthCalledWith(2, 'access-b', 'refresh-b', 3600);
@@ -244,8 +242,7 @@ describe('mobile auth transitions', () => {
     const refreshA = errorInterceptor.onRejected(unauthorizedRequest('user-a', 'access-a'));
     await vi.waitFor(() => expect(runtime.post).toHaveBeenCalledTimes(1));
     await useAuthStore.getState().clearAuth();
-    await useAuthStore.getState().setAuth('access-b', 'refresh-b', 3600);
-    useAuthStore.getState().setUser({ id: 'user-b' } as User);
+    await useAuthStore.getState().setAuth('access-b', 'refresh-b', 3600, { user: { id: 'user-b' } as User });
     const refreshB = errorInterceptor.onRejected(
       unauthorizedRequest('user-b', 'access-b', useAuthStore.getState().sessionVersion),
     );

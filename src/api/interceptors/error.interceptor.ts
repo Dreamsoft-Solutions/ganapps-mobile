@@ -14,7 +14,12 @@ function requestUserId(request: RetriableRequest): string | null | undefined {
 
 function isRequestOwnerCurrent(request: RetriableRequest): boolean {
   const expectedUserId = requestUserId(request);
-  return expectedUserId !== undefined && (useAuthStore.getState().user?.id ?? null) === expectedUserId;
+  const current = useAuthStore.getState();
+  return (
+    expectedUserId !== undefined &&
+    (current.user?.id ?? null) === expectedUserId &&
+    (request.expectedAuthSessionId === undefined || request.expectedAuthSessionId === current.accountSessionId)
+  );
 }
 
 function isRequestCredentialsCurrent(request: RetriableRequest): boolean {
@@ -32,7 +37,7 @@ function retryWithCurrentToken(request: RetriableRequest): Promise<AxiosResponse
   if (
     expectedUserId === undefined ||
     expectedUserId === null ||
-    current.user?.id !== expectedUserId ||
+    !isRequestOwnerCurrent(request) ||
     !current.token ||
     current.token === request.requestAuthToken
   ) {
