@@ -1,0 +1,67 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# Keep these rules at the top of .easignore. CI checks that they match.
+
+# dependencies
+node_modules/
+pacts/
+
+# Claude Code — personal settings, not shared
+.claude/settings.local.json
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env
+.env*.local
+
+# Firebase app config — obtain from the Firebase console, never commit
+google-services.json
+GoogleService-Info.plist
+
+# typescript
+*.tsbuildinfo
+
+example
+
+# generated native folders
+/ios
+/android
+
+# IDE
+/.idea
+.vscode/*
+
+# Test and Pact inputs stay in Git for CI.
+**/*.test.*
+**/*.spec.*
+**/*.e2e-spec.*
+**/__tests__/
+**/test/
+**/tests/
+**/pact/
+src/app-tests/
