@@ -3,7 +3,7 @@ import { QrCode, Share2, X } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useRef, useState } from 'react';
 import { Alert, Modal, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { IconButton } from '@/components/common/IconButton';
 import { ShareQrCode, type ShareQrCodeHandle } from '@/components/common/ShareQrCode';
@@ -44,6 +44,7 @@ export function GanapShareModal({
   onNativeShare,
 }: GanapShareModalProps): ReactElement {
   const theme = useResolvedTheme();
+  const insets = useSafeAreaInsets();
   const shareQrCodeRef = useRef<ShareQrCodeHandle | null>(null);
   const [isSharingImage, setIsSharingImage] = useState<boolean>(false);
   const details: string[] = [`${schedule.dateLabel} · ${schedule.timeLabel}`, ganap.address?.trim() ?? ''].filter(
@@ -76,7 +77,7 @@ export function GanapShareModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} accessibilityViewIsModal>
-      <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
+      <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
         <View className="flex-row items-center justify-between border-b border-border px-md py-sm">
           <Text className="font-inter-semibold text-headline-sm" accessibilityRole="header">
             Share this event
@@ -104,7 +105,7 @@ export function GanapShareModal({
             Share event link
           </Button>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }

@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { Text } from '@/components/common/Text';
 import { DeleteAccountForm } from '@/components/forms/DeleteAccountForm';
@@ -14,9 +14,10 @@ import { useAuth } from '@/hooks/useAuth';
  */
 export default function VerifyEmailScreen(): ReactElement {
   const { resendVerification, resendVerificationMutation } = useAuth();
+  const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
       <ScrollView className="flex-1" contentContainerClassName="p-lg gap-sm" keyboardShouldPersistTaps="handled">
         <Text className="text-headline-lg text-foreground mb-2 text-center">Verify Your Email</Text>
         <Text className="text-muted-foreground text-body-md text-center mb-8">
@@ -42,6 +43,6 @@ export default function VerifyEmailScreen(): ReactElement {
           <DeleteAccountForm />
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

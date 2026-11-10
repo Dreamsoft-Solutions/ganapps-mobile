@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
-import { ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OnboardingForm } from '@/components/forms/OnboardingForm';
 
 /**
@@ -12,11 +12,13 @@ import { OnboardingForm } from '@/components/forms/OnboardingForm';
  * @returns The onboarding screen.
  */
 export default function OnboardingScreen(): ReactElement {
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
       <ScrollView className="flex-1" contentContainerClassName="px-6 pt-6 pb-8" keyboardShouldPersistTaps="handled">
         <OnboardingForm />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

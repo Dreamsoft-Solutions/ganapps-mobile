@@ -28,6 +28,7 @@ export const buttonVariants = cva('flex flex-row items-center justify-center rou
       sm: 'px-3 py-2',
       md: 'px-4 py-3 min-h-touch',
       lg: 'px-6 py-4',
+      social: 'h-sign-in px-6',
     },
     disabled: {
       true: 'opacity-50',
@@ -59,6 +60,7 @@ export const buttonTextVariants = cva('font-inter-semibold text-center', {
       sm: 'text-sm',
       md: 'text-base',
       lg: 'text-lg',
+      social: 'text-lg',
     },
   },
   defaultVariants: {
@@ -103,11 +105,17 @@ interface ButtonSizeTarget {
  * `sm` is the one variant that stays short deliberately: it marks secondary
  * actions in dense rows, and growing it would reflow every caller. 9dp per edge
  * takes its 31.5dp to 49.5dp without changing a pixel of what is drawn.
+ *
+ * `social` sits beside Apple's native Continue with Apple button, which sizes its
+ * title from its own height. At a fixed `h-sign-in` (41px) that title measures the
+ * same as the `lg` label, so its padding is just the space left around the label.
+ * 3.5dp per edge takes it to 48dp.
  */
 export const buttonSizeTargets: Record<ButtonSize, ButtonSizeTarget> = {
   sm: { paddingYPx: 7, lineHeightPx: 17.5, minHeightToken: null, target: { sizePx: 31.5, hitSlop: 9 } },
   md: { paddingYPx: 10.5, lineHeightPx: 21, minHeightToken: 'touch', target: { sizePx: 48, hitSlop: 0 } },
   lg: { paddingYPx: 14, lineHeightPx: 24.5, minHeightToken: null, target: { sizePx: 52.5, hitSlop: 0 } },
+  social: { paddingYPx: 8.25, lineHeightPx: 24.5, minHeightToken: null, target: { sizePx: 41, hitSlop: 3.5 } },
 };
 
 interface ButtonProps extends VariantProps<typeof buttonVariants> {
