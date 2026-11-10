@@ -609,7 +609,7 @@ export function DirectChatThreadView({
             </View>
           );
         }}
-        ListEmptyComponent={<Empty message="No messages yet. Start the conversation." />}
+        ListEmptyComponent={<Empty message="No messages yet." />}
         ListHeaderComponent={
           hasNextPage ? (
             <View className="items-center py-sm">
