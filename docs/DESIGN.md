@@ -201,6 +201,13 @@ Font family: **Inter**.
 | `body-md` | 14px | 20px | 400 | — |
 | `label-md` | 12px | 16px | 600 | 0.05em |
 | `label-sm` | 11px | 14px | 500 | — |
+| `input-lg` | 16px | — | 400 | — |
+| `input-md` | 14px | — | 400 | — |
+
+Single-line `TextInput`s use the `input-*` sizes, never `body-*`. iOS clips the descenders of
+g, j, p, q and y when a single-line text field has a line height, so these tokens set only
+size and weight and let the field take the font's natural height. Multiline inputs keep their
+`body-*` size.
 
 Default body color is `text-foreground`. Each size token carries its own
 `fontWeight`, which is what gives headings their weight by default — Android

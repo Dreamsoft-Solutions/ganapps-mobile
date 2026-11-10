@@ -71,6 +71,8 @@ module.exports = {
         'body-md': ['14px', { lineHeight: '20px', fontWeight: '400' }],
         'label-md': ['12px', { lineHeight: '16px', fontWeight: '600', letterSpacing: '0.05em' }],
         'label-sm': ['11px', { lineHeight: '14px', fontWeight: '500' }],
+        'input-lg': ['16px', { fontWeight: '400' }],
+        'input-md': ['14px', { fontWeight: '400' }],
       },
       spacing: {
         /**

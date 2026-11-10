@@ -95,7 +95,7 @@ export function Input({
               numberOfLines={numberOfLines}
               maxLength={maxLength}
               textAlignVertical={multiline ? 'top' : 'center'}
-              className={`flex-1 text-body-md text-foreground ${multiline ? 'min-h-24' : ''}`}
+              className={`flex-1 text-foreground ${multiline ? 'min-h-24 text-body-md' : 'text-input-md'}`}
               placeholderTextColor={placeholderTextColor}
             />
             {iconRight && <View className="ml-2">{iconRight}</View>}

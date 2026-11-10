@@ -45,7 +45,7 @@ export function JoinedGanapsFilterBar({
           placeholderTextColor={mutedForeground}
           accessibilityLabel="Search joined events"
           autoCapitalize="sentences"
-          className="ml-sm flex-1 text-body-md text-foreground"
+          className="ml-sm flex-1 text-input-md text-foreground"
         />
         {search.length > 0 ? (
           <Pressable

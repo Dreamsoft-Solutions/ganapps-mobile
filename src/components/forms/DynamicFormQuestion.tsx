@@ -188,8 +188,8 @@ function renderQuestionControl(
         accessibilityHint="Enter your answer"
         autoCapitalize="sentences"
         autoCorrect
-        className={`min-h-touch rounded-lg border border-input bg-background px-md py-sm text-body-lg text-foreground ${
-          isMultilineText(block) ? 'min-h-24' : ''
+        className={`min-h-touch rounded-lg border border-input bg-background px-md py-sm text-foreground ${
+          isMultilineText(block) ? 'min-h-24 text-body-lg' : 'text-input-lg'
         }`}
         maxLength={textConfiguration.maxLength}
         multiline={isMultilineText(block)}
