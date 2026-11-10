@@ -43,13 +43,17 @@ const USERNAME_HINT = {
 /**
  * Google brand icon used in the social sign-in button.
  *
+ * Sized to Apple's native logo beside it, which cannot be resized: on the 41pt `social`
+ * Button that logo is about 11pt tall, the label's cap height. The glyph's ink is 85% of
+ * its font size, so 13 draws the G at the same height.
+ *
  * @returns The Google brand glyph rendered on native and web.
  */
 function GoogleIcon(): ReactElement {
   return (
     <AntDesign
       name="google"
-      size={20}
+      size={13}
       color={Colors[useResolvedTheme()].primary}
       accessibilityLabel="Google logo"
       accessibilityRole="image"
