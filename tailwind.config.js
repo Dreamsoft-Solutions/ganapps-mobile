@@ -82,6 +82,7 @@ module.exports = {
          * its size from here rather than from that scale. See DS-119.
          */
         touch: '48px',
+        'sign-in': '41px',
         base: '4px',
         xs: '8px',
         sm: '12px',

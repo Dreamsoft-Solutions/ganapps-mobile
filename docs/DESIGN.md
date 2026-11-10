@@ -94,7 +94,7 @@ Tailwind's default numeric scale therefore renders at 0.875x its documented valu
 | `w-8` / `h-8` | 32 | 28dp |
 | `py-3` | 12 | 10.5dp |
 
-The named tokens in `tailwind.config.js` — `xs`, `sm`, `md`, `lg`, `xl`, `touch` — are
+The named tokens in `tailwind.config.js` — `xs`, `sm`, `md`, `lg`, `xl`, `touch`, `sign-in` — are
 declared in literal px and are **not** affected. `gap-sm` really is 12dp.
 
 **So a touch target never sizes itself from the numeric scale.** Use the `touch` token:
@@ -107,6 +107,14 @@ shipped `w-12` believing it was 48dp; it measured 42dp on a device.
 Both mark secondary actions in dense rows where 48dp would crowd the layout, so both
 reach the minimum with `hitSlop` instead of growing — 9dp and 10dp per edge. `Button`
 `size="md"` cannot reach it on padding alone either, so it carries `min-h-touch`.
+
+`Button` `size="social"` renders 41dp tall (`h-sign-in`) and reaches 48dp with 3.5dp of
+`hitSlop`. It exists for the sign-in buttons. Apple's native Continue with Apple button sizes
+its title from its own height, and 41pt is where that title measures the same as the `lg`
+label beside it: 15.75px, matching Log In. Taller makes the Apple title larger than every
+other button label; shorter makes it smaller. The native button has no `hitSlop`, so
+`LoginForm` wraps it in a `Pressable` that owns the press and turns the native view's touches
+off.
 
 The arithmetic lives in `buttonSizeTargets` and `iconButtonSizeStyles` beside each
 primitive. Their tests resolve it against the real Tailwind theme via
@@ -283,7 +291,7 @@ Add these to `tailwind.config.js` under `extend.boxShadow`.
 ### Button
 
 Variants: `default`, `secondary`, `outline`, `ghost`, `destructive`, `link`.
-Sizes: `sm`, `md`, `lg`.
+Sizes: `sm`, `md`, `lg`, and `social` for third-party sign-in buttons only.
 
 - `default`: filled `primary` with `primary-foreground` text.
 - `secondary`: filled `secondary` with `secondary-foreground` text.

@@ -10,7 +10,7 @@ import { Check, Eye, EyeOff } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useCallback, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Button, buttonSizeTargets } from '@/components/common/Button';
 import { Divider } from '@/components/common/Divider';
 import { IconButton } from '@/components/common/IconButton';
@@ -81,22 +81,45 @@ interface AppleSignInButtonProps {
 }
 
 /**
- * Apple's native Continue with Apple button, dimmed while a sign-in is running.
+ * Apple's native Continue with Apple button at the `social` Button size, dimmed while a
+ * sign-in is running.
+ *
+ * Apple sizes the native title from the button's height, so the `social` height is what makes
+ * it match the Google label. The native control accepts touches only inside that 41pt frame
+ * and has no `hitSlop`, so the `Pressable` owns the press and extends it to 48dp. The
+ * native view is drawn with touches and accessibility off, which keeps one tap to one sign-in.
  *
  * @param props - Resolved theme, pending flag and press handler
- * @returns The native button inside an opacity wrapper
+ * @returns The native button inside a pressable wrapper
  */
 function AppleSignInButton({ theme, pending, onPress }: AppleSignInButtonProps): ReactElement {
+  const target = buttonSizeTargets.social.target;
+
   return (
-    <View className={pending ? 'opacity-60' : undefined}>
-      <AppleAuthenticationButton
-        buttonType={AppleAuthenticationButtonType.CONTINUE}
-        buttonStyle={theme === 'dark' ? AppleAuthenticationButtonStyle.WHITE : AppleAuthenticationButtonStyle.BLACK}
-        cornerRadius={16}
-        style={{ width: '100%', height: buttonSizeTargets.lg.target.sizePx }}
-        onPress={onPress}
-      />
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Continue with Apple"
+      accessibilityState={{ disabled: pending, busy: pending }}
+      disabled={pending}
+      hitSlop={target.hitSlop}
+      onPress={onPress}
+      className={pending ? 'opacity-60' : 'active:opacity-70'}
+    >
+      <View
+        collapsable={false}
+        pointerEvents="none"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
+        <AppleAuthenticationButton
+          buttonType={AppleAuthenticationButtonType.CONTINUE}
+          buttonStyle={theme === 'dark' ? AppleAuthenticationButtonStyle.WHITE : AppleAuthenticationButtonStyle.BLACK}
+          cornerRadius={16}
+          style={{ width: '100%', height: target.sizePx }}
+          onPress={(): void => undefined}
+        />
+      </View>
+    </Pressable>
   );
 }
 
@@ -130,7 +153,7 @@ function SocialSignIn(props: SocialSignInProps): ReactElement | null {
         <Button
           variant="outline"
           onPress={props.onGooglePress}
-          size="lg"
+          size="social"
           leftIcon={<GoogleIcon />}
           loading={props.googlePending}
           disabled={props.googlePending}
