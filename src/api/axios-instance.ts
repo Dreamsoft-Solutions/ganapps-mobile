@@ -1,5 +1,6 @@
 import axios, { type AxiosInstance } from 'axios';
 import { API_BASE_URL } from './config';
+import { connectionInterceptor } from './interceptors/connection.interceptor';
 import { errorInterceptor } from './interceptors/error.interceptor';
 import { requestInterceptor } from './interceptors/request.interceptor';
 import { responseInterceptor } from './interceptors/response.interceptor';
@@ -38,6 +39,8 @@ if (__DEV__) {
 }
 
 axiosInstance.interceptors.request.use(requestInterceptor.onFulfilled, requestInterceptor.onRejected);
+
+axiosInstance.interceptors.response.use(connectionInterceptor.onFulfilled, connectionInterceptor.onRejected);
 
 axiosInstance.interceptors.response.use(responseInterceptor.onFulfilled, undefined);
 

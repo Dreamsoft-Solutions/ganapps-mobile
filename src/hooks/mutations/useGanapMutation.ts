@@ -14,7 +14,7 @@ import type {
   SubmitFormAnswersInput,
 } from '@/types/ganap.types';
 import type { SavedGanap } from '@/types/profile.types';
-import { SUPPRESS_GLOBAL_ERROR_TOAST_META } from '@/utils/toast-message';
+import { SUPPRESS_GLOBAL_ERROR_TOAST_META, showErrorToast } from '@/utils/toast-message';
 import { ganapQueryKeys } from '../queries/useGanapsQuery';
 import { profileQueryKeys } from '../queries/useProfileQuery';
 
@@ -159,9 +159,15 @@ export function useLikeGanapMutation(): UseMutationResult<void, Error, ToggleLik
     },
     onError: async (error: Error, { ganapId, isLiked, ownerId }: ToggleLikeVariables): Promise<void> => {
       if (shouldQueueForReplay(error)) {
-        await enqueueOutbox({ action: isLiked ? 'unlike' : 'like', ganapId, ownerId }).catch(() => false);
+        const queued = await enqueueOutbox({ action: isLiked ? 'unlike' : 'like', ganapId, ownerId }).catch(
+          () => false,
+        );
+        if (queued) return;
       }
+      showErrorToast(error);
     },
+    /** A queued like is not a failure, so this mutation toasts only the errors it could not queue. */
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }
 
@@ -252,7 +258,10 @@ export function useSaveGanapMutation(): UseMutationResult<void, Error, ToggleSav
       context?.previousSaved.forEach(([key, data]: [readonly unknown[], SavedGanapsData | undefined]): void => {
         queryClient.setQueryData(key, data);
       });
+      showErrorToast(error);
     },
+    /** A queued save is not a failure, so this mutation toasts only the errors it could not queue. */
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }
 
