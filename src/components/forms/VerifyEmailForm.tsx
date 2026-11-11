@@ -28,9 +28,9 @@ export function VerifyEmailForm(): ReactElement {
   return (
     <FormProvider {...methods}>
       <View className="gap-4">
-        <Input name="code" label="Verification Code" placeholder="000000" keyboardType="number-pad" />
-        <Button onPress={methods.handleSubmit(onSubmit)} loading={verifyEmailMutation.isPending} size="lg">
-          Verify Email
+        <Input name="code" label="Verification code" placeholder="000000" keyboardType="number-pad" />
+        <Button onPress={methods.handleSubmit(onSubmit)} loading={verifyEmailMutation.isPending} size="auth">
+          Verify email
         </Button>
       </View>
     </FormProvider>

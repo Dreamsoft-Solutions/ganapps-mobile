@@ -1,6 +1,9 @@
+import { LucideProvider } from 'lucide-react-native';
 import type { ReactElement, ReactNode } from 'react';
 import { Pressable } from 'react-native';
+import { Colors } from '@/constants/theme';
 import type { TouchTarget } from '@/constants/touch-target';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 
 /**
  * The sizes an {@link IconButton} renders at.
@@ -54,6 +57,10 @@ interface IconButtonProps {
 /**
  * Circular pressable for icon-only actions.
  *
+ * Icons inside default to the theme's foreground color, as they do in {@link Button}.
+ * Without that default a Lucide icon draws black, which disappears on the dark
+ * background. An icon's own `color` or `className` still wins.
+ *
  * @param props - Press handler, icon node, accessibility label, and styling.
  * @returns A circular icon button.
  */
@@ -68,6 +75,7 @@ export function IconButton({
   variant = 'ghost',
 }: IconButtonProps): ReactElement {
   const { className: sizeClassName, target } = iconButtonSizeStyles[size];
+  const theme = useResolvedTheme();
 
   return (
     <Pressable
@@ -82,7 +90,7 @@ export function IconButton({
         disabled ? 'opacity-50' : ''
       }`}
     >
-      {children}
+      <LucideProvider color={Colors[theme].foreground}>{children}</LucideProvider>
     </Pressable>
   );
 }

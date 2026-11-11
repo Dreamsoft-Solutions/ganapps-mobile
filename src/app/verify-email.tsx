@@ -19,7 +19,9 @@ export default function VerifyEmailScreen(): ReactElement {
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
       <ScrollView className="flex-1" contentContainerClassName="p-lg gap-sm" keyboardShouldPersistTaps="handled">
-        <Text className="text-headline-lg text-foreground mb-2 text-center">Verify Your Email</Text>
+        <Text className="mb-2 text-center font-inter-bold text-headline-md text-foreground" accessibilityRole="header">
+          Verify your email
+        </Text>
         <Text className="text-muted-foreground text-body-md text-center mb-8">
           Enter the 6-digit code sent to your email.
         </Text>
@@ -31,12 +33,11 @@ export default function VerifyEmailScreen(): ReactElement {
             Didn't receive the code? Check your spam folder.
           </Text>
           <Button
-            variant="ghost"
-            size="sm"
+            variant="link"
             onPress={(): Promise<void> => resendVerification()}
             loading={resendVerificationMutation.isPending}
           >
-            Resend Code
+            Resend code
           </Button>
         </View>
         <View className="mt-lg">

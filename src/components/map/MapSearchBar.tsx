@@ -60,7 +60,7 @@ export function MapSearchBar({
           placeholder={placeholder}
           className="flex-1 text-input-md text-foreground placeholder:text-muted-foreground"
           accessibilityLabel="Search events"
-          accessibilityHint="Shows matching Ganaps on the map"
+          accessibilityHint="Shows matching events on the map"
         />
         {value.length > 0 && (
           <Pressable
@@ -104,7 +104,7 @@ export function MapSearchBar({
                     className="min-h-touch flex-row items-center border-b border-border px-4 py-sm"
                     accessibilityRole="button"
                     accessibilityLabel={suggestion.title}
-                    accessibilityHint="Centers the map on this Ganap"
+                    accessibilityHint="Centers the map on this event"
                   >
                     <View className="flex-1">
                       <Text className="text-body-md font-inter-semibold" numberOfLines={1}>

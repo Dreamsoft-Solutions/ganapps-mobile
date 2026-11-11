@@ -54,7 +54,7 @@ export function EventActionBar({
           </View>
         )}
         <Button variant="link" size="sm" accessibilityHint="Opens a form to report this event" onPress={onReport}>
-          Report Event
+          Report event
         </Button>
       </View>
     </View>

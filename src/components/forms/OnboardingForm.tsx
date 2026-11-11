@@ -168,15 +168,20 @@ export function OnboardingForm(): ReactElement {
         {step === 'names' ? (
           <>
             <View className="mb-6">
-              <Text className="text-headline-lg text-foreground mb-2">What should we call you?</Text>
-              <Text className="text-muted-foreground text-body-md">
-                Your name is shown to organizers and to other students at events you join.
+              <Text
+                className="mb-2 text-center font-inter-bold text-headline-md text-foreground"
+                accessibilityRole="header"
+              >
+                What should we call you?
+              </Text>
+              <Text className="text-center text-body-md text-muted-foreground">
+                Your name is shown to organizers and to other people at events you join.
               </Text>
             </View>
 
             <Input
               name="firstName"
-              label="First Name"
+              label="First name"
               placeholder="Maria"
               autoCapitalize="words"
               maxLength={PROFILE_FIELD_LIMITS.nameMaxLength}
@@ -184,7 +189,7 @@ export function OnboardingForm(): ReactElement {
             />
             <Input
               name="lastName"
-              label="Last Name"
+              label="Last name"
               placeholder="Santos"
               autoCapitalize="words"
               maxLength={PROFILE_FIELD_LIMITS.nameMaxLength}
@@ -193,15 +198,20 @@ export function OnboardingForm(): ReactElement {
 
             {submitError && <Text className="text-destructive text-body-md mb-2">{submitError.message}</Text>}
 
-            <Button onPress={submitNames} loading={updateProfileMutation.isPending} size="lg">
+            <Button onPress={submitNames} loading={updateProfileMutation.isPending} size="auth">
               Continue
             </Button>
           </>
         ) : (
           <>
             <View className="mb-6">
-              <Text className="text-headline-lg text-foreground mb-2">Add a photo and interests</Text>
-              <Text className="text-muted-foreground text-body-md">
+              <Text
+                className="mb-2 text-center font-inter-bold text-headline-md text-foreground"
+                accessibilityRole="header"
+              >
+                Add a photo and interests
+              </Text>
+              <Text className="text-center text-body-md text-muted-foreground">
                 Optional. You can do this later from your profile.
               </Text>
             </View>
@@ -209,15 +219,15 @@ export function OnboardingForm(): ReactElement {
             <View className="items-center mb-8">
               <Pressable onPress={pickAvatar} className="relative" disabled={isPreparingAvatar}>
                 <Avatar src={localAvatar?.uri ?? null} name={fullName} size="lg" />
-                <View className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary items-center justify-center border-2 border-background shadow">
-                  <Camera size={14} color="#FFFFFF" />
+                <View className="absolute bottom-0 right-0 h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-primary">
+                  <Camera size={14} className="text-primary-foreground" />
                 </View>
               </Pressable>
               <Text className="text-muted-foreground text-body-md mt-3">Tap to add a photo</Text>
             </View>
 
             <View className="mb-4">
-              <Text className="text-label-md text-foreground mb-3">Your Interests</Text>
+              <Text className="text-label-md text-foreground mb-3">Your interests</Text>
               <View className="flex-row flex-wrap gap-2">
                 {INTEREST_OPTIONS.map(
                   (item): ReactElement => (
@@ -234,13 +244,13 @@ export function OnboardingForm(): ReactElement {
 
             {submitError && <Text className="text-destructive text-body-md mb-2">{submitError.message}</Text>}
 
-            <Button onPress={submitExtras} loading={isPreparingAvatar || updateProfileMutation.isPending} size="lg">
+            <Button onPress={submitExtras} loading={isPreparingAvatar || updateProfileMutation.isPending} size="auth">
               Finish
             </Button>
 
             <View className="items-center mt-2">
-              <Button variant="ghost" size="sm" onPress={skipExtras} disabled={isPreparingAvatar}>
-                Skip for Now
+              <Button variant="ghost" onPress={skipExtras} disabled={isPreparingAvatar}>
+                Skip for now
               </Button>
             </View>
           </>

@@ -25,5 +25,5 @@ export default function GanapShareRoute(): ReactElement {
     router.replace(token === null ? Routes.auth.loginForGanapShare(ganapId) : Routes.ganapDetail(ganapId));
   }, [ganapId, router, token]);
 
-  return <Loading message="Opening Ganap..." />;
+  return <Loading message="Opening event" />;
 }

@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { CursorPage } from '@/api/types/api-response';
 import type { GanapListItem } from '@/types/ganap.types';
+import { getQueryFailure } from '@/utils/query-failure';
 import { type GanapListFilters, ganapQueryKeys } from './queries/useGanapsQuery';
 
 /** One page large enough to cluster the whole city viewport. The server caps `limit` at 100. */
@@ -15,6 +16,8 @@ export interface UseGanapsMapResult {
   isFetching: boolean;
   isError: boolean;
   error: Error | null;
+  /** The error to show in place of the content, or `null`; see `getQueryFailure`. */
+  failure: Error | null;
   refetch: UseQueryResult<CursorPage<GanapListItem>, Error>['refetch'];
 }
 
@@ -52,6 +55,7 @@ export function useGanapsMap(filters?: GanapListFilters): UseGanapsMapResult {
     isFetching: query.isFetching,
     isError: query.isError,
     error: query.error,
+    failure: getQueryFailure(query),
     refetch: query.refetch,
   };
 }

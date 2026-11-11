@@ -2,7 +2,10 @@ import type { Mutation, Query } from '@tanstack/react-query';
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement, ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { startNetworkStatus } from '@/services/network-status.service';
 import { SUPPRESS_GLOBAL_ERROR_TOAST_META, showErrorToast } from '@/utils/toast-message';
+
+startNetworkStatus();
 
 /**
  * Decides whether a failed query deserves a toast.
@@ -41,6 +44,13 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       gcTime: 1000 * 60 * 5,
+    },
+    mutations: {
+      /**
+       * Queries pause while offline, but a paused mutation never reaches the code that
+       * queues likes, saves and check-ins for later, so mutations always run and fail fast.
+       */
+      networkMode: 'always',
     },
   },
 });

@@ -102,7 +102,7 @@ function RootLayoutNav(): ReactElement {
   }
 
   if (!isHydrated || !migrationsReady) {
-    return <Loading message="Loading..." />;
+    return <Loading message="Loading" />;
   }
 
   return (

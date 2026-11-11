@@ -3,7 +3,8 @@ import { type ReactElement, useCallback } from 'react';
 import { Pressable } from 'react-native';
 import { Text } from './Text';
 
-const chipVariants = cva('rounded-full border px-4 py-2 active:opacity-70', {
+/** Container classes for a {@link Chip}, exported so chips with an icon, such as the map filters, match it. */
+export const chipVariants = cva('rounded-full border px-4 py-2 active:opacity-70', {
   variants: {
     selected: {
       true: 'border-primary bg-primary',
@@ -15,7 +16,8 @@ const chipVariants = cva('rounded-full border px-4 py-2 active:opacity-70', {
   },
 });
 
-const textVariants = cva('text-body-md font-inter-semibold', {
+/** Label classes for a {@link Chip}, exported alongside {@link chipVariants}. */
+export const chipTextVariants = cva('text-body-md font-inter-semibold', {
   variants: {
     selected: {
       true: 'text-primary-foreground',
@@ -51,7 +53,7 @@ export function Chip({ label, selected, onPress }: ChipProps): ReactElement {
       accessibilityRole="button"
       accessibilityState={{ selected }}
     >
-      <Text className={textVariants({ selected })}>{label}</Text>
+      <Text className={chipTextVariants({ selected })}>{label}</Text>
     </Pressable>
   );
 }

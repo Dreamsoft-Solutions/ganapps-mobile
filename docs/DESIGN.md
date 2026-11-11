@@ -78,6 +78,13 @@ A bottom sheet in a transparent `Modal` pads its last row with `insets.bottom` s
 the home indicator. A screen shown above the app tab bar does not add `insets.bottom` itself:
 the tab bar already reserves it.
 
+An opaque full-screen `Modal` also sets `presentationStyle="overFullScreen"`. React Native
+hears about light and dark mode changes only through the app's root view, and iOS takes that
+view out of the window while a `fullScreen` modal covers it. A theme change made while such a
+modal is open then reaches the app only after the modal closes, so the modal stays in the old
+theme. With `overFullScreen` the root view stays in the window and the modal follows the
+change. Add `accessibilityViewIsModal` so VoiceOver ignores the screen underneath.
+
 The reasoning behind binding both, and behind the affordance/ornament split, is in
 [ADR 0005](adr/0005-platform-design-guidelines.md).
 
@@ -103,16 +110,17 @@ shipped `w-12` believing it was 48dp; it measured 42dp on a device.
 
 ### Small variants reach the floor with slop
 
-`Button` `size="sm"` renders about 31.5dp tall and `IconButton` `size="sm"` 28dp square.
+`Button` `size="sm"` renders about 33.5dp tall and `IconButton` `size="sm"` 28dp square.
 Both mark secondary actions in dense rows where 48dp would crowd the layout, so both
-reach the minimum with `hitSlop` instead of growing — 9dp and 10dp per edge. `Button`
+reach the minimum with `hitSlop` instead of growing — 8dp and 10dp per edge. `Button`
 `size="md"` cannot reach it on padding alone either, so it carries `min-h-touch`.
 
-`Button` `size="social"` renders 41dp tall (`h-sign-in`) and reaches 48dp with 3.5dp of
-`hitSlop`. It exists for the sign-in buttons. Apple's native Continue with Apple button sizes
-its title from its own height, and 41pt is where that title measures the same as the `lg`
-label beside it: 15.75px, matching Log In. Taller makes the Apple title larger than every
-other button label; shorter makes it smaller. The native button has no `hitSlop`, so
+`Button` `size="auth"` renders 41dp tall (`h-sign-in`) and reaches 48dp with 3.5dp of
+`hitSlop`. Every button in the sign-in flow uses it (welcome, log in and sign up, password
+reset, email verification, onboarding), so those screens share one button height. Apple's native Continue with Apple button
+sizes its title from its own height, and 41pt is where that title measures the same as the
+`lg` label: 15.75px. Taller makes the Apple title larger than every other button label;
+shorter makes it smaller. The native button has no `hitSlop`, so
 `LoginForm` wraps it in a `Pressable` that owns the press and turns the native view's touches
 off.
 
@@ -218,6 +226,10 @@ g, j, p, q and y when a single-line text field has a line height, so these token
 size and weight and let the field take the font's natural height. Multiline inputs keep their
 `body-*` size.
 
+A single-line form field is 48dp tall (`h-touch`), with or without a trailing icon, and its
+text input fills that height. `Input` applies this, so the password field with its show
+toggle is the same height as the email field above it.
+
 Default body color is `text-foreground`. Each size token carries its own
 `fontWeight`, which is what gives headings their weight by default — Android
 synthesizes it over `Inter-Regular`. Override it only when you need a weight
@@ -291,7 +303,7 @@ Add these to `tailwind.config.js` under `extend.boxShadow`.
 ### Button
 
 Variants: `default`, `secondary`, `outline`, `ghost`, `destructive`, `link`.
-Sizes: `sm`, `md`, `lg`, and `social` for third-party sign-in buttons only.
+Sizes: `sm`, `md`, `lg`, and `auth` for every button in the sign-in flow: welcome, log in and sign up, password reset, email verification, and onboarding. A `variant="link"` button always renders at the `link` size, a `body-md` label with no horizontal padding, so links match the copy around them.
 
 - `default`: filled `primary` with `primary-foreground` text.
 - `secondary`: filled `secondary` with `secondary-foreground` text.
@@ -306,7 +318,9 @@ Sizes: `sm`, `md`, `lg`, and `social` for third-party sign-in buttons only.
 - Border: `input` (`border` when focused/error)
 - Error border: `destructive`
 - Placeholder: `muted-foreground`
-- Label: `foreground`, `label-md` size, uppercase tracking
+- Label: `foreground`, `label-md` size
+- Height: 48dp (`h-touch`) for a single-line field, with or without a trailing icon
+- Horizontal padding: `px-md`
 
 ### Card
 
@@ -328,6 +342,34 @@ Used for selectable items such as interests.
 - Default: branded placeholder with initials or `default-avatar.jpg`
 - Edit overlay: `primary` circular badge with camera icon
 - Size variants: `sm`, `md`, `lg`
+
+### Screen headers
+
+Every screen that draws its own header uses `ScreenHeader`
+(`components/navigation/ScreenHeader.tsx`). It owns the top inset plus 16dp, a 48dp row,
+the filled back button (`IconButton` `variant="default"` with `ArrowLeft` at 20), and a
+`font-inter-bold text-headline-md` title. Stacks hide their native headers. Loading and error
+states render the header too, so a screen is never left without a way back; registration and
+feedback turn off swipe-back, which makes this the only exit there. Event details and the Event
+Hub keep their own header because it floats over a photo, with the same back button.
+
+### Type roles
+
+| Role | Classes |
+|---|---|
+| Screen and full-screen modal title | `font-inter-bold text-headline-md` |
+| Bottom sheet title | `font-inter-bold text-headline-sm` |
+| Section heading | `font-inter-semibold text-headline-sm` |
+| Overline | `text-label-md uppercase tracking-widest text-muted-foreground` |
+| Field label | `text-label-md text-foreground` |
+| Body, empty, loading and error copy | `text-body-md` |
+
+### Button sizes by role
+
+Full-width actions use `lg`, primary and secondary alike. `sm` is for compact actions in a row,
+such as Add friend and My code. A Button sizes its own icons, 16dp on `sm` and 18dp otherwise, so
+pass `leftIcon` and `rightIcon` without a `size`. Text that acts as a link is a
+`Button variant="link"`, never a styled `Text` in a `Pressable`.
 
 ## Dark mode
 
@@ -369,3 +411,8 @@ The app speaks directly to attendees:
 
 Keep labels action-oriented and concise. Avoid organizer/business terminology
 in user-facing surfaces.
+
+Use sentence case for buttons, titles, labels and links: "Add friend", "Edit profile",
+"Try again". Glossary names keep their capitals (Event Hub, Event Chat, Direct Chat, Friend
+Code), and so do document names (Terms of Service, Privacy Policy). User-facing copy says
+"event" and "people", never "Ganap" or "students".

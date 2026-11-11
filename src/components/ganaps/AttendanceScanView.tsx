@@ -73,7 +73,7 @@ export function AttendanceScanView({
         <View className="relative flex-row items-center justify-center">
           <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
             <Text className="font-inter-bold text-headline-sm" accessibilityRole="header">
-              Record Attendance
+              Record attendance
             </Text>
           </View>
 
@@ -103,10 +103,10 @@ export function AttendanceScanView({
               record your attendance.
             </Text>
             <View className="w-full gap-sm">
-              <Button variant="default" size="md" onPress={onOpenSettings}>
-                Open Settings
+              <Button variant="default" size="lg" onPress={onOpenSettings}>
+                Open settings
               </Button>
-              <Button variant="outline" size="md" onPress={onBack}>
+              <Button variant="outline" size="lg" onPress={onBack}>
                 Go back
               </Button>
             </View>
@@ -131,7 +131,7 @@ export function AttendanceScanView({
                     Point your camera at the organizer's attendance QR code.
                   </Text>
                 </View>
-                <Button variant="outline" size="md" onPress={onPickImage} leftIcon={<ImageUp size={18} />}>
+                <Button variant="outline" size="lg" onPress={onPickImage} leftIcon={<ImageUp />}>
                   Choose from Photos
                 </Button>
               </View>
@@ -165,10 +165,10 @@ export function AttendanceScanView({
                 : "You're all set — thanks for coming."}
             </Text>
             <View className="w-full gap-sm">
-              <Button variant="default" size="md" onPress={onGiveFeedback}>
+              <Button variant="default" size="lg" onPress={onGiveFeedback}>
                 Rate this event
               </Button>
-              <Button variant="outline" size="md" onPress={onBack}>
+              <Button variant="outline" size="lg" onPress={onBack}>
                 Done
               </Button>
             </View>
@@ -185,7 +185,7 @@ export function AttendanceScanView({
               You're offline right now. Your attendance was saved with the scan time and will be recorded automatically
               when you're back online.
             </Text>
-            <Button variant="default" size="md" onPress={onBack}>
+            <Button variant="default" size="lg" onPress={onBack}>
               Done
             </Button>
           </View>
@@ -200,11 +200,11 @@ export function AttendanceScanView({
             <Text className="mb-lg text-center text-body-md text-muted-foreground">{phase.model.message}</Text>
             <View className="w-full gap-sm">
               {phase.canRescan && (
-                <Button variant="default" size="md" onPress={onScanAgain}>
+                <Button variant="default" size="lg" onPress={onScanAgain}>
                   Scan again
                 </Button>
               )}
-              <Button variant="outline" size="md" onPress={onBack}>
+              <Button variant="outline" size="lg" onPress={onBack}>
                 Go back
               </Button>
             </View>

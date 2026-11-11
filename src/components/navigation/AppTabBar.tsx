@@ -12,6 +12,7 @@ import { Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { useAuthStore } from '@/store/auth.store';
 import type { User } from '@/types/user.types';
+import { ConnectionBanner } from './ConnectionBanner';
 
 interface TabRoute {
   key: string;
@@ -40,7 +41,7 @@ const TAB_ROUTES: TabRoute[] = [
       </View>
     ),
   },
-  { key: 'events', name: '(ganaps)', label: 'My Events', icon: Calendar },
+  { key: 'events', name: '(ganaps)', label: 'My events', icon: Calendar },
   { key: 'chat', name: '(chat)', label: 'Friends', icon: MessageCircle },
   {
     key: 'profile',
@@ -127,6 +128,7 @@ export function AppTabBar({
 
   return (
     <View className="border-t border-border bg-card" style={{ paddingBottom: insets.bottom }}>
+      <ConnectionBanner />
       <View className="flex-row items-end" style={{ height: BAR_HEIGHT }}>
         {TAB_ROUTES.map((tab: TabRoute, index: number): ReactNode => {
           const isActive: boolean = state.index === index;

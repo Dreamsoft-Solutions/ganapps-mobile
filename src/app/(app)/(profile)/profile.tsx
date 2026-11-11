@@ -1,14 +1,15 @@
 import { useRouter } from 'expo-router';
 import { BadgeCheck, Edit3, LogOut, Settings } from 'lucide-react-native';
 import type { ReactElement } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
 import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
+import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { JoinedGanapCard } from '@/components/profile/JoinedGanapCard';
 import { ProfilePromptCard } from '@/components/profile/ProfilePromptCard';
 import { formatInterestLabel } from '@/constants/interests';
@@ -18,6 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useJoinedGanaps } from '@/hooks/useJoinedGanaps';
 import { useProfilePrompt } from '@/hooks/useProfilePrompt';
 import type { JoinedGanap } from '@/types/profile.types';
+import { getQueryFailure } from '@/utils/query-failure';
 
 const PROFILE_JOINED_PAGE_SIZE: number = 3;
 
@@ -35,9 +37,10 @@ export default function ProfileScreen(): ReactElement {
   const profilePrompt = useProfilePrompt();
   const user = profileQuery.data;
 
-  if (profileQuery.isLoading) return <Loading message="Loading your profile..." />;
-  if (profileQuery.error) {
-    return <ErrorView error={profileQuery.error} onRetry={(): void => void profileQuery.refetch()} />;
+  if (profileQuery.isLoading) return <Loading message="Loading your profile" />;
+  const profileFailure: Error | null = getQueryFailure(profileQuery);
+  if (profileFailure) {
+    return <ErrorView error={profileFailure} onRetry={(): void => void profileQuery.refetch()} />;
   }
   if (!user) return <ErrorView error={new Error('Profile not found')} />;
 
@@ -46,14 +49,10 @@ export default function ProfileScreen(): ReactElement {
   const joinedCount: string = joinedGanaps.isLoading || joinedGanaps.error ? '...' : String(joinedGanaps.total);
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="flex-row items-center justify-between px-md pt-md">
-          <Text className="text-label-md uppercase tracking-widest text-muted-foreground">Profile</Text>
+    <View className="flex-1 bg-background">
+      <ScreenHeader
+        title="Profile"
+        right={
           <IconButton
             accessibilityLabel="Open settings"
             onPress={(): void => {
@@ -62,8 +61,13 @@ export default function ProfileScreen(): ReactElement {
           >
             <Settings size={20} className="text-muted-foreground" />
           </IconButton>
-        </View>
-
+        }
+      />
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
+        showsVerticalScrollIndicator={false}
+      >
         {profilePrompt.isVisible && (
           <View className="px-md pt-md">
             <ProfilePromptCard onDismiss={profilePrompt.dismiss} />
@@ -89,13 +93,13 @@ export default function ProfileScreen(): ReactElement {
         </View>
 
         <View className="mb-lg px-md">
-          <Text className="mb-sm text-label-md uppercase tracking-widest text-foreground">Interests</Text>
+          <Text className="mb-sm text-label-md uppercase tracking-widest text-muted-foreground">Interests</Text>
           {user.interests.length > 0 ? (
             <View className="flex-row flex-wrap gap-2">
               {user.interests.map(
                 (interest: string): ReactElement => (
-                  <View key={interest} className="rounded-full bg-primary px-sm py-xs">
-                    <Text className="text-label-sm text-primary-foreground">{formatInterestLabel(interest)}</Text>
+                  <View key={interest} className="rounded-full border border-border bg-background px-sm py-xs">
+                    <Text className="text-label-sm">{formatInterestLabel(interest)}</Text>
                   </View>
                 ),
               )}
@@ -107,27 +111,26 @@ export default function ProfileScreen(): ReactElement {
 
         <View className="mb-lg px-md">
           <View className="mb-sm flex-row items-center justify-between">
-            <Text className="text-label-md uppercase tracking-widest text-foreground">Joined Events</Text>
+            <Text className="text-label-md uppercase tracking-widest text-muted-foreground">Joined events</Text>
             {showSeeAll && (
-              <Pressable
+              <Button
+                variant="link"
                 onPress={(): void => {
                   router.push(Routes.profileJoined);
                 }}
-                accessibilityRole="button"
-                className="active:opacity-70"
               >
-                <Text className="text-body-md font-inter-semibold text-primary">See all</Text>
-              </Pressable>
+                See all
+              </Button>
             )}
           </View>
 
           {joinedGanaps.isLoading ? (
             <View className="h-32">
-              <Loading message="Loading joined events..." />
+              <Loading message="Loading joined events" />
             </View>
-          ) : joinedGanaps.error ? (
+          ) : joinedGanaps.failure ? (
             <View className="h-48">
-              <ErrorView error={joinedGanaps.error} onRetry={(): void => void joinedGanaps.refetch()} />
+              <ErrorView error={joinedGanaps.failure} onRetry={(): void => void joinedGanaps.refetch()} />
             </View>
           ) : joinedGanaps.items.length === 0 ? (
             <Text className="text-body-md text-muted-foreground">Events you join will appear here.</Text>
@@ -151,17 +154,17 @@ export default function ProfileScreen(): ReactElement {
             onPress={(): void => {
               router.push(Routes.profileEdit);
             }}
-            leftIcon={<Edit3 size={17} />}
+            leftIcon={<Edit3 />}
             size="lg"
           >
-            Edit Profile
+            Edit profile
           </Button>
           <Button
             variant="outline"
             onPress={(): void => {
               router.push(Routes.profileSettings);
             }}
-            leftIcon={<Settings size={17} />}
+            leftIcon={<Settings />}
             size="lg"
           >
             Settings
@@ -170,13 +173,13 @@ export default function ProfileScreen(): ReactElement {
             variant="secondary"
             onPress={(): Promise<void> => logout()}
             loading={logoutMutation.isPending}
-            leftIcon={<LogOut size={17} />}
+            leftIcon={<LogOut />}
             size="lg"
           >
-            Sign Out
+            Sign out
           </Button>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

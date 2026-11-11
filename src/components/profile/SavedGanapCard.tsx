@@ -57,7 +57,7 @@ export function SavedGanapCard({ ganap, onPress, onUnsave }: SavedGanapCardProps
       className="active:opacity-80"
     >
       <Card className="mb-sm flex-row items-start">
-        <View className="mr-sm h-10 w-10 overflow-hidden rounded-md bg-primary/10">
+        <View className="mr-sm h-10 w-10 overflow-hidden rounded-md bg-muted">
           {coverImage ? (
             <Image
               source={{ uri: coverImage }}

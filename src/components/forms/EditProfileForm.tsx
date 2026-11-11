@@ -111,7 +111,7 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
 
   return (
     <FormProvider {...methods}>
-      <View className="gap-lg pb-xl">
+      <View className="gap-4 pb-xl">
         <View className="items-center">
           <Pressable onPress={pickAvatar} className="relative" disabled={isPreparingAvatar}>
             <Avatar src={localAvatar?.uri ?? user.displayPicture} name={displayName} size="lg" />
@@ -124,7 +124,7 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
 
         <Input
           name="firstName"
-          label="First Name"
+          label="First name"
           placeholder="Maria"
           autoCapitalize="words"
           maxLength={PROFILE_FIELD_LIMITS.nameMaxLength}
@@ -132,7 +132,7 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
         />
         <Input
           name="lastName"
-          label="Last Name"
+          label="Last name"
           placeholder="Santos"
           autoCapitalize="words"
           maxLength={PROFILE_FIELD_LIMITS.nameMaxLength}
@@ -149,7 +149,7 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
         />
 
         <View>
-          <Text className="mb-3 text-label-md text-foreground">Your Interests</Text>
+          <Text className="mb-3 text-label-md text-foreground">Your interests</Text>
           <View className="flex-row flex-wrap gap-2">
             {interestOptions.map((item) => (
               <Chip
@@ -170,9 +170,9 @@ export function EditProfileForm({ user }: EditProfileFormProps): ReactElement {
           onPress={methods.handleSubmit(onSubmit)}
           loading={isPreparingAvatar || updateProfileMutation.isPending}
           size="lg"
-          leftIcon={<Save size={18} />}
+          leftIcon={<Save />}
         >
-          Save Changes
+          Save changes
         </Button>
       </View>
     </FormProvider>

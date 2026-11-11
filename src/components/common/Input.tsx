@@ -31,6 +31,10 @@ interface InputProps {
 /**
  * Form input primitive integrated with react-hook-form.
  *
+ * A single-line field is always 48dp tall (`h-touch`), so a field with a trailing icon
+ * such as the password toggle matches one without. The text input fills that height, so a
+ * tap anywhere in the field focuses it.
+ *
  * @param props - Input configuration, editability, and optional helper text, right icon, and label hint slots.
  * @returns A labeled input field with inline validation errors.
  */
@@ -76,7 +80,7 @@ export function Input({
             </View>
           )}
           <View
-            className={`flex-row items-center rounded-lg border bg-background px-4 py-3 ${
+            className={`flex-row items-center rounded-lg border bg-background px-md ${multiline ? 'py-3' : 'h-touch'} ${
               error ? 'border-destructive' : 'border-input'
             }`}
           >
@@ -95,7 +99,7 @@ export function Input({
               numberOfLines={numberOfLines}
               maxLength={maxLength}
               textAlignVertical={multiline ? 'top' : 'center'}
-              className={`flex-1 text-foreground ${multiline ? 'min-h-24 text-body-md' : 'text-input-md'}`}
+              className={`flex-1 text-foreground ${multiline ? 'min-h-24 text-body-md' : 'self-stretch text-input-md'}`}
               placeholderTextColor={placeholderTextColor}
             />
             {iconRight && <View className="ml-2">{iconRight}</View>}

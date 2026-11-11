@@ -1,9 +1,12 @@
+import { useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
-import { ScrollView } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { EditProfileForm } from '@/components/forms/EditProfileForm';
+import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
+import { getQueryFailure } from '@/utils/query-failure';
 
 /**
  * Edit profile screen.
@@ -12,21 +15,30 @@ import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
  */
 export default function EditProfileScreen(): ReactElement {
   const profileQuery = useAuthQuery();
+  const router = useRouter();
+  const failure: Error | null = getQueryFailure(profileQuery);
 
-  if (profileQuery.isLoading) return <Loading message="Loading your profile..." />;
-  if (profileQuery.error) {
-    return <ErrorView error={profileQuery.error} onRetry={(): void => void profileQuery.refetch()} />;
+  let content: ReactElement;
+  if (profileQuery.isLoading) content = <Loading message="Loading your profile" />;
+  else if (failure) content = <ErrorView error={failure} onRetry={(): void => void profileQuery.refetch()} />;
+  else if (!profileQuery.data) content = <ErrorView error={new Error('Profile not found')} />;
+  else {
+    content = (
+      <ScrollView
+        className="flex-1 px-md"
+        contentContainerStyle={{ paddingBottom: 96 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <EditProfileForm user={profileQuery.data} />
+      </ScrollView>
+    );
   }
-  if (!profileQuery.data) return <ErrorView error={new Error('Profile not found')} />;
 
   return (
-    <ScrollView
-      className="flex-1 bg-background px-md"
-      contentContainerStyle={{ paddingBottom: 96 }}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
-      <EditProfileForm user={profileQuery.data} />
-    </ScrollView>
+    <View className="flex-1 bg-background">
+      <ScreenHeader title="Edit profile" onBack={(): void => router.back()} backHint="Returns to your profile" />
+      {content}
+    </View>
   );
 }

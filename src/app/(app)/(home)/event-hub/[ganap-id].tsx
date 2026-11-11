@@ -8,6 +8,7 @@ import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { EventHubView } from '@/components/ganaps/EventHubView';
 import { GanapShareModal } from '@/components/ganaps/GanapShareModal';
+import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { Routes } from '@/constants/routes';
 import { useAnnouncementReactionMutation } from '@/hooks/mutations/useChatEngagementMutation';
 import { useBusinessDetailQuery } from '@/hooks/queries/useBusinessesQuery';
@@ -23,6 +24,7 @@ import { type AttendanceScanState, getAttendanceScanState } from '@/utils/attend
 import { canAccessEventHub } from '@/utils/event-hub';
 import { type FeedbackRowState, getFeedbackRowState } from '@/utils/feedback';
 import { buildGanapShareMessage, type GanapScheduleModel, getGanapScheduleModel } from '@/utils/ganap-detail';
+import { getQueryFailure } from '@/utils/query-failure';
 import { buildGanapShareUrl } from '@/utils/share-links';
 
 interface EventHubUnavailableProps {
@@ -52,13 +54,13 @@ function EventHubUnavailable({ onBack }: EventHubUnavailableProps): ReactElement
   return (
     <View className="flex-1 items-center justify-center bg-background p-xl">
       <Text className="mb-sm text-center font-inter-semibold text-headline-sm" accessibilityRole="header">
-        Event Hub is for joined students
+        Event Hub is for people who joined
       </Text>
       <Text className="mb-lg text-center text-body-md text-muted-foreground">
         Join this event and have your registration confirmed to see announcements here.
       </Text>
       <Button variant="outline" size="lg" onPress={onBack}>
-        Back to Event Details
+        Back to event details
       </Button>
     </View>
   );
@@ -240,9 +242,22 @@ export default function EventHubScreen(): ReactElement {
     router.push(Routes.eventChat(ganapId));
   }
 
-  if (detail.isLoading) return <Loading />;
-  if (detail.error) return <ErrorView error={detail.error} onRetry={(): void => void detail.refetch()} />;
-  if (!detail.data) return <ErrorView error={new Error('Event not found')} />;
+  const failure: Error | null = getQueryFailure(detail);
+  if (detail.isLoading || failure || !detail.data) {
+    return (
+      <View className="flex-1 bg-background">
+        <ScreenHeader title="Event Hub" onBack={handleBack} backHint="Returns to event details" />
+        {detail.isLoading ? (
+          <Loading />
+        ) : (
+          <ErrorView
+            error={failure ?? new Error('Event not found')}
+            onRetry={failure ? (): void => void detail.refetch() : undefined}
+          />
+        )}
+      </View>
+    );
+  }
 
   const registrationStatus: RegistrationStatus | null = detail.data.myRegistration?.status ?? null;
   if (!canAccessEventHub(registrationStatus)) return <EventHubUnavailable onBack={handleBack} />;

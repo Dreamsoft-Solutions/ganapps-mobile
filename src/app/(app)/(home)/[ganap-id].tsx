@@ -26,6 +26,7 @@ import {
   getGanapCapacityModel,
   getGanapScheduleModel,
 } from '@/utils/ganap-detail';
+import { getQueryFailure } from '@/utils/query-failure';
 import { buildGanapShareUrl } from '@/utils/share-links';
 
 /**
@@ -38,7 +39,9 @@ export default function GanapDetailScreen(): ReactElement {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const isMyEventsOrigin: boolean = returnTo === 'my-events';
-  const { data: ganap, isLoading, isRefetching, error, refetch } = useGanapDetailQuery(ganapId);
+  const ganapQuery = useGanapDetailQuery(ganapId);
+  const { data: ganap, isLoading, isRefetching, refetch } = ganapQuery;
+  const failure: Error | null = getQueryFailure(ganapQuery);
   const businessQuery = useBusinessDetailQuery(ganap?.businessId);
   const now = useEventTime(ganap?.endDate);
   const friendsGoingQuery = useFriendGoingQuery(true, ganapId);
@@ -101,8 +104,8 @@ export default function GanapDetailScreen(): ReactElement {
     return renderFallbackState(<Loading />);
   }
 
-  if (error) {
-    return renderFallbackState(<ErrorView error={error} onRetry={(): void => void refetch()} />);
+  if (failure) {
+    return renderFallbackState(<ErrorView error={failure} onRetry={(): void => void refetch()} />);
   }
 
   if (!ganap) {

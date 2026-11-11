@@ -9,6 +9,7 @@ import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { CursorPage } from '@/api/types/api-response';
 import { useAuthStore } from '@/store/auth.store';
 import type { GanapListItem, GanapReportReceipt, JoinGanapResult } from '@/types/ganap.types';
+import { getQueryFailure } from '@/utils/query-failure';
 import {
   type ReportGanapVariables,
   type ToggleLikeVariables,
@@ -47,6 +48,8 @@ export interface UseGanapsResult {
   items: GanapListItem[];
   isLoading: boolean;
   error: Error | null;
+  /** The error to show in place of the content, or `null`; see `getQueryFailure`. */
+  failure: Error | null;
   hasNextPage: boolean;
   fetchNextPage: GanapsInfiniteResult['fetchNextPage'];
   isFetchingNextPage: boolean;
@@ -78,7 +81,7 @@ export interface UseGanapsResult {
  * @returns Flattened items, paging state, and the student actions, including reporting
  */
 export function useGanaps(filters?: GanapListFilters): UseGanapsResult {
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } = useInfiniteQuery<
+  const { data, fetchNextPage, fetchStatus, hasNextPage, isFetchingNextPage, isLoading, error } = useInfiniteQuery<
     GanapPage,
     Error,
     InfiniteData<GanapPage, string | undefined>,
@@ -121,6 +124,7 @@ export function useGanaps(filters?: GanapListFilters): UseGanapsResult {
     items: data?.pages.flatMap((page: GanapPage) => page.items) ?? [],
     isLoading,
     error,
+    failure: getQueryFailure({ data, error, fetchStatus }),
     hasNextPage,
     fetchNextPage,
     isFetchingNextPage,
