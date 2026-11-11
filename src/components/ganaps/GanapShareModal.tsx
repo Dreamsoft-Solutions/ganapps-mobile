@@ -76,10 +76,16 @@ export function GanapShareModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose} accessibilityViewIsModal>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="overFullScreen"
+      onRequestClose={onClose}
+      accessibilityViewIsModal
+    >
       <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
         <View className="flex-row items-center justify-between border-b border-border px-md py-sm">
-          <Text className="font-inter-semibold text-headline-sm" accessibilityRole="header">
+          <Text className="font-inter-bold text-headline-md" accessibilityRole="header">
             Share this event
           </Text>
           <IconButton accessibilityLabel="Close sharing" accessibilityHint="Returns to event details" onPress={onClose}>
@@ -89,7 +95,7 @@ export function GanapShareModal({
         <ScrollView className="flex-1" contentContainerClassName="gap-md p-md pb-xl">
           <ShareQrCode ref={shareQrCodeRef} value={url} title={ganap.title} details={details} />
           <Button
-            leftIcon={<QrCode size={18} />}
+            leftIcon={<QrCode />}
             loading={isSharingImage}
             disabled={isSharingImage}
             onPress={handleShareImage}
@@ -98,7 +104,7 @@ export function GanapShareModal({
             Share QR image
           </Button>
           <Button
-            leftIcon={<Share2 size={18} />}
+            leftIcon={<Share2 />}
             onPress={onNativeShare}
             accessibilityHint="Shares event details and its public link using another app"
           >
