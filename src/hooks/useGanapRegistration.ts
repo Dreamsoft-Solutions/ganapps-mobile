@@ -1,5 +1,6 @@
 import type { UseMutateAsyncFunction, UseQueryResult } from '@tanstack/react-query';
 import type { FormBlock, JoinGanapResult } from '@/types/ganap.types';
+import { getQueryFailure } from '@/utils/query-failure';
 import { type SubmitFormAnswersVariables, useSubmitFormAnswersMutation } from './mutations/useGanapMutation';
 import { useFormBlocksQuery } from './queries/useGanapsQuery';
 
@@ -8,6 +9,8 @@ export interface UseGanapRegistrationResult {
   blocks: FormBlock[] | undefined;
   isLoading: boolean;
   error: Error | null;
+  /** The error to show in place of the content, or `null`; see `getQueryFailure`. */
+  failure: Error | null;
   refetch: UseQueryResult<FormBlock[], Error>['refetch'];
   submit: UseMutateAsyncFunction<JoinGanapResult, Error, SubmitFormAnswersVariables>;
   isSubmitting: boolean;
@@ -28,6 +31,7 @@ export function useGanapRegistration(ganapId: string): UseGanapRegistrationResul
     blocks: blocksQuery.data,
     isLoading: blocksQuery.isLoading,
     error: blocksQuery.error ?? null,
+    failure: getQueryFailure(blocksQuery),
     refetch: blocksQuery.refetch,
     submit: submitMutation.mutateAsync,
     isSubmitting: submitMutation.isPending,

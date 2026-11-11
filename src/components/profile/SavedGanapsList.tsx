@@ -32,9 +32,9 @@ export function SavedGanapsList({ contentTopPadding, contentBottomPadding }: Sav
   const savedGanaps = useSavedGanaps(SAVED_PAGE_SIZE);
   const { toggleSave } = useGanaps();
 
-  if (savedGanaps.isLoading) return <Loading message="Loading saved events..." />;
-  if (savedGanaps.error) {
-    return <ErrorView error={savedGanaps.error} onRetry={(): void => void savedGanaps.refetch()} />;
+  if (savedGanaps.isLoading) return <Loading message="Loading saved events" />;
+  if (savedGanaps.failure) {
+    return <ErrorView error={savedGanaps.failure} onRetry={(): void => void savedGanaps.refetch()} />;
   }
 
   return (

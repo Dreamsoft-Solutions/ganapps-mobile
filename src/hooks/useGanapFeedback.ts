@@ -2,6 +2,7 @@ import type { UseMutateAsyncFunction, UseQueryResult } from '@tanstack/react-que
 import type { FormBlock, GanapDetail, SubmitFeedbackResponse } from '@/types/ganap.types';
 import type { FeedbackStep } from '@/utils/feedback';
 import { getPendingFeedbackSteps } from '@/utils/feedback';
+import { getQueryFailure } from '@/utils/query-failure';
 import { type SubmitFeedbackVariables, useSubmitFeedbackMutation } from './mutations/useGanapMutation';
 import { useFormBlocksQuery, useGanapDetailQuery } from './queries/useGanapsQuery';
 
@@ -13,6 +14,8 @@ export interface UseGanapFeedbackResult {
   pendingSteps: FeedbackStep[];
   isLoading: boolean;
   error: Error | null;
+  /** The error to show in place of the content, or `null`; see `getQueryFailure`. */
+  failure: Error | null;
   refetch: () => Promise<unknown>;
   submitFeedback: UseMutateAsyncFunction<SubmitFeedbackResponse, Error, SubmitFeedbackVariables>;
   isSubmitting: boolean;
@@ -43,6 +46,7 @@ export function useGanapFeedback(ganapId: string): UseGanapFeedbackResult {
     pendingSteps,
     isLoading: detailQuery.isLoading || blocksQuery.isLoading,
     error: detailQuery.error ?? blocksQuery.error ?? null,
+    failure: getQueryFailure(detailQuery) ?? getQueryFailure(blocksQuery),
     refetch: async (): Promise<unknown> => Promise.all([detailQuery.refetch(), blocksQuery.refetch()]),
     submitFeedback: feedbackMutation.mutateAsync,
     isSubmitting: feedbackMutation.isPending,

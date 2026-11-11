@@ -2,6 +2,7 @@ import { type InfiniteData, type UseInfiniteQueryResult } from '@tanstack/react-
 import { useMemo } from 'react';
 import type { PaginatedResponse } from '@/api/types/api-response';
 import type { SavedGanap } from '@/types/profile.types';
+import { getQueryFailure } from '@/utils/query-failure';
 import { useSavedGanapsQuery } from './queries/useProfileQuery';
 
 type SavedGanapPage = PaginatedResponse<SavedGanap>;
@@ -12,6 +13,8 @@ export interface UseSavedGanapsResult {
   total: number;
   isLoading: boolean;
   error: Error | null;
+  /** The error to show in place of the content, or `null`; see `getQueryFailure`. */
+  failure: Error | null;
   hasNextPage: boolean;
   fetchNextPage: UseInfiniteQueryResult<InfiniteData<SavedGanapPage, number>, Error>['fetchNextPage'];
   isFetchingNextPage: boolean;
@@ -37,6 +40,7 @@ export function useSavedGanaps(take: number): UseSavedGanapsResult {
     total: query.data?.pages[0]?.pagination.total ?? 0,
     isLoading: query.isLoading,
     error: query.error,
+    failure: getQueryFailure(query),
     hasNextPage: !!query.hasNextPage,
     fetchNextPage: query.fetchNextPage,
     isFetchingNextPage: query.isFetchingNextPage,

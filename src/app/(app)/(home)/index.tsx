@@ -11,9 +11,10 @@ import Mapbox, {
 import { useRouter } from 'expo-router';
 import type { ComponentRef, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type LayoutChangeEvent, Pressable, View } from 'react-native';
+import { type LayoutChangeEvent, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
@@ -240,7 +241,7 @@ export default function HomeScreen(): ReactElement {
   const insets = useSafeAreaInsets();
   const discovery = useGanapDiscovery();
   const { search, setSearch, tag, setTag, tags, map, feed, nearby } = discovery;
-  const { items, isLoading, isError, error, refetch } = map;
+  const { items, isLoading, isError, failure, refetch } = map;
   const userCoords = nearby.coords;
   const isNearbyActive: boolean = nearby.isActive;
   const hasSearchText: boolean = search.trim().length > 0;
@@ -249,7 +250,7 @@ export default function HomeScreen(): ReactElement {
   const isSearchSettled: boolean = search.trim() === (discovery.filters.search ?? '');
   const hasPendingSearch: boolean = hasSearchText && (!isSearchSettled || map.isFetching);
   const hasSearchError: boolean = hasSearchText && isSearchSettled && isError;
-  const shouldShowMapError: boolean = isError && !hasSearchText;
+  const shouldShowMapError: boolean = failure !== null && !hasSearchText;
   /**
    * Whether a radius actually reached the server, which is not the same as the
    * chip being on: the position can still be resolving. The title follows what
@@ -616,11 +617,11 @@ export default function HomeScreen(): ReactElement {
   }
 
   if (isLoading) {
-    return <Loading message="Finding events..." />;
+    return <Loading message="Finding events" />;
   }
 
   if (shouldShowMapError) {
-    return <ErrorView error={error} onRetry={refetch} />;
+    return <ErrorView error={failure} onRetry={refetch} />;
   }
 
   return (
@@ -687,14 +688,16 @@ export default function HomeScreen(): ReactElement {
               Turn on location for Ganapps in Settings to filter events near you. Everything else on the map still
               works.
             </Text>
-            <Pressable
-              onPress={(): void => {
-                void nearby.openSettings();
-              }}
-              accessibilityRole="button"
-            >
-              <Text className="text-label-md text-primary">Open Settings</Text>
-            </Pressable>
+            <View className="flex-row">
+              <Button
+                variant="link"
+                onPress={(): void => {
+                  void nearby.openSettings();
+                }}
+              >
+                Open settings
+              </Button>
+            </View>
           </View>
         )}
         {nearby.errorMessage !== null && (
