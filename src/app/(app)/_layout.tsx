@@ -112,7 +112,7 @@ export default function AppLayout(): ReactElement {
   }, [isVerifiedUserReady, user?.id]);
 
   if (isLoading) {
-    return <Loading message="Loading..." />;
+    return <Loading message="Loading" />;
   }
 
   return (

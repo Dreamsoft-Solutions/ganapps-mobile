@@ -83,6 +83,7 @@ export function MapViewControls({
               value={buildingsVisible}
               onValueChange={onBuildingsChange}
               trackColor={{ false: Colors[theme].muted, true: Colors[theme].primary }}
+              thumbColor={Colors[theme]['primary-foreground']}
             />
           </View>
         </View>

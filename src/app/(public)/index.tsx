@@ -37,21 +37,21 @@ export default function WelcomeScreen(): ReactElement {
 
       <View className="px-8 pb-12 pt-6 gap-3">
         <Button
-          size="lg"
+          size="auth"
           onPress={(): void => {
             router.push(Routes.auth.login);
           }}
         >
-          Get Started
+          Get started
         </Button>
         <Button
           variant="outline"
-          size="lg"
+          size="auth"
           onPress={(): void => {
             router.push(Routes.auth.login);
           }}
         >
-          Log In
+          Log in
         </Button>
         <Text className="text-muted-foreground text-label-sm text-center mt-4">
           Made for Iloilo. Built for everyone.

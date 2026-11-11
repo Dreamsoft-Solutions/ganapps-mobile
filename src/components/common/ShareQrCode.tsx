@@ -115,13 +115,7 @@ export const ShareQrCode: ForwardRefExoticComponent<ShareQrCodeProps & RefAttrib
           </View>
         </View>
       </ViewShot>
-      <Button
-        variant="outline"
-        loading={isSaving}
-        disabled={isSaving}
-        onPress={handleSave}
-        leftIcon={<Download size={17} />}
-      >
+      <Button variant="outline" loading={isSaving} disabled={isSaving} onPress={handleSave} leftIcon={<Download />}>
         Save QR image
       </Button>
     </View>

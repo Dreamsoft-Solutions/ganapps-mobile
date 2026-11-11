@@ -211,10 +211,10 @@ function EventHubEmptyState({
           Event Hub access is no longer available
         </Text>
         <Text className="mb-lg text-center text-body-md text-muted-foreground">
-          Your registration for this event has changed. Event Details shows its current status.
+          Your registration for this event has changed. Event details shows its current status.
         </Text>
-        <Button variant="outline" size="md" onPress={onBack}>
-          Back to Event Details
+        <Button variant="outline" size="lg" onPress={onBack}>
+          Back to event details
         </Button>
       </View>
     );
@@ -343,7 +343,9 @@ function EventHubAnnouncementHeader({
           <View className="mr-xs">
             <Megaphone size={16} color={Colors[theme].primary} />
           </View>
-          <Text className="min-w-0 flex-1 font-inter-bold text-headline-sm">Announcements</Text>
+          <Text className="min-w-0 flex-1 font-inter-semibold text-headline-sm" accessibilityRole="header">
+            Announcements
+          </Text>
         </View>
         <View className="ml-sm rounded-full bg-primary px-sm py-xs">
           <Text testID="announcement-total" className="font-inter-semibold text-label-sm text-primary-foreground">

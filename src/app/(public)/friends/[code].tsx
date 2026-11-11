@@ -26,5 +26,5 @@ export default function FriendShareRoute(): ReactElement {
     router.replace(token === null ? Routes.auth.loginForFriendShare(code) : Routes.friendAddWithCode(code));
   }, [code, router, token]);
 
-  return <Loading message="Opening Friend Code..." />;
+  return <Loading message="Opening Friend Code" />;
 }

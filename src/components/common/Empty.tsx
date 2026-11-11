@@ -22,7 +22,7 @@ export function Empty({ message, icon, inverted = false }: EmptyProps): ReactEle
       style={inverted ? { transform: [{ scaleY: -1 }] } : undefined}
     >
       {icon && <Text className="text-4xl mb-md">{icon}</Text>}
-      <Text className="text-muted-foreground text-body-lg text-center">{message}</Text>
+      <Text className="text-center text-body-md text-muted-foreground">{message}</Text>
     </View>
   );
 }

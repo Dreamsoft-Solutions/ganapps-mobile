@@ -7,6 +7,7 @@ import { View } from 'react-native';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Text } from '@/components/common/Text';
+import { PasswordVisibilityToggle } from '@/components/forms/PasswordVisibilityToggle';
 import { Routes } from '@/constants/routes';
 import { useAuth } from '@/hooks/useAuth';
 import type { CompletePasswordResetFormData, RequestPasswordResetFormData } from '@/utils/validation';
@@ -29,6 +30,8 @@ export function PasswordResetForm({ initialEmail }: PasswordResetFormProps): Rea
   const [step, setStep] = useState<'request' | 'complete' | 'success'>('request');
   const [email, setEmail] = useState(initialEmail);
   const [confirmationMessage, setConfirmationMessage] = useState('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
 
   const requestMethods = useForm<RequestPasswordResetFormData>({
     resolver: zodResolver(requestPasswordResetSchema),
@@ -78,7 +81,7 @@ export function PasswordResetForm({ initialEmail }: PasswordResetFormProps): Rea
         <Text className="text-body-md text-foreground text-center" accessibilityRole="alert">
           {confirmationMessage}
         </Text>
-        <Button onPress={(): void => router.replace(Routes.auth.login)} size="lg">
+        <Button onPress={(): void => router.replace(Routes.auth.login)} size="auth">
           Back to Log In
         </Button>
       </View>
@@ -88,8 +91,8 @@ export function PasswordResetForm({ initialEmail }: PasswordResetFormProps): Rea
   if (step === 'complete') {
     return (
       <FormProvider key="complete" {...completeMethods}>
-        <View>
-          <Text className="text-body-md text-muted-foreground text-center mb-4">
+        <View className="gap-4">
+          <Text className="text-body-md text-muted-foreground text-center">
             {confirmationMessage} Enter the 8-digit code below and choose a new password.
           </Text>
           <Input
@@ -104,7 +107,14 @@ export function PasswordResetForm({ initialEmail }: PasswordResetFormProps): Rea
             name="password"
             label="New password"
             placeholder="8-128 characters"
-            secureTextEntry
+            secureTextEntry={!showPassword}
+            iconRight={
+              <PasswordVisibilityToggle
+                visible={showPassword}
+                onPress={(): void => setShowPassword((previous: boolean): boolean => !previous)}
+                label="new password"
+              />
+            }
             autoCapitalize="none"
             maxLength={128}
           />
@@ -112,7 +122,14 @@ export function PasswordResetForm({ initialEmail }: PasswordResetFormProps): Rea
             name="confirmPassword"
             label="Confirm new password"
             placeholder="Re-enter your password"
-            secureTextEntry
+            secureTextEntry={!showConfirmPassword}
+            iconRight={
+              <PasswordVisibilityToggle
+                visible={showConfirmPassword}
+                onPress={(): void => setShowConfirmPassword((previous: boolean): boolean => !previous)}
+                label="confirm new password"
+              />
+            }
             autoCapitalize="none"
             maxLength={128}
           />
@@ -127,9 +144,9 @@ export function PasswordResetForm({ initialEmail }: PasswordResetFormProps): Rea
           <Button
             onPress={completeMethods.handleSubmit(handleComplete)}
             loading={completePasswordResetMutation.isPending}
-            size="lg"
+            size="auth"
           >
-            Reset Password
+            Reset password
           </Button>
           <View className="mt-3 items-center">
             <Text className="text-body-md text-muted-foreground mb-2">
@@ -155,8 +172,8 @@ export function PasswordResetForm({ initialEmail }: PasswordResetFormProps): Rea
 
   return (
     <FormProvider key="request" {...requestMethods}>
-      <View>
-        <Text className="text-body-md text-muted-foreground text-center mb-4">
+      <View className="gap-4">
+        <Text className="text-body-md text-muted-foreground text-center">
           Enter your email and we’ll send a code if an account matches.
         </Text>
         <Input
@@ -175,9 +192,9 @@ export function PasswordResetForm({ initialEmail }: PasswordResetFormProps): Rea
         <Button
           onPress={requestMethods.handleSubmit(handleRequest)}
           loading={requestPasswordResetMutation.isPending}
-          size="lg"
+          size="auth"
         >
-          Send Reset Code
+          Send reset code
         </Button>
       </View>
     </FormProvider>

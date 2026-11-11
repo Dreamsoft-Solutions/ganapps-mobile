@@ -98,7 +98,7 @@ export function DeleteAccountForm(): ReactElement {
               contentContainerClassName="grow p-md gap-lg"
               keyboardShouldPersistTaps="handled"
             >
-              <Text className="font-inter-semibold text-headline-md" accessibilityRole="header">
+              <Text className="font-inter-bold text-headline-md" accessibilityRole="header">
                 Delete your account?
               </Text>
               {step === 'explain' ? (

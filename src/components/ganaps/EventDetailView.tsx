@@ -336,7 +336,7 @@ function EventDetailContent({
         {hasRating && (
           <View className="flex-row items-center">
             <View className="mr-xs">
-              <Star size={16} className="fill-primary text-primary" />
+              <Star size={16} color={Colors[theme].primary} fill={Colors[theme].primary} />
             </View>
             <Text className="text-body-md">{ganap.averageRating?.toFixed(1)}</Text>
             <Text className="ml-xs text-body-md text-muted-foreground">({ganap.ratingCount})</Text>
@@ -376,7 +376,9 @@ function EventDetailContent({
         <ScheduleItem icon={<Clock size={20} className="text-primary" />} label="Time" value={schedule.timeLabel} />
       </View>
 
-      <Text className="mt-xl text-headline-md">Hosted by</Text>
+      <Text className="mt-xl font-inter-semibold text-headline-sm" accessibilityRole="header">
+        Hosted by
+      </Text>
       <Link href={Routes.businessProfile(ganap.businessId)} asChild>
         <Pressable
           accessibilityRole="link"
@@ -392,11 +394,9 @@ function EventDetailContent({
                 <View className="flex-row flex-wrap items-center">
                   <Text className="text-headline-sm">{organizerName}</Text>
                   {business?.verificationStatus === 'ACTIVE' && (
-                    <View className="ml-sm flex-row items-center rounded-full bg-primary px-sm py-xs">
-                      <View className="mr-xs">
-                        <Check size={14} strokeWidth={2.5} color={Colors[theme]['primary-foreground']} />
-                      </View>
-                      <Text className="text-label-sm text-primary-foreground">Verified</Text>
+                    <View className="ml-sm flex-row items-center gap-1 rounded-full bg-info px-sm py-xs">
+                      <Check size={14} strokeWidth={2.5} color={Colors[theme]['info-foreground']} />
+                      <Text className="text-label-md text-info-foreground">Verified</Text>
                     </View>
                   )}
                 </View>
@@ -409,7 +409,9 @@ function EventDetailContent({
         </Pressable>
       </Link>
 
-      <Text className="mt-xl text-headline-md">About</Text>
+      <Text className="mt-xl font-inter-semibold text-headline-sm" accessibilityRole="header">
+        About
+      </Text>
       <View className="mt-sm">
         <Markdown
           allowedImageHandlers={[]}
@@ -423,7 +425,9 @@ function EventDetailContent({
         </Markdown>
       </View>
 
-      <Text className="mt-xl text-headline-md">Location</Text>
+      <Text className="mt-xl font-inter-semibold text-headline-sm" accessibilityRole="header">
+        Location
+      </Text>
       <View className="mt-sm">
         <EventLocationPreview ganap={ganap} />
       </View>

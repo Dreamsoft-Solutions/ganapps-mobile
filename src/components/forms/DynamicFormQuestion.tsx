@@ -40,9 +40,7 @@ function getErrorMessage(error: { message?: unknown } | undefined): string | nul
 function QuestionLabel({ block }: QuestionLabelProps): ReactElement {
   return (
     <View className="mb-sm flex-row flex-wrap items-baseline gap-xs">
-      <Text className="text-lg leading-7" style={{ fontFamily: 'Inter-Bold' }}>
-        {block.label}
-      </Text>
+      <Text className="font-inter-semibold text-headline-sm">{block.label}</Text>
       {block.isRequired && <Text className="text-label-md text-muted-foreground">Required</Text>}
     </View>
   );
@@ -116,14 +114,14 @@ function renderChoiceOptions(
             accessibilityLabel={option.label}
             accessibilityState={{ checked }}
             className={`min-h-touch min-w-touch flex-row items-center gap-xs rounded-lg border px-md py-sm active:opacity-70 ${
-              checked ? 'border-primary bg-primary/10' : 'border-input bg-background'
+              checked ? 'border-primary bg-muted' : 'border-input bg-background'
             }`}
             onPress={optionPressHandler(field, block, option)}
           >
             <View accessible={false}>
               <Icon size={24} className={checked ? 'text-primary' : 'text-muted-foreground'} />
             </View>
-            <Text className="flex-1 text-body-lg">{option.label}</Text>
+            <Text className="flex-1 text-body-md">{option.label}</Text>
           </Pressable>
         );
       })}
@@ -160,7 +158,7 @@ function renderScaleOptions(
               accessibilityLabel={String(option)}
               accessibilityState={{ checked }}
               className={`min-h-touch min-w-touch items-center justify-center rounded-lg border px-sm py-sm active:opacity-70 ${
-                checked ? 'border-primary bg-primary/10' : 'border-input bg-background'
+                checked ? 'border-primary bg-muted' : 'border-input bg-background'
               }`}
               onPress={(): void => field.onChange(option)}
             >
@@ -189,7 +187,7 @@ function renderQuestionControl(
         autoCapitalize="sentences"
         autoCorrect
         className={`min-h-touch rounded-lg border border-input bg-background px-md py-sm text-foreground ${
-          isMultilineText(block) ? 'min-h-24 text-body-lg' : 'text-input-lg'
+          isMultilineText(block) ? 'min-h-24 text-body-md' : 'text-input-md'
         }`}
         maxLength={textConfiguration.maxLength}
         multiline={isMultilineText(block)}

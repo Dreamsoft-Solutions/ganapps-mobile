@@ -117,9 +117,9 @@ export function GanapReportSheet({
                     accessibilityState={{ selected: reason === value }}
                     disabled={isSubmitting}
                     onPress={(): void => setReason(value)}
-                    className={`mb-sm rounded-lg border px-md py-md ${reason === value ? 'border-primary bg-muted' : 'border-border bg-background'}`}
+                    className={`mb-sm min-h-touch justify-center rounded-lg border px-md py-sm ${reason === value ? 'border-primary bg-muted' : 'border-border bg-background'}`}
                   >
-                    <Text className="text-body-lg">{label}</Text>
+                    <Text className="text-body-md">{label}</Text>
                   </Pressable>
                 ),
               )}
