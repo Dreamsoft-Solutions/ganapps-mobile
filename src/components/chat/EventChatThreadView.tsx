@@ -1,4 +1,4 @@
-import { ArrowLeft, ImagePlus, Send } from 'lucide-react-native';
+import { ImagePlus, Send } from 'lucide-react-native';
 import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { ErrorView } from '@/components/common/Error';
 import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
+import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { CHAT_MAX_MESSAGE_LENGTH } from '@/constants/chat';
 import { Colors, Spacing } from '@/constants/theme';
 import { MIN_TOUCH_TARGET } from '@/constants/touch-target';
@@ -490,8 +491,21 @@ export function EventChatThreadView({
     );
   }
 
-  if (isLoading && messages.length === 0) return <Loading message="Loading event chat" />;
-  if (error && messages.length === 0) return <ErrorView error={error} onRetry={(): void => void onRetry()} />;
+  const header: ReactElement = (
+    <ScreenHeader title={ganapTitle || 'Event Chat'} onBack={onBack} backHint="Returns to Event Hub" bordered />
+  );
+  if ((isLoading || error) && messages.length === 0) {
+    return (
+      <View className="flex-1 bg-background">
+        {header}
+        {isLoading ? (
+          <Loading message="Loading event chat" />
+        ) : (
+          <ErrorView error={error} onRetry={(): void => void onRetry()} />
+        )}
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -499,17 +513,7 @@ export function EventChatThreadView({
       behavior="padding"
       keyboardVerticalOffset={Platform.OS === 'ios' ? Spacing.lg : 0}
     >
-      <View
-        className="flex-row items-center border-b border-border px-md pb-sm"
-        style={{ paddingTop: insets.top + Spacing.sm }}
-      >
-        <IconButton accessibilityLabel="Go back" accessibilityHint="Returns to Event Hub" onPress={onBack}>
-          <ArrowLeft size={20} color={Colors[theme].foreground} />
-        </IconButton>
-        <Text className="ml-sm flex-1 font-inter-bold text-headline-sm" numberOfLines={1} accessibilityRole="header">
-          {ganapTitle || 'Ganap'}
-        </Text>
-      </View>
+      {header}
 
       {connectionState !== 'connected' && messages.length > 0 && (
         <View className="border-b border-border bg-muted px-md py-xs">
@@ -600,7 +604,7 @@ export function EventChatThreadView({
       )}
 
       {isReadOnly ? (
-        <View className="border-t border-border px-md py-md">
+        <View className="border-t border-border px-md py-md" style={{ paddingBottom: insets.bottom + Spacing.sm }}>
           <Text className="text-center text-body-md text-muted-foreground">
             You can read this chat, but you cannot send messages.
           </Text>

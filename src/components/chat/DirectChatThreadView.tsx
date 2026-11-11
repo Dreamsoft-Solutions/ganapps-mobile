@@ -13,6 +13,7 @@ import { ErrorView } from '@/components/common/Error';
 import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
+import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { CHAT_MAX_MESSAGE_LENGTH } from '@/constants/chat';
 import { Colors, Spacing } from '@/constants/theme';
 import { MIN_TOUCH_TARGET } from '@/constants/touch-target';
@@ -538,11 +539,20 @@ export function DirectChatThreadView({
     );
   }
 
-  if (isLoading && messages.length === 0) return <Loading message="Loading direct chat" />;
-  if (error && messages.length === 0) return <ErrorView error={error} onRetry={(): void => void onRetry()} />;
-
   const friendName: string = friend?.displayName || friend?.username || 'Direct Chat';
   const friendSubline: string = friend?.username ? `@${friend.username}` : '';
+  if ((isLoading || error) && messages.length === 0) {
+    return (
+      <View className="flex-1 bg-background">
+        <ScreenHeader title={friendName} onBack={onBack} backHint="Returns to Friends" bordered />
+        {isLoading ? (
+          <Loading message="Loading direct chat" />
+        ) : (
+          <ErrorView error={error} onRetry={(): void => void onRetry()} />
+        )}
+      </View>
+    );
+  }
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-background"
@@ -550,15 +560,20 @@ export function DirectChatThreadView({
       keyboardVerticalOffset={Platform.OS === 'ios' ? Spacing.lg : 0}
     >
       <View
-        className="flex-row items-center border-b border-border px-md pb-sm"
-        style={{ paddingTop: insets.top + Spacing.sm }}
+        className="flex-row items-center gap-sm border-b border-border px-md pb-sm"
+        style={{ paddingTop: insets.top + Spacing.md }}
       >
-        <IconButton accessibilityLabel="Go back" accessibilityHint="Returns to Friends" onPress={onBack}>
+        <IconButton
+          variant="default"
+          accessibilityLabel="Go back"
+          accessibilityHint="Returns to Friends"
+          onPress={onBack}
+        >
           <ArrowLeft size={20} color={Colors[theme].foreground} />
         </IconButton>
         <Avatar src={friend?.displayPicture} name={friendName} size="sm" />
-        <View className="ml-sm min-w-0 flex-1">
-          <Text className="font-inter-bold text-headline-sm" numberOfLines={1} accessibilityRole="header">
+        <View className="min-w-0 flex-1">
+          <Text className="font-inter-bold text-headline-md" numberOfLines={1} accessibilityRole="header">
             {friendName}
           </Text>
           {friendSubline && (

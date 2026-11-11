@@ -8,6 +8,7 @@ import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { DynamicForm } from '@/components/forms/DynamicForm';
 import { RatingStep } from '@/components/ganaps/RatingStep';
+import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { Routes } from '@/constants/routes';
 import { useGanapFeedback } from '@/hooks/useGanapFeedback';
 import type { SubmitFormAnswersInput } from '@/types/ganap.types';
@@ -248,9 +249,17 @@ export default function FeedbackRoute(): ReactElement {
     [stepError],
   );
 
-  if (feedback.isLoading) return <Loading />;
-  if (feedback.error && !preserveFormAfterConflict) {
-    return <ErrorView error={feedback.error} onRetry={(): void => void feedback.refetch()} />;
+  if (feedback.isLoading || (feedback.failure && !preserveFormAfterConflict)) {
+    return (
+      <View className="flex-1 bg-background">
+        <ScreenHeader title="Feedback" onBack={leave} backHint="Returns to the event" />
+        {feedback.isLoading ? (
+          <Loading />
+        ) : (
+          <ErrorView error={feedback.failure} onRetry={(): void => void feedback.refetch()} />
+        )}
+      </View>
+    );
   }
   if (!feedback.ganap) return <FeedbackUnavailable message="This event is no longer available." onLeave={leave} />;
 

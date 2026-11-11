@@ -23,6 +23,7 @@ import { Loading } from '@/components/common/Loading';
 import { SegmentControl } from '@/components/common/SegmentControl';
 import { ShareQrCode } from '@/components/common/ShareQrCode';
 import { Text } from '@/components/common/Text';
+import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { Colors, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { ChatConversationSummary } from '@/types/chat.types';
@@ -34,6 +35,7 @@ import type {
   FriendUserSummary,
 } from '@/types/friends.types';
 import { formatFriendCode, getFriendErrorMessage } from '@/utils/friends';
+import { getQueryFailure } from '@/utils/query-failure';
 import { buildFriendShareUrl } from '@/utils/share-links';
 
 /** Top-level segment names rendered by the Friends hub. */
@@ -316,23 +318,30 @@ function CodeModal({
   const insets = useSafeAreaInsets();
   const code: string | null = query.data?.code ?? null;
   const shareUrl: string | null = tryBuildFriendShareUrl(code);
+  const failure: Error | null = getQueryFailure(query);
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="overFullScreen"
+      onRequestClose={onClose}
+      accessibilityViewIsModal
+    >
       <View className="flex-1 bg-background px-md" style={{ paddingTop: insets.top + Spacing.md }}>
         <View className="mb-lg flex-row items-center justify-between">
           <Text className="font-inter-bold text-headline-md" accessibilityRole="header">
-            My Code
+            My code
           </Text>
-          <IconButton accessibilityLabel="Close My Code" onPress={onClose}>
+          <IconButton accessibilityLabel="Close My code" onPress={onClose}>
             <X size={20} />
           </IconButton>
         </View>
         <ScrollView className="flex-1" contentContainerClassName="gap-md pb-lg">
           {query.isLoading ? (
             <Loading message="Loading your Friend Code" />
-          ) : query.error ? (
+          ) : failure ? (
             <ErrorView
-              error={new Error(getFriendErrorMessage(query.error, 'Unable to load your Friend Code.'))}
+              error={new Error(getFriendErrorMessage(failure, 'Unable to load your Friend Code.'))}
               onRetry={(): void => void query.refetch()}
             />
           ) : code ? (
@@ -362,7 +371,7 @@ function CodeModal({
                 </>
               )}
               <View className="gap-sm">
-                <Button variant="outline" onPress={(): void => void onShare(code)} leftIcon={<Share2 size={17} />}>
+                <Button variant="outline" onPress={(): void => void onShare(code)} leftIcon={<Share2 />}>
                   {shareUrl ? 'Share code and link' : 'Share code'}
                 </Button>
                 <Button variant="secondary" loading={isRegenerating} disabled={isRegenerating} onPress={onRegenerate}>
@@ -434,7 +443,13 @@ function AddFriendModal({
       (createRequestMutation.data.status === 'ACCEPTED' || createRequestMutation.data.status === 'AUTO_ACCEPTED'),
   );
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="overFullScreen"
+      onRequestClose={onClose}
+      accessibilityViewIsModal
+    >
       <KeyboardAvoidingView className="flex-1 bg-background" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           contentContainerStyle={{ paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + Spacing.lg }}
@@ -443,13 +458,13 @@ function AddFriendModal({
         >
           <View className="mb-lg flex-row items-center justify-between">
             <Text className="font-inter-bold text-headline-md" accessibilityRole="header">
-              Add Friend
+              Add friend
             </Text>
-            <IconButton accessibilityLabel="Close Add Friend" onPress={onClose}>
+            <IconButton accessibilityLabel="Close Add friend" onPress={onClose}>
               <X size={20} />
             </IconButton>
           </View>
-          <Text className="mb-sm text-body-md text-muted-foreground">Enter a 12-character Friend Code.</Text>
+          <Text className="mb-2 text-label-md text-foreground">Friend Code</Text>
           <TextInput
             accessibilityLabel="Friend Code"
             value={code}
@@ -459,8 +474,9 @@ function AddFriendModal({
             maxLength={14}
             placeholder="XXXX XXXX XXXX"
             placeholderTextColor={Colors[theme]['muted-foreground']}
-            className="rounded-lg border border-input bg-background px-md py-3 text-input-lg text-foreground"
+            className="h-touch rounded-lg border border-input bg-background px-md text-input-md text-foreground"
           />
+          <Text className="mt-1 text-label-sm text-muted-foreground">12 characters.</Text>
           <View className="mt-sm">
             <Button
               variant="outline"
@@ -508,7 +524,7 @@ function AddFriendModal({
                   }
                   loading={createRequestMutation.isPending}
                   onPress={(): void => void onSendRequest(normalizedCode)}
-                  leftIcon={<UserPlus size={17} />}
+                  leftIcon={<UserPlus />}
                 >
                   {getFriendRequestButtonLabel(sentRequestForTarget, acceptedRequestForTarget)}
                 </Button>
@@ -738,29 +754,26 @@ export function FriendsHubView({
   const theme = useResolvedTheme();
   return (
     <View className="flex-1 bg-background">
+      <ScreenHeader
+        title="Friends"
+        right={
+          <IconButton accessibilityLabel="Open Friends privacy settings" onPress={onOpenSettings}>
+            <Settings size={20} color={Colors[theme]['muted-foreground']} />
+          </IconButton>
+        }
+      />
       <ScrollView
         className="flex-1 px-md"
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={(): void => void onRefresh()} />}
-        contentContainerStyle={{ paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + Spacing.lg }}
+        contentContainerStyle={{ paddingTop: Spacing.sm, paddingBottom: insets.bottom + Spacing.lg }}
       >
-        <View className="mb-lg flex-row items-center justify-between">
-          <View className="flex-row items-center">
-            <Users size={22} color={Colors[theme].primary} />
-            <Text className="ml-sm font-inter-bold text-headline-md" accessibilityRole="header">
-              Friends
-            </Text>
-          </View>
-          <IconButton accessibilityLabel="Open Friends privacy settings" onPress={onOpenSettings}>
-            <Settings size={20} color={Colors[theme]['muted-foreground']} />
-          </IconButton>
-        </View>
         <View className="mb-lg flex-row gap-sm">
-          <Button size="sm" variant="outline" onPress={onOpenAddFriend} leftIcon={<UserPlus size={16} />}>
-            Add Friend
+          <Button size="sm" variant="outline" onPress={onOpenAddFriend} leftIcon={<UserPlus />}>
+            Add friend
           </Button>
-          <Button size="sm" variant="secondary" onPress={onOpenCode} leftIcon={<Users size={16} />}>
-            My Code
+          <Button size="sm" variant="secondary" onPress={onOpenCode} leftIcon={<Users />}>
+            My code
           </Button>
         </View>
         <ActiveFriends friends={presence} onOpenProfile={onOpenProfile} />

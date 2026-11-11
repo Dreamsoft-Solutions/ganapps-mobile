@@ -1,20 +1,20 @@
 import { useRouter } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { Alert, ScrollView, Switch, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { FriendSettingsUpdate } from '@/api/endpoints/friends';
 import { Card } from '@/components/common/Card';
 import { ErrorView } from '@/components/common/Error';
-import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
+import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { Colors } from '@/constants/theme';
 import { useUpdateFriendSettingsMutation } from '@/hooks/mutations/useFriendsMutation';
 import { useFriendSettingsQuery } from '@/hooks/queries/useFriendsQuery';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { FriendSettings } from '@/types/friends.types';
 import { getFriendErrorMessage } from '@/utils/friends';
+import { getQueryFailure } from '@/utils/query-failure';
 
 /** One privacy setting row rendered by the Friend settings screen. */
 function PrivacySettingRow({
@@ -70,44 +70,46 @@ export default function FriendSettingsScreen(): ReactElement {
     });
   };
 
-  if (query.isLoading) return <Loading message="Loading privacy settings" />;
-  if (query.error) return <ErrorView error={query.error} onRetry={(): void => void query.refetch()} />;
-  if (!query.data) return <ErrorView error={new Error('Privacy settings unavailable')} />;
+  const header: ReactElement = (
+    <ScreenHeader title="Friends privacy" onBack={(): void => router.back()} backHint="Returns to Friends" />
+  );
+  const failure: Error | null = getQueryFailure(query);
+  let fallback: ReactElement | null = null;
+  if (query.isLoading) fallback = <Loading message="Loading privacy settings" />;
+  else if (failure) fallback = <ErrorView error={failure} onRetry={(): void => void query.refetch()} />;
+  else if (!query.data) fallback = <ErrorView error={new Error('Privacy settings unavailable')} />;
+  if (fallback || !query.data) {
+    return (
+      <View className="flex-1 bg-background">
+        {header}
+        {fallback}
+      </View>
+    );
+  }
 
   const settings: FriendSettings = query.data;
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+    <View className="flex-1 bg-background">
+      {header}
       <ScrollView
         className="flex-1 px-md"
         contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="mb-md flex-row items-center">
-          <IconButton
-            accessibilityLabel="Go back"
-            accessibilityHint="Returns to Friends"
-            onPress={(): void => router.back()}
-          >
-            <ArrowLeft size={20} />
-          </IconButton>
-          <Text className="ml-sm font-inter-bold text-headline-md" accessibilityRole="header">
-            Friends privacy
-          </Text>
-        </View>
         <Text className="mb-lg text-body-md text-muted-foreground">
-          Choose what accepted friends can see. Changes apply globally and are enforced by the server.
+          Choose what your friends can see. These settings apply to all your friends.
         </Text>
         <Card>
           <PrivacySettingRow
             label="Show active status to friends"
-            description="Allow your active status to appear in the bounded Friends carousel."
+            description="Let friends see when you're active in the app."
             value={settings.presenceVisibleToFriends}
             disabled={mutation.isPending}
             onChange={(value: boolean): void => update({ presenceVisibleToFriends: value })}
           />
           <PrivacySettingRow
             label="Show Going events to friends"
-            description="Allow accepted friends to see your upcoming or ongoing Ganaps."
+            description="Let friends see the upcoming and ongoing events you're going to."
             value={settings.goingVisibleToFriends}
             disabled={mutation.isPending}
             onChange={(value: boolean): void => update({ goingVisibleToFriends: value })}
@@ -119,6 +121,6 @@ export default function FriendSettingsScreen(): ReactElement {
           </Text>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
