@@ -125,6 +125,35 @@ provided destination specifier`, which reads like a device-selection bug rather 
 multi-GB download. None of this needs an Apple Developer Program membership — the simulator
 signs locally; the membership matters only for TestFlight and App Store submission.
 
+### Pod deployment-target floor
+
+Xcode 27.1 rejects any target whose iOS deployment target is below 15.0. After prebuild, 12
+CocoaPods resource-bundle targets in `ios/Pods/Pods.xcodeproj` still declared 9.0 to 14.0
+(measured 2026-11-10, from `PromisesObjC`, `PromisesSwift`, `SDWebImage`,
+`react-native-view-shot`, `GTMSessionFetcher`, `AppAuth`, `GTMAppAuth`, `GoogleSignIn`,
+`GoogleUtilities`, `RNSVG`, `AsyncStorage` and `MapboxMaps`), and the build stopped with 12
+errors. Each bundle takes its minimum from its podspec. `react_native_post_install` does not
+help: its `updateOSDeploymentTarget` raises only each pod's main target, and only to React
+Native's 15.1 minimum. Until this was fixed, a local build needed
+`IPHONEOS_DEPLOYMENT_TARGET=16.4` on the `xcodebuild` command line, which the Xcode GUI has no
+way to pass.
+
+`plugins/with-ios-pod-deployment-target-floor.js` fixes it. It adds a tagged block to the
+Podfile's `post_install`, ahead of `react_native_post_install`, that raises every Pods project
+build configuration below the app's iOS deployment target up to that target. The target is
+read during `pod install` from the Podfile's `platform :ios` line. That line uses
+`ios.deploymentTarget` from `Podfile.properties.json`, which `expo-build-properties` sets, or
+the template default of 16.4. The plugin names no version, so raising the app's target raises
+the floor with it.
+
+The plugin also runs on EAS, where Xcode 26.6 never needed it. There it raises pod targets
+from 15.1 to 16.4 as well. That costs nothing at runtime, since the app cannot run below 16.4.
+To confirm the block after prebuild, look for `ganapps-pod-deployment-target-floor` in
+`ios/Podfile`. `npx expo config --type introspect` does not show it because Expo cannot
+introspect the Podfile mod. Revisit the plugin after a React Native upgrade: if
+`updateOSDeploymentTarget` starts covering resource bundles at 15.0 or higher, the plugin is
+redundant.
+
 ### EAS cloud builds for iOS
 
 `eas.json` has two store-signed iOS profiles. Both auto-increment the build number from the
