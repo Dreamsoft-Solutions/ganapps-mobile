@@ -1,7 +1,8 @@
 import { Search, X } from 'lucide-react-native';
 import type { ReactElement } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 import { Chip } from '@/components/common/Chip';
+import { IconButton } from '@/components/common/IconButton';
 import { Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { JoinedGanapTimeFilter } from '@/types/profile.types';
@@ -36,7 +37,7 @@ export function JoinedGanapsFilterBar({
 
   return (
     <View className="gap-sm px-md pb-sm">
-      <View className="flex-row items-center rounded-xl border border-input bg-background px-md py-sm">
+      <View className="h-touch flex-row items-center rounded-lg border border-input bg-background px-md">
         <Search size={20} color={mutedForeground} />
         <TextInput
           value={search}
@@ -45,17 +46,12 @@ export function JoinedGanapsFilterBar({
           placeholderTextColor={mutedForeground}
           accessibilityLabel="Search joined events"
           autoCapitalize="sentences"
-          className="ml-sm flex-1 text-input-md text-foreground"
+          className="ml-sm flex-1 self-stretch text-input-md text-foreground"
         />
         {search.length > 0 ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Clear joined-event search"
-            onPress={(): void => onSearchChange('')}
-            className="min-h-touch min-w-touch items-center justify-center"
-          >
+          <IconButton size="sm" accessibilityLabel="Clear joined-event search" onPress={(): void => onSearchChange('')}>
             <X size={18} color={mutedForeground} />
-          </Pressable>
+          </IconButton>
         ) : null}
       </View>
       <View className="flex-row gap-xs">

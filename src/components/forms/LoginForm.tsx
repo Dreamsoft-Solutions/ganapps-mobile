@@ -6,17 +6,17 @@ import {
   AppleAuthenticationButtonType,
 } from 'expo-apple-authentication';
 import { useRouter } from 'expo-router';
-import { Check, Eye, EyeOff } from 'lucide-react-native';
+import { Check } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useCallback, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Pressable, View } from 'react-native';
 import { Button, buttonSizeTargets } from '@/components/common/Button';
 import { Divider } from '@/components/common/Divider';
-import { IconButton } from '@/components/common/IconButton';
 import { Input } from '@/components/common/Input';
 import { LegalLinks } from '@/components/common/LegalLinks';
 import { Text } from '@/components/common/Text';
+import { PasswordVisibilityToggle } from '@/components/forms/PasswordVisibilityToggle';
 import { Routes } from '@/constants/routes';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
@@ -43,7 +43,7 @@ const USERNAME_HINT = {
 /**
  * Google brand icon used in the social sign-in button.
  *
- * Sized to Apple's native logo beside it, which cannot be resized: on the 41pt `social`
+ * Sized to Apple's native logo beside it, which cannot be resized: on the 41pt `auth`
  * Button that logo is about 11pt tall, the label's cap height. The glyph's ink is 85% of
  * its font size, so 13 draws the G at the same height.
  *
@@ -85,10 +85,10 @@ interface AppleSignInButtonProps {
 }
 
 /**
- * Apple's native Continue with Apple button at the `social` Button size, dimmed while a
+ * Apple's native Continue with Apple button at the `auth` Button size, dimmed while a
  * sign-in is running.
  *
- * Apple sizes the native title from the button's height, so the `social` height is what makes
+ * Apple sizes the native title from the button's height, so the `auth` height is what makes
  * it match the Google label. The native control accepts touches only inside that 41pt frame
  * and has no `hitSlop`, so the `Pressable` owns the press and extends it to 48dp. The
  * native view is drawn with touches and accessibility off, which keeps one tap to one sign-in.
@@ -97,7 +97,7 @@ interface AppleSignInButtonProps {
  * @returns The native button inside a pressable wrapper
  */
 function AppleSignInButton({ theme, pending, onPress }: AppleSignInButtonProps): ReactElement {
-  const target = buttonSizeTargets.social.target;
+  const target = buttonSizeTargets.auth.target;
 
   return (
     <Pressable
@@ -157,7 +157,7 @@ function SocialSignIn(props: SocialSignInProps): ReactElement | null {
         <Button
           variant="outline"
           onPress={props.onGooglePress}
-          size="social"
+          size="auth"
           leftIcon={<GoogleIcon />}
           loading={props.googlePending}
           disabled={props.googlePending}
@@ -171,28 +171,6 @@ function SocialSignIn(props: SocialSignInProps): ReactElement | null {
 
 interface PasswordChecklistProps {
   password: string;
-}
-
-function PasswordVisibilityToggle({
-  visible,
-  onPress,
-  label,
-}: {
-  visible: boolean;
-  onPress: () => void;
-  label: string;
-}): ReactElement {
-  const color: string = Colors[useResolvedTheme()]['muted-foreground'];
-  return (
-    <IconButton
-      onPress={onPress}
-      accessibilityLabel={`${visible ? 'Hide' : 'Show'} ${label}`}
-      size="sm"
-      variant="ghost"
-    >
-      {visible ? <EyeOff size={18} color={color} /> : <Eye size={18} color={color} />}
-    </IconButton>
-  );
 }
 
 /**
@@ -401,7 +379,7 @@ export function LoginForm(): ReactElement {
         {!isLogin && (
           <Input
             name="confirmPassword"
-            label="Confirm Password"
+            label="Confirm password"
             placeholder="Re-enter your password"
             autoCapitalize="none"
             secureTextEntry={!showConfirmPassword}
@@ -416,7 +394,7 @@ export function LoginForm(): ReactElement {
               size="sm"
               onPress={(): void => router.push(Routes.auth.forgotPassword(methods.getValues('email')))}
             >
-              Forgot Password?
+              Forgot password?
             </Button>
           </View>
         )}
@@ -427,8 +405,8 @@ export function LoginForm(): ReactElement {
           </Text>
         )}
 
-        <Button onPress={methods.handleSubmit(onSubmit)} loading={isLoading} size="lg">
-          {isLogin ? 'Log In' : 'Create Account'}
+        <Button onPress={methods.handleSubmit(onSubmit)} loading={isLoading} size="auth">
+          {isLogin ? 'Log in' : 'Create account'}
         </Button>
 
         <SocialSignIn
@@ -446,7 +424,7 @@ export function LoginForm(): ReactElement {
             {isLogin ? "Don't have an account? " : 'Already have an account? '}
           </Text>
           <Button variant="link" size="sm" onPress={toggleMode}>
-            {isLogin ? 'Sign Up' : 'Log In'}
+            {isLogin ? 'Sign up' : 'Log in'}
           </Button>
         </View>
 

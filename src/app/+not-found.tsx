@@ -7,11 +7,11 @@ import { Routes } from '@/constants/routes';
 export default function NotFoundScreen(): ReactElement {
   return (
     <View className="flex-1 bg-background items-center justify-center p-xl">
-      <Stack.Screen options={{ title: 'Not Found' }} />
-      <Text className="text-headline-md mb-sm">Page Not Found</Text>
+      <Stack.Screen options={{ title: 'Not found' }} />
+      <Text className="text-headline-md mb-sm">Page not found</Text>
       <Text className="text-muted-foreground text-center mb-lg">The page you're looking for doesn't exist.</Text>
       <Link href={Routes.app.home} className="text-primary font-inter-semibold">
-        Go Home
+        Go home
       </Link>
     </View>
   );

@@ -4,7 +4,7 @@ on:
   push:
     branches: [dev, master]
   pull_request:
-    branches: [dev, master]
+    branches: [dev, master, 'feat/ds-217-heic-support', 'refactor/untangle-codebase']
 
 # A new push to the same branch supersedes any run still in progress.
 concurrency:
@@ -21,6 +21,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+
+      - name: Check EAS ignore rules
+        run: |
+          if ! diff -u .gitignore <(head -n "$(wc -l < .gitignore)" .easignore); then
+            echo "::error file=.easignore::Copy .gitignore to the start of .easignore above the EAS-only rules."
+            exit 1
+          fi
 
       - uses: actions/setup-node@v7
         with:
@@ -76,6 +83,11 @@ jobs:
           token: ${{ secrets.PACT_REPO_TOKEN }}
           path: .pact-provider
           persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: .pact-provider/pnpm-lock.yaml
       - run: pnpm --dir .pact-provider install --frozen-lockfile
       - name: Verify the mobile contract against the server
         run: |

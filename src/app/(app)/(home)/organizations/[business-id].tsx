@@ -1,15 +1,15 @@
 import { Image } from 'expo-image';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Building2 } from 'lucide-react-native';
+import { Building2, Check } from 'lucide-react-native';
 import { type ReactElement, useCallback, useState } from 'react';
 import { Linking, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
-import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
+import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { Routes } from '@/constants/routes';
 import { Colors, Spacing } from '@/constants/theme';
 import { useBusinessDetailQuery } from '@/hooks/queries/useBusinessesQuery';
@@ -17,9 +17,10 @@ import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { useAuthStore } from '@/store/auth.store';
 import { showToast } from '@/store/toast.store';
 import { businessEmailUrl, businessWebsiteUrl } from '@/utils/business-profile';
+import { getQueryFailure } from '@/utils/query-failure';
 
 /** Displays the authenticated Business identity reached from an event's Hosted by card.
- * @returns Organization profile with independent loading, retry, and native back navigation
+ * @returns Organization profile with independent loading, retry, and back navigation
  */
 export default function BusinessProfileScreen(): ReactElement {
   const { 'business-id': businessId } = useLocalSearchParams<{ 'business-id': string }>();
@@ -36,26 +37,17 @@ export default function BusinessProfileScreen(): ReactElement {
     }, [token, businessId, refetch]),
   );
   const header: ReactElement = (
-    <Stack.Screen
-      options={{
-        title: 'Organization',
-        headerShown: true,
-        gestureEnabled: true,
-        headerStyle: { backgroundColor: Colors[theme].background },
-        headerTintColor: Colors[theme].foreground,
-        headerLeft: (): ReactElement => (
-          <IconButton
-            accessibilityLabel="Back"
-            onPress={(): void => {
-              if (router.canGoBack()) router.back();
-              else router.replace(Routes.app.home);
-            }}
-          >
-            <ArrowLeft size={24} color={Colors[theme].foreground} />
-          </IconButton>
-        ),
-      }}
-    />
+    <>
+      <Stack.Screen options={{ headerShown: false, gestureEnabled: true }} />
+      <ScreenHeader
+        title="Organization"
+        backHint="Returns to the event"
+        onBack={(): void => {
+          if (router.canGoBack()) router.back();
+          else router.replace(Routes.app.home);
+        }}
+      />
+    </>
   );
   const business = query.data;
   const website: string | null = businessWebsiteUrl(business?.websiteUrl);
@@ -75,12 +67,13 @@ export default function BusinessProfileScreen(): ReactElement {
         <Loading />
       </View>
     );
-  if (query.error || !business)
+  const failure: Error | null = getQueryFailure(query);
+  if (failure || !business)
     return (
       <View className="flex-1 bg-background">
         {header}
         <ErrorView
-          error={query.error ?? new Error('Organization not found')}
+          error={failure ?? new Error('Organization not found')}
           onRetry={(): void => {
             if (token && businessId) void refetch();
           }}
@@ -123,13 +116,14 @@ export default function BusinessProfileScreen(): ReactElement {
                 {business.name}
               </Text>
               {business.verificationStatus === 'ACTIVE' && (
-                <View className="self-start rounded-full bg-info px-sm py-xs">
+                <View className="flex-row items-center gap-1 self-start rounded-full bg-info px-sm py-xs">
+                  <Check size={14} strokeWidth={2.5} color={Colors[theme]['info-foreground']} />
                   <Text className="text-label-md text-info-foreground">Verified</Text>
                 </View>
               )}
             </View>
             <View className="gap-sm">
-              <Text accessibilityRole="header" className="text-headline-md">
+              <Text accessibilityRole="header" className="font-inter-semibold text-headline-sm">
                 About
               </Text>
               <Text className="text-body-lg">
@@ -138,7 +132,7 @@ export default function BusinessProfileScreen(): ReactElement {
             </View>
             {business.address?.trim() && (
               <View className="gap-sm">
-                <Text accessibilityRole="header" className="text-headline-md">
+                <Text accessibilityRole="header" className="font-inter-semibold text-headline-sm">
                   Organization location
                 </Text>
                 <Text className="text-body-lg">{business.address}</Text>

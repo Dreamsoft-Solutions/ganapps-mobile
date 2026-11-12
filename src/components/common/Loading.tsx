@@ -20,7 +20,7 @@ export function Loading({ message }: LoadingProps): ReactElement {
   return (
     <View className="flex-1 items-center justify-center p-xl">
       <ActivityIndicator size="large" color={color} />
-      {message && <Text className="text-muted-foreground mt-md">{message}</Text>}
+      {message && <Text className="mt-md text-body-md text-muted-foreground">{message}</Text>}
     </View>
   );
 }

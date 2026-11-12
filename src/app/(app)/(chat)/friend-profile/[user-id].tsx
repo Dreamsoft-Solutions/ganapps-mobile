@@ -1,23 +1,25 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Ban, MessageCircle, UserMinus } from 'lucide-react-native';
+import { Ban, MessageCircle, UserMinus } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { Alert, ScrollView, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { Card } from '@/components/common/Card';
 import { ErrorView } from '@/components/common/Error';
-import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
+import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { formatInterestLabel } from '@/constants/interests';
 import { Routes } from '@/constants/routes';
+import { Spacing } from '@/constants/theme';
 import { useUnfriendMutation } from '@/hooks/mutations/useFriendsMutation';
 import { useBlockUserMutation } from '@/hooks/mutations/useModerationMutation';
 import { useFriendProfileQuery } from '@/hooks/queries/useFriendsQuery';
 import { showToast } from '@/store/toast.store';
 import type { FriendGoingItem } from '@/types/friends.types';
 import { getFriendErrorMessage } from '@/utils/friends';
+import { getQueryFailure } from '@/utils/query-failure';
 
 /** Reads a single dynamic route parameter without trusting array-shaped deep-link input. */
 function getUserId(value: string | string[] | undefined): string {
@@ -108,45 +110,35 @@ export default function FriendProfileScreen(): ReactElement {
   };
 
   const header: ReactElement = (
-    <View className="mb-md flex-row items-center">
-      <IconButton
-        accessibilityLabel="Go back"
-        accessibilityHint="Returns to Friends"
-        onPress={(): void => router.back()}
-      >
-        <ArrowLeft size={20} />
-      </IconButton>
-      <Text className="ml-sm font-inter-bold text-headline-md" accessibilityRole="header">
-        Friend profile
-      </Text>
-    </View>
+    <ScreenHeader title="Friend profile" onBack={(): void => router.back()} backHint="Returns to Friends" />
   );
 
-  if (profileQuery.isLoading || profileQuery.error || !profileQuery.data) {
+  const profileFailure: Error | null = getQueryFailure(profileQuery);
+  if (profileQuery.isLoading || profileFailure || !profileQuery.data) {
     const content: ReactElement = profileQuery.isLoading ? (
       <Loading message="Loading profile" />
-    ) : profileQuery.error ? (
-      <ErrorView error={profileQuery.error} onRetry={(): void => void profileQuery.refetch()} />
+    ) : profileFailure ? (
+      <ErrorView error={profileFailure} onRetry={(): void => void profileQuery.refetch()} />
     ) : (
       <ErrorView error={new Error('Profile unavailable')} />
     );
     return (
-      <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-        <View className="px-md">{header}</View>
+      <View className="flex-1 bg-background">
+        {header}
         {content}
-      </SafeAreaView>
+      </View>
     );
   }
 
   const profile = profileQuery.data;
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+    <View className="flex-1 bg-background">
+      {header}
       <ScrollView
         className="flex-1 px-md"
-        contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
+        contentContainerStyle={{ paddingTop: Spacing.sm, paddingBottom: insets.bottom + 96 }}
         showsVerticalScrollIndicator={false}
       >
-        {header}
         <Card>
           <View className="items-center">
             <Avatar src={profile.displayPicture} name={profile.displayName} size="lg" />
@@ -198,29 +190,31 @@ export default function FriendProfileScreen(): ReactElement {
           </View>
         )}
         <View className="mt-lg gap-sm">
-          <Button onPress={handleMessage} leftIcon={<MessageCircle size={17} />}>
+          <Button size="lg" onPress={handleMessage} leftIcon={<MessageCircle />}>
             Message
           </Button>
           <Button
+            size="lg"
             variant="outline"
             onPress={handleUnfriend}
             loading={unfriendMutation.isPending}
             disabled={unfriendMutation.isPending || blockMutation.isPending}
-            leftIcon={<UserMinus size={17} />}
+            leftIcon={<UserMinus />}
           >
             Unfriend
           </Button>
           <Button
+            size="lg"
             variant="destructive"
             onPress={handleBlock}
             loading={blockMutation.isPending}
             disabled={unfriendMutation.isPending || blockMutation.isPending}
-            leftIcon={<Ban size={17} />}
+            leftIcon={<Ban />}
           >
             Block user
           </Button>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

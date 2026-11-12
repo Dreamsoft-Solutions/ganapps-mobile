@@ -38,9 +38,9 @@ export function JoinedGanapsList({
       ? 'No events match your filters.'
       : 'You have not joined any events yet.';
 
-  if (joinedGanaps.isLoading) return <Loading message="Loading joined events..." />;
-  if (joinedGanaps.error) {
-    return <ErrorView error={joinedGanaps.error} onRetry={(): void => void joinedGanaps.refetch()} />;
+  if (joinedGanaps.isLoading) return <Loading message="Loading joined events" />;
+  if (joinedGanaps.failure) {
+    return <ErrorView error={joinedGanaps.failure} onRetry={(): void => void joinedGanaps.refetch()} />;
   }
 
   return (

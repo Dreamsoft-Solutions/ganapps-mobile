@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
+import { Button } from '@/components/common/Button';
 import { Text } from '@/components/common/Text';
 
 interface ReducedAccuracyNoticeProps {
@@ -33,12 +34,12 @@ export function ReducedAccuracyNotice({
         Precise Location is off, so nearby results may be several kilometres out.
       </Text>
       <View className="flex-row gap-md mt-1">
-        <Pressable onPress={onOpenSettings} accessibilityRole="button">
-          <Text className="text-label-md text-primary">Open Settings</Text>
-        </Pressable>
-        <Pressable onPress={onDismiss} accessibilityRole="button">
-          <Text className="text-label-md text-muted-foreground">Dismiss</Text>
-        </Pressable>
+        <Button variant="link" onPress={onOpenSettings}>
+          Open settings
+        </Button>
+        <Button variant="link" onPress={onDismiss}>
+          Dismiss
+        </Button>
       </View>
     </View>
   );

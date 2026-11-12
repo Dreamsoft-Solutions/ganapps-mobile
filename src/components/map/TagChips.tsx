@@ -1,6 +1,7 @@
 import { MapPin } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
+import { chipTextVariants, chipVariants } from '@/components/common/Chip';
 import { Text } from '@/components/common/Text';
 import { Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
@@ -41,17 +42,15 @@ export function TagChips({
         <Pressable
           onPress={onToggleNearby}
           disabled={isNearbyDisabled}
-          className={`flex-row items-center gap-1 rounded-full px-4 py-2 ${
-            isNearbyActive ? 'bg-primary' : 'bg-card border border-border'
-          } ${isNearbyDisabled ? 'opacity-50' : ''}`}
+          className={`flex-row items-center gap-1 ${chipVariants({ selected: isNearbyActive })} ${
+            isNearbyDisabled ? 'opacity-50' : ''
+          }`}
           accessibilityRole="switch"
           accessibilityLabel="Show events near me"
           accessibilityState={{ checked: isNearbyActive, disabled: isNearbyDisabled }}
         >
           <MapPin size={14} color={iconColor} />
-          <Text className={`text-label-md ${isNearbyActive ? 'text-primary-foreground' : 'text-foreground'}`}>
-            Nearby
-          </Text>
+          <Text className={chipTextVariants({ selected: isNearbyActive })}>Nearby</Text>
         </Pressable>
       </View>
 
@@ -66,11 +65,11 @@ export function TagChips({
             <Pressable
               key={tag}
               onPress={(): void => onSelectTag(tag === 'All' ? null : tag)}
-              className={`rounded-full px-4 py-2 ${isActive ? 'bg-primary' : 'bg-card border border-border'}`}
+              className={chipVariants({ selected: isActive })}
               accessibilityLabel={`Filter by ${tag}`}
               accessibilityState={{ selected: isActive }}
             >
-              <Text className={`text-label-md ${isActive ? 'text-primary-foreground' : 'text-foreground'}`}>{tag}</Text>
+              <Text className={chipTextVariants({ selected: isActive })}>{tag}</Text>
             </Pressable>
           );
         })}

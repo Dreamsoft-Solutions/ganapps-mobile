@@ -35,6 +35,7 @@
     "expo-location": "~57.0.16",
     "expo-media-library": "~57.0.5",
     "expo-navigation-bar": "~57.0.2",
+    "expo-network": "~57.0.3",
     "expo-notifications": "~57.0.8",
     "expo-router": "~57.0.2",
     "expo-secure-store": "^57.0.1",
@@ -107,8 +108,7 @@
     "eas-build-post-install": "node scripts/check-play-release.cjs",
     "check:play-release": "node --env-file-if-exists=.env scripts/check-play-release.cjs --production",
     "eas:preview": "eas build --platform all --profile preview",
-    "prepare": "husky",
-    "reset-project": "node ./scripts/reset-project.js"
+    "prepare": "husky"
   },
   "private": true
 }

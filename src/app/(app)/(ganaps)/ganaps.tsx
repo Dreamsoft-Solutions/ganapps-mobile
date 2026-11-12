@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SegmentControl, type SegmentControlOption } from '@/components/common/SegmentControl';
-import { Text } from '@/components/common/Text';
 import { BAR_HEIGHT } from '@/components/navigation/AppTabBar';
+import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { JoinedGanapsFilterBar } from '@/components/profile/JoinedGanapsFilterBar';
 import { JoinedGanapsList } from '@/components/profile/JoinedGanapsList';
 import { SavedGanapsList } from '@/components/profile/SavedGanapsList';
@@ -32,11 +32,7 @@ export default function GanapsScreen(): ReactElement {
 
   return (
     <View className="flex-1 bg-background">
-      <View testID="my-events-heading-container" className="px-md" style={{ paddingTop: insets.top + Spacing.md }}>
-        <Text accessibilityRole="header" className="font-inter-bold text-headline-md">
-          My Events
-        </Text>
-      </View>
+      <ScreenHeader title="My events" />
       <View className="px-md pt-sm">
         <SegmentControl<MyEventsSegment>
           value={segment}

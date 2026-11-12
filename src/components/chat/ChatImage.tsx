@@ -61,9 +61,11 @@ function ViewerContent({
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
       <View className="flex-row items-center justify-between px-md py-sm">
-        <Text className="min-w-0 flex-1 text-headline-sm">Photo from {senderUsername}</Text>
+        <Text className="min-w-0 flex-1 font-inter-bold text-headline-md" numberOfLines={1} accessibilityRole="header">
+          Photo from {senderUsername}
+        </Text>
         <IconButton accessibilityLabel="Close photo" onPress={onClose}>
-          <X size={24} color={Colors[theme].foreground} />
+          <X size={20} color={Colors[theme].foreground} />
         </IconButton>
       </View>
       <View className="flex-1 items-center justify-center">
@@ -115,7 +117,8 @@ export function ChatImageViewer(props: ChatImageViewerProps): ReactElement | nul
       visible
       animationType={reducedMotion ? 'none' : 'fade'}
       onRequestClose={props.onClose}
-      presentationStyle="fullScreen"
+      presentationStyle="overFullScreen"
+      accessibilityViewIsModal
     >
       <ViewerContent key={`${props.media.id}-${props.media.url}-${props.reloadToken}`} {...props} />
     </Modal>

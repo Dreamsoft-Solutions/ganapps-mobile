@@ -6,6 +6,7 @@ import { Pressable, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import { Empty } from '@/components/common/Empty';
 import { ErrorView } from '@/components/common/Error';
+import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { GanapFeedCard } from '@/components/lists/GanapFeedCard';
@@ -98,7 +99,7 @@ function FeedSheetHeader({ title, mode, onZoomIn, onClose }: FeedSheetHeaderProp
       <View className="h-1 w-10 self-center rounded-full" style={{ backgroundColor: Colors[theme].border }} />
 
       <View className="mt-sm flex-row items-center justify-between px-md pb-xs">
-        <Text accessibilityRole="header" className="font-inter-bold text-body-xl text-foreground">
+        <Text accessibilityRole="header" className="font-inter-bold text-headline-sm text-foreground">
           {title}
         </Text>
 
@@ -113,14 +114,9 @@ function FeedSheetHeader({ title, mode, onZoomIn, onClose }: FeedSheetHeaderProp
               <ZoomIn size={HEADER_ACTION_ICON_SIZE} color={Colors[theme].primary} />
             </Pressable>
           )}
-          <Pressable
-            onPress={onClose}
-            hitSlop={HEADER_ACTION_HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel="Close events list"
-          >
-            <X size={HEADER_ACTION_ICON_SIZE} color={Colors[theme]['muted-foreground']} />
-          </Pressable>
+          <IconButton size="sm" accessibilityLabel="Close events list" onPress={onClose}>
+            <X size={HEADER_ACTION_ICON_SIZE} color={Colors[theme].foreground} />
+          </IconButton>
         </View>
       </View>
     </View>
@@ -157,17 +153,17 @@ function FeedSheetBody({
     return (
       <BottomSheetView>
         <View className="h-40">
-          <Loading message="Finding events..." />
+          <Loading message="Finding events" />
         </View>
       </BottomSheetView>
     );
   }
 
-  if (mode === 'browse' && feed.error) {
+  if (mode === 'browse' && feed.failure) {
     return (
       <BottomSheetView>
         <View className="h-40">
-          <ErrorView error={feed.error} />
+          <ErrorView error={feed.failure} />
         </View>
       </BottomSheetView>
     );

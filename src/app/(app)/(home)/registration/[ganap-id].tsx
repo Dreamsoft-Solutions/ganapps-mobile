@@ -9,9 +9,11 @@ import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { DynamicForm } from '@/components/forms/DynamicForm';
+import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { ganapQueryKeys, useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { useGanapRegistration } from '@/hooks/useGanapRegistration';
 import type { GanapDetail, SubmitFormAnswersInput } from '@/types/ganap.types';
+import { getQueryFailure } from '@/utils/query-failure';
 
 /**
  * Registration form route for a single Ganap.
@@ -80,12 +82,29 @@ export default function RegistrationFormRoute(): ReactElement {
     [ganapId, queryClient, registration.submit, router],
   );
 
-  if (detailQuery.isLoading || registration.isLoading) return <Loading />;
-  if (detailQuery.error)
-    return <ErrorView error={detailQuery.error} onRetry={(): void => void detailQuery.refetch()} />;
-  if (registration.error)
-    return <ErrorView error={registration.error} onRetry={(): void => void registration.refetch()} />;
-  if (!detailQuery.data) return <ErrorView error={new Error('Event not found')} />;
+  const failure: Error | null = getQueryFailure(detailQuery) ?? registration.failure;
+  if (detailQuery.isLoading || registration.isLoading || failure || !detailQuery.data) {
+    return (
+      <View className="flex-1 bg-background">
+        <ScreenHeader title="Registration" onBack={requestBack} backHint="Returns to event details" />
+        {detailQuery.isLoading || registration.isLoading ? (
+          <Loading />
+        ) : (
+          <ErrorView
+            error={failure ?? new Error('Event not found')}
+            onRetry={
+              failure
+                ? (): void => {
+                    void detailQuery.refetch();
+                    void registration.refetch();
+                  }
+                : undefined
+            }
+          />
+        )}
+      </View>
+    );
+  }
 
   if (!registration.blocks || registration.blocks.length === 0) {
     return (
@@ -95,9 +114,9 @@ export default function RegistrationFormRoute(): ReactElement {
           This event is not ready to accept registration answers yet.
         </Text>
         <Button variant="outline" onPress={(): void => void registration.refetch()}>
-          Try Again
+          Try again
         </Button>
-        <Button variant="ghost" onPress={requestBack}>
+        <Button variant="outline" size="lg" onPress={requestBack}>
           Back to event
         </Button>
       </View>

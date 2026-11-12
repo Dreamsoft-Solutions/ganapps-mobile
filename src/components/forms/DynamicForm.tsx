@@ -1,12 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { Text } from '@/components/common/Text';
+import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { Spacing } from '@/constants/theme';
 import type { FormBlock, RegistrationFormData, SubmitFormAnswersInput } from '@/types/ganap.types';
 import { buildRegistrationFormDefaults, buildSubmitFormAnswersInput } from '@/utils/registration-form';
@@ -83,26 +83,14 @@ export function DynamicForm({
         className="flex-1 bg-background"
         keyboardVerticalOffset={insets.top}
       >
-        <View className="flex-1" style={{ paddingTop: insets.top + Spacing.sm }}>
-          <View className="flex-row items-center gap-sm border-b border-border px-md py-sm">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-              accessibilityHint="Returns to event details"
-              className="min-h-touch min-w-touch items-center justify-center rounded-full active:opacity-70"
-              onPress={onBack}
-            >
-              <ArrowLeft size={24} className="text-foreground" />
-            </Pressable>
-            <View className="min-w-0 flex-1">
-              <Text className="text-headline-md" accessibilityRole="header">
-                {title}
-              </Text>
-              <Text className="text-body-md text-muted-foreground" numberOfLines={2}>
-                {ganapTitle}
-              </Text>
-            </View>
-          </View>
+        <View className="flex-1">
+          <ScreenHeader
+            title={title}
+            subtitle={ganapTitle}
+            onBack={onBack}
+            backHint="Returns to event details"
+            bordered
+          />
 
           <ScrollView
             className="flex-1"
