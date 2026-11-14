@@ -226,7 +226,6 @@ export function ModerationActionSheet({
         <Text accessibilityLiveRegion="polite" className="text-body-md text-destructive">
           {getModerationErrorMessage(error, fallback)}
         </Text>
-        <Text className="mt-xs text-body-md text-muted-foreground">You can try again.</Text>
       </View>
     );
   };
