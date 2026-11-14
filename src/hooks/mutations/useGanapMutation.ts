@@ -1,9 +1,24 @@
-import { type InfiniteData, type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  type InfiniteData,
+  type Query,
+  type QueryClient,
+  type UseMutationResult,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
-import type { PaginatedResponse } from '@/api/types/api-response';
-import { enqueueOutbox } from '@/services/sync.service';
+import type { CursorPage, PaginatedResponse } from '@/api/types/api-response';
+import {
+  classifyReplayError,
+  enqueueOutbox,
+  queueBehindPendingToggle,
+  type ToggleCommand,
+} from '@/services/sync.service';
+import { useAuthStore } from '@/store/auth.store';
 import type {
   CheckInResult,
+  GanapDetail,
+  GanapListItem,
   GanapRating,
   GanapReportReceipt,
   JoinGanapResult,
@@ -142,31 +157,241 @@ export function useSubmitFeedbackMutation(): UseMutationResult<SubmitFeedbackRes
   });
 }
 
+/** The fields of a Ganap that a like or save changes. */
+interface GanapEngagement {
+  isLiked?: boolean;
+  isSaved?: boolean;
+  likesCount?: number;
+}
+
+/** Rewrites one cached copy of a Ganap, returning the same object when nothing changes. */
+type GanapEngagementUpdate = <T extends GanapEngagement>(ganap: T) => T;
+
+type GanapListPage = CursorPage<GanapListItem>;
+type GanapListCache = GanapListPage | InfiniteData<GanapListPage, string | undefined>;
+
+/** How a like or save left the device: sent to the server, or queued for replay. */
+export type ToggleOutcome = 'sent' | 'queued';
+
+/**
+ * Marks a cached Ganap liked or unliked and moves its like count with it.
+ *
+ * @param ganap - A cached detail or list item
+ * @param isLiked - The liked state to show
+ * @returns The updated copy, or the same object when it already shows that state
+ */
+function withLiked<T extends GanapEngagement>(ganap: T, isLiked: boolean): T {
+  if ((ganap.isLiked ?? false) === isLiked) return ganap;
+  if (typeof ganap.likesCount !== 'number') return { ...ganap, isLiked };
+  return { ...ganap, isLiked, likesCount: Math.max(0, ganap.likesCount + (isLiked ? 1 : -1)) };
+}
+
+/**
+ * Marks a cached Ganap saved or unsaved.
+ *
+ * @param ganap - A cached detail or list item
+ * @param isSaved - The saved state to show
+ * @returns The updated copy, or the same object when it already shows that state
+ */
+function withSaved<T extends GanapEngagement>(ganap: T, isSaved: boolean): T {
+  return (ganap.isSaved ?? false) === isSaved ? ganap : { ...ganap, isSaved };
+}
+
+/**
+ * Reads the pages of a cached map, filter or feed list.
+ *
+ * @param data - The cached query data
+ * @returns Its pages, or none when the data is not a Ganap list
+ */
+function listPages(data: unknown): GanapListPage[] {
+  if (typeof data !== 'object' || data === null) return [];
+  if ('pages' in data) return (data as InfiniteData<GanapListPage>).pages;
+  return 'items' in data ? [data as GanapListPage] : [];
+}
+
+/**
+ * Applies an update to one Ganap within a cached list page.
+ *
+ * @param page - A cached page of list items
+ * @param ganapId - Id of the Ganap to update
+ * @param update - The change to apply
+ * @returns The updated page, or the same page when it does not change
+ */
+function updateGanapInPage(page: GanapListPage, ganapId: string, update: GanapEngagementUpdate): GanapListPage {
+  let changed = false;
+  const items: GanapListItem[] = page.items.map((item: GanapListItem): GanapListItem => {
+    if (item.id !== ganapId) return item;
+    const next: GanapListItem = update(item);
+    if (next !== item) changed = true;
+    return next;
+  });
+  return changed ? { ...page, items } : page;
+}
+
+/**
+ * Applies an update to one Ganap in a cached map, filter or feed list.
+ *
+ * @param data - A single page (map and filters) or paged feed data
+ * @param ganapId - Id of the Ganap to update
+ * @param update - The change to apply
+ * @returns The updated data, or the same data when it does not change
+ */
+function updateGanapInList(data: GanapListCache, ganapId: string, update: GanapEngagementUpdate): GanapListCache {
+  if (!('pages' in data)) return updateGanapInPage(data, ganapId, update);
+
+  const pages: GanapListPage[] = data.pages.map(
+    (page: GanapListPage): GanapListPage => updateGanapInPage(page, ganapId, update),
+  );
+  const changed: boolean = pages.some((page: GanapListPage, index: number): boolean => page !== data.pages[index]);
+  return changed ? { ...data, pages } : data;
+}
+
+/**
+ * Shows a like or save, or takes one back, on every cached copy of one Ganap.
+ *
+ * Only queries that hold the Ganap are touched: their in-flight refetches are
+ * cancelled first so an older response cannot overwrite the change, and a copy
+ * that already shows the state is left alone, so unrelated lists keep their
+ * freshness and pending invalidations.
+ *
+ * @param queryClient - The app's query client
+ * @param ganapId - Id of the Ganap being toggled
+ * @param update - The change to show
+ * @returns Nothing
+ */
+async function showGanapToggle(
+  queryClient: QueryClient,
+  ganapId: string,
+  update: GanapEngagementUpdate,
+): Promise<void> {
+  const detailKey = ganapQueryKeys.detail(ganapId);
+  const holdsGanap = (query: Query): boolean =>
+    listPages(query.state.data).some((page: GanapListPage): boolean =>
+      page.items.some((item: GanapListItem): boolean => item.id === ganapId),
+    );
+  await Promise.all([
+    queryClient.cancelQueries({ queryKey: detailKey, exact: true }),
+    queryClient.cancelQueries({ queryKey: ganapQueryKeys.lists(), predicate: holdsGanap }),
+  ]);
+
+  queryClient.setQueryData<GanapDetail>(detailKey, (data: GanapDetail | undefined): GanapDetail | undefined => {
+    if (data === undefined) return undefined;
+    const next: GanapDetail = update(data);
+    return next === data ? undefined : next;
+  });
+  queryClient.setQueriesData<GanapListCache>(
+    { queryKey: ganapQueryKeys.lists(), predicate: holdsGanap },
+    (data: GanapListCache | undefined): GanapListCache | undefined => {
+      if (data === undefined) return undefined;
+      const next: GanapListCache = updateGanapInList(data, ganapId, update);
+      return next === data ? undefined : next;
+    },
+  );
+}
+
+/**
+ * Sends a like or save, or queues it when that is the only safe way to deliver it.
+ *
+ * It is queued without a request when an older like or save for the same Ganap
+ * is still queued, so the two reach the server in order. It is also queued when
+ * the request gets no response. A rejection that carries a status is a real
+ * answer from the server and rejects.
+ *
+ * @param command - The like, unlike, save or unsave
+ * @param send - Sends it to the server
+ * @returns Whether it was sent or queued
+ * @throws The server's rejection, or the transport failure when it could not be queued
+ */
+async function sendOrQueueToggle(command: ToggleCommand, send: () => Promise<void>): Promise<ToggleOutcome> {
+  if (await queueBehindPendingToggle(command).catch((): boolean => false)) return 'queued';
+
+  try {
+    await send();
+    return 'sent';
+  } catch (error) {
+    if (error instanceof Error && shouldQueueForReplay(error)) {
+      const queued: boolean = await enqueueOutbox(command).catch((): boolean => false);
+      if (queued) return 'queued';
+    }
+    throw error;
+  }
+}
+
+/**
+ * Whether a failed like or save belongs to the user who is still signed in.
+ *
+ * A rejection can arrive after sign-out; changing the cache then would write one
+ * user's state into the cache the next user starts from.
+ *
+ * @param ownerId - The user who made the like or save
+ * @returns True when that user is still signed in
+ */
+function isStillSignedIn(ownerId: string): boolean {
+  return useAuthStore.getState().user?.id === ownerId;
+}
+
+/**
+ * Refreshes every cache that shows these Ganaps' like or save state.
+ *
+ * The outbox drain calls this once a pass has sent the queued likes and saves it
+ * could reach, so the screen shows the server's answer either way.
+ *
+ * @param queryClient - The app's query client
+ * @param ganapIds - Ids of the Ganaps whose like or save settled
+ * @returns Nothing
+ */
+export function refreshGanapEngagement(queryClient: QueryClient, ganapIds: string[]): void {
+  ganapIds.forEach((ganapId: string): void => {
+    queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
+  });
+  queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
+  queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });
+}
+
 /**
  * Toggles the current user's like on a Ganap.
  *
+ * The heart and like count change before the request settles and stay changed
+ * when the like is queued. A 400 or 404 means the server already holds the
+ * state the user chose, so the Ganap refreshes without an error. Any other
+ * rejection puts the heart back and shows the error.
+ *
  * @returns The mutation, taking the Ganap id and its current liked state
  */
-export function useLikeGanapMutation(): UseMutationResult<void, Error, ToggleLikeVariables> {
+export function useLikeGanapMutation(): UseMutationResult<ToggleOutcome, Error, ToggleLikeVariables> {
   const queryClient = useQueryClient();
 
-  return useMutation<void, Error, ToggleLikeVariables>({
-    mutationFn: ({ ganapId, isLiked, ownerId }: ToggleLikeVariables): Promise<void> =>
-      isLiked ? ganapsAPI.unlike(ganapId, ownerId) : ganapsAPI.like(ganapId, ownerId),
-    onSuccess: (_result: unknown, { ganapId }: ToggleLikeVariables): void => {
+  return useMutation<ToggleOutcome, Error, ToggleLikeVariables>({
+    mutationFn: ({ ganapId, isLiked, ownerId }: ToggleLikeVariables): Promise<ToggleOutcome> =>
+      sendOrQueueToggle(
+        { action: isLiked ? 'unlike' : 'like', ganapId, ownerId },
+        (): Promise<void> => (isLiked ? ganapsAPI.unlike(ganapId, ownerId) : ganapsAPI.like(ganapId, ownerId)),
+      ),
+    onMutate: async ({ ganapId, isLiked }: ToggleLikeVariables): Promise<void> => {
+      await showGanapToggle(
+        queryClient,
+        ganapId,
+        <T extends GanapEngagement>(ganap: T): T => withLiked(ganap, !isLiked),
+      );
+    },
+    onSuccess: (outcome: ToggleOutcome, { ganapId }: ToggleLikeVariables): void => {
+      if (outcome !== 'sent') return;
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
       queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
     },
     onError: async (error: Error, { ganapId, isLiked, ownerId }: ToggleLikeVariables): Promise<void> => {
-      if (shouldQueueForReplay(error)) {
-        const queued = await enqueueOutbox({ action: isLiked ? 'unlike' : 'like', ganapId, ownerId }).catch(
-          () => false,
+      if (!isStillSignedIn(ownerId)) return;
+      if (classifyReplayError(isLiked ? 'unlike' : 'like', error) !== 'success') {
+        await showGanapToggle(
+          queryClient,
+          ganapId,
+          <T extends GanapEngagement>(ganap: T): T => withLiked(ganap, isLiked),
         );
-        if (queued) return;
+        showErrorToast(error);
       }
-      showErrorToast(error);
+      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
     },
-    /** A queued like is not a failure, so this mutation toasts only the errors it could not queue. */
+    /** This mutation decides which failures to show, so the global error toast stays out of it. */
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }
@@ -210,20 +435,34 @@ function removeSavedGanap(data: SavedGanapsData, ganapId: string): SavedGanapsDa
 /**
  * Toggles the current user's save on a Ganap.
  *
- * An unsave removes the row from the cached saved list before the request
- * settles. A server rejection restores it; a transport failure keeps it removed
- * and queues the unsave for replay, since the user's intent is recorded and
- * will reach the server.
+ * The bookmark changes before the request settles, and an unsave also removes
+ * the row from the cached saved list; both stay when the save is queued. A 400
+ * or 404 means the server already holds the state the user chose, so the
+ * caches refresh without an error. Any other rejection puts both back and
+ * shows the error.
  *
  * @returns The mutation, taking the Ganap id and its current saved state
  */
-export function useSaveGanapMutation(): UseMutationResult<void, Error, ToggleSaveVariables, SaveMutationContext> {
+export function useSaveGanapMutation(): UseMutationResult<
+  ToggleOutcome,
+  Error,
+  ToggleSaveVariables,
+  SaveMutationContext
+> {
   const queryClient = useQueryClient();
 
-  return useMutation<void, Error, ToggleSaveVariables, SaveMutationContext>({
-    mutationFn: ({ ganapId, isSaved, ownerId }: ToggleSaveVariables): Promise<void> =>
-      isSaved ? ganapsAPI.unsave(ganapId, ownerId) : ganapsAPI.save(ganapId, ownerId),
+  return useMutation<ToggleOutcome, Error, ToggleSaveVariables, SaveMutationContext>({
+    mutationFn: ({ ganapId, isSaved, ownerId }: ToggleSaveVariables): Promise<ToggleOutcome> =>
+      sendOrQueueToggle(
+        { action: isSaved ? 'unsave' : 'save', ganapId, ownerId },
+        (): Promise<void> => (isSaved ? ganapsAPI.unsave(ganapId, ownerId) : ganapsAPI.save(ganapId, ownerId)),
+      ),
     onMutate: async ({ ganapId, isSaved }: ToggleSaveVariables): Promise<SaveMutationContext> => {
+      await showGanapToggle(
+        queryClient,
+        ganapId,
+        <T extends GanapEngagement>(ganap: T): T => withSaved(ganap, !isSaved),
+      );
       if (!isSaved) return { previousSaved: [] };
 
       await queryClient.cancelQueries({ queryKey: profileQueryKeys.savedGanapsRoot() });
@@ -238,29 +477,32 @@ export function useSaveGanapMutation(): UseMutationResult<void, Error, ToggleSav
 
       return { previousSaved };
     },
-    onSuccess: (_result: unknown, { ganapId }: ToggleSaveVariables): void => {
-      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
-      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: profileQueryKeys.all });
+    onSuccess: (outcome: ToggleOutcome, { ganapId }: ToggleSaveVariables): void => {
+      if (outcome === 'sent') refreshGanapEngagement(queryClient, [ganapId]);
     },
     onError: async (
       error: Error,
       { ganapId, isSaved, ownerId }: ToggleSaveVariables,
       context: SaveMutationContext | undefined,
     ): Promise<void> => {
-      if (shouldQueueForReplay(error)) {
-        const queued = await enqueueOutbox({ action: isSaved ? 'unsave' : 'save', ganapId, ownerId }).catch(
-          () => false,
-        );
-        if (queued) return;
+      if (!isStillSignedIn(ownerId)) return;
+      if (classifyReplayError(isSaved ? 'unsave' : 'save', error) === 'success') {
+        refreshGanapEngagement(queryClient, [ganapId]);
+        return;
       }
 
+      await showGanapToggle(
+        queryClient,
+        ganapId,
+        <T extends GanapEngagement>(ganap: T): T => withSaved(ganap, isSaved),
+      );
       context?.previousSaved.forEach(([key, data]: [readonly unknown[], SavedGanapsData | undefined]): void => {
         queryClient.setQueryData(key, data);
       });
+      queryClient.invalidateQueries({ queryKey: ganapQueryKeys.detail(ganapId) });
       showErrorToast(error);
     },
-    /** A queued save is not a failure, so this mutation toasts only the errors it could not queue. */
+    /** This mutation decides which failures to show, so the global error toast stays out of it. */
     meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
   });
 }

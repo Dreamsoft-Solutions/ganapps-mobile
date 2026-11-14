@@ -13,6 +13,7 @@ import { Loading } from '@/components/common/Loading';
 import { ToastHost } from '@/components/common/ToastHost';
 import { Routes } from '@/constants/routes';
 import { db } from '@/db';
+import { refreshGanapEngagement } from '@/hooks/mutations/useGanapMutation';
 import { useNotificationQuerySync } from '@/hooks/useNotificationQuerySync';
 import { RootProvider } from '@/providers/RootProvider';
 import { ThemeProvider } from '@/providers/ThemeProvider';
@@ -80,6 +81,9 @@ function RootLayoutNav(): ReactElement {
     return startOutboxDrain({
       onCheckInSettled: (outcome: CheckInReplayOutcome): void => {
         handleCheckInReplayOutcome(queryClient, outcome);
+      },
+      onTogglesSettled: (ganapIds: string[]): void => {
+        refreshGanapEngagement(queryClient, ganapIds);
       },
     });
   }, [migrationsReady, isHydrated, token, userId, queryClient]);
