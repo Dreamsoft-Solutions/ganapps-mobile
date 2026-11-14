@@ -308,6 +308,8 @@ function EventDetailContent({
   friendsGoingError,
   hasMoreFriendsGoing,
 }: EventDetailContentProps): ReactElement {
+  const likesCount: number = ganap.likesCount ?? 0;
+
   return (
     <View className="px-md">
       <Text className="mt-lg text-headline-lg" accessibilityRole="header">
@@ -346,7 +348,9 @@ function EventDetailContent({
           <View className="mr-xs">
             <Heart size={16} className="text-muted-foreground" />
           </View>
-          <Text className="text-body-md text-muted-foreground">{ganap.likesCount ?? 0} likes</Text>
+          <Text className="text-body-md text-muted-foreground">
+            {`${likesCount} ${likesCount === 1 ? 'like' : 'likes'}`}
+          </Text>
         </View>
       </View>
 
