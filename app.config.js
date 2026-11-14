@@ -182,7 +182,7 @@ module.exports = {
           ios: {
             useFrameworks: 'static',
             usePrecompiledModules: false,
-            forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBRemoteConfig'],
+            forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBMessaging', 'RNFBRemoteConfig'],
           },
         },
       ],

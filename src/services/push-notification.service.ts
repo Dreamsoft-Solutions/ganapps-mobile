@@ -1,20 +1,26 @@
+import { getMessaging, getToken, onTokenRefresh } from '@react-native-firebase/messaging';
 import type { EventSubscription } from 'expo-modules-core';
 import type {
   DevicePushToken,
   Notification,
   NotificationBehavior,
   NotificationChannelInput,
+  NotificationPermissionsStatus,
   NotificationResponse,
+  NotificationTrigger,
 } from 'expo-notifications';
 import * as Notifications from 'expo-notifications';
 import type { Href } from 'expo-router';
-import { Platform } from 'react-native';
+import { AppState, type AppStateStatus, Platform } from 'react-native';
 import { pushTokensAPI } from '@/api/endpoints/push-tokens';
 import type { NotificationData } from '@/types/notification.types';
-import { notificationRoute, parseNotificationData } from '@/utils/notification';
+import { notificationRoute, parseNotificationData, pickNotificationDataFields } from '@/utils/notification';
 
 /** Stable Android channel used for registration-status notifications. */
 export const ANDROID_NOTIFICATION_CHANNEL_ID: string = 'registration-status';
+
+/** Longest logout waits for each push-token revoke attempt before it signs the session out anyway. */
+export const PUSH_TOKEN_REVOKE_TIMEOUT_MS: number = 5000;
 
 /** Native source that produced a validated registration-status notification delivery. */
 export type NotificationDeliverySource = 'foreground' | 'response' | 'cold-start';
@@ -46,6 +52,14 @@ let pendingNotification: { target: Href } | null = null;
 const seenResponseKeys: Set<string> = new Set();
 const notificationDataListeners: Set<NotificationDataListener> = new Set();
 const pendingNotificationListeners: Set<(target: Href | null) => void> = new Set();
+let activeIosTokenSync: IosPushTokenSync | null = null;
+let pushTokenRegistrationSuspended: boolean = false;
+
+/** Lifetime of one signed-in iOS token sync, and the token it last sent to the API. */
+interface IosPushTokenSync {
+  isActive: () => boolean;
+  registeredToken: string | null;
+}
 
 /**
  * Configures foreground notification presentation with the current Expo behavior fields.
@@ -86,7 +100,7 @@ export async function ensureAndroidNotificationChannel(): Promise<void> {
  * @returns The Android device token, or `null` when this is not Android or permission is denied.
  * @throws Re-throws native permission/token errors for the caller's best-effort boundary.
  */
-export async function getAndroidDevicePushToken(): Promise<string | null> {
+async function getAndroidDevicePushToken(): Promise<string | null> {
   if (Platform.OS !== 'android') return null;
 
   await ensureAndroidNotificationChannel();
@@ -104,7 +118,7 @@ export async function getAndroidDevicePushToken(): Promise<string | null> {
  *
  * @returns A cleanup function that stops the rotation listener and invalidates in-flight startup work.
  */
-export function startAndroidPushTokenSync(): () => void {
+function startAndroidPushTokenSync(): () => void {
   if (Platform.OS !== 'android') return (): void => {};
 
   let active: boolean = true;
@@ -129,16 +143,64 @@ export function startAndroidPushTokenSync(): () => void {
 }
 
 /**
- * Revokes all current-user push tokens without delaying logout.
+ * Stops registering tokens and revokes every push token the server holds for the current User.
  *
- * @returns A promise that always resolves after the best-effort request finishes or fails.
+ * Logout awaits this before it ends the session: once logout has revoked the access token, the server answers this
+ * request with 401 and the tokens stay registered. Registration stays suspended until the next
+ * {@link startPushTokenSync}, so a token rotated during logout cannot be registered again for the User signing out.
+ * Each request attempt is capped at {@link PUSH_TOKEN_REVOKE_TIMEOUT_MS}.
+ *
+ * @returns A promise that always resolves after the best-effort request finishes, fails or times out.
  */
-export async function revokeRegisteredAndroidPushToken(): Promise<void> {
+export async function revokeRegisteredPushTokens(): Promise<void> {
+  pushTokenRegistrationSuspended = true;
   try {
-    await pushTokensAPI.revoke();
+    await pushTokensAPI.revoke({ timeout: PUSH_TOKEN_REVOKE_TIMEOUT_MS });
   } catch {
     // Push-token cleanup must never block logout or show a global error toast.
   }
+}
+
+/**
+ * Starts push-token synchronization for the signed-in User and re-registers every rotated token.
+ *
+ * Android asks for notification permission here whenever it is not granted, as it always has. iOS only reads the
+ * permission here; its prompt waits for {@link requestPushPermissionInContext}.
+ *
+ * @returns A cleanup function that stops the rotation listener and invalidates in-flight startup work.
+ */
+export function startPushTokenSync(): () => void {
+  pushTokenRegistrationSuspended = false;
+  if (Platform.OS === 'ios') return startIosPushTokenSync();
+  return startAndroidPushTokenSync();
+}
+
+/**
+ * Shows the iOS notification prompt right after the User registers for an event, then registers the token.
+ *
+ * iOS shows its system prompt once per install, so it waits for a moment the User can connect it to: updates about the
+ * registration they just made (ADR 0008). It does nothing:
+ *
+ * - on Android, which asks on the first signed-in launch;
+ * - once the User has answered the iOS prompt, either way;
+ * - while no signed-in token sync is running.
+ *
+ * @returns A promise that always resolves. Permission, token and network failures stay silent.
+ */
+export async function requestPushPermissionInContext(): Promise<void> {
+  const sync = activeIosTokenSync;
+  if (Platform.OS !== 'ios' || sync === null) return;
+
+  try {
+    const current = await Notifications.getPermissionsAsync();
+    if (current.ios?.status !== Notifications.IosAuthorizationStatus.NOT_DETERMINED || !sync.isActive()) return;
+    const requested = await Notifications.requestPermissionsAsync();
+    if (!isIosPushAuthorized(requested)) return;
+  } catch {
+    return;
+  }
+
+  await syncCurrentIosToken(sync);
 }
 
 /**
@@ -157,7 +219,7 @@ export function startNotificationResponseObserver(listener?: NotificationDataLis
   if (foregroundSubscription === null) {
     try {
       foregroundSubscription = Notifications.addNotificationReceivedListener((notification: Notification): void => {
-        emitNotificationDelivery(notification.request.content.data, 'foreground');
+        emitNotificationDelivery(getNotificationDataValue(notification), 'foreground');
       });
     } catch {
       foregroundSubscription = null;
@@ -272,7 +334,7 @@ function queueNotificationResponse(
     if (typeof oldestKey === 'string') seenResponseKeys.delete(oldestKey);
   }
 
-  const notificationValue = response.notification.request.content.data;
+  const notificationValue = getNotificationDataValue(response.notification);
   const data = emitNotificationDelivery(notificationValue, source);
   if (data === null) return;
 
@@ -360,13 +422,177 @@ async function syncKnownAndroidToken(deviceToken: DevicePushToken, isActive: () 
 }
 
 /**
- * Sends an Android token to the API.
+ * Sends an Android token to the API, unless a logout has suspended registration.
  *
  * @param token - Native Android token to associate with the current User.
- * @returns A promise that resolves after the API request.
+ * @returns A promise that resolves after the API request, or at once while registration is suspended.
  */
 async function registerAndroidToken(token: string): Promise<void> {
+  if (pushTokenRegistrationSuspended) return;
   await pushTokensAPI.register({ token, platform: 'android' });
+}
+
+/**
+ * Starts iOS token synchronization without prompting, and follows Firebase token rotation.
+ *
+ * It registers a token only when the User already allows notifications, and checks again each time the app returns to
+ * the foreground, which covers notifications turned on in iOS Settings and a registration that failed earlier. The
+ * prompt itself waits for {@link requestPushPermissionInContext}, which reuses this sync through `activeIosTokenSync`.
+ *
+ * @returns A cleanup function that stops the listeners and invalidates in-flight work.
+ */
+function startIosPushTokenSync(): () => void {
+  let active: boolean = true;
+  const sync: IosPushTokenSync = { isActive: (): boolean => active, registeredToken: null };
+  let unsubscribeTokenRefresh: (() => void) | null = null;
+  activeIosTokenSync = sync;
+
+  try {
+    unsubscribeTokenRefresh = onTokenRefresh(getMessaging(), (token: string): void => {
+      if (!active) return;
+      void syncRotatedIosToken(token, sync);
+    });
+  } catch {
+    unsubscribeTokenRefresh = null;
+  }
+
+  const appStateSubscription = AppState.addEventListener('change', (state: AppStateStatus): void => {
+    if (state === 'active' && active) void syncCurrentIosToken(sync);
+  });
+
+  void syncCurrentIosToken(sync);
+
+  return (): void => {
+    if (!active) return;
+    active = false;
+    if (activeIosTokenSync === sync) activeIosTokenSync = null;
+    unsubscribeTokenRefresh?.();
+    appStateSubscription.remove();
+  };
+}
+
+/**
+ * Reads the iOS Firebase Cloud Messaging token without showing the permission prompt.
+ *
+ * React Native Firebase registers the app with APNs at launch, so Firebase can issue the token as soon as the User has
+ * allowed notifications.
+ *
+ * @returns The token, or `null` while the User has not allowed notifications.
+ * @throws Re-throws native permission/token errors for the caller's best-effort boundary.
+ */
+async function getIosPushToken(): Promise<string | null> {
+  const permissions = await Notifications.getPermissionsAsync();
+  if (!isIosPushAuthorized(permissions)) return null;
+
+  const token = await getToken(getMessaging());
+  return token.length > 0 ? token : null;
+}
+
+/**
+ * Tells whether iOS will deliver notifications to this app.
+ *
+ * Expo reports provisional and ephemeral authorization as `undetermined`, so this reads the native iOS status.
+ *
+ * @param permissions - Permission status returned by Expo Notifications.
+ * @returns `true` when iOS has authorized notifications, provisionally or fully.
+ */
+function isIosPushAuthorized(permissions: NotificationPermissionsStatus): boolean {
+  const status = permissions.ios?.status;
+  return (
+    status === Notifications.IosAuthorizationStatus.AUTHORIZED ||
+    status === Notifications.IosAuthorizationStatus.PROVISIONAL ||
+    status === Notifications.IosAuthorizationStatus.EPHEMERAL
+  );
+}
+
+/**
+ * Registers the current iOS token, if the User allows notifications, behind a non-throwing boundary.
+ *
+ * @param sync - The signed-in sync this registration belongs to.
+ * @returns A promise that always resolves. A failed registration is retried on the next foreground.
+ */
+async function syncCurrentIosToken(sync: IosPushTokenSync): Promise<void> {
+  try {
+    const token = await getIosPushToken();
+    if (token !== null) await registerIosToken(token, sync);
+  } catch {
+    return;
+  }
+}
+
+/**
+ * Registers a token Firebase rotated or re-issued on iOS, if the User allows notifications.
+ *
+ * Firebase reports the current token on every launch, including before the User has answered the prompt, so the
+ * permission is checked here rather than assumed.
+ *
+ * @param token - Token delivered by Firebase's token-refresh event.
+ * @param sync - The signed-in sync this registration belongs to.
+ * @returns A promise that always resolves. A failed registration is retried on the next foreground.
+ */
+async function syncRotatedIosToken(token: string, sync: IosPushTokenSync): Promise<void> {
+  if (token.length === 0) return;
+
+  try {
+    const permissions = await Notifications.getPermissionsAsync();
+    if (isIosPushAuthorized(permissions)) await registerIosToken(token, sync);
+  } catch {
+    return;
+  }
+}
+
+/**
+ * Sends an iOS token to the API once per signed-in sync.
+ *
+ * The startup read, Firebase's launch-time refresh event and each return to the foreground all report the same token,
+ * so a token this sync has already sent, or is sending, is skipped. A failed request clears it for the next attempt.
+ *
+ * @param token - Firebase Cloud Messaging token to associate with the current User.
+ * @param sync - The signed-in sync this registration belongs to.
+ * @returns A promise that resolves after the API request, or at once when there is nothing to send.
+ * @throws Re-throws the API error after clearing the token, for the caller's best-effort boundary.
+ */
+async function registerIosToken(token: string, sync: IosPushTokenSync): Promise<void> {
+  if (!sync.isActive() || pushTokenRegistrationSuspended || sync.registeredToken === token) return;
+
+  sync.registeredToken = token;
+  try {
+    await pushTokensAPI.register({ token, platform: 'ios' });
+  } catch (error) {
+    if (sync.registeredToken === token) sync.registeredToken = null;
+    throw error;
+  }
+}
+
+/**
+ * Reads the server's data fields from a delivered notification.
+ *
+ * Android and local notifications carry them in `content.data`. Expo fills that on iOS only from the `body` key its own
+ * push service writes, while Firebase puts the server's fields at the top level of the APNs payload. For an iOS push
+ * whose `content.data` holds no valid fields, they are picked from the trigger's payload instead.
+ *
+ * @param notification - Notification delivered by Expo.
+ * @returns The unvalidated data, for {@link parseNotificationData} and {@link notificationRoute}.
+ */
+function getNotificationDataValue(notification: Notification): unknown {
+  const { content, trigger } = notification.request;
+  if (Platform.OS !== 'ios' || parseNotificationData(content.data) !== null) return content.data;
+
+  const payload = getIosPushPayload(trigger);
+  return payload === undefined ? content.data : pickNotificationDataFields(payload);
+}
+
+/**
+ * Returns the full APNs payload of an iOS push trigger.
+ *
+ * @param trigger - Trigger of a delivered notification.
+ * @returns The payload, or `undefined` for local notifications and triggers without one.
+ */
+function getIosPushPayload(trigger: NotificationTrigger): unknown {
+  if (trigger === null || typeof trigger !== 'object' || !('type' in trigger) || trigger.type !== 'push') {
+    return undefined;
+  }
+  return 'payload' in trigger ? trigger.payload : undefined;
 }
 
 /**

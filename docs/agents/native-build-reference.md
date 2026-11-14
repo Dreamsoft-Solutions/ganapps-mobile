@@ -87,7 +87,7 @@ breaks the build again, in a way whose error message does not point back here.
     ios: {
       useFrameworks: 'static',
       usePrecompiledModules: false,
-      forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBRemoteConfig'],
+      forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBMessaging', 'RNFBRemoteConfig'],
     },
   },
 ],
@@ -153,6 +153,53 @@ To confirm the block after prebuild, look for `ganapps-pod-deployment-target-flo
 introspect the Podfile mod. Revisit the plugin after a React Native upgrade: if
 `updateOSDeploymentTarget` starts covering resource bundles at 15.0 or higher, the plugin is
 redundant.
+
+### Push notifications on iOS
+
+The server sends through Firebase Cloud Messaging, so iOS registers an FCM token from
+`@react-native-firebase/messaging` rather than the APNs token `expo-notifications` returns
+([ADR 0008](../adr/0008-ios-push-tokens-from-firebase-messaging.md), DS-135). Four pieces of
+configuration hold it together:
+
+- **iOS-only linking.** `react-native.config.js` sets the package's `android` platform to `null`.
+  Linked on Android, its `MESSAGING_EVENT` service would outrank `expo-notifications`' and take over
+  every Android push.
+- **`RNFBMessaging` in `forceStaticLinking`**, like every other React Native Firebase pod (see
+  above).
+- **`firebase.json`** at the repository root sets `messaging_ios_foreground_presentation_options`
+  to `banner`, `list` and `sound`. The package answers iOS's foreground callback before
+  `expo-notifications` does, and without this key it answers "show nothing". Keep it in step with
+  `handleNotification` in `src/services/push-notification.service.ts`. React Native Firebase's
+  build phase copies the file into the built `Info.plist` as `firebase_json_raw`, so a change needs
+  a native rebuild. Once the file exists, that build phase needs `python3` and fails with
+  "python3 not found" without it; EAS images and Macs with the Xcode command-line tools have it.
+- **The `aps-environment` entitlement** was already there before DS-135: the `expo-notifications`
+  config plugin writes `development` when nothing else sets it, which is the setup Expo's push docs
+  recommend, and distribution signing takes the production value from the provisioning profile.
+  The ticket's step to add it is therefore already done. No `UIBackgroundModes` entry is needed
+  while the server sends notification messages rather than data-only ones.
+
+On iOS the server's data fields do not reach `content.data`: Expo fills it from the payload's
+`body` key, which only Expo's push service writes, and FCM puts the fields at the top level. The
+service reads them from the push trigger's `payload` instead. A tap that opens the app without going
+to the event, or a foreground notification that refreshes nothing, points here first.
+
+Outside the repository, Firebase needs the APNs authentication key. Create a `.p8` key with the
+Apple Push Notifications service enabled in the Apple Developer account, then upload it with its
+Key ID and the Team ID in the Firebase console under Project settings, Cloud Messaging, Apple app
+configuration. It goes to Firebase, not to EAS credentials, because the server sends through
+Firebase Admin rather than Expo's push service. Without it, iOS still registers a token, but every
+send to it fails.
+
+None of this works in Expo Go. It needs a development or TestFlight build. iOS 16 or later
+simulators on Apple silicon receive remote pushes, except the **iOS 26.0** simulator runtime: its
+push daemon never connects to APNs ("has identity to connect? NO" in the simulator's `apsd` log),
+so no app on it gets an APNs token, and Firebase then declines `getToken` with "APNS device token
+not set before retrieving FCM Token". The app logs nothing, because token sync fails silently by
+design. Use an iOS 26.1 or later simulator, which connected and issued a token within a minute
+(verified on iOS 26.5, 2026-11-14), or a device. `xcrun simctl push <device> com.ganapps.app
+<payload.json>` with the server's data keys at the top level of the payload, as FCM sends them,
+exercises the banner, foreground refresh and tap routing without a server change.
 
 ### EAS cloud builds for iOS
 

@@ -15,7 +15,7 @@ import { startFriendPresenceHeartbeat } from '@/services/friend-presence.service
 import {
   completePendingNotification,
   getPendingNotificationTarget,
-  startAndroidPushTokenSync,
+  startPushTokenSync,
   subscribeToPendingNotification,
 } from '@/services/push-notification.service';
 import { shouldHideAppTabBar } from '@/utils/navigation';
@@ -103,7 +103,7 @@ export default function AppLayout(): ReactElement {
 
   useEffect((): (() => void) | undefined => {
     if (!isVerifiedUserReady || user?.id === undefined) return undefined;
-    return startAndroidPushTokenSync();
+    return startPushTokenSync();
   }, [isVerifiedUserReady, user?.id]);
 
   useEffect((): (() => void) | undefined => {
