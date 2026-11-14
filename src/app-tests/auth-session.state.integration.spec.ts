@@ -49,9 +49,9 @@ vi.mock('@/services/chat-socket.service', () => ({
 vi.mock('@/services/friend-presence.service', () => ({ startFriendPresenceHeartbeat: () => () => {} }));
 vi.mock('@/services/push-notification.service', () => ({
   getPendingNotificationTarget: () => null,
-  revokeRegisteredAndroidPushToken: vi.fn(),
+  revokeRegisteredPushTokens: vi.fn(),
   subscribeToPendingNotification: () => () => {},
-  startAndroidPushTokenSync: () => () => {},
+  startPushTokenSync: () => () => {},
 }));
 vi.mock('@/utils/secure-storage', () => ({
   secureStorage: {

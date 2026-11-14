@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios';
 import type { RegisterPushTokenRequest, RegisterPushTokenResponse, RevokePushTokensResponse } from '@/types/push.types';
 import axiosInstance from '../axios-instance';
 
@@ -15,8 +16,9 @@ export const pushTokensAPI = {
   /**
    * Removes all device push tokens for the current User.
    *
+   * @param config - Optional request settings, such as a shorter timeout during logout.
    * @returns The token revocation count.
    */
-  revoke: (): Promise<RevokePushTokensResponse> =>
-    axiosInstance.delete<RevokePushTokensResponse>('/push-tokens').then((res) => res.data),
+  revoke: (config?: Pick<AxiosRequestConfig, 'timeout'>): Promise<RevokePushTokensResponse> =>
+    axiosInstance.delete<RevokePushTokensResponse>('/push-tokens', config).then((res) => res.data),
 };
