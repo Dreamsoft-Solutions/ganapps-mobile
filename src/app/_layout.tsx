@@ -77,8 +77,10 @@ function RootLayoutNav(): ReactElement {
     // The drain reads the outbox table, so it cannot start before migrations have
     // created it. Returns the listener's cleanup so it is torn down on unmount.
     if (!migrationsReady || !isHydrated || !token || !userId) return;
-    return startOutboxDrain((outcome: CheckInReplayOutcome): void => {
-      handleCheckInReplayOutcome(queryClient, outcome);
+    return startOutboxDrain({
+      onCheckInSettled: (outcome: CheckInReplayOutcome): void => {
+        handleCheckInReplayOutcome(queryClient, outcome);
+      },
     });
   }, [migrationsReady, isHydrated, token, userId, queryClient]);
 
