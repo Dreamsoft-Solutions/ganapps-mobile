@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-query';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import type { CursorPage } from '@/api/types/api-response';
+import { requestPushPermissionInContext } from '@/services/push-notification.service';
 import { useAuthStore } from '@/store/auth.store';
 import type { GanapListItem, GanapReportReceipt, JoinGanapResult } from '@/types/ganap.types';
 import { getQueryFailure } from '@/utils/query-failure';
@@ -77,6 +78,9 @@ export interface UseGanapsResult {
  * and returning to a filter restores the pages already scrolled. Client-side
  * filtering would only ever see the rows already loaded.
  *
+ * A join that completes the registration is when iOS asks for notification
+ * permission. A join that still needs the registration form waits for the form.
+ *
  * @param filters - Active discovery filters; omitted means the whole catalogue
  * @returns Flattened items, paging state, and the student actions, including reporting
  */
@@ -109,6 +113,11 @@ export function useGanaps(filters?: GanapListFilters): UseGanapsResult {
   const likeMutation = useLikeGanapMutation();
   const saveMutation = useSaveGanapMutation();
   const reportMutation = useReportGanapMutation();
+  const join = async (ganapId: string): Promise<JoinGanapResult> => {
+    const result = await joinMutation.mutateAsync(ganapId);
+    if (result.requiresForm !== true) void requestPushPermissionInContext();
+    return result;
+  };
   const toggleLike = async (input: Omit<ToggleLikeVariables, 'ownerId'>): Promise<void> => {
     const ownerId = useAuthStore.getState().user?.id;
     if (!ownerId) throw new Error('Authenticated User is required to like a Ganap.');
@@ -128,7 +137,7 @@ export function useGanaps(filters?: GanapListFilters): UseGanapsResult {
     hasNextPage,
     fetchNextPage,
     isFetchingNextPage,
-    join: joinMutation.mutateAsync,
+    join,
     leave: leaveMutation.mutateAsync,
     toggleLike,
     toggleSave,

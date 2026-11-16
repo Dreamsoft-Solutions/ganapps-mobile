@@ -1,6 +1,6 @@
 import { type QueryClient, type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authAPI } from '@/api/endpoints/auth';
-import { revokeRegisteredAndroidPushToken } from '@/services/push-notification.service';
+import { revokeRegisteredPushTokens } from '@/services/push-notification.service';
 import { useAuthStore } from '@/store/auth.store';
 import type {
   AppleAuthRequestDto,
@@ -127,7 +127,10 @@ export function useAppleLoginMutation(): UseMutationResult<AppleAuthResponse, Er
 }
 
 /**
- * Creates the logout mutation and starts push-token cleanup without awaiting it.
+ * Creates the logout mutation, which revokes the User's push tokens before it ends the session.
+ *
+ * The revoke must finish first. Logout revokes the access token, and a revoke that reaches the server after it is
+ * rejected with 401, leaving the tokens registered. The revoke is bounded and best effort, so it cannot block logout.
  *
  * @returns A TanStack mutation for the authenticated logout request.
  */
@@ -136,9 +139,9 @@ export function useLogoutMutation(): UseMutationResult<void, Error, void> {
   const clearAuth = useAuthStore((s) => s.clearAuth);
 
   return useMutation<void, Error, void>({
-    mutationFn: (): Promise<void> => {
-      void revokeRegisteredAndroidPushToken();
-      return authAPI.logout();
+    mutationFn: async (): Promise<void> => {
+      await revokeRegisteredPushTokens();
+      await authAPI.logout();
     },
     onSuccess: async (): Promise<void> => {
       const tokenCleanup = clearAuth();
