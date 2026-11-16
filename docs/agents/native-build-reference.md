@@ -122,8 +122,52 @@ Xcode also needs the full iOS platform for its own version installed (Settings â
 not merely a simulator runtime. Without it `xcodebuild -showdestinations` lists no simulator
 destination at all and `expo run:ios` fails with `Unable to find a destination matching the
 provided destination specifier`, which reads like a device-selection bug rather than a missing
-multi-GB download. None of this needs an Apple Developer Program membership â€” the simulator
-signs locally; the membership matters only for TestFlight and App Store submission.
+multi-GB download. A plain `xcodebuild` simulator build signs locally without a certificate, but
+`npx expo run:ios` does not; see the next section.
+
+### Running the app on a simulator
+
+`npx expo run:ios` builds, installs and opens the app, and starts Metro. It needs an **Apple
+Development certificate** in the Mac's keychain, even for a simulator. `@expo/cli`
+(`simulatorCodeSigning.js`) requires development signing whenever the entitlements include Sign
+in with Apple or Associated Domains, and DS-137 added Sign in with Apple. Without a certificate it
+stops with "No code signing certificates are available to use". Create one in Xcode under Settings,
+Accounts, your team, Manage Certificates, then **+** and Apple Development. On an individual Apple
+account only the Account Holder can. Expo then picks the certificate, writes the team into the
+generated project and lets Xcode handle provisioning (verified 2026-11-16 with `@expo/cli` 57.0.3
+and Xcode 27.2). Check what the keychain has with `security find-identity -v -p codesigning`.
+
+Three things to know on Xcode 27:
+
+- **Boot the simulator first, then run `npx expo run:ios` with no `--device`.** `devicectl` now lists
+  simulators alongside phones, and Expo then treats a simulator passed with `--device` as a physical
+  device. The install fails with "The capability Install Application is not supported by this
+  device".
+- **Expo checks for the Simulator app through System Events.** After the install it runs an
+  AppleScript (`ensureSimulatorAppRunning.js`), which needs macOS Automation permission for the
+  terminal app. Without it, `run:ios` exits with an `osascript` error right after the install, and
+  the Metro it started stops too. The permission is under System Settings, Privacy & Security,
+  Automation.
+- **The app opens through the Google Sign-In URL scheme.** With no `expo-dev-client` in the project,
+  Expo opens the longest URL scheme the app registers. If the app does not come up right after the
+  install, tap its icon.
+
+Each simulator holds its own build. After a native change (a new native package, a plugin or native
+setting in `app.config.js`, `firebase.json`, or an Expo SDK upgrade), re-run
+`npx expo prebuild --clean -p ios` and rebuild. A stale build fails with "Cannot find native module".
+To see how old the installed build is, run `xcrun simctl listapps booted` and find
+`com.ganapps.app`; a build still named "ganapps-mobile" predates the rename.
+
+If `expo run:ios` is blocked, `xcodebuild` skips Expo's signing check. Run it from `ios/` with the
+simulator booted and Metro running:
+
+```bash
+xcodebuild -workspace Ganapps.xcworkspace -scheme Ganapps -configuration Debug \
+  -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
+  -derivedDataPath build/sim build
+xcrun simctl install booted build/sim/Build/Products/Debug-iphonesimulator/Ganapps.app
+xcrun simctl launch booted com.ganapps.app
+```
 
 ### Pod deployment-target floor
 
