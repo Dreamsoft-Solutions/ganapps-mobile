@@ -21,6 +21,8 @@ Find unfamiliar features through [Feature entry points](docs/agents/implementati
 - Expo, Firebase, Mapbox, or iOS native configuration: [Known Drift](docs/agents/native-build-reference.md#known-drift--do-not-imitate) and [iOS Native Build Configuration](docs/agents/native-build-reference.md#ios-native-build-configuration).
 - Feature work: [Pre-Implementation Checklist](docs/agents/review-reference.md#pre-implementation-checklist).
 
+Keep screen, API contract, and local data decisions in the main agent. Trace the affected flow and open its reference before changing behavior.
+
 ## Mobile boundaries
 
 - Store tokens in SecureStore through utils/secure-storage.ts. Keep the user and auth state in memory; do not persist tokens in Zustand. Use the API layer's shared refresh and envelope handling.
