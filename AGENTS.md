@@ -42,7 +42,8 @@ CI steps and Pact provider selection live in .github/workflows/ci.yml; read it b
 
 ## Verification and delivery
 
-- Do not add unit tests; this overrides test-first guidance in docs/agents/review-reference.md. Consumer contract checks live in pact/; read [Pact contract checks](docs/agents/implementation-reference.md#pact-contract-checks) when changing them or CI.
+- Do not add unit tests. Use integration or end-to-end checks for test-first work. For consumer contract or CI changes, read [Pact contract checks](docs/agents/implementation-reference.md#pact-contract-checks).
+- For native flow changes, follow the database and build safety rules above, then run the affected flow on an emulator, simulator, or device. Use a physical device when the check needs hardware or a provider unavailable in simulation. If the diff changes offline writes or session recovery, exercise the affected path after reconnect or relaunch and check the resulting state.
 - Read package.json and .github/workflows/ci.yml for current commands and CI behavior. For documentation-only changes, run npm run check:docs. For code review, follow [Code Review Process](docs/agents/review-reference.md#code-review-process).
 - Start feature work from refreshed origin/dev, use Conventional Commits, and keep required Git hooks. Open completed changes as a PR to dev; do not merge unless asked.
 - Promote dev to master with a PR merged as a merge commit. Never squash, rebase, cherry-pick, or rebuild dev's commits for a promotion; see [Promoting to master](README.md#promoting-to-master).
