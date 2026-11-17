@@ -57,7 +57,7 @@ jobs:
         run: npm run type-check
 
       - name: Test
-        run: npm run test
+        run: npm run test -- --reporter=default --reporter=github-actions --reporter=junit --outputFile=test-results/tests.xml
 
       - uses: pnpm/action-setup@v4
         with:
@@ -92,7 +92,16 @@ jobs:
       - name: Verify the mobile contract against the server
         run: |
           test -s "$PACT_FILE"
-          pnpm --dir .pact-provider exec vitest run pact/provider.pact.test.ts
+          pnpm --dir .pact-provider exec vitest run pact/provider.pact.test.ts --reporter=default --reporter=github-actions --reporter=junit --outputFile=../test-results/provider.xml
         env:
           PACT_FILE: ${{ github.workspace }}/pacts/ganapps-mobile-ganapps-server.json
           PACT_DO_NOT_TRACK: 'true'
+
+      - name: Retain test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.job }}
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
