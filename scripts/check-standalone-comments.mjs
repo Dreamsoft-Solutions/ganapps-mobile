@@ -422,6 +422,10 @@ function isExempt(comment, line, language) {
     return true;
   }
 
+  if (/^(?:\/\/|\/\*)\s*oxlint-(?:disable(?:-next-line|-line)?|enable)(?=\s|\*\/|$)/.test(trimmed)) {
+    return true;
+  }
+
   if (/^\/\/\/\s*<reference\b/i.test(text)) {
     return true;
   }

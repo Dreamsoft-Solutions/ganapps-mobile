@@ -16,7 +16,7 @@ This repo is one of three:
 
 Expo SDK 57 · Expo Router (file-based routing) · TypeScript 6 · NativeWind v4 (Tailwind) ·
 TanStack Query v5 · Zustand v5 · react-hook-form + Zod v4 · Axios · Drizzle ORM (SQLite via
-expo-sqlite) · Firebase Remote Config · Biome · Pact · Vitest · EAS Build
+expo-sqlite) · Firebase Remote Config · Oxlint · Biome · Pact · Vitest · EAS Build
 
 ## Prerequisites
 
@@ -60,10 +60,11 @@ development build.
 | Command | What it does |
 |---|---|
 | `npm run dev` | Expo dev server with metro cache cleared |
-| `npm run lint` | Biome lint |
-| `npm run lint:fix` | Biome lint with auto-fix |
+| `npm run lint` | Oxlint |
+| `npm run lint:landmines` | Report findings from Ultracite and Landmines |
+| `npm run lint:fix` | Oxlint with auto-fix |
 | `npm run format` | Biome format, writing changes |
-| `npm run check` | Biome lint + format check (does not write) |
+| `npm run check` | Biome format check, then Oxlint |
 | `npm run type-check` | `tsc --noEmit` |
 | `npm run test` | Generate the mobile Pact contract |
 | `npm run test:watch` | Run Pact tests in watch mode |

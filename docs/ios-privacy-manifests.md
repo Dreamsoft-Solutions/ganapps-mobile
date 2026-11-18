@@ -7,6 +7,10 @@ is a clean `npx expo prebuild`, its `ios/Podfile.lock`, and a Debug simulator bu
 This records what the native SDKs declare and call, and the App Store Connect App Privacy answers
 that follow from it (DS-83). It is not legal advice.
 
+The push token entries were updated on November 18, 2026, after DS-135 shipped iOS push in build
+1.1.1 (21), from FirebaseMessaging 12.15.0's manifest and the server's `PushToken` model. The
+Required Reason API scan and the SDK list below were not re-run for that change.
+
 ## Limits
 
 - Only a Debug simulator build was scanned. A Release device build was not; it strips some
@@ -113,6 +117,7 @@ account for it.
 | GoogleSignIn | Name, Email Address, Phone Number, Other Data Types, Coarse Location, User ID, Device ID, Other Usage Data |
 | FirebaseAuth | Other Diagnostic Data, User ID |
 | FirebaseInstallations, FirebaseRemoteConfig | Other Diagnostic Data |
+| FirebaseMessaging | Device ID, Other Data Types, Other Diagnostic Data |
 
 No SDK manifest declares tracking or tracking domains. Each manifest also says whether a type is
 linked to the user and for what purpose; the App Privacy label below takes those into account.
@@ -120,16 +125,19 @@ linked to the user and for what purpose; the App Privacy label below takes those
 ## App Privacy label
 
 The source for the App Store Connect answers. The app manifest (`ios.privacyManifests` in
-`app.config.js`) declares only Ganapps' own collection: eight types, each linked to the user, not
-used for tracking, and for app functionality only, plus `NSPrivacyTracking: false`. Each SDK
-declares its own collection in its own manifest. App Store Connect needs the combination; where
-Ganapps and an SDK both declare a type, the stricter answer wins.
+`app.config.js`) declares only Ganapps' own collection: nine types, each linked to the user, not
+used for tracking, and for app functionality only, plus `NSPrivacyTracking: false`. Device ID, the
+push token collected since DS-135 (below), was added after build 1.1.1 (21), so it reaches the
+built manifest from the next prebuild and build. Each SDK declares its own collection in its own manifest.
+App Store Connect needs the combination; where Ganapps and an SDK both declare a type, the stricter
+answer wins.
 
 | Data type | Linked to user | Tracking | Purposes | Source |
 |---|---|---|---|---|
 | Name | Yes | No | App Functionality | Ganapps; Firebase Auth (name from Google); Sign in with Apple |
 | Email Address | Yes | No | App Functionality | Ganapps; Firebase Auth (email from Google); Sign in with Apple |
 | User ID | Yes | No | App Functionality, Analytics | Ganapps; Firebase Auth (linked); Google Sign-In (OAuth grants); Sign in with Apple; Mapbox (analytics) |
+| Device ID | Yes | No | App Functionality | Ganapps (push token, stored per account); Firebase Messaging |
 | Photos or Videos | Yes | No | App Functionality | Ganapps |
 | Emails or Text Messages | Yes | No | App Functionality | Ganapps |
 | Contacts | Yes | No | App Functionality | Ganapps |
@@ -139,7 +147,8 @@ Ganapps and an SDK both declare a type, the stricter answer wins.
 | Coarse Location | Yes | No | App Functionality, Analytics | Google Sign-In (IP address, fraud prevention; linked per its manifest); Mapbox (analytics) |
 | Other Usage Data | No | No | App Functionality, Analytics | Mapbox |
 | Performance Data | No | No | App Functionality, Analytics | Mapbox |
-| Other Diagnostic Data | No | No | App Functionality, Analytics | Mapbox; Firebase Auth, Installations, Remote Config |
+| Other Diagnostic Data | No | No | App Functionality, Analytics | Mapbox; Firebase Auth, Installations, Messaging, Remote Config |
+| Other Data Types | No | No | Analytics | Firebase Messaging |
 
 No data is used to track you.
 
@@ -148,7 +157,9 @@ app-functionality rows already cover all three, so the label answers do not chan
 `expo-apple-authentication` package ships no `PrivacyInfo.xcprivacy`, so it adds no SDK row.
 
 **What Ganapps' own rows cover.** Name and Email Address: the account profile, including the name
-from Google. User ID: account ID, username and friend code. Photos or Videos: profile pictures and
+from Google. User ID: account ID, username and friend code. Device ID: the Firebase Cloud
+Messaging registration token, which the server stores against the account (`PushToken.userId`) so
+it can deliver notifications; signing out removes it. Photos or Videos: profile pictures and
 chat images. Emails or Text Messages: Event and Direct Chat messages and their read receipts.
 Contacts: the friend list and blocks (Apple's definition includes a social graph). Other User
 Content: bio, interests, ratings, registration and feedback form answers, message and announcement
@@ -175,7 +186,10 @@ check-ins.
   Diagnostic Data (not linked, analytics). Usage-dependent data for this app: Auth receives the
   email address and name from Google sign-in, covered by Ganapps' Name and Email Address rows.
   Remote Config always sends country, language and time zone; its manifest, which covers
-  always-collected data, declares only Other Diagnostic Data.
+  always-collected data, declares only Other Diagnostic Data. Messaging declares Device ID (not
+  linked, app functionality), Other Data Types (not linked, analytics) and Other Diagnostic Data
+  (not linked, app functionality), with no tracking domains. The label marks Device ID as linked
+  because Ganapps stores the token against the account.
 
 **Not collected.** Apple counts data as collected when it leaves the device and is kept longer than
 needed to answer the request in real time.
@@ -184,7 +198,6 @@ needed to answer the request in real time.
   search; the server does not store them. A request URL can reach a log on an unhandled server
   error. Location is declared anyway through Mapbox and Google Sign-In.
 - **Search text:** used only to filter.
-- **iOS push token:** iOS does not register one yet; Android does. Revisit with DS-135.
 - **IP address:** kept only in 60-second rate-limit keys.
 - **Presence device ID:** a random per-install ID for friends' online status, behind
   `feature_friends`. The server treats it as active for 90 seconds; the Redis entry is removed at
@@ -192,8 +205,9 @@ needed to answer the request in real time.
 - **Chat image originals:** the chat picker uploads the original file, with its EXIF and GPS
   metadata. The server keeps only a re-encoded WebP without metadata and discards the original
   during the request.
-- **Device identifiers, the advertising identifier, crash and analytics data:** nothing reads or
-  sends them.
+- **The advertising identifier, crash and analytics data:** nothing reads or sends them. The only
+  device identifiers that leave the device are the push token (Device ID above) and the presence
+  device ID.
 
 **Photos.** Profile pictures are picked with `allowsEditing: true`, so expo-image-picker re-encodes
 the cropped image (`jpegData` or `pngData`) and no GPS metadata leaves the device. Verified on
@@ -203,7 +217,6 @@ Chat images are re-encoded to WebP by the server without metadata.
 
 **Revisit the label when:**
 
-- iOS push ships (DS-135).
 - An analytics or crash-reporting SDK is added.
 - Mapbox, Google Sign-In or Firebase change what they collect.
 - A Ganapps feature collects a new kind of data: update `ios.privacyManifests` in `app.config.js`
