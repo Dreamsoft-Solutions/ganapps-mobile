@@ -4,6 +4,9 @@ import type { ChatImageAsset, ChatImageDraft, ChatImageMimeType } from '@/types/
 /** Maximum input size accepted by the DS-97 multipart image endpoint. */
 export const CHAT_IMAGE_MAX_BYTES: number = 5 * 1024 * 1024;
 
+/** Largest decoded image, in pixels, accepted by the chat image endpoint. */
+export const CHAT_IMAGE_MAX_PIXELS: number = 20_000_000;
+
 /** Safe validation copy shared by picker prechecks and permanent server rejections. */
 export const CHAT_IMAGE_VALIDATION_MESSAGE: string = 'Choose a JPEG, PNG, or WebP image under 5 MiB.';
 
