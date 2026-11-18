@@ -92,7 +92,7 @@ module.exports = {
   expo: {
     name: 'Ganapps',
     slug: 'dreamsoft-cpu',
-    version: '1.1.1',
+    version: '1.1.2',
     orientation: 'portrait',
     icon: './assets/brand/ganap-logo-1.png',
     scheme: 'ganappsmobile',
@@ -145,7 +145,7 @@ module.exports = {
     },
     android: {
       package: 'com.ganapps.app',
-      versionCode: 5,
+      versionCode: 7,
       googleServicesFile,
       intentFilters: appLinksHost
         ? ['friends', 'ganaps'].map((path) => ({
