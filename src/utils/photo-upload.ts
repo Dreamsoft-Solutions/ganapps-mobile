@@ -1,7 +1,6 @@
 import { File } from 'expo-file-system';
 import { ImageManipulator, type ImageRef, SaveFormat } from 'expo-image-manipulator';
 import type { ImagePickerAsset } from 'expo-image-picker';
-import { CHAT_IMAGE_MAX_BYTES, CHAT_IMAGE_MAX_PIXELS } from '@/utils/chat-image';
 
 const MAX_PHOTO_BYTES: number = 5 * 1024 * 1024;
 const MAX_PHOTO_EDGE: number = 4096;
@@ -14,7 +13,6 @@ function extension(value: string | null | undefined): string {
 
 type PhotoFormat = 'jpeg' | 'png' | 'webp' | 'gif' | 'heif' | 'heif-sequence' | 'unsupported' | 'unknown';
 type UploadablePhotoFormat = Exclude<PhotoFormat, 'heif' | 'heif-sequence' | 'unsupported' | 'unknown'>;
-type UploadTarget = 'chat' | 'profile';
 
 function ascii(bytes: Uint8Array, start: number, end: number): string {
   return String.fromCharCode(...bytes.slice(start, end));
@@ -113,19 +111,7 @@ async function saveJpegWithinLimit(image: ImageRef, asset: ImagePickerAsset): Pr
   return null;
 }
 
-/**
- * Saves the photo as a JPEG under the upload limit, shrinking it step by step when needed.
- *
- * Shrinking decodes the photo again from its file, so `original` is released first to keep a
- * single full-size bitmap in memory. Releasing it again afterwards is harmless.
- *
- * @param original - The photo decoded upright from `asset.uri`
- * @param asset - Photo returned by the native image picker
- * @returns A JPEG copy with matching metadata
- * @throws When even the smallest size is over the upload limit
- */
 async function photoToJpegWithinLimit(original: ImageRef, asset: ImagePickerAsset): Promise<ImagePickerAsset> {
-  const isLandscape: boolean = original.width >= original.height;
   const longestEdge: number = Math.max(original.width, original.height);
   if (longestEdge <= 0) throw new Error('Could not read the photo.');
   const firstEdge: number = Math.min(longestEdge, MAX_PHOTO_EDGE);
@@ -134,9 +120,7 @@ async function photoToJpegWithinLimit(original: ImageRef, asset: ImagePickerAsse
   );
 
   for (const edge of edges) {
-    const needsResize: boolean = edge < longestEdge;
-    if (needsResize) original.release();
-    const resized: ImageRef = needsResize ? await resizePhoto(asset.uri, isLandscape, edge) : original;
+    const resized: ImageRef = edge < longestEdge ? await resizePhoto(original, edge) : original;
     try {
       const prepared: ImagePickerAsset | null = await saveJpegWithinLimit(resized, asset);
       if (prepared) return prepared;
@@ -160,20 +144,10 @@ async function decodePhoto(uri: string): Promise<ImageRef> {
   }
 }
 
-/**
- * Decodes the photo again from its file and scales its longest side to `edge`.
- *
- * Never pass a decoded `ImageRef` back to `ImageManipulator.manipulate`: on iOS, Expo SDK 57
- * converts that argument property by property and stops the app with a native fatal error
- * when it reaches the image's methods (DS-235).
- *
- * @param uri - Local file URI of the photo returned by the picker
- * @param isLandscape - Whether the upright photo is at least as wide as it is tall
- * @param edge - Target length in pixels for the longest side
- * @returns The resized image, which the caller releases
- */
-async function resizePhoto(uri: string, isLandscape: boolean, edge: number): Promise<ImageRef> {
-  const context = ImageManipulator.manipulate(uri).resize(isLandscape ? { width: edge } : { height: edge });
+async function resizePhoto(image: ImageRef, edge: number): Promise<ImageRef> {
+  const context = ImageManipulator.manipulate(image).resize(
+    image.width >= image.height ? { width: edge } : { height: edge },
+  );
   try {
     return await context.renderAsync();
   } finally {
@@ -181,14 +155,8 @@ async function resizePhoto(uri: string, isLandscape: boolean, edge: number): Pro
   }
 }
 
-function needsShrinking(
-  target: UploadTarget,
-  format: UploadablePhotoFormat,
-  fileSize: number,
-  image: Pick<ImagePickerAsset, 'width' | 'height'>,
-): boolean {
-  if (target === 'profile') return format === 'jpeg' && fileSize > MAX_PHOTO_BYTES;
-  return fileSize > CHAT_IMAGE_MAX_BYTES || image.width * image.height > CHAT_IMAGE_MAX_PIXELS;
+function isOversizedJpeg(format: PhotoFormat, fileSize: number): boolean {
+  return format === 'jpeg' && fileSize > MAX_PHOTO_BYTES;
 }
 
 function photoWithDetectedFormat(
@@ -217,17 +185,16 @@ function photoWithDetectedFormat(
 }
 
 /**
- * Validates a selected image and prepares a bounded JPEG when the target's upload limits need one.
- *
- * For chat, a GIF comes back without being decoded, so the chat precheck rejects it before any
- * native work.
+ * Validates a selected image and prepares a bounded JPEG when required for upload.
  *
  * @param asset - Photo returned by the native image picker
- * @param target - The upload the photo is for, which decides when it must be shrunk
  * @returns The original supported photo or a JPEG with matching metadata
  * @throws When the photo cannot be decoded or reduced to the upload limit
  */
-async function preparePhotoForUpload(asset: ImagePickerAsset, target: UploadTarget): Promise<ImagePickerAsset> {
+async function preparePhotoForUpload(
+  asset: ImagePickerAsset,
+  compressOversizedJpeg: boolean,
+): Promise<ImagePickerAsset> {
   const inspected: { format: PhotoFormat; fileSize: number } = inspectPhoto(asset);
   const format: PhotoFormat = inspected.format;
   if (format === 'heif-sequence') throw new Error('Choose a still photo.');
@@ -242,12 +209,13 @@ async function preparePhotoForUpload(asset: ImagePickerAsset, target: UploadTarg
   if (format === 'unknown' || format === 'unsupported') {
     throw new Error('Choose a JPEG, PNG, WebP, or GIF photo.');
   }
-  if (target === 'chat' && format === 'gif') {
+  if (!compressOversizedJpeg && (format === 'gif' || inspected.fileSize > MAX_PHOTO_BYTES)) {
+    // Let chat's existing precheck reject GIFs and oversized originals before native decode.
     return photoWithDetectedFormat(asset, format, inspected.fileSize, asset);
   }
   const image: ImageRef = await decodePhoto(asset.uri);
   try {
-    if (needsShrinking(target, format, inspected.fileSize, image)) {
+    if (compressOversizedJpeg && isOversizedJpeg(format, inspected.fileSize)) {
       return await photoToJpegWithinLimit(image, asset);
     }
     return photoWithDetectedFormat(asset, format, inspected.fileSize, image);
@@ -257,18 +225,14 @@ async function preparePhotoForUpload(asset: ImagePickerAsset, target: UploadTarg
 }
 
 /**
- * Validates a selected chat image and shrinks it to what the chat image endpoint accepts.
- *
- * A HEIF photo, or a JPEG, PNG, or WebP over 5 MiB or 20 MP, becomes a JPEG of at most 5 MiB
- * and 4096 px on its long edge. Other supported photos come back unchanged, and a GIF comes
- * back as a GIF for the chat precheck to reject.
+ * Validates a selected chat image and converts HEIF to a bounded JPEG.
  *
  * @param asset - Photo returned by the native image picker
  * @returns The original supported photo or a JPEG with matching metadata
  * @throws When the photo cannot be decoded or reduced to the upload limit
  */
 export function prepareUploadPhoto(asset: ImagePickerAsset): Promise<ImagePickerAsset> {
-  return preparePhotoForUpload(asset, 'chat');
+  return preparePhotoForUpload(asset, false);
 }
 
 /**
@@ -279,7 +243,7 @@ export function prepareUploadPhoto(asset: ImagePickerAsset): Promise<ImagePicker
  * @throws When the photo cannot be decoded or reduced to the upload limit
  */
 export function prepareProfileUploadPhoto(asset: ImagePickerAsset): Promise<ImagePickerAsset> {
-  return preparePhotoForUpload(asset, 'profile');
+  return preparePhotoForUpload(asset, true);
 }
 
 /**
