@@ -125,10 +125,10 @@ linked to the user and for what purpose; the App Privacy label below takes those
 ## App Privacy label
 
 The source for the App Store Connect answers. The app manifest (`ios.privacyManifests` in
-`app.config.js`) declares only Ganapps' own collection: eight types, each linked to the user, not
-used for tracking, and for app functionality only, plus `NSPrivacyTracking: false`. It does not
-yet declare Device ID, which Ganapps has collected since DS-135 (the push token, below); adding it
-to `ios.privacyManifests` is still to do. Each SDK declares its own collection in its own manifest.
+`app.config.js`) declares only Ganapps' own collection: nine types, each linked to the user, not
+used for tracking, and for app functionality only, plus `NSPrivacyTracking: false`. Device ID, the
+push token collected since DS-135 (below), was added after build 1.1.1 (21), so it reaches the
+built manifest from the next prebuild and build. Each SDK declares its own collection in its own manifest.
 App Store Connect needs the combination; where Ganapps and an SDK both declare a type, the stricter
 answer wins.
 

@@ -138,6 +138,7 @@ module.exports = {
           'NSPrivacyCollectedDataTypeContacts',
           'NSPrivacyCollectedDataTypeOtherUserContent',
           'NSPrivacyCollectedDataTypeProductInteraction',
+          'NSPrivacyCollectedDataTypeDeviceID',
         ].map(collectedForAppFunctionality),
         NSPrivacyTracking: false,
       },
