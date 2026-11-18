@@ -20,7 +20,6 @@
     "landmines-testing/no-unsignaled-poll": "error",
     "landmines-testing/strict-msw": "error"
   },
-  "ignorePatterns": ["vendor/anti-slop/"],
   "jsPlugins": [
     {
       "name": "landmines-testing",

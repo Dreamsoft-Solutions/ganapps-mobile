@@ -8,14 +8,5 @@
       "@/assets/*": ["./assets/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "nativewind-env.d.ts"],
-  "exclude": [
-    "${configDir}/node_modules",
-    "${configDir}/babel.config.js",
-    "${configDir}/metro.config.js",
-    "${configDir}/jest.config.js",
-    "${configDir}/android",
-    "${configDir}/ios",
-    "vendor/anti-slop"
-  ]
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "nativewind-env.d.ts"]
 }

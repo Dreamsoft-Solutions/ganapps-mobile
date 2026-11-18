@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!node_modules", "!.expo", "!dist", "!web-build", "!ios", "!android", "!vendor/anti-slop"]
+    "includes": ["**", "!node_modules", "!.expo", "!dist", "!web-build", "!ios", "!android"]
   },
   "formatter": {
     "enabled": true,
