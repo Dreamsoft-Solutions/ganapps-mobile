@@ -1,3 +1,4 @@
+import { setImmediate } from 'node:timers/promises';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SessionBoundRequestConfig } from '@/api/types/session-bound-request';
@@ -68,6 +69,7 @@ describe('mobile auth transitions', () => {
         clearSettled = true;
       });
     await deletionStarted.promise;
+    await setImmediate();
     expect(runtime.clearTokens).toHaveBeenCalledTimes(1);
     expect(clearSettled).toBe(false);
     expect(useAuthStore.getState()).toMatchObject({ token: null, user: null });
@@ -96,6 +98,7 @@ describe('mobile auth transitions', () => {
       return tokens;
     });
     await persistenceStarted.promise;
+    await setImmediate();
     expect(runtime.setTokens).toHaveBeenCalledTimes(1);
     expect(refreshSettled).toBe(false);
 
