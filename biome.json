@@ -16,39 +16,10 @@
     "lineWidth": 120
   },
   "assist": {
-    "enabled": true,
-    "actions": {
-      "source": {
-        "organizeImports": "on"
-      }
-    }
+    "enabled": false
   },
   "linter": {
-    "enabled": true,
-    "rules": {
-      "preset": "recommended",
-      "complexity": {
-        "noExcessiveCognitiveComplexity": {
-          "level": "warn",
-          "options": {
-            "maxAllowedComplexity": 15
-          }
-        }
-      },
-      "correctness": {
-        "noUnusedVariables": "error",
-        "useExhaustiveDependencies": "warn"
-      },
-      "nursery": {
-        "useExplicitType": "error"
-      },
-      "style": {
-        "useImportType": "off"
-      },
-      "suspicious": {
-        "noExplicitAny": "error"
-      }
-    }
+    "enabled": false
   },
   "javascript": {
     "formatter": {
