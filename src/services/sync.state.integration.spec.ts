@@ -122,23 +122,26 @@ describe('mobile outbox state transitions', () => {
     [400, 'Wrong QR code', 'failed', false],
     [404, 'Registration unavailable', 'failed', false],
     [400, 'Already checked in', 'success', true],
-  ])('persists a %i scan rejection (%s) and reports its actual outcome', async (status, message, expected, recorded) => {
-    await service.enqueueOutbox({
-      action: 'check-in',
-      ganapId: 'ganap-rejected',
-      ownerId: 'user-a',
-      qrHash: 'qr-hash',
-      scannedAt: '2026-11-01T00:00:00.000Z',
-    });
-    runtime.api.checkIn.mockRejectedValue(Object.assign(new Error(message), { status }));
-    const settled = vi.fn();
+  ])(
+    'persists a %i scan rejection (%s) and reports its actual outcome',
+    async (status, message, expected, recorded) => {
+      await service.enqueueOutbox({
+        action: 'check-in',
+        ganapId: 'ganap-rejected',
+        ownerId: 'user-a',
+        qrHash: 'qr-hash',
+        scannedAt: '2026-11-01T00:00:00.000Z',
+      });
+      runtime.api.checkIn.mockRejectedValue(Object.assign(new Error(message), { status }));
+      const settled = vi.fn();
 
-    await service.syncOutbox({ onCheckInSettled: settled });
-    await service.syncOutbox({ onCheckInSettled: settled });
-    expect(outboxRow(sqlite).status).toBe(expected);
-    expect(runtime.api.checkIn).toHaveBeenCalledTimes(1);
-    expect(settled).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ ganapId: 'ganap-rejected', recorded }));
-  });
+      await service.syncOutbox({ onCheckInSettled: settled });
+      await service.syncOutbox({ onCheckInSettled: settled });
+      expect(outboxRow(sqlite).status).toBe(expected);
+      expect(runtime.api.checkIn).toHaveBeenCalledTimes(1);
+      expect(settled).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ ganapId: 'ganap-rejected', recorded }));
+    },
+  );
 
   it('waits for hydrated auth and replays only for the queued owner', async () => {
     await expect(

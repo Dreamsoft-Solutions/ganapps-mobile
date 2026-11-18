@@ -61,7 +61,7 @@ development build.
 |---|---|
 | `npm run dev` | Expo dev server with metro cache cleared |
 | `npm run lint` | Oxlint |
-| `npm run lint:landmines` | Report findings from the stock Landmines preset |
+| `npm run lint:landmines` | Report findings from Ultracite and Landmines |
 | `npm run lint:fix` | Oxlint with auto-fix |
 | `npm run format` | Biome format, writing changes |
 | `npm run check` | Biome format check, then Oxlint |

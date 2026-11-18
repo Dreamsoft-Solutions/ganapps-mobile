@@ -43,7 +43,7 @@ jobs:
         run: node scripts/check-docs.mjs
       - name: Check formatting and lint
         run: npm run check
-      - name: Report stock Landmines findings
+      - name: Report Ultracite and Landmines findings
         continue-on-error: true
         run: npm run lint:landmines
 
