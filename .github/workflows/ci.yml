@@ -39,13 +39,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Biome lint + format + assists. Also the gate for nursery/useExplicitType,
+      # which is set to error — see AGENTS.md, TypeScript Standards.
       - name: Check navigation documentation
         run: node scripts/check-docs.mjs
       - name: Check formatting and lint
         run: npm run check
-      - name: Report Ultracite and Landmines findings
-        continue-on-error: true
-        run: npm run lint:landmines
 
       # Expo Router's route union lives in .expo/types/, which is gitignored and so
       # never checked out. Without this step `Href` widens to `string | HrefObject`

@@ -1,4 +1,4 @@
 {
-  "recommendations": ["expo.vscode-expo-tools", "biomejs.biome", "oxc.oxc-vscode"],
+  "recommendations": ["expo.vscode-expo-tools", "biomejs.biome"],
   "unwantedRecommendations": ["esbenp.prettier-vscode", "dbaeumer.vscode-eslint"]
 }
