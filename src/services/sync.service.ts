@@ -1,12 +1,23 @@
-import { and, eq, isNull, notInArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne, notInArray, type SQL, sql } from 'drizzle-orm';
 import { AppState, type AppStateStatus } from 'react-native';
 import { ganapsAPI } from '@/api/endpoints/ganaps';
 import { db } from '@/db';
 import { outbox } from '@/db/schema';
 import { useAuthStore } from '@/store/auth.store';
+import { type ConnectionState, selectConnectionStatus, useConnectionStore } from '@/store/connection.store';
+import { isNetworkFailure } from '@/utils/query-failure';
 
 type OutboxAction = 'like' | 'unlike' | 'save' | 'unsave' | 'check-in';
-type ToggleAction = Exclude<OutboxAction, 'check-in'>;
+
+/** A queueable like, unlike, save or unsave. */
+export type ToggleAction = Exclude<OutboxAction, 'check-in'>;
+
+/** A like, unlike, save or unsave made by one user on one Ganap. */
+export interface ToggleCommand {
+  action: ToggleAction;
+  ganapId: string;
+  ownerId: string;
+}
 type OutboxCommand =
   | { action: ToggleAction; ganapId: string; ownerId: string }
   | { action: 'check-in'; ganapId: string; ownerId: string; qrHash: string; scannedAt: string };
@@ -18,8 +29,20 @@ const DRAIN_BATCH = 10;
 
 const MAX_RETRIES = 3;
 
+/** Toggles that cancel each other out, so only the newest queued one needs sending. */
+const TOGGLE_PAIRS: Record<ToggleAction, ToggleAction[]> = {
+  like: ['like', 'unlike'],
+  unlike: ['like', 'unlike'],
+  save: ['save', 'unsave'],
+  unsave: ['save', 'unsave'],
+};
+
 let outboxDrainPromise: Promise<void> | null = null;
 let outboxDrainRequested = false;
+let registeredListeners: OutboxReplayListeners = {};
+
+/** Ganaps whose queued like or save settled since the last full drain pass. */
+const settledToggleIds = new Set<string>();
 
 /** Result of a replayed offline attendance scan reaching a final state. */
 export interface CheckInReplayOutcome {
@@ -33,6 +56,21 @@ export interface CheckInReplayOutcome {
 
 /** Callback fired when a replayed attendance scan settles. */
 export type CheckInReplayListener = (outcome: CheckInReplayOutcome) => void;
+
+/** Callback fired with the Ganaps whose queued likes or saves settled during a drain. */
+export type TogglesReplayListener = (ganapIds: string[]) => void;
+
+/** What the outbox drain reports as queued actions reach a final state. */
+export interface OutboxReplayListeners {
+  /** Called when a queued attendance scan succeeds or permanently fails. */
+  onCheckInSettled?: CheckInReplayListener;
+  /**
+   * Called once a drain has sent everything it could reach, with the Ganaps whose
+   * likes or saves succeeded or permanently failed. Held back while a request gets
+   * no response, so a refresh cannot wipe the state of a like still waiting.
+   */
+  onTogglesSettled?: TogglesReplayListener;
+}
 
 /** Thrown when a queued payload cannot be parsed; permanently fails the item. */
 class OutboxPayloadError extends Error {}
@@ -68,7 +106,23 @@ export function classifyReplayError(action: OutboxAction, error: unknown): 'succ
 }
 
 /**
+ * Reads a text field from an outbox row's JSON payload in SQL.
+ *
+ * @param field - The payload field to read
+ * @returns The field's value, or null when the payload is malformed or the field is not text
+ */
+function payloadText(field: 'ganapId' | 'ownerId'): SQL<string | null> {
+  const path = `$.${field}`;
+  return sql<
+    string | null
+  >`CASE WHEN json_valid(${outbox.payload}) THEN CASE WHEN json_type(${outbox.payload}, ${path}) = 'text' THEN json_extract(${outbox.payload}, ${path}) END END`;
+}
+
+/**
  * Queues an action for replay when connectivity returns.
+ *
+ * A like, unlike, save or unsave replaces any older queued one of the same kind
+ * for that Ganap and owner, since only the newest is still the user's intent.
  *
  * @param command - A Ganap toggle or attendance scan to replay
  * @returns Whether the action had a captured owner and was queued
@@ -85,7 +139,70 @@ export async function enqueueOutbox(command: OutboxInput): Promise<boolean> {
     payload: JSON.stringify(payload),
     status: 'pending',
   });
+  if (command.action !== 'check-in') {
+    await supersedeQueuedToggles(id, command).catch((): void => undefined);
+  }
   return true;
+}
+
+/**
+ * Matches pending rows of the same toggle pair, Ganap and owner as a command.
+ *
+ * @param command - The like, unlike, save or unsave to match
+ * @returns The SQL condition
+ */
+function pendingToggleRows(command: ToggleCommand): SQL | undefined {
+  return and(
+    eq(outbox.status, 'pending'),
+    eq(outbox.entityType, 'ganap'),
+    inArray(outbox.action, TOGGLE_PAIRS[command.action]),
+    eq(payloadText('ganapId'), command.ganapId),
+    eq(payloadText('ownerId'), command.ownerId),
+  );
+}
+
+/**
+ * Removes older queued toggles that the newest one replaces.
+ *
+ * The server answers a like it already has, or an unlike it has nothing to
+ * remove, with a 400 or 404 that the replay counts as success, so sending only
+ * the newest toggle still ends in the state the user chose. If this delete
+ * fails, every row stays and the drain sends them oldest first, so the newest
+ * normally lands last.
+ *
+ * @param keepId - Id of the row just queued
+ * @param command - The toggle just queued
+ * @returns Nothing
+ */
+async function supersedeQueuedToggles(keepId: string, command: ToggleCommand): Promise<void> {
+  await db.delete(outbox).where(and(pendingToggleRows(command), ne(outbox.id, keepId)));
+}
+
+/**
+ * Queues a like or save behind an older queued one for the same Ganap, if there is one.
+ *
+ * Sent straight to the server instead, it would race the queued row, which the
+ * server has not seen yet: an unlike would be refused, and the queued like would
+ * then land. Queued, it replaces the older row and the drain sends it in order.
+ *
+ * @param command - The toggle the user just made
+ * @returns True when it was queued; false when nothing is queued for that Ganap, so it should be sent now
+ */
+export async function queueBehindPendingToggle(command: ToggleCommand): Promise<boolean> {
+  const pending = await db.select({ id: outbox.id }).from(outbox).where(pendingToggleRows(command)).limit(1);
+  if (pending.length === 0) return false;
+  if (!(await enqueueOutbox(command))) return false;
+  requestOutboxDrain();
+  return true;
+}
+
+/**
+ * Starts a drain with the listeners the app registered, or joins the one running.
+ *
+ * @returns Nothing
+ */
+export function requestOutboxDrain(): void {
+  void syncOutbox(registeredListeners);
 }
 
 /**
@@ -113,33 +230,37 @@ function readOwnerId(item: typeof outbox.$inferSelect): string | null {
 }
 
 /**
- * Replays pending queued actions against the server.
+ * Replays pending queued actions against the server, oldest first.
  *
- * Success and failure are decided per action by {@link classifyReplayError};
- * retryable failures try up to {@link MAX_RETRIES} attempts. When an
- * attendance scan settles either way, `onCheckInSettled` is told the truth —
- * a rejected replay is never reported as success.
+ * Nothing is sent while the device reports no connection. A request that gets
+ * no response leaves its row pending without using up an attempt, and ends the
+ * pass, since the rest would fail the same way. Other failures are decided per
+ * action by {@link classifyReplayError}; retryable ones try up to
+ * {@link MAX_RETRIES} attempts. When an action settles either way, the
+ * matching listener is told the truth: a rejected replay is never reported as
+ * success.
  *
- * @param onCheckInSettled - Called when a queued attendance scan succeeds or permanently fails
+ * @param listeners - Called as queued attendance scans, likes and saves settle
  * @returns Nothing
  */
-export function syncOutbox(onCheckInSettled?: CheckInReplayListener): Promise<void> {
+export function syncOutbox(listeners: OutboxReplayListeners = {}): Promise<void> {
   if (outboxDrainPromise) {
     outboxDrainRequested = true;
     return outboxDrainPromise;
   }
   outboxDrainRequested = false;
-  outboxDrainPromise = drainOutbox(onCheckInSettled).finally(() => {
+  outboxDrainPromise = drainOutbox(listeners).finally(() => {
     outboxDrainPromise = null;
     outboxDrainRequested = false;
   });
   return outboxDrainPromise;
 }
 
-async function drainOutbox(onCheckInSettled?: CheckInReplayListener): Promise<void> {
+async function drainOutbox(listeners: OutboxReplayListeners): Promise<void> {
   const attemptedByOwner = new Map<string, Set<string>>();
   do {
     outboxDrainRequested = false;
+    if (!useConnectionStore.getState().isDeviceOnline) return;
     const { isHydrated, token, user } = useAuthStore.getState();
     if (!isHydrated || !token || !user?.id) return;
 
@@ -148,18 +269,45 @@ async function drainOutbox(onCheckInSettled?: CheckInReplayListener): Promise<vo
       attemptedIds = new Set();
       attemptedByOwner.set(user.id, attemptedIds);
     }
-    await drainOutboxBatch(user.id, attemptedIds, onCheckInSettled);
+    const result: BatchResult = await drainOutboxBatch(user.id, attemptedIds, listeners);
+    /** A trigger that arrived during a request that got no response, such as the connection returning, tries again. */
+    if (result === 'no-response' && !outboxDrainRequested) return;
+    if (result === 'more') outboxDrainRequested = true;
   } while (outboxDrainRequested);
+
+  flushSettledToggles(listeners);
 }
 
+/**
+ * Reports the Ganaps whose queued likes or saves settled, once per full pass.
+ *
+ * @param listeners - The drain's listeners
+ * @returns Nothing
+ */
+function flushSettledToggles(listeners: OutboxReplayListeners): void {
+  if (settledToggleIds.size === 0) return;
+  const ganapIds: string[] = [...settledToggleIds];
+  settledToggleIds.clear();
+  listeners.onTogglesSettled?.(ganapIds);
+}
+
+/** How a drain batch ended: a request got no response, the batch was full, or the queue is done. */
+type BatchResult = 'no-response' | 'more' | 'done';
+
+/**
+ * Replays one batch of the current owner's pending rows, oldest first.
+ *
+ * @param ownerId - The signed-in user whose rows are replayed
+ * @param attemptedIds - Rows already tried in this drain, which are skipped
+ * @param listeners - Called as queued actions settle
+ * @returns `no-response` when a request got no response, so the drain should stop; `more` when the batch was full
+ */
 async function drainOutboxBatch(
   ownerId: string,
   attemptedIds: Set<string>,
-  onCheckInSettled?: CheckInReplayListener,
-): Promise<void> {
-  const ownerIdExpression = sql<
-    string | null
-  >`CASE WHEN json_valid(${outbox.payload}) THEN CASE WHEN json_type(${outbox.payload}, '$.ownerId') = 'text' THEN json_extract(${outbox.payload}, '$.ownerId') END END`;
+  listeners: OutboxReplayListeners,
+): Promise<BatchResult> {
+  const ownerIdExpression = payloadText('ownerId');
   const excludedIds = [...attemptedIds];
   const pendingItems = await db
     .select()
@@ -171,6 +319,7 @@ async function drainOutboxBatch(
         excludedIds.length > 0 ? notInArray(outbox.id, excludedIds) : undefined,
       ),
     )
+    .orderBy(sql`rowid`)
     .limit(DRAIN_BATCH);
   const legacyLimit = DRAIN_BATCH - pendingItems.length;
   if (legacyLimit > 0) {
@@ -184,25 +333,41 @@ async function drainOutboxBatch(
           excludedIds.length > 0 ? notInArray(outbox.id, excludedIds) : undefined,
         ),
       )
+      .orderBy(sql`rowid`)
       .limit(legacyLimit);
     pendingItems.push(...legacyItems);
   }
 
   for (const item of pendingItems) {
-    if (!isCurrentOutboxOwner(ownerId)) return;
+    if (!isCurrentOutboxOwner(ownerId)) return 'done';
     attemptedIds.add(item.id);
     const itemOwnerId = readOwnerId(item);
     if (itemOwnerId !== null && itemOwnerId !== ownerId) continue;
-    await processPendingOutboxItem(item, ownerId, onCheckInSettled);
+    const reachedServer: boolean = await processPendingOutboxItem(item, ownerId, listeners);
+    if (!reachedServer) {
+      attemptedIds.delete(item.id);
+      return 'no-response';
+    }
   }
+  return pendingItems.length === DRAIN_BATCH ? 'more' : 'done';
 }
 
+/**
+ * Replays one pending row and records how it settled.
+ *
+ * A row a newer toggle replaced after the batch was read is skipped.
+ *
+ * @param item - The pending outbox row
+ * @param ownerId - The signed-in user replaying it
+ * @param listeners - Called when the action settles
+ * @returns False when the request got no response; the row stays pending with its attempts unchanged
+ */
 async function processPendingOutboxItem(
   item: typeof outbox.$inferSelect,
   ownerId: string,
-  onCheckInSettled?: CheckInReplayListener,
-): Promise<void> {
-  if (!isCurrentOutboxOwner(ownerId)) return;
+  listeners: OutboxReplayListeners,
+): Promise<boolean> {
+  if (!isCurrentOutboxOwner(ownerId)) return true;
   const retries = (item.retries ?? 0) + 1;
   const action: OutboxAction | null = isOutboxAction(item.action) ? item.action : null;
   if (action === null) {
@@ -210,27 +375,37 @@ async function processPendingOutboxItem(
       .update(outbox)
       .set({ status: 'failed', retries, updatedAt: new Date() })
       .where(and(eq(outbox.id, item.id), eq(outbox.status, 'pending')));
-    return;
+    return true;
   }
 
   const notify = (recorded: boolean, error?: Error): void => {
-    if (action !== 'check-in' || !onCheckInSettled) return;
     const ganapId = readGanapId(item);
-    if (ganapId !== null) onCheckInSettled({ ganapId, recorded, error });
+    if (ganapId === null) return;
+    if (action === 'check-in') listeners.onCheckInSettled?.({ ganapId, recorded, error });
+    else settledToggleIds.add(ganapId);
   };
+
+  const stillPending = await db
+    .select({ id: outbox.id })
+    .from(outbox)
+    .where(and(eq(outbox.id, item.id), eq(outbox.status, 'pending')))
+    .limit(1);
+  if (stillPending.length === 0) return true;
 
   try {
     await processOutboxItem(parseOutboxCommand(item, action), ownerId);
-    if (!isCurrentOutboxOwner(ownerId)) return;
+    if (!isCurrentOutboxOwner(ownerId)) return true;
     await db
       .update(outbox)
       .set({ status: 'success', updatedAt: new Date() })
       .where(and(eq(outbox.id, item.id), eq(outbox.status, 'pending')));
     notify(true);
   } catch (error) {
-    if (!isCurrentOutboxOwner(ownerId)) return;
+    if (!isCurrentOutboxOwner(ownerId)) return true;
+    if (error instanceof Error && isNetworkFailure(error)) return false;
     await handleReplayFailure(item, retries, action, error, ownerId, notify);
   }
+  return true;
 }
 
 async function handleReplayFailure(
@@ -264,24 +439,39 @@ async function handleReplayFailure(
 }
 
 /**
- * Starts draining the outbox whenever the app returns to the foreground.
+ * Starts draining the outbox whenever the app returns to the foreground or the
+ * connection comes back.
  *
  * Drains once immediately as well, so a queue left over from a previous session
- * is not stuck waiting for a backgrounding that may never come.
+ * is not stuck waiting for a backgrounding that may never come. The connection
+ * counts as back when the device reconnects, or when a request gets a response
+ * again after an unstable spell.
  *
- * @param onCheckInSettled - Forwarded to every drain pass; see {@link syncOutbox}
- * @returns A function that stops the listener
+ * @param listeners - Forwarded to every drain pass; see {@link syncOutbox}
+ * @returns A function that stops both listeners
  */
-export function startOutboxDrain(onCheckInSettled?: CheckInReplayListener): () => void {
+export function startOutboxDrain(listeners: OutboxReplayListeners = {}): () => void {
+  registeredListeners = listeners;
   const subscription = AppState.addEventListener('change', (state: AppStateStatus): void => {
     if (state === 'active') {
-      void syncOutbox(onCheckInSettled);
+      void syncOutbox(listeners);
     }
   });
+  const unsubscribeConnection = useConnectionStore.subscribe(
+    (state: ConnectionState, previous: ConnectionState): void => {
+      if (selectConnectionStatus(state) === 'online' && selectConnectionStatus(previous) !== 'online') {
+        void syncOutbox(listeners);
+      }
+    },
+  );
 
-  void syncOutbox(onCheckInSettled);
+  void syncOutbox(listeners);
 
-  return (): void => subscription.remove();
+  return (): void => {
+    subscription.remove();
+    unsubscribeConnection();
+    if (registeredListeners === listeners) registeredListeners = {};
+  };
 }
 
 function isCurrentOutboxOwner(ownerId: string): boolean {

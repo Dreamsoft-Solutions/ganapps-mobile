@@ -9,7 +9,8 @@ import { create } from 'zustand';
  */
 export type ConnectionStatus = 'online' | 'offline' | 'unstable';
 
-interface ConnectionState {
+/** The connection store's state and actions. */
+export interface ConnectionState {
   /** Whether the device reports a network connection. Starts `true` until expo-network answers. */
   isDeviceOnline: boolean;
   /** Whether the last API request sent while the device was online got no response. */

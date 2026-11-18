@@ -1,4 +1,5 @@
 import type { UseMutateAsyncFunction, UseQueryResult } from '@tanstack/react-query';
+import { requestPushPermissionInContext } from '@/services/push-notification.service';
 import type { FormBlock, JoinGanapResult } from '@/types/ganap.types';
 import { getQueryFailure } from '@/utils/query-failure';
 import { type SubmitFormAnswersVariables, useSubmitFormAnswersMutation } from './mutations/useGanapMutation';
@@ -20,12 +21,19 @@ export interface UseGanapRegistrationResult {
 /**
  * Composes the focused registration form query and online submission mutation.
  *
+ * A successful submission completes the registration, so it is also when iOS asks for notification permission.
+ *
  * @param ganapId - Id of the Ganap whose registration form is being completed
  * @returns Registration form data, state, and actions
  */
 export function useGanapRegistration(ganapId: string): UseGanapRegistrationResult {
   const blocksQuery: UseQueryResult<FormBlock[], Error> = useFormBlocksQuery(ganapId, 'REGISTRATION');
   const submitMutation = useSubmitFormAnswersMutation();
+  const submit = async (variables: SubmitFormAnswersVariables): Promise<JoinGanapResult> => {
+    const result = await submitMutation.mutateAsync(variables);
+    void requestPushPermissionInContext();
+    return result;
+  };
 
   return {
     blocks: blocksQuery.data,
@@ -33,7 +41,7 @@ export function useGanapRegistration(ganapId: string): UseGanapRegistrationResul
     error: blocksQuery.error ?? null,
     failure: getQueryFailure(blocksQuery),
     refetch: blocksQuery.refetch,
-    submit: submitMutation.mutateAsync,
+    submit,
     isSubmitting: submitMutation.isPending,
     submitError: submitMutation.error ?? null,
   };

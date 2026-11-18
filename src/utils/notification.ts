@@ -79,6 +79,22 @@ export function parseNotificationData(value: unknown): NotificationData | null {
 }
 
 /**
+ * Picks the supported notification fields out of a full iOS push payload.
+ *
+ * Firebase delivers the server's fields at the top level of the APNs payload, beside `aps` and Firebase's own `gcm.*`
+ * and `google.*` keys, which {@link parseNotificationData} rejects as unknown fields.
+ *
+ * @param payload - The `userInfo` of an iOS push, from the notification trigger.
+ * @returns A record holding only the supported fields, or `null` when the payload is not a record.
+ */
+export function pickNotificationDataFields(payload: unknown): Record<string, unknown> | null {
+  if (!isRecord(payload)) return null;
+  return Object.fromEntries(
+    Object.entries(payload).filter(([key]: [string, unknown]): boolean => NOTIFICATION_DATA_KEYS.has(key)),
+  );
+}
+
+/**
  * Converts valid notification data into the only route supported by this notification flow.
  *
  * @param value - Unknown data from an Expo notification response.

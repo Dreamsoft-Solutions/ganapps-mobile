@@ -80,3 +80,4 @@ describes the gap that prompted the rule in the first place.
 - [ADR 0005: iOS and Android UI Each Follow Their Own Platform Guidelines](0005-platform-design-guidelines.md)
 - [ADR 0006: Firebase Analytics Is Installed but Not Linked](0006-exclude-firebase-analytics-autolinking.md)
 - [ADR 0007: Use Pact Contract Checks](0007-use-pact-contract-checks.md)
+- [ADR 0008: iOS Push Tokens Come From Firebase Messaging, Linked on iOS Only](0008-ios-push-tokens-from-firebase-messaging.md)
