@@ -184,6 +184,7 @@ module.exports = {
             useFrameworks: 'static',
             usePrecompiledModules: false,
             forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBMessaging', 'RNFBRemoteConfig'],
+            enableSceneSupport: true,
           },
         },
       ],

@@ -75,10 +75,12 @@ Expo SDK, React Native or React Native Firebase upgrade, or when adding a native
 
 ## iOS Native Build Configuration
 
-The iOS build only links if `app.config.js` carries an `expo-build-properties` block with all
-three of these settings. They were established on 2026-09-05 getting the first simulator build
+The iOS build only links if `app.config.js` carries an `expo-build-properties` block with the
+first three of these settings. They were established on 2026-09-05 getting the first simulator build
 to run, and each one fixes a failure that the previous one exposes — removing any of them
-breaks the build again, in a way whose error message does not point back here.
+breaks the build again, in a way whose error message does not point back here. The fourth,
+`enableSceneSupport`, is not about linking; it lets a build made with Xcode 27 launch on iOS 27
+(see below).
 
 ```js
 [
@@ -88,6 +90,7 @@ breaks the build again, in a way whose error message does not point back here.
       useFrameworks: 'static',
       usePrecompiledModules: false,
       forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBMessaging', 'RNFBRemoteConfig'],
+      enableSceneSupport: true,
     },
   },
 ],
@@ -112,6 +115,25 @@ breaks the build again, in a way whose error message does not point back here.
   `-Werror=non-modular-include-in-framework-module` on `#import <React/RCTBridgeModule.h>`.
   It must name exactly the `RNFB*` pods Expo autolinks. Check the Podfile's autolinking output
   when Firebase modules change; Pact does not check this list.
+- **`enableSceneSupport: true`** — apps built with the iOS 27 SDK (Xcode 27) must use the UIKit
+  scene lifecycle, or they do not launch on iOS 27 ([ADR 0009](../adr/0009-xcode-27-scene-support-on-sdk-57.md)).
+  On SDK 57 the setting needs `expo` 57.0.23 or newer; on an older patch, prebuild throws. It
+  changes the generated `AppDelegate.swift`: the class conforms to `ExpoReactNativeFactoryProvider`,
+  and the window and `factory.startReactNative(...)` leave `didFinishLaunchingWithOptions`.
+  `Info.plist` gains a `UIApplicationSceneManifest` naming `EXExpoAppSceneDelegate`, which starts
+  React Native and forwards URLs, universal links and other scene events back to the AppDelegate,
+  so its `openURL` override (with React Native Firebase Auth's `firebaseauth` guard) still runs.
+  The setting edits only Expo's standard SDK 57 AppDelegate and throws if it finds anything else.
+  Remove it when upgrading to SDK 58, whose template has scenes built in.
+
+React Native Firebase 25.1.0 inserts `FirebaseApp.configure()` just above
+`factory.startReactNative(`, the line scene support deletes. It still lands because it writes from
+a dangerous mod, and Expo runs dangerous mods before the AppDelegate mod: the call stays in
+`didFinishLaunchingWithOptions`, inside the now otherwise empty `#if os(iOS) || os(tvOS)` block.
+Checked on 2026-11-18 by running the config's iOS mods over Expo 57.0.33's template. After any
+change to plugin order, React Native Firebase or Expo, confirm `FirebaseApp.configure()` is in the
+prebuilt `ios/Ganapps/AppDelegate.swift`. Newer React Native Firebase versions also match
+`return super.application(...)`, so they no longer depend on that order.
 
 `@react-native-firebase/app` is pinned at 25.1.0, which has no SPM support and so no
 `disableSPM` plugin option — the package contains no such string. RNFirebase's docs pair
@@ -190,8 +212,8 @@ read during `pod install` from the Podfile's `platform :ios` line. That line use
 the template default of 16.4. The plugin names no version, so raising the app's target raises
 the floor with it.
 
-The plugin also runs on EAS, where Xcode 26.6 never needed it. There it raises pod targets
-from 15.1 to 16.4 as well. That costs nothing at runtime, since the app cannot run below 16.4.
+EAS builds need the plugin too, since they moved from Xcode 26.6 to Xcode 27.2 (ADR 0009). It
+also raises pod targets from 15.1 to 16.4. That costs nothing at runtime, since the app cannot run below 16.4.
 To confirm the block after prebuild, look for `ganapps-pod-deployment-target-floor` in
 `ios/Podfile`. `npx expo config --type introspect` does not show it because Expo cannot
 introspect the Podfile mod. Revisit the plugin after a React Native upgrade: if
@@ -248,7 +270,7 @@ exercises the banner, foreground refresh and tap routing without a server change
 ### EAS cloud builds for iOS
 
 `eas.json` has two store-signed iOS profiles. Both auto-increment the build number from the
-same remote counter and pin the Xcode 26.6 image:
+same remote counter and pin the `macos-tahoe-26.6-xcode-27.2` image (Xcode 27.2, iOS 27 SDK):
 
 | Profile | EAS environment | API and Remote Config | Use |
 |---|---|---|---|
@@ -256,6 +278,13 @@ same remote counter and pin the Xcode 26.6 image:
 | `production` | `production` | production API, `mobile_prod` | App Store release |
 
 A `testflight` build is never the one submitted for App Review — it talks to the dev API.
+
+Builds up to 1.1.1 (22) used `macos-tahoe-26.5-xcode-26.6` and the iOS 26.5 SDK. App Store
+Connect accepted them with warning ITMS-90725: from April 2027, uploads must be built with the
+iOS 27 SDK or later. Xcode 27 also requires the scene lifecycle (`enableSceneSupport`, above), so
+the image and that setting change together ([ADR 0009](../adr/0009-xcode-27-scene-support-on-sdk-57.md)).
+Pin an exact image from [Expo's list](https://docs.expo.dev/build-reference/infrastructure/)
+rather than an alias: `latest` and `sdk-58` move to new Xcode versions without a change here.
 
 `eas.json` requires **eas-cli 24.4.2 or newer** (`cli.version`). Older versions fail the Apple
 sign-in step with "Authentication with Apple Developer Portal failed! iTunes service key is

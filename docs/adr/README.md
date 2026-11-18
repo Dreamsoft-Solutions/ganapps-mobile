@@ -81,3 +81,4 @@ describes the gap that prompted the rule in the first place.
 - [ADR 0006: Firebase Analytics Is Installed but Not Linked](0006-exclude-firebase-analytics-autolinking.md)
 - [ADR 0007: Use Pact Contract Checks](0007-use-pact-contract-checks.md)
 - [ADR 0008: iOS Push Tokens Come From Firebase Messaging, Linked on iOS Only](0008-ios-push-tokens-from-firebase-messaging.md)
+- [ADR 0009: Build iOS With Xcode 27 on SDK 57 Through Expo's Scene Support](0009-xcode-27-scene-support-on-sdk-57.md)
