@@ -272,6 +272,7 @@ module.exports = {
         },
       ],
       './plugins/with-local-android-release-signing',
+      './plugins/with-android-gradle-metaspace',
       './plugins/with-ios-pod-deployment-target-floor',
     ],
     experiments: {
