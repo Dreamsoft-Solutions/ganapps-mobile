@@ -18,7 +18,7 @@ Read the sections relevant to the task. Code paths and command working directori
 - [ ] Offline write? → outbox via `db/schema.ts` + `sync.service.ts`
 - [ ] Error/loading/empty states covered? → `ErrorView` with retry, `Loading`, `Empty`
 - [ ] TSDoc on every new or touched export? (not linted — this one is on you)
-- [ ] Explicit types on every function, callback, and parameter? (`npm run lint` will tell you)
+- [ ] Explicit types on functions, callbacks, parameters, and non-literal module variables?
 - [ ] Test written first (hooks, utils, services, API layer)?
 
 ## Code Review Process
@@ -30,7 +30,7 @@ For application feature changes, perform a structured review of the relevant cat
 
 | Category | Checks |
 |---|---|
-| Best practices | TSDoc on new/touched exports? `@param`/`@returns`/`@throws` correct? No `any`? (Explicit types are gated by `npm run lint`, so step 1 already covers them.) |
+| Best practices | TSDoc on new/touched exports? `@param`/`@returns`/`@throws` correct? No `any`? Explicit types on functions, callbacks, parameters, and non-literal module variables? |
 | API layer | Imports `axiosInstance`, not bare `axios`? Version-free path? No second unwrap of the envelope? Route confirmed against the server? |
 | Hook conventions | Endpoint in `api/endpoints/`? Query/mutation in `hooks/queries|mutations/`? Aggregated hook? Query key factory exported? |
 | Navigation | Correct route group? Layout updated? Dynamic params right? Routed via `Routes`, with no route string literal anywhere? |

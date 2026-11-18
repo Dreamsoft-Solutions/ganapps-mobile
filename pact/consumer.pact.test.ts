@@ -206,7 +206,7 @@ describe('mobile to server contract', () => {
       .uponReceiving('a mobile refresh request')
       .withRequest('POST', '/api/v1/auth/refresh', (request) => {
         request.headers({ 'Content-Type': 'application/json' }).jsonBody({
-          // biome-ignore lint/suspicious/noTemplateCurlyInString: Pact substitutes the provider's signed token.
+          // oxlint-disable-next-line eslint/no-template-curly-in-string -- Pact substitutes the provider's signed token.
           refreshToken: fromProviderState('${refreshToken}', 'pact-refresh-token'),
         });
       })

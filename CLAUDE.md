@@ -94,7 +94,7 @@ Follow the verification scope in AGENTS.md's Code Review Process. Report the che
 
 - **Branch:** work happens on `dev`. `master` is not a working branch.
 - **Commits:** Conventional Commits, enforced by commitlint (100 char header limit).
-  `pre-commit` runs lint-staged; `pre-push` runs lint + test. Don't bypass hooks with
+  `pre-commit` runs lint-staged; `pre-push` runs format and lint checks, then tests. Don't bypass hooks with
   `--no-verify`.
 - **Don't commit or push unless asked.**
 - **Never run migrations.** `npm run db:generate` and `npm run db:migrate` are Mark's, like

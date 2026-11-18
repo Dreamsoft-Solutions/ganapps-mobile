@@ -1,4 +1,7 @@
 {
-  "*.{ts,tsx,js}": ["biome check --write --no-errors-on-unmatched", "biome format --write --no-errors-on-unmatched"],
+  "*.{ts,tsx,js}": [
+    "biome format --write --no-errors-on-unmatched",
+    "oxlint --format unix --no-error-on-unmatched-pattern"
+  ],
   "*.{json,css}": ["biome format --write --no-errors-on-unmatched"]
 }

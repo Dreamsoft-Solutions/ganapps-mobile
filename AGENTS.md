@@ -31,7 +31,7 @@ Keep screen, API contract, and local data decisions in the main agent. Trace the
 - Keep form schemas, native maxLength, field guidance, and server validation aligned. User bios allow up to 280 characters; registration answers use the maximum from the server-provided Registration Form block.
 - Use shared components/common primitives, semantic theme tokens, and lucide-react-native icons. Keep light and dark themes working. Follow docs/DESIGN.md for spacing, typography, platform behavior, and accessibility. UI copy has no emojis.
 - Add TSDoc to every exported function, class, or method you create or materially change.
-- Biome's explicit-type rule applies to every function and callback parameter and return value, plus non-literal module variables. Use existing TanStack Query generic patterns to preserve inference.
+- Give functions and callbacks explicit parameter and return types. Annotate non-literal module variables. Use existing TanStack Query generic patterns to preserve inference.
 
 ## CI
 
@@ -40,7 +40,6 @@ CI steps and Pact provider selection live in .github/workflows/ci.yml; read it b
 
 - Editing src/db/schema.ts is normal work. Never run Drizzle migration generation or application. If a change needs either command, give the human the exact command. Do not launch the app when it would apply a pending migration.
 - Run npx expo customize tsconfig.json after a fresh checkout or route-tree change and before type-checking; it generates the gitignored route types.
-- Biome check includes organize-imports assists; format alone does not.
 
 ## Verification and delivery
 
