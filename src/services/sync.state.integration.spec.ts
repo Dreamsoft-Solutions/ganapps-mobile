@@ -228,13 +228,12 @@ describe('mobile outbox state transitions', () => {
         scannedAt: string;
       }) => Promise<{ kind: string }>;
     };
-    let rejectRequest: ((error: Error) => void) | undefined;
-    runtime.api.checkIn.mockImplementationOnce(
-      () =>
-        new Promise<void>((_resolve, reject) => {
-          rejectRequest = reject;
-        }),
-    );
+    const requestStarted = Promise.withResolvers<void>();
+    const response = Promise.withResolvers<void>();
+    runtime.api.checkIn.mockImplementationOnce(() => {
+      requestStarted.resolve();
+      return response.promise;
+    });
 
     const pending = options.mutationFn({
       ganapId: 'ganap-user-a',
@@ -242,10 +241,11 @@ describe('mobile outbox state transitions', () => {
       qrHash: 'qr-a',
       scannedAt: '2026-11-07T00:00:00.000Z',
     });
-    await vi.waitFor(() => expect(runtime.api.checkIn).toHaveBeenCalledTimes(1));
+    await requestStarted.promise;
+    expect(runtime.api.checkIn).toHaveBeenCalledTimes(1);
     runtime.session.token = 'access-token-b';
     runtime.session.user = { id: 'user-b' };
-    rejectRequest?.(new Error('Network Error'));
+    response.reject(new Error('Network Error'));
 
     await expect(pending).resolves.toMatchObject({ kind: 'queued' });
     expect(runtime.api.checkIn).toHaveBeenNthCalledWith(
@@ -274,18 +274,18 @@ describe('mobile outbox state transitions', () => {
 
   it('serializes concurrent drains so a pending row is sent once', async () => {
     await service.enqueueOutbox({ action: 'like', ganapId: 'ganap-2', ownerId: 'user-a' });
-    let releaseRequest: (() => void) | undefined;
-    runtime.api.like.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          releaseRequest = resolve;
-        }),
-    );
+    const requestStarted = Promise.withResolvers<void>();
+    const response = Promise.withResolvers<void>();
+    runtime.api.like.mockImplementationOnce(() => {
+      requestStarted.resolve();
+      return response.promise;
+    });
 
     const firstDrain = service.syncOutbox();
-    await vi.waitFor(() => expect(runtime.api.like).toHaveBeenCalledTimes(1));
+    await requestStarted.promise;
+    expect(runtime.api.like).toHaveBeenCalledTimes(1);
     const secondDrain = service.syncOutbox();
-    releaseRequest?.();
+    response.resolve();
     await Promise.all([firstDrain, secondDrain]);
 
     expect(runtime.api.like).toHaveBeenCalledTimes(1);
@@ -295,18 +295,18 @@ describe('mobile outbox state transitions', () => {
 
   it('counts one retry when multiple drain triggers overlap a failed request', async () => {
     await service.enqueueOutbox({ action: 'like', ganapId: 'ganap-retry', ownerId: 'user-a' });
-    let rejectRequest: ((error: unknown) => void) | undefined;
-    runtime.api.like.mockImplementationOnce(
-      () =>
-        new Promise<void>((_resolve, reject) => {
-          rejectRequest = reject;
-        }),
-    );
+    const requestStarted = Promise.withResolvers<void>();
+    const response = Promise.withResolvers<void>();
+    runtime.api.like.mockImplementationOnce(() => {
+      requestStarted.resolve();
+      return response.promise;
+    });
 
     const firstDrain = service.syncOutbox();
-    await vi.waitFor(() => expect(runtime.api.like).toHaveBeenCalledTimes(1));
+    await requestStarted.promise;
+    expect(runtime.api.like).toHaveBeenCalledTimes(1);
     const secondDrain = service.syncOutbox();
-    rejectRequest?.(new Error('temporary network failure'));
+    response.reject(new Error('temporary network failure'));
     await Promise.all([firstDrain, secondDrain]);
 
     expect(runtime.api.like).toHaveBeenCalledTimes(1);
@@ -315,19 +315,19 @@ describe('mobile outbox state transitions', () => {
 
   it('drains a new row queued during an active pass when another trigger arrives', async () => {
     await service.enqueueOutbox({ action: 'like', ganapId: 'ganap-first', ownerId: 'user-a' });
-    let releaseRequest: (() => void) | undefined;
-    runtime.api.like.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          releaseRequest = resolve;
-        }),
-    );
+    const requestStarted = Promise.withResolvers<void>();
+    const response = Promise.withResolvers<void>();
+    runtime.api.like.mockImplementationOnce(() => {
+      requestStarted.resolve();
+      return response.promise;
+    });
 
     const firstDrain = service.syncOutbox();
-    await vi.waitFor(() => expect(runtime.api.like).toHaveBeenCalledTimes(1));
+    await requestStarted.promise;
+    expect(runtime.api.like).toHaveBeenCalledTimes(1);
     await service.enqueueOutbox({ action: 'like', ganapId: 'ganap-second', ownerId: 'user-a' });
     const overlappingTrigger = service.syncOutbox();
-    releaseRequest?.();
+    response.resolve();
     await Promise.all([firstDrain, overlappingTrigger]);
 
     expect(runtime.api.like).toHaveBeenCalledTimes(2);

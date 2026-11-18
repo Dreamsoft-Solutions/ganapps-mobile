@@ -51,13 +51,12 @@ describe('mobile auth transitions', () => {
   });
 
   it('waits for SecureStore deletion before resolving auth clear', async () => {
-    let finishDeletion: (() => void) | undefined;
-    runtime.clearTokens.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          finishDeletion = resolve;
-        }),
-    );
+    const deletionStarted = Promise.withResolvers<void>();
+    const deletion = Promise.withResolvers<void>();
+    runtime.clearTokens.mockImplementationOnce(() => {
+      deletionStarted.resolve();
+      return deletion.promise;
+    });
     const { useAuthStore } = await import('./auth.store');
     useAuthStore.setState({ token: 'access-a', expiresAt: Date.now() + 60_000, user: { id: 'user-a' } as User });
     let clearSettled = false;
@@ -68,24 +67,24 @@ describe('mobile auth transitions', () => {
       .then(() => {
         clearSettled = true;
       });
-    await vi.waitFor(() => expect(runtime.clearTokens).toHaveBeenCalledTimes(1));
+    await deletionStarted.promise;
+    expect(runtime.clearTokens).toHaveBeenCalledTimes(1);
     expect(clearSettled).toBe(false);
     expect(useAuthStore.getState()).toMatchObject({ token: null, user: null });
 
-    finishDeletion?.();
+    deletion.resolve();
     await clearing;
 
     expect(clearSettled).toBe(true);
   });
 
   it('waits for token persistence before resolving a refresh', async () => {
-    let finishPersistence: (() => void) | undefined;
-    runtime.setTokens.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          finishPersistence = resolve;
-        }),
-    );
+    const persistenceStarted = Promise.withResolvers<void>();
+    const persistence = Promise.withResolvers<void>();
+    runtime.setTokens.mockImplementationOnce(() => {
+      persistenceStarted.resolve();
+      return persistence.promise;
+    });
     const [{ useAuthStore }, { refreshAccessToken }] = await Promise.all([
       import('./auth.store'),
       import('../api/interceptors/refresh-token'),
@@ -96,22 +95,22 @@ describe('mobile auth transitions', () => {
       refreshSettled = true;
       return tokens;
     });
-    await vi.waitFor(() => expect(runtime.setTokens).toHaveBeenCalledTimes(1));
+    await persistenceStarted.promise;
+    expect(runtime.setTokens).toHaveBeenCalledTimes(1);
     expect(refreshSettled).toBe(false);
 
-    finishPersistence?.();
+    persistence.resolve();
     await expect(refresh).resolves.toMatchObject({ accessToken: 'next-access' });
     expect(useAuthStore.getState().token).toBe('next-access');
   });
 
   it('waits for an in-flight refresh write before sending a new request or handling a 401', async () => {
-    let finishPersistence: (() => void) | undefined;
-    runtime.setTokens.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          finishPersistence = resolve;
-        }),
-    );
+    const persistenceStarted = Promise.withResolvers<void>();
+    const persistence = Promise.withResolvers<void>();
+    runtime.setTokens.mockImplementationOnce(() => {
+      persistenceStarted.resolve();
+      return persistence.promise;
+    });
     const [{ useAuthStore }, { refreshAccessToken }, { requestInterceptor }, { errorInterceptor }] = await Promise.all([
       import('./auth.store'),
       import('../api/interceptors/refresh-token'),
@@ -125,7 +124,8 @@ describe('mobile auth transitions', () => {
     });
 
     const refresh = refreshAccessToken('refresh-a', 'user-a', useAuthStore.getState().sessionVersion);
-    await vi.waitFor(() => expect(runtime.setTokens).toHaveBeenCalledTimes(1));
+    await persistenceStarted.promise;
+    expect(runtime.setTokens).toHaveBeenCalledTimes(1);
     let requestSettled = false;
     let unauthorizedSettled = false;
     const request = requestInterceptor
@@ -145,7 +145,7 @@ describe('mobile auth transitions', () => {
     expect(runtime.getRefreshToken).not.toHaveBeenCalled();
     expect(runtime.post).toHaveBeenCalledTimes(1);
 
-    finishPersistence?.();
+    persistence.resolve();
     await expect(refresh).resolves.toMatchObject({ accessToken: 'next-access' });
     const [requestConfig, retriedResponse] = await Promise.all([request, unauthorized]);
 
@@ -160,16 +160,15 @@ describe('mobile auth transitions', () => {
   });
 
   it('keeps refreshes for different session tokens independent', async () => {
-    let finishRefreshA:
-      | ((response: { data: { accessToken: string; refreshToken: string; expiresIn: number } }) => void)
-      | undefined;
+    const requestStarted = Promise.withResolvers<void>();
+    const responseA = Promise.withResolvers<{
+      data: { accessToken: string; refreshToken: string; expiresIn: number };
+    }>();
     runtime.post
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            finishRefreshA = resolve;
-          }),
-      )
+      .mockImplementationOnce(() => {
+        requestStarted.resolve();
+        return responseA.promise;
+      })
       .mockResolvedValueOnce({
         data: { accessToken: 'access-b-next', refreshToken: 'refresh-b-next', expiresIn: 3600 },
       });
@@ -180,13 +179,14 @@ describe('mobile auth transitions', () => {
     useAuthStore.setState({ token: 'access-a', expiresAt: Date.now() + 60_000, user: { id: 'user-a' } as User });
 
     const refreshA = refreshAccessToken('refresh-a');
-    await vi.waitFor(() => expect(runtime.post).toHaveBeenCalledTimes(1));
+    await requestStarted.promise;
+    expect(runtime.post).toHaveBeenCalledTimes(1);
     await useAuthStore.getState().clearAuth();
     await useAuthStore.getState().setAuth('access-b', 'refresh-b', 3600, { user: { id: 'user-b' } as User });
     const refreshB = refreshAccessToken('refresh-b');
 
     await expect(refreshB).resolves.toMatchObject({ accessToken: 'access-b-next' });
-    finishRefreshA?.({ data: { accessToken: 'access-a-next', refreshToken: 'refresh-a-next', expiresIn: 3600 } });
+    responseA.resolve({ data: { accessToken: 'access-a-next', refreshToken: 'refresh-a-next', expiresIn: 3600 } });
 
     await expect(refreshA).rejects.toThrow('Authenticated session changed during token refresh');
     expect(useAuthStore.getState()).toMatchObject({ token: 'access-b-next', user: { id: 'user-b' } });
@@ -194,13 +194,12 @@ describe('mobile auth transitions', () => {
   });
 
   it('does not persist a refresh after a newer session starts during SecureStore write', async () => {
-    let finishRefreshPersistence: (() => void) | undefined;
-    runtime.setTokens.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          finishRefreshPersistence = resolve;
-        }),
-    );
+    const persistenceStarted = Promise.withResolvers<void>();
+    const persistence = Promise.withResolvers<void>();
+    runtime.setTokens.mockImplementationOnce(() => {
+      persistenceStarted.resolve();
+      return persistence.promise;
+    });
     const [{ useAuthStore }, { refreshAccessToken }] = await Promise.all([
       import('./auth.store'),
       import('../api/interceptors/refresh-token'),
@@ -208,9 +207,10 @@ describe('mobile auth transitions', () => {
     useAuthStore.setState({ token: 'access-a', expiresAt: Date.now() + 60_000, user: { id: 'user-a' } as User });
 
     const refreshA = refreshAccessToken('refresh-a');
-    await vi.waitFor(() => expect(runtime.setTokens).toHaveBeenCalledTimes(1));
+    await persistenceStarted.promise;
+    expect(runtime.setTokens).toHaveBeenCalledTimes(1);
     const loginB = useAuthStore.getState().setAuth('access-b', 'refresh-b', 3600, { user: { id: 'user-b' } as User });
-    finishRefreshPersistence?.();
+    persistence.resolve();
 
     await expect(refreshA).rejects.toThrow('Authenticated session changed during token persistence');
     await loginB;
@@ -221,13 +221,15 @@ describe('mobile auth transitions', () => {
   });
 
   it('keeps concurrent 401 refreshes separate and does not clear the newer User', async () => {
-    let rejectRefreshA: ((error: Error) => void) | undefined;
+    const requestAStarted = Promise.withResolvers<void>();
+    const responseA = Promise.withResolvers<{
+      data: { accessToken: string; refreshToken: string; expiresIn: number };
+    }>();
     runtime.getRefreshToken.mockResolvedValueOnce('refresh-a').mockResolvedValueOnce('refresh-b');
     runtime.post.mockImplementation((_url, body: { refreshToken: string }) => {
       if (body.refreshToken === 'refresh-a') {
-        return new Promise((_resolve, reject) => {
-          rejectRefreshA = reject;
-        });
+        requestAStarted.resolve();
+        return responseA.promise;
       }
       return Promise.resolve({
         data: { accessToken: 'access-b-next', refreshToken: 'refresh-b-next', expiresIn: 3600 },
@@ -240,7 +242,8 @@ describe('mobile auth transitions', () => {
     useAuthStore.setState({ token: 'access-a', expiresAt: Date.now() + 60_000, user: { id: 'user-a' } as User });
 
     const refreshA = errorInterceptor.onRejected(unauthorizedRequest('user-a', 'access-a'));
-    await vi.waitFor(() => expect(runtime.post).toHaveBeenCalledTimes(1));
+    await requestAStarted.promise;
+    expect(runtime.post).toHaveBeenCalledTimes(1);
     await useAuthStore.getState().clearAuth();
     await useAuthStore.getState().setAuth('access-b', 'refresh-b', 3600, { user: { id: 'user-b' } as User });
     const refreshB = errorInterceptor.onRejected(
@@ -248,7 +251,7 @@ describe('mobile auth transitions', () => {
     );
 
     await expect(refreshB).resolves.toMatchObject({ data: 'retried response' });
-    rejectRefreshA?.(new Error('User A refresh failed'));
+    responseA.reject(new Error('User A refresh failed'));
     await expect(refreshA).rejects.toThrow('User A refresh failed');
 
     expect(runtime.post).toHaveBeenCalledTimes(2);
@@ -262,15 +265,14 @@ describe('mobile auth transitions', () => {
   });
 
   it('rejects an outbox request when the User changes while token refresh is in flight', async () => {
-    let finishRefresh:
-      | ((response: { data: { accessToken: string; refreshToken: string; expiresIn: number } }) => void)
-      | undefined;
-    runtime.post.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          finishRefresh = resolve;
-        }),
-    );
+    const requestStarted = Promise.withResolvers<void>();
+    const response = Promise.withResolvers<{
+      data: { accessToken: string; refreshToken: string; expiresIn: number };
+    }>();
+    runtime.post.mockImplementationOnce(() => {
+      requestStarted.resolve();
+      return response.promise;
+    });
     const [{ useAuthStore }, { requestInterceptor }] = await Promise.all([
       import('./auth.store'),
       import('../api/interceptors/request.interceptor'),
@@ -287,13 +289,14 @@ describe('mobile auth transitions', () => {
     } as unknown as InternalAxiosRequestConfig & SessionBoundRequestConfig;
 
     const request = requestInterceptor.onFulfilled(config);
-    await vi.waitFor(() => expect(runtime.post).toHaveBeenCalledTimes(1));
+    await requestStarted.promise;
+    expect(runtime.post).toHaveBeenCalledTimes(1);
     useAuthStore.setState({
       token: 'access-b',
       expiresAt: Date.now() + 3_600_000,
       user: { id: 'user-b' } as User,
     });
-    finishRefresh?.({ data: { accessToken: 'access-a-next', refreshToken: 'refresh-a-next', expiresIn: 3600 } });
+    response.resolve({ data: { accessToken: 'access-a-next', refreshToken: 'refresh-a-next', expiresIn: 3600 } });
 
     await expect(request).rejects.toThrow('Authenticated User changed before the request was sent');
     expect(useAuthStore.getState()).toMatchObject({ token: 'access-b', user: { id: 'user-b' } });

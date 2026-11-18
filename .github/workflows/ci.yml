@@ -43,6 +43,9 @@ jobs:
         run: node scripts/check-docs.mjs
       - name: Check formatting and lint
         run: npm run check
+      - name: Report Landmines and Anti-Slop findings
+        continue-on-error: true
+        run: npm run lint:plugins
 
       # Expo Router's route union lives in .expo/types/, which is gitignored and so
       # never checked out. Without this step `Href` widens to `string | HrefObject`

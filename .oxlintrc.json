@@ -1,6 +1,5 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "extends": ["./node_modules/@interfere/landmines/configs/recommended.json"],
   "plugins": ["eslint", "oxc", "typescript", "unicorn", "react"],
   "rules": {
     "eslint/no-unused-vars": [
@@ -16,15 +15,16 @@
     "react/exhaustive-deps": "warn",
     "react/rules-of-hooks": "error",
     "typescript/explicit-module-boundary-types": "error",
-    "landmines-testing/no-fixed-sleep": "warn",
-    "landmines-testing/no-flake-masking": "warn",
-    "landmines-testing/no-test-doubles": "warn",
-    "landmines-testing/no-unsignaled-poll": "warn",
-    "landmines-testing/strict-msw": "warn",
-    "landmines-style/no-comments": "warn",
-    "landmines-structure/colocated-tests": "warn",
-    "landmines-structure/package-exports": "warn",
-    "landmines-structure/test-file-names": "warn",
-    "landmines-types/no-explicit-return-types": "warn"
-  }
+    "landmines-testing/no-fixed-sleep": "error",
+    "landmines-testing/no-flake-masking": "error",
+    "landmines-testing/no-unsignaled-poll": "error",
+    "landmines-testing/strict-msw": "error"
+  },
+  "ignorePatterns": ["vendor/anti-slop/"],
+  "jsPlugins": [
+    {
+      "name": "landmines-testing",
+      "specifier": "@interfere/landmines/testing"
+    }
+  ]
 }
