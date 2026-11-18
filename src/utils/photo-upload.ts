@@ -111,7 +111,19 @@ async function saveJpegWithinLimit(image: ImageRef, asset: ImagePickerAsset): Pr
   return null;
 }
 
+/**
+ * Saves the photo as a JPEG under the upload limit, shrinking it step by step when needed.
+ *
+ * Shrinking decodes the photo again from its file, so `original` is released first to keep a
+ * single full-size bitmap in memory. Releasing it again afterwards is harmless.
+ *
+ * @param original - The photo decoded upright from `asset.uri`
+ * @param asset - Photo returned by the native image picker
+ * @returns A JPEG copy with matching metadata
+ * @throws When even the smallest size is over the upload limit
+ */
 async function photoToJpegWithinLimit(original: ImageRef, asset: ImagePickerAsset): Promise<ImagePickerAsset> {
+  const isLandscape: boolean = original.width >= original.height;
   const longestEdge: number = Math.max(original.width, original.height);
   if (longestEdge <= 0) throw new Error('Could not read the photo.');
   const firstEdge: number = Math.min(longestEdge, MAX_PHOTO_EDGE);
@@ -120,7 +132,9 @@ async function photoToJpegWithinLimit(original: ImageRef, asset: ImagePickerAsse
   );
 
   for (const edge of edges) {
-    const resized: ImageRef = edge < longestEdge ? await resizePhoto(original, edge) : original;
+    const needsResize: boolean = edge < longestEdge;
+    if (needsResize) original.release();
+    const resized: ImageRef = needsResize ? await resizePhoto(asset.uri, isLandscape, edge) : original;
     try {
       const prepared: ImagePickerAsset | null = await saveJpegWithinLimit(resized, asset);
       if (prepared) return prepared;
@@ -144,10 +158,20 @@ async function decodePhoto(uri: string): Promise<ImageRef> {
   }
 }
 
-async function resizePhoto(image: ImageRef, edge: number): Promise<ImageRef> {
-  const context = ImageManipulator.manipulate(image).resize(
-    image.width >= image.height ? { width: edge } : { height: edge },
-  );
+/**
+ * Decodes the photo again from its file and scales its longest side to `edge`.
+ *
+ * Never pass a decoded `ImageRef` back to `ImageManipulator.manipulate`: on iOS, Expo SDK 57
+ * converts that argument property by property and stops the app with a native fatal error
+ * when it reaches the image's methods (DS-235).
+ *
+ * @param uri - Local file URI of the photo returned by the picker
+ * @param isLandscape - Whether the upright photo is at least as wide as it is tall
+ * @param edge - Target length in pixels for the longest side
+ * @returns The resized image, which the caller releases
+ */
+async function resizePhoto(uri: string, isLandscape: boolean, edge: number): Promise<ImageRef> {
+  const context = ImageManipulator.manipulate(uri).resize(isLandscape ? { width: edge } : { height: edge });
   try {
     return await context.renderAsync();
   } finally {
