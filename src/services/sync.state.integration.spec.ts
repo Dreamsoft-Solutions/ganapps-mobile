@@ -96,6 +96,50 @@ describe('mobile outbox state transitions', () => {
     expect(sqlite.prepare('SELECT id FROM outbox').all()).toHaveLength(0);
   });
 
+  it('keeps an unanswered scan pending and settles it once after connectivity returns', async () => {
+    await service.enqueueOutbox({
+      action: 'check-in',
+      ganapId: 'ganap-offline',
+      ownerId: 'user-a',
+      qrHash: 'qr-hash',
+      scannedAt: '2026-11-01T00:00:00.000Z',
+    });
+    runtime.api.checkIn.mockRejectedValueOnce(Object.assign(new Error('No response'), { errorCode: 'NETWORK_ERROR' }));
+    const settled = vi.fn();
+
+    await service.syncOutbox({ onCheckInSettled: settled });
+    expect(outboxRow(sqlite)).toEqual({ status: 'pending', retries: 0 });
+    expect(settled).not.toHaveBeenCalled();
+
+    await service.syncOutbox({ onCheckInSettled: settled });
+    await service.syncOutbox({ onCheckInSettled: settled });
+    expect(outboxRow(sqlite)).toEqual({ status: 'success', retries: 0 });
+    expect(runtime.api.checkIn).toHaveBeenCalledTimes(2);
+    expect(settled).toHaveBeenCalledExactlyOnceWith({ ganapId: 'ganap-offline', recorded: true, error: undefined });
+  });
+
+  it.each([
+    [400, 'Wrong QR code', 'failed', false],
+    [404, 'Registration unavailable', 'failed', false],
+    [400, 'Already checked in', 'success', true],
+  ])('persists a %i scan rejection (%s) and reports its actual outcome', async (status, message, expected, recorded) => {
+    await service.enqueueOutbox({
+      action: 'check-in',
+      ganapId: 'ganap-rejected',
+      ownerId: 'user-a',
+      qrHash: 'qr-hash',
+      scannedAt: '2026-11-01T00:00:00.000Z',
+    });
+    runtime.api.checkIn.mockRejectedValue(Object.assign(new Error(message), { status }));
+    const settled = vi.fn();
+
+    await service.syncOutbox({ onCheckInSettled: settled });
+    await service.syncOutbox({ onCheckInSettled: settled });
+    expect(outboxRow(sqlite).status).toBe(expected);
+    expect(runtime.api.checkIn).toHaveBeenCalledTimes(1);
+    expect(settled).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ ganapId: 'ganap-rejected', recorded }));
+  });
+
   it('waits for hydrated auth and replays only for the queued owner', async () => {
     await expect(
       service.enqueueOutbox({
@@ -148,7 +192,9 @@ describe('mobile outbox state transitions', () => {
 
     expect(runtime.api.like).toHaveBeenCalledTimes(1);
     expect(runtime.api.like).toHaveBeenCalledWith('ganap-user-a', 'user-a');
-    expect(sqlite.prepare("SELECT status FROM outbox WHERE id LIKE 'foreign-%'").all()).toHaveLength(11);
+    expect(sqlite.prepare("SELECT status FROM outbox WHERE id LIKE 'foreign-%'").all()).toEqual(
+      Array.from({ length: 11 }, () => ({ status: 'pending' })),
+    );
   });
 
   it('does not let legacy rows without an owner starve the current owner past one batch', async () => {
@@ -166,6 +212,9 @@ describe('mobile outbox state transitions', () => {
 
     expect(runtime.api.like).toHaveBeenCalledTimes(1);
     expect(runtime.api.like).toHaveBeenCalledWith('ganap-user-a', 'user-a');
+    expect(sqlite.prepare("SELECT status FROM outbox WHERE id LIKE 'legacy-%'").all()).toEqual(
+      Array.from({ length: 11 }, () => ({ status: 'failed' })),
+    );
   });
 
   it('queues a failed request for the User who started it after the session changes', async () => {
