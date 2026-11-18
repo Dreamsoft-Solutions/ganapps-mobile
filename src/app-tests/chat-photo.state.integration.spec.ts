@@ -10,7 +10,7 @@ import { axiosInstance } from '@/api/axios-instance';
 import { useChat } from '@/hooks/useChat';
 import { useDirectChat } from '@/hooks/useDirectChat';
 import { useAuthStore } from '@/store/auth.store';
-import type { ChatImageDraft } from '@/types/chat.types';
+import type { ChatImageAsset, ChatImageDraft } from '@/types/chat.types';
 
 interface PhotoComposer {
   canSend: boolean;
@@ -32,6 +32,24 @@ const runtime = vi.hoisted(() => ({
   peakLiveImages: 0,
   composer: null as unknown,
 }));
+
+type PhotoFileFormat = 'jpeg' | 'png' | 'webp' | 'gif';
+
+/** Builds the first bytes of a photo file, which the app reads to detect its real format. */
+const fileHeader: (format: PhotoFileFormat) => Uint8Array = vi.hoisted(
+  (): ((format: PhotoFileFormat) => Uint8Array) =>
+    (format: PhotoFileFormat): Uint8Array => {
+      const signatures: Record<PhotoFileFormat, string> = {
+        jpeg: '\xff\xd8\xff',
+        png: '\x89PNG\r\n\x1a\n',
+        webp: 'RIFF\0\0\0\0WEBP',
+        gif: 'GIF89a',
+      };
+      const header: Uint8Array = new Uint8Array(32);
+      header.set(Array.from(signatures[format], (character: string): number => character.charCodeAt(0)));
+      return header;
+    },
+);
 
 vi.mock('expo-secure-store', () => ({}));
 vi.mock('expo-image-picker', () => ({
@@ -60,10 +78,15 @@ vi.mock('expo-file-system', () => ({
   },
 }));
 vi.mock('expo-image-manipulator', () => {
+  type SavedFormat = 'jpeg' | 'png' | 'webp';
+
   interface FakeImage {
     width: number;
     height: number;
-    saveAsync: (options: { compress: number }) => Promise<{ uri: string; width: number; height: number }>;
+    saveAsync: (options: {
+      compress: number;
+      format: SavedFormat;
+    }) => Promise<{ uri: string; width: number; height: number }>;
     release: () => void;
   }
 
@@ -95,16 +118,16 @@ vi.mock('expo-image-manipulator', () => {
       },
       saveAsync: async ({
         compress,
+        format,
       }: {
         compress: number;
+        format: SavedFormat;
       }): Promise<{ uri: string; width: number; height: number }> => {
         assertNotReleased();
         runtime.savedImages += 1;
-        const uri = `file:///cache/ImageManipulator/${runtime.savedImages}.jpg`;
-        const header: Uint8Array = new Uint8Array(32);
-        header.set([0xff, 0xd8, 0xff]);
+        const uri = `file:///cache/ImageManipulator/${runtime.savedImages}.${format === 'jpeg' ? 'jpg' : format}`;
         const size: number = Math.round(width * height * compress * runtime.jpegBytesPerPixel);
-        runtime.files.set(uri, { size, header, width, height });
+        runtime.files.set(uri, { size, header: fileHeader(format), width, height });
         return { uri, width, height };
       },
       release: (): void => {
@@ -148,7 +171,7 @@ vi.mock('expo-image-manipulator', () => {
     return context;
   }
 
-  return { SaveFormat: { JPEG: 'jpeg' }, ImageManipulator: { manipulate } };
+  return { SaveFormat: { JPEG: 'jpeg', PNG: 'png', WEBP: 'webp' }, ImageManipulator: { manipulate } };
 });
 vi.mock('@/services/chat-socket.service', () => ({
   chatSocketClient: {
@@ -165,6 +188,7 @@ vi.mock('@/services/chat-socket.service', () => ({
 
 const HEIC_URI = 'file:///cache/ImagePicker/IMG_0001.heic';
 const TIFF_URI = 'file:///cache/ImagePicker/scan.tiff';
+const GIF_URI = 'file:///cache/ImagePicker/loop.gif';
 const friend = { userId: 'friend-1', username: 'friend', displayName: 'Friend', displayPicture: null };
 
 function heicHeader(): Uint8Array {
@@ -197,6 +221,149 @@ function pickRecentIphonePhoto(): void {
     fileSize: 1_631_779,
   });
 }
+
+interface PickedPhoto {
+  uri: string;
+  format: PhotoFileFormat;
+  size: number;
+  width: number;
+  height: number;
+  fileName: string;
+  mimeType: string;
+}
+
+function pickPhoto(photo: PickedPhoto): void {
+  runtime.files.set(photo.uri, {
+    size: photo.size,
+    header: fileHeader(photo.format),
+    width: photo.width,
+    height: photo.height,
+  });
+  pick({
+    uri: photo.uri,
+    width: photo.width,
+    height: photo.height,
+    fileName: photo.fileName,
+    mimeType: photo.mimeType,
+    fileSize: photo.size,
+  });
+}
+
+/**
+ * Checks the file a draft would upload against the chat server's input rules in
+ * `chat-media.service.ts`: a JPEG of at most 5 MiB and 20 MP. The app also keeps the long edge
+ * within 4096 px, the largest size the server stores.
+ */
+function expectAcceptedByChatServer(asset: ChatImageAsset | undefined): void {
+  const file = runtime.files.get(asset?.uri ?? '');
+  if (!asset || !file) throw new Error('The draft has no photo file to upload.');
+  expect(asset.mimeType).toBe('image/jpeg');
+  expect(Array.from(file.header.slice(0, 3))).toEqual([0xff, 0xd8, 0xff]);
+  expect(file.size).toBeLessThanOrEqual(5 * 1024 * 1024);
+  expect(file.width * file.height).toBeLessThanOrEqual(20_000_000);
+  expect(Math.max(file.width, file.height)).toBeLessThanOrEqual(4096);
+  expect(asset).toMatchObject({ fileSize: file.size, width: file.width, height: file.height });
+}
+
+interface PhotoSize {
+  width: number;
+  height: number;
+}
+
+const PHOTOS_TO_SHRINK: ReadonlyArray<[string, PickedPhoto, PhotoSize]> = [
+  [
+    'a 24 MP iPhone JPEG over 5 MB',
+    {
+      uri: 'file:///cache/ImagePicker/IMG_0002.jpg',
+      format: 'jpeg',
+      size: 10_525_732,
+      width: 4284,
+      height: 5712,
+      fileName: 'IMG_0002.JPG',
+      mimeType: 'image/jpeg',
+    },
+    { width: 3072, height: 4096 },
+  ],
+  [
+    'a 54 MP panorama under 5 MB',
+    {
+      uri: 'file:///cache/ImagePicker/IMG_0003.jpg',
+      format: 'jpeg',
+      size: 2_366_285,
+      width: 16000,
+      height: 3400,
+      fileName: 'IMG_0003.JPG',
+      mimeType: 'image/jpeg',
+    },
+    { width: 4096, height: 870 },
+  ],
+  [
+    'a 5184 x 3888 camera JPEG, just over 20 MP',
+    {
+      uri: 'file:///cache/ImagePicker/P1000123.jpg',
+      format: 'jpeg',
+      size: 4_718_592,
+      width: 5184,
+      height: 3888,
+      fileName: 'P1000123.JPG',
+      mimeType: 'image/jpeg',
+    },
+    { width: 4096, height: 3072 },
+  ],
+  [
+    'a PNG over 5 MB',
+    {
+      uri: 'file:///cache/ImagePicker/export.png',
+      format: 'png',
+      size: 14_680_064,
+      width: 4032,
+      height: 3024,
+      fileName: 'export.png',
+      mimeType: 'image/png',
+    },
+    { width: 4032, height: 3024 },
+  ],
+  [
+    'a WebP over 5 MB',
+    {
+      uri: 'file:///cache/ImagePicker/download.webp',
+      format: 'webp',
+      size: 6_291_456,
+      width: 3000,
+      height: 4000,
+      fileName: 'download.webp',
+      mimeType: 'image/webp',
+    },
+    { width: 3000, height: 4000 },
+  ],
+];
+
+const PHOTOS_TO_KEEP: ReadonlyArray<[string, PickedPhoto]> = [
+  [
+    'a 12 MP JPEG of 3 MiB',
+    {
+      uri: 'file:///cache/ImagePicker/IMG_0004.jpg',
+      format: 'jpeg',
+      size: 3_145_728,
+      width: 4032,
+      height: 3024,
+      fileName: 'IMG_0004.JPG',
+      mimeType: 'image/jpeg',
+    },
+  ],
+  [
+    'a JPEG of exactly 20 MP and exactly 5 MiB',
+    {
+      uri: 'file:///cache/ImagePicker/IMG_0006.jpg',
+      format: 'jpeg',
+      size: 5_242_880,
+      width: 5000,
+      height: 4000,
+      fileName: 'IMG_0006.JPG',
+      mimeType: 'image/jpeg',
+    },
+  ],
+];
 
 function respond(config: InternalAxiosRequestConfig, data: unknown): AxiosResponse {
   return {
@@ -403,5 +570,91 @@ describe.each([
     expect(runtime.nativeFatalErrors).toEqual([]);
     await vi.waitFor((): void => expect(composer().imageDraft?.status).toBe('ready'));
     expect(composer().imagePickerError).toBeNull();
+  });
+
+  it.each(
+    PHOTOS_TO_SHRINK,
+  )('shrinks %s into a JPEG the chat server accepts', async (_photo: string, picked: PickedPhoto, shrunk: PhotoSize): Promise<void> => {
+    await openComposer(Component);
+    pickPhoto(picked);
+
+    await composer().pickImage();
+
+    expect(runtime.nativeFatalErrors).toEqual([]);
+    await vi.waitFor((): void =>
+      expect(composer().imageDraft).toMatchObject({ status: 'ready', asset: { mimeType: 'image/jpeg', ...shrunk } }),
+    );
+    expectAcceptedByChatServer(composer().imageDraft?.asset);
+    expect(composer().imagePickerError).toBeNull();
+    expect(runtime.peakLiveImages).toBe(1);
+    expect(runtime.liveImages).toBe(0);
+  });
+
+  it.each(
+    PHOTOS_TO_KEEP,
+  )('sends %s as the original file', async (_photo: string, picked: PickedPhoto): Promise<void> => {
+    await openComposer(Component);
+    pickPhoto(picked);
+
+    await composer().pickImage();
+
+    await vi.waitFor((): void =>
+      expect(composer().imageDraft).toMatchObject({
+        status: 'ready',
+        asset: {
+          uri: picked.uri,
+          name: picked.fileName,
+          mimeType: 'image/jpeg',
+          fileSize: picked.size,
+          width: picked.width,
+          height: picked.height,
+        },
+      }),
+    );
+    expect(runtime.savedImages).toBe(0);
+    expect(runtime.liveImages).toBe(0);
+  });
+
+  it('still rejects a GIF over 5 MB instead of converting it', async (): Promise<void> => {
+    await openComposer(Component);
+    pickPhoto({
+      uri: GIF_URI,
+      format: 'gif',
+      size: 6_291_456,
+      width: 800,
+      height: 800,
+      fileName: 'loop.gif',
+      mimeType: 'image/gif',
+    });
+
+    await composer().pickImage();
+
+    await vi.waitFor((): void =>
+      expect(composer().imagePickerError?.message).toBe('Choose a JPEG, PNG, or WebP image under 5 MiB.'),
+    );
+    expect(composer().imageDraft).toBeNull();
+    expect(runtime.savedImages).toBe(0);
+    expect(runtime.peakLiveImages).toBe(0);
+  });
+
+  it('still rejects a HEIC sequence instead of converting it', async (): Promise<void> => {
+    await openComposer(Component);
+    runtime.files.set(HEIC_URI, { size: 2_400_000, header: heicHeader(), width: 4284, height: 5712 });
+    pick({
+      uri: HEIC_URI,
+      width: 4284,
+      height: 5712,
+      fileName: 'IMG_0005.HEIC',
+      mimeType: 'image/heic-sequence',
+      fileSize: 2_400_000,
+    });
+
+    await composer().pickImage();
+
+    await vi.waitFor((): void =>
+      expect(composer().imagePickerError?.message).toBe('Could not use this photo. Choose another photo or try again.'),
+    );
+    expect(composer().imageDraft).toBeNull();
+    expect(runtime.savedImages).toBe(0);
   });
 });
