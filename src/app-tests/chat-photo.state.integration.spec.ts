@@ -572,48 +572,50 @@ describe.each([
     expect(composer().imagePickerError).toBeNull();
   });
 
-  it.each(
-    PHOTOS_TO_SHRINK,
-  )('shrinks %s into a JPEG the chat server accepts', async (_photo: string, picked: PickedPhoto, shrunk: PhotoSize): Promise<void> => {
-    await openComposer(Component);
-    pickPhoto(picked);
+  it.each(PHOTOS_TO_SHRINK)(
+    'shrinks %s into a JPEG the chat server accepts',
+    async (_photo: string, picked: PickedPhoto, shrunk: PhotoSize): Promise<void> => {
+      await openComposer(Component);
+      pickPhoto(picked);
 
-    await composer().pickImage();
+      await composer().pickImage();
 
-    expect(runtime.nativeFatalErrors).toEqual([]);
-    await vi.waitFor((): void =>
-      expect(composer().imageDraft).toMatchObject({ status: 'ready', asset: { mimeType: 'image/jpeg', ...shrunk } }),
-    );
-    expectAcceptedByChatServer(composer().imageDraft?.asset);
-    expect(composer().imagePickerError).toBeNull();
-    expect(runtime.peakLiveImages).toBe(1);
-    expect(runtime.liveImages).toBe(0);
-  });
+      expect(runtime.nativeFatalErrors).toEqual([]);
+      await vi.waitFor((): void =>
+        expect(composer().imageDraft).toMatchObject({ status: 'ready', asset: { mimeType: 'image/jpeg', ...shrunk } }),
+      );
+      expectAcceptedByChatServer(composer().imageDraft?.asset);
+      expect(composer().imagePickerError).toBeNull();
+      expect(runtime.peakLiveImages).toBe(1);
+      expect(runtime.liveImages).toBe(0);
+    },
+  );
 
-  it.each(
-    PHOTOS_TO_KEEP,
-  )('sends %s as the original file', async (_photo: string, picked: PickedPhoto): Promise<void> => {
-    await openComposer(Component);
-    pickPhoto(picked);
+  it.each(PHOTOS_TO_KEEP)(
+    'sends %s as the original file',
+    async (_photo: string, picked: PickedPhoto): Promise<void> => {
+      await openComposer(Component);
+      pickPhoto(picked);
 
-    await composer().pickImage();
+      await composer().pickImage();
 
-    await vi.waitFor((): void =>
-      expect(composer().imageDraft).toMatchObject({
-        status: 'ready',
-        asset: {
-          uri: picked.uri,
-          name: picked.fileName,
-          mimeType: 'image/jpeg',
-          fileSize: picked.size,
-          width: picked.width,
-          height: picked.height,
-        },
-      }),
-    );
-    expect(runtime.savedImages).toBe(0);
-    expect(runtime.liveImages).toBe(0);
-  });
+      await vi.waitFor((): void =>
+        expect(composer().imageDraft).toMatchObject({
+          status: 'ready',
+          asset: {
+            uri: picked.uri,
+            name: picked.fileName,
+            mimeType: 'image/jpeg',
+            fileSize: picked.size,
+            width: picked.width,
+            height: picked.height,
+          },
+        }),
+      );
+      expect(runtime.savedImages).toBe(0);
+      expect(runtime.liveImages).toBe(0);
+    },
+  );
 
   it('still rejects a GIF over 5 MB instead of converting it', async (): Promise<void> => {
     await openComposer(Component);
