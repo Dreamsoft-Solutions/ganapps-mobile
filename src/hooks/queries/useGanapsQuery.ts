@@ -49,9 +49,14 @@ export function useGanapDetailQuery(ganapId: string): UseQueryResult<GanapDetail
  *
  * @param ganapId - Id of the Ganap; the query stays idle while this is empty
  * @param scope - Which organizer form to read
+ * @param options - `enabled: false` keeps the query idle for a caller that does not need the form yet
  * @returns The TanStack query result for that scope's form blocks
  */
-export function useFormBlocksQuery(ganapId: string, scope: FormBlockScope): UseQueryResult<FormBlock[], Error> {
+export function useFormBlocksQuery(
+  ganapId: string,
+  scope: FormBlockScope,
+  options?: { enabled?: boolean },
+): UseQueryResult<FormBlock[], Error> {
   const token = useAuthStore((s) => s.token);
 
   return useQuery<FormBlock[], Error>({
@@ -60,6 +65,6 @@ export function useFormBlocksQuery(ganapId: string, scope: FormBlockScope): UseQ
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     retry: 1,
-    enabled: !!ganapId && !!token,
+    enabled: !!ganapId && !!token && (options?.enabled ?? true),
   });
 }

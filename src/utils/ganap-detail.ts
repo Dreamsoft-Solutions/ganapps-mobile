@@ -167,14 +167,18 @@ export function getGanapCapacityModel(ganap: GanapDetail): GanapCapacityModel {
 /**
  * Derives the registration action and status copy for the current time.
  *
+ * A `PENDING` registration with no submitted form asks for the form only when the Ganap has one. Without one, it is
+ * waiting for the organizer's approval like any other pending request.
+ *
  * @param ganap - Ganap detail returned by the server.
  * @param now - Current time, injected for deterministic tests.
+ * @param hasRegistrationForm - Whether the Ganap has registration questions; the detail response does not say.
  * @returns The status and primary action model.
  */
-export function getGanapActionModel(ganap: GanapDetail, now: Date): GanapActionModel {
+export function getGanapActionModel(ganap: GanapDetail, now: Date, hasRegistrationForm: boolean): GanapActionModel {
   const lifecycleLabel = getGanapLifecycleLabel(ganap, now);
   const registration = ganap.myRegistration;
-  if (registration?.status === 'PENDING' && registration.registrationFormSubmittedAt === null) {
+  if (hasRegistrationForm && registration?.status === 'PENDING' && registration.registrationFormSubmittedAt === null) {
     return {
       statusLabel: lifecycleLabel ?? 'Registration incomplete',
       primary: choice('complete-registration', 'Complete registration'),
