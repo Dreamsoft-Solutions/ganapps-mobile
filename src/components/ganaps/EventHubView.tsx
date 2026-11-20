@@ -6,6 +6,7 @@ import {
   MapPin,
   Megaphone,
   MessageCircle,
+  MessageCircleOff,
   Share2,
   Users,
 } from 'lucide-react-native';
@@ -363,9 +364,18 @@ interface EventHubTopBarProps {
   onBack: () => void;
   onShare: () => void | Promise<void>;
   onOpenChat?: () => void;
+  /** False when the organizer turned Event Chat off; history stays reachable. */
+  chatEnabled: boolean;
 }
 
-function EventHubTopBar({ insetsTop, theme, onBack, onShare, onOpenChat }: EventHubTopBarProps): ReactElement {
+function EventHubTopBar({
+  insetsTop,
+  theme,
+  onBack,
+  onShare,
+  onOpenChat,
+  chatEnabled,
+}: EventHubTopBarProps): ReactElement {
   return (
     <View className="border-b border-border bg-background px-md pb-sm" style={{ paddingTop: insetsTop + Spacing.md }}>
       <View className="relative flex-row items-center justify-between">
@@ -403,16 +413,30 @@ function EventHubTopBar({ insetsTop, theme, onBack, onShare, onOpenChat }: Event
           <IconButton
             variant="default"
             disabled={!onOpenChat}
-            accessibilityLabel={onOpenChat ? 'Event chat' : 'Event chat coming soon'}
+            accessibilityLabel={
+              !onOpenChat
+                ? 'Event chat coming soon'
+                : chatEnabled
+                  ? 'Event chat'
+                  : 'Event chat, turned off by the organizer'
+            }
             accessibilityHint={
-              onOpenChat ? 'Opens the Event Chat thread' : 'Event chat will be available in a later release'
+              !onOpenChat
+                ? 'Event chat will be available in a later release'
+                : chatEnabled
+                  ? 'Opens the Event Chat thread'
+                  : 'Opens past messages. New messages are off.'
             }
             onPress={onOpenChat ?? noop}
           >
-            <MessageCircle
-              size={18}
-              color={onOpenChat ? Colors[theme].foreground : Colors[theme]['muted-foreground']}
-            />
+            {chatEnabled ? (
+              <MessageCircle
+                size={18}
+                color={onOpenChat ? Colors[theme].foreground : Colors[theme]['muted-foreground']}
+              />
+            ) : (
+              <MessageCircleOff size={18} color={Colors[theme]['muted-foreground']} />
+            )}
           </IconButton>
         </View>
       </View>
@@ -559,7 +583,14 @@ export function EventHubView({
 
   return (
     <View className="flex-1 bg-background">
-      <EventHubTopBar insetsTop={insets.top} theme={theme} onBack={onBack} onShare={onShare} onOpenChat={onOpenChat} />
+      <EventHubTopBar
+        insetsTop={insets.top}
+        theme={theme}
+        onBack={onBack}
+        onShare={onShare}
+        onOpenChat={onOpenChat}
+        chatEnabled={ganap.isChatEnabled !== false}
+      />
 
       <View className="flex-1">
         <FlatList

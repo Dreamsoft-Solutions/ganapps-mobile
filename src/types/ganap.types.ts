@@ -198,6 +198,8 @@ export interface GanapDetail {
   tags: string[];
   coverImage?: string | null;
   bannerImage?: string | null;
+  /** Whether the organizer left Event Chat on; undefined from older servers means enabled. */
+  isChatEnabled?: boolean;
   mapPinImage?: string | null;
   registrationCount: number;
   likesCount?: number;
