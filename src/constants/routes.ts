@@ -16,12 +16,14 @@ export interface RouteTable {
     welcome: Href;
     friendShare: (code: string) => Href;
     ganapShare: (ganapId: string) => Href;
+    businessShare: (slug: string) => Href;
   };
   /** Screens reachable without a token. */
   auth: {
     login: Href;
     loginForFriendShare: (code: string) => Href;
     loginForGanapShare: (ganapId: string) => Href;
+    loginForBusinessShare: (slug: string) => Href;
     /** Builds the public password-recovery route with an optional prefilled email. */
     forgotPassword: (email?: string) => Href;
   };
@@ -39,7 +41,7 @@ export interface RouteTable {
   profileEdit: Href;
   profileSettings: Href;
   profileJoined: Href;
-  businessProfile: (businessId: string) => Href;
+  businessProfile: (businessId: string, returnTo?: 'my-events') => Href;
   friendAddWithCode: (code: string) => Href;
   ganapDetail: (ganapId: string, returnTo?: 'my-events') => Href;
   ganapRegistration: (ganapId: string) => Href;
@@ -95,6 +97,10 @@ export const Routes: RouteTable = {
       pathname: '/(public)/ganaps/[id]',
       params: { id: ganapId },
     }),
+    businessShare: (slug: string): Href => ({
+      pathname: '/(public)/businesses/[slug]',
+      params: { slug },
+    }),
   },
 
   auth: {
@@ -106,6 +112,10 @@ export const Routes: RouteTable = {
     loginForGanapShare: (ganapId: string): Href => ({
       pathname: '/(auth)/login',
       params: { returnGanapId: ganapId },
+    }),
+    loginForBusinessShare: (slug: string): Href => ({
+      pathname: '/(auth)/login',
+      params: { returnBusinessSlug: slug },
     }),
     forgotPassword: (email?: string): Href =>
       email ? { pathname: '/(auth)/forgot-password', params: { email } } : { pathname: '/(auth)/forgot-password' },
@@ -127,11 +137,12 @@ export const Routes: RouteTable = {
 
   /** Builds an authenticated organization profile route.
    * @param businessId - Business identity from the Ganap
+   * @param returnTo - Optional My Events destination for the profile's back action
    * @returns Pushed organization profile href
    */
-  businessProfile: (businessId: string): Href => ({
+  businessProfile: (businessId: string, returnTo?: 'my-events'): Href => ({
     pathname: '/(app)/(home)/organizations/[business-id]',
-    params: { 'business-id': businessId },
+    params: returnTo === undefined ? { 'business-id': businessId } : { 'business-id': businessId, returnTo },
   }),
 
   /** Builds the Chat tab route with the Add Friend form prefilled with one Friend Code. */
