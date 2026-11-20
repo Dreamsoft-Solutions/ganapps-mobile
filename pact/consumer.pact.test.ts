@@ -3,6 +3,7 @@ import path from 'node:path';
 import { MatchersV3, Pact } from '@pact-foundation/pact';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { authAPI } from '../src/api/endpoints/auth';
+import type { businessesAPI } from '../src/api/endpoints/businesses';
 import type { chatAPI } from '../src/api/endpoints/chat';
 import type { friendsAPI } from '../src/api/endpoints/friends';
 import type { ganapsAPI } from '../src/api/endpoints/ganaps';
@@ -66,6 +67,7 @@ async function client(
   authenticated = false,
 ): Promise<{
   authAPI: typeof authAPI;
+  businessesAPI: typeof businessesAPI;
   chatAPI: typeof chatAPI;
   friendsAPI: typeof friendsAPI;
   ganapsAPI: typeof ganapsAPI;
@@ -81,11 +83,12 @@ async function client(
       expiresAt: Date.now() + 900000,
     });
   const { authAPI } = await import('../src/api/endpoints/auth');
+  const { businessesAPI } = await import('../src/api/endpoints/businesses');
   const { chatAPI } = await import('../src/api/endpoints/chat');
   const { friendsAPI } = await import('../src/api/endpoints/friends');
   const { ganapsAPI } = await import('../src/api/endpoints/ganaps');
   const { refreshAccessToken } = await import('../src/api/interceptors/refresh-token');
-  return { authAPI, chatAPI, friendsAPI, ganapsAPI, refreshAccessToken, useAuthStore };
+  return { authAPI, businessesAPI, chatAPI, friendsAPI, ganapsAPI, refreshAccessToken, useAuthStore };
 }
 
 beforeAll(() => {
@@ -440,6 +443,59 @@ describe('mobile to server contract', () => {
           items: [{ id: 'ganap-1', title: 'Example Ganap' }],
           pagination: { total: 1, limit: 5 },
         });
+      });
+  });
+
+  it('fetches a public Business profile by slug', async () => {
+    const profile = {
+      id: 'business-1',
+      slug: 'example',
+      name: 'Example Business',
+      bio: 'Example bio',
+      displayPicture: null,
+      coverImage: null,
+      address: null,
+      locationLat: null,
+      locationLong: null,
+      isVerified: true,
+      websiteUrl: null,
+      publicContactEmail: null,
+    };
+    await pact
+      .addInteraction()
+      .given('an active Business has a public profile')
+      .uponReceiving('a mobile public Business profile request')
+      .withRequest('GET', '/api/v1/businesses/public/example', (request) => {
+        request.headers(authHeaders);
+      })
+      .willRespondWith(200, (response) => {
+        response.headers(responseHeaders).jsonBody({ success: true, statusCode: 200, data: profile });
+      })
+      .executeTest(async ({ url }) => {
+        const { businessesAPI } = await client(url, true);
+        await expect(businessesAPI.getPublicBySlug('example')).resolves.toEqual(profile);
+      });
+  });
+
+  it('returns the server error for an unavailable public Business', async () => {
+    await pact
+      .addInteraction()
+      .given('a Business is not available')
+      .uponReceiving('a mobile public Business profile request for a missing Business')
+      .withRequest('GET', '/api/v1/businesses/public/missing', (request) => {
+        request.headers(authHeaders);
+      })
+      .willRespondWith(404, (response) => {
+        response.headers(responseHeaders).jsonBody({
+          success: false,
+          statusCode: 404,
+          errorCode: string('NOT_FOUND'),
+          message: 'Business not available',
+        });
+      })
+      .executeTest(async ({ url }) => {
+        const { businessesAPI } = await client(url, true);
+        await expect(businessesAPI.getPublicBySlug('missing')).rejects.toMatchObject({ status: 404 });
       });
   });
 });

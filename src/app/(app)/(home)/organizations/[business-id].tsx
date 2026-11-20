@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Building2, Check } from 'lucide-react-native';
 import { type ReactElement, useCallback, useState } from 'react';
-import { Linking, RefreshControl, ScrollView, View } from 'react-native';
+import { BackHandler, Linking, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
@@ -23,7 +23,8 @@ import { getQueryFailure } from '@/utils/query-failure';
  * @returns Organization profile with independent loading, retry, and back navigation
  */
 export default function BusinessProfileScreen(): ReactElement {
-  const { 'business-id': businessId } = useLocalSearchParams<{ 'business-id': string }>();
+  const { 'business-id': businessId, returnTo } = useLocalSearchParams<{ 'business-id': string; returnTo?: string }>();
+  const isMyEventsOrigin: boolean = returnTo === 'my-events';
   const query = useBusinessDetailQuery(businessId);
   const token: string | null = useAuthStore((state): string | null => state.token);
   const router = useRouter();
@@ -36,16 +37,32 @@ export default function BusinessProfileScreen(): ReactElement {
       if (token && businessId) void refetch();
     }, [token, businessId, refetch]),
   );
+  const handleBack = useCallback((): void => {
+    if (isMyEventsOrigin) {
+      if (router.canDismiss()) router.dismiss();
+      router.replace(Routes.app.ganaps);
+      return;
+    }
+    if (router.canGoBack()) router.back();
+    else router.replace(Routes.app.home);
+  }, [isMyEventsOrigin, router]);
+  useFocusEffect(
+    useCallback((): (() => void) => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', (): boolean => {
+        if (!isMyEventsOrigin && router.canGoBack()) return false;
+        handleBack();
+        return true;
+      });
+      return (): void => subscription.remove();
+    }, [handleBack, isMyEventsOrigin, router]),
+  );
   const header: ReactElement = (
     <>
-      <Stack.Screen options={{ headerShown: false, gestureEnabled: true }} />
+      <Stack.Screen options={{ headerShown: false, gestureEnabled: !isMyEventsOrigin }} />
       <ScreenHeader
         title="Organization"
-        backHint="Returns to the event"
-        onBack={(): void => {
-          if (router.canGoBack()) router.back();
-          else router.replace(Routes.app.home);
-        }}
+        backHint={isMyEventsOrigin ? 'Returns to My Events' : 'Returns to the previous screen'}
+        onBack={handleBack}
       />
     </>
   );
