@@ -1,4 +1,5 @@
 import type { Href } from 'expo-router';
+import type { FeedbackIntent } from '@/types/ganap.types';
 import type { DirectChatFriendSummary } from '@/types/direct-chat.types';
 
 type DirectChatRouteFriend = Pick<DirectChatFriendSummary, 'userId' | 'username' | 'displayName' | 'displayPicture'>;
@@ -50,7 +51,7 @@ export interface RouteTable {
   directChat: (conversationId: string) => Href;
   directChatForFriend: (friend: DirectChatRouteFriend) => Href;
   attendanceScan: (ganapId: string) => Href;
-  ganapFeedback: (ganapId: string) => Href;
+  ganapFeedback: (ganapId: string, intent?: FeedbackIntent) => Href;
 }
 
 /**
@@ -246,10 +247,12 @@ export const Routes: RouteTable = {
    * Builds the href for a Ganap's post-event feedback flow.
    *
    * @param ganapId - Value for the `[ganap-id]` segment of the feedback route.
+   * @param intent - `form` opens the My Events form action; the default `rate` is the rating entrance
+   * and adds no query param.
    * @returns An href targeting that event's rating and feedback screen.
    */
-  ganapFeedback: (ganapId: string): Href => ({
+  ganapFeedback: (ganapId: string, intent: FeedbackIntent = 'rate'): Href => ({
     pathname: '/(app)/(home)/feedback/[ganap-id]',
-    params: { 'ganap-id': ganapId },
+    params: intent === 'form' ? { 'ganap-id': ganapId, intent } : { 'ganap-id': ganapId },
   }),
 };
