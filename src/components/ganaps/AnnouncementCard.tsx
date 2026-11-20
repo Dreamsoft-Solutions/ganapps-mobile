@@ -1,6 +1,6 @@
 import { BellRing, Megaphone, RefreshCw } from 'lucide-react-native';
 import type { ComponentType, ReactElement } from 'react';
-import { useWindowDimensions, View } from 'react-native';
+import { Pressable, useWindowDimensions, View } from 'react-native';
 import { MessageReactionBar } from '@/components/chat/MessageReactionBar';
 import { Avatar } from '@/components/common/Avatar';
 import { Card } from '@/components/common/Card';
@@ -21,6 +21,8 @@ interface AnnouncementCardProps {
   onReaction?: (reaction: ReactionType | null) => void;
   /** Whether this announcement reaction is being reconciled. */
   reactionPending?: boolean;
+  /** Opens the organization profile; when set, the author row is a button. */
+  onOrganizationPress?: () => void;
 }
 
 /** Icon props accepted by the lucide icons used for announcement types. */
@@ -92,6 +94,7 @@ export function AnnouncementCard({
   organizationLogo = null,
   onReaction = (): void => {},
   reactionPending = false,
+  onOrganizationPress,
 }: AnnouncementCardProps): ReactElement {
   const config: AnnouncementTypeConfig = announcementTypeConfig[announcement.type];
   const TypeIcon: ComponentType<AnnouncementIconProps> = config.Icon;
@@ -100,18 +103,34 @@ export function AnnouncementCard({
   const { fontScale } = useWindowDimensions();
   const stackHeader: boolean = fontScale >= 1.3;
 
+  const author: ReactElement = (
+    <>
+      <Avatar src={organizationLogo} name={organizationName} size="xs" />
+      <View className="ml-xs min-w-0 flex-1">
+        <Text numberOfLines={1} className="font-inter-semibold text-headline-sm">
+          {organizationName}
+        </Text>
+        <Text className="mt-1 font-inter-medium text-label-sm text-muted-foreground">Event organizer</Text>
+      </View>
+    </>
+  );
+
   return (
     <Card className="mb-sm">
       <View className={stackHeader ? 'gap-xs' : 'flex-row items-start justify-between gap-sm'}>
-        <View className={`min-w-0 flex-row items-center ${stackHeader ? '' : 'flex-1'}`}>
-          <Avatar src={organizationLogo} name={organizationName} size="xs" />
-          <View className="ml-xs min-w-0 flex-1">
-            <Text numberOfLines={1} className="font-inter-semibold text-headline-sm">
-              {organizationName}
-            </Text>
-            <Text className="mt-1 font-inter-medium text-label-sm text-muted-foreground">Event organizer</Text>
-          </View>
-        </View>
+        {onOrganizationPress ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`View ${organizationName} organization profile`}
+            hitSlop={8}
+            onPress={onOrganizationPress}
+            className={`min-w-0 flex-row items-center self-start active:opacity-70 ${stackHeader ? '' : 'flex-1'}`}
+          >
+            {author}
+          </Pressable>
+        ) : (
+          <View className={`min-w-0 flex-row items-center ${stackHeader ? '' : 'flex-1'}`}>{author}</View>
+        )}
         <Text className="font-inter-medium text-label-sm text-muted-foreground">
           {formatDateTime(announcement.createdAt)}
         </Text>
