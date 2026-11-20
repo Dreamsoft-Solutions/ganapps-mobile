@@ -401,6 +401,40 @@ describe('mobile to server contract', () => {
       });
   });
 
+  it('resolves a read-only Event Chat session when the organizer turned chat off', async () => {
+    await pact
+      .addInteraction()
+      .given('a registered attendee and an event whose organizer turned chat off')
+      .uponReceiving('a request to resolve a chat-disabled Event Chat session')
+      .withRequest('POST', '/api/v1/ganaps/chat-disabled-ganap/chat', (request) => {
+        request.headers(authHeaders);
+      })
+      .willRespondWith(200, (response) => {
+        response.headers(responseHeaders).jsonBody({
+          success: true,
+          statusCode: 200,
+          data: {
+            conversationId: string('conversation-1'),
+            ganapId: string('chat-disabled-ganap'),
+            type: 'EVENT',
+            capability: 'READ_ONLY',
+            canRead: true,
+            canSend: false,
+            isBusinessOnly: false,
+            ganapStatus: 'PUBLISHED',
+            isChatEnabled: false,
+            readOnlyReason: 'CHAT_DISABLED',
+          },
+        });
+      })
+      .executeTest(async ({ url }) => {
+        const { chatAPI } = await client(url, true);
+        const session = await chatAPI.resolveSession('chat-disabled-ganap');
+        expect(session.readOnlyReason).toBe('CHAT_DISABLED');
+        expect(session.isChatEnabled).toBe(false);
+      });
+  });
+
   it('loads a filtered page of published Ganaps', async () => {
     await pact
       .addInteraction()

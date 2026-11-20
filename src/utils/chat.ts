@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@/types/chat.types';
+import type { ChatMessage, ChatReadOnlyReason } from '@/types/chat.types';
 
 /**
  * Creates one client-generated message identifier for text or image sends.
@@ -39,6 +39,56 @@ export function isChatForbidden(error: Error | null | undefined): boolean {
     normalized.errorCode === 'FORBIDDEN' ||
     normalized.errorCode === 'DIRECT_ACCESS_FORBIDDEN'
   );
+}
+
+/**
+ * Returns whether the platform-wide chat feature flags are off.
+ *
+ * REST guard 403s carry errorCode FORBIDDEN with the stable message
+ * `Feature "<key>" is currently disabled`; service and socket 403s carry
+ * errorCode FEATURE_DISABLED. Either form matches.
+ *
+ * @param error - Query or mutation error
+ * @returns True when chat is turned off for everyone
+ */
+export function isChatFeatureDisabled(error: Error | null | undefined): boolean {
+  if (!error) return false;
+  const normalized: ChatNormalizedError = asChatError(error);
+  return (
+    normalized.errorCode === 'FEATURE_DISABLED' ||
+    (normalized.status === 403 && /^Feature ".+" is currently disabled$/.test(normalized.message))
+  );
+}
+
+/**
+ * Returns whether a send or reaction was rejected because the organizer turned chat off.
+ *
+ * @param error - Mutation error
+ * @returns True for the CHAT_DISABLED error code
+ */
+export function isChatDisabledError(error: Error | null | undefined): boolean {
+  return !!error && asChatError(error).errorCode === 'CHAT_DISABLED';
+}
+
+/**
+ * Returns the one-line explanation for a read-only Event Chat.
+ *
+ * @param reason - Server read-only reason, if any
+ * @returns User-facing copy for the reason, or the generic read-only line
+ */
+export function chatReadOnlyMessage(reason: ChatReadOnlyReason | null | undefined): string {
+  switch (reason) {
+    case 'CHAT_DISABLED':
+      return 'The organizer turned off chat for this event. You can still read past messages.';
+    case 'EVENT_ENDED':
+      return 'This event has ended, so chat is read-only.';
+    case 'MODERATION_UNAVAILABLE':
+      return 'Chat is paused right now. You can still read past messages.';
+    case 'BUSINESS_ONLY':
+      return 'Only the organizers can post in this chat.';
+    default:
+      return 'You can read this chat, but you cannot send messages.';
+  }
 }
 
 /**
