@@ -225,7 +225,7 @@ framework needs it to disambiguate. `verify-email` and `onboarding` are at the r
 
 Exactly one screen may own `/` — `(home)/index.tsx`, the Map tab. The other three tab groups
 (`(ganaps)`, `(chat)`, `(profile)`) name their screen after their group (`(chat)/chat.tsx`),
-so each owns a distinct URL. See `docs/adr/0001-type-checked-route-table.md` (DS-34): a second
+so each owns a distinct URL. See `../home/docs/adr/mobile/0001-type-checked-route-table.md` (DS-34): a second
 `index.tsx` under a tab group reintroduces the ambiguity, and no `unstable_settings.anchor` or
 `initialRouteName` declaration can override which screen the router picks for a matched URL.
 

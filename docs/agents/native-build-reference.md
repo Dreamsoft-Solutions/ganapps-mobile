@@ -63,7 +63,7 @@ resolution — `expo start`, `expo config`, `expo prebuild` and `expo customize`
 lists `@react-native-firebase/analytics` as a peer dependency, so npm installs it, and Expo autolinks
 transitive native modules. Unexcluded, it shipped Google Analytics, IDFA-capable code and Android's
 `AD_ID` permission while nothing in the app called it. `react-native.config.js` sets its `ios` and
-`android` platforms to `null` (DS-92, [ADR 0006](../adr/0006-exclude-firebase-analytics-autolinking.md)).
+`android` platforms to `null` (DS-92, [ADR 0006](../../../home/docs/adr/mobile/0006-exclude-firebase-analytics-autolinking.md)).
 `npm ls` still lists it; that is expected.
 
 **iOS privacy manifests are audited, not assumed.** [iOS privacy manifests](../ios-privacy-manifests.md)
@@ -202,7 +202,7 @@ redundant.
 
 The server sends through Firebase Cloud Messaging, so iOS registers an FCM token from
 `@react-native-firebase/messaging` rather than the APNs token `expo-notifications` returns
-([ADR 0008](../adr/0008-ios-push-tokens-from-firebase-messaging.md), DS-135). Four pieces of
+([ADR 0008](../../../home/docs/adr/mobile/0008-ios-push-tokens-from-firebase-messaging.md), DS-135). Four pieces of
 configuration hold it together:
 
 - **iOS-only linking.** `react-native.config.js` sets the package's `android` platform to `null`.

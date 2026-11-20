@@ -178,7 +178,7 @@ module.exports = {
     },
     plugins: [
       [
-        'expo-build-properties', // see docs/adr/0002
+        'expo-build-properties', // see ganapps-home docs/adr/mobile/0002
         {
           ios: {
             useFrameworks: 'static',
