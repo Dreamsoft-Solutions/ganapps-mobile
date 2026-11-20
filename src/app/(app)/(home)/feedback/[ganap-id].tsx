@@ -260,8 +260,7 @@ export default function FeedbackRoute(): ReactElement {
 
   const totalSteps: number = Math.max(initialStepCount ?? 0, pendingSteps.length);
   const stepNumber: number = totalSteps - pendingSteps.length + 1;
-  const stepSubtitle: string =
-    totalSteps >= 2 ? `Step ${stepNumber} of ${totalSteps}\n${feedback.ganap.title}` : feedback.ganap.title;
+  const stepLabel: string | undefined = totalSteps >= 2 ? `Step ${stepNumber} of ${totalSteps}` : undefined;
 
   return (
     <LayoutAnimationConfig skipEntering>
@@ -273,7 +272,8 @@ export default function FeedbackRoute(): ReactElement {
       >
         {currentStep === 'rating' ? (
           <RatingStep
-            ganapTitle={stepSubtitle}
+            ganapTitle={feedback.ganap.title}
+            stepLabel={stepLabel}
             isSubmitting={isSubmitting}
             submissionError={inlineError}
             onSubmit={handleSubmitRating}
@@ -289,7 +289,8 @@ export default function FeedbackRoute(): ReactElement {
                 : 'The organization would like to hear how the event went.'
             }
             submitLabel="Submit feedback"
-            ganapTitle={stepSubtitle}
+            ganapTitle={feedback.ganap.title}
+            stepLabel={stepLabel}
             blocks={feedback.blocks ?? []}
             isSubmitting={isSubmitting}
             submissionError={inlineError}
