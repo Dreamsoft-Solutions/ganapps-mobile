@@ -1,0 +1,35 @@
+name: ticket-status
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, converted_to_draft, closed]
+
+permissions:
+  contents: read
+
+jobs:
+  ticket:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: pr-ticket-${{ github.repository }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: Dreamsoft-Solutions/ganapps-home
+          ref: master
+          token: ${{ secrets.GANAPPS_BOT_TOKEN }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Sync ticket status from PR
+        run: node tools/ticket-sync/main.ts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GANAPPS_BOT_TOKEN: ${{ secrets.GANAPPS_BOT_TOKEN }}
+          JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}

@@ -99,7 +99,7 @@ src/
 pattern, component and form conventions, the Lynx design tokens, TSDoc requirements, error
 handling, and the code review checklist. Read it before contributing.
 
-Architecture decisions live in `docs/adr/`; see `docs/adr/README.md` for the format.
+Architecture decisions live in ganapps-home at `../home/docs/adr/mobile/`; see its `README.md` for the format.
 
 ## Git workflow
 

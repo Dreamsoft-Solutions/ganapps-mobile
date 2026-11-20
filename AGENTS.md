@@ -2,6 +2,15 @@
 
 The mobile app owns the native client and local SQLite data. The server owns HTTP contracts; follow the server when an API contract differs.
 
+## Workspace (required: `../home`)
+
+This repo is one of the Ganapps repos. The Home Repo **`../home`** ([ganapps-home](https://github.com/Dreamsoft-Solutions/ganapps-home)) must be checked out next to it: it holds the tickets, every ADR, the shared agent guides and the skills. If it is missing, clone it (`git clone https://github.com/Dreamsoft-Solutions/ganapps-home.git ../home`) and run `../home/kit/install.ps1` (or `install.sh`) before working.
+
+- Read `../home/AGENTS.md` first (workspace map, tickets, `/dev` and `/dev-lite`, QA). This file wins inside this repo.
+- Tickets: GitHub issues in `Dreamsoft-Solutions/ganapps-home`, synced with Jira `DS` (`../home/docs/agents/issue-tracker.md`). Work on the branch the claim cut (`<type>/ds-<n>-<slug>`).
+- ADRs: `../home/docs/adr/mobile/` (numbers unchanged); workspace-wide ones in `../home/docs/adr/`. Domain docs: `../home/docs/agents/domain.md`.
+- Doing it without agents: `../home/docs/manual-workflow.md`.
+
 ## Product and language
 
 - Ganapps serves events across Iloilo City. Do not assume CPU is the only campus or that venues must be campuses; proximity is central to discovery.

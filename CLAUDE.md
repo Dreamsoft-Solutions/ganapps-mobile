@@ -1,17 +1,18 @@
 @AGENTS.md
+
 ## Agent skills
 
 ### Issue tracker
 
-Issues and specs live in Jira project `DS`. See `docs/agents/issue-tracker.md`.
+GitHub issues in the hub `Dreamsoft-Solutions/ganapps-home` (always `--repo Dreamsoft-Solutions/ganapps-home`), synced both ways with Jira `DS`. See `../home/docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-Use the default labels `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+Use the default labels `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `../home/docs/agents/triage-labels.md`.
 
 ### Domain docs
 
-Domain vocabulary lives in a single glossary at root `GLOSSARY.md`; architecture decisions live in `docs/adr/`. Use the glossary's terms when naming things. See `docs/agents/domain.md`.
+Domain vocabulary lives in a single glossary at root `GLOSSARY.md`; use the glossary's terms when naming things; architecture decisions live in `../home/docs/adr/mobile/`. See `../home/docs/agents/domain.md`.
 
 # Working in this repo with Claude Code
 
@@ -22,7 +23,7 @@ section covers only what it does not: how to work here, and where things go.
 
 ## The three repos
 
-Ganapps has three repos, siblings under the parent `ganapps/` folder:
+Ganapps has three app repos, siblings under the parent `ganapps/` folder, plus `home` (ganapps-home: tickets, ADRs, guides, skills; required) and `infra`:
 
 - **`ganapps-mobile/`** (this one) — Mark's. Expo SDK 57, npm.
 - **`ganapps-server/`** — NestJS 11 + Prisma 7 + PostgreSQL, pnpm. Source of truth for the
@@ -49,23 +50,23 @@ rather than inferring the shape from existing mobile code:
 | `../ganapps-server/docs/flags.md` | Feature-gated paths and server-side defaults |
 | `../ganapps-server/docs/features/ganap-management-summary.md` | Ganap lifecycle, announcements, form blocks, QR hash |
 | `../ganapps-server/docs/features/business-registration-summary.md` | Invites, org setup, membership, subscriptions, image upload |
-| `../ganapps-web/docs/adr/0001-cookie-only-auth.md` | Why mobile's token handling differs from web's |
+| `../home/docs/adr/web/0001-cookie-only-auth.md` | Why mobile's token handling differs from web's |
 
-For workspace ownership, use the optional `../AGENTS.md` in the normal sibling checkout; this repository’s [feature map and worktree setup](docs/agents/implementation-reference.md#feature-entry-points) work in standalone clones too. In a ticket worktree, resolve sibling source against the assigned checkout rather than assuming these `../` paths exist. A flag being `true` in `flags.md` is the server-side default, separate from mobile’s three-tier flag resolution.
+For workspace ownership, read `../home/AGENTS.md` (also linked as `../AGENTS.md`); this repository’s [feature map and worktree setup](docs/agents/implementation-reference.md#feature-entry-points) work in standalone clones too. In a ticket worktree, resolve sibling source against the assigned checkout rather than assuming these `../` paths exist. A flag being `true` in `flags.md` is the server-side default, separate from mobile’s three-tier flag resolution.
 
 ## Where documents go
 
 | Kind of document | Location | Committed? |
 |---|---|---|
 | Domain glossary — the words this repo uses for its concepts | `GLOSSARY.md` (repo root) | Yes — shared with the team |
-| Architecture decision records | `docs/adr/NNNN-slug.md` | Yes — shared with the team |
+| Architecture decision records | `../home/docs/adr/mobile/NNNN-slug.md` (in ganapps-home) | Yes — shared with the team |
 | Feature documentation | `docs/features/` | Yes — shared with the team |
 | Design specs, implementation plans, handoffs, scratch notes | `../.claude/` | No — personal |
 
 Write ADRs when a decision is non-obvious, hard to reverse, or a teammate would otherwise
-undo it. Follow the format already used in `ganapps-web/docs/adr/`: Context → Decision →
+undo it. Follow the format already used in `../home/docs/adr/web/`: Context → Decision →
 Alternatives Considered → Consequences, with `**Date:**` and `**Status:**` at the top.
-Number sequentially; see `docs/adr/README.md`.
+Number sequentially; see `../home/docs/adr/mobile/README.md`.
 
 Session working material goes to the parent `../.claude/` folder, never into this repo.
 See `../.claude/README.md` for naming.

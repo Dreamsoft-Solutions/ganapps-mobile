@@ -63,7 +63,7 @@ resolution — `expo start`, `expo config`, `expo prebuild` and `expo customize`
 lists `@react-native-firebase/analytics` as a peer dependency, so npm installs it, and Expo autolinks
 transitive native modules. Unexcluded, it shipped Google Analytics, IDFA-capable code and Android's
 `AD_ID` permission while nothing in the app called it. `react-native.config.js` sets its `ios` and
-`android` platforms to `null` (DS-92, [ADR 0006](../adr/0006-exclude-firebase-analytics-autolinking.md)).
+`android` platforms to `null` (DS-92, [ADR 0006](../../../home/docs/adr/mobile/0006-exclude-firebase-analytics-autolinking.md)).
 `npm ls` still lists it; that is expected.
 
 **iOS privacy manifests are audited, not assumed.** [iOS privacy manifests](../ios-privacy-manifests.md)
@@ -116,7 +116,7 @@ breaks the build again, in a way whose error message does not point back here. T
   It must name exactly the `RNFB*` pods Expo autolinks. Check the Podfile's autolinking output
   when Firebase modules change; Pact does not check this list.
 - **`enableSceneSupport: true`** — apps built with the iOS 27 SDK (Xcode 27) must use the UIKit
-  scene lifecycle, or they do not launch on iOS 27 ([ADR 0009](../adr/0009-xcode-27-scene-support-on-sdk-57.md)).
+  scene lifecycle, or they do not launch on iOS 27 ([ADR 0009](../../../home/docs/adr/mobile/0009-xcode-27-scene-support-on-sdk-57.md)).
   On SDK 57 the setting needs `expo` 57.0.23 or newer; on an older patch, prebuild throws. It
   changes the generated `AppDelegate.swift`: the class conforms to `ExpoReactNativeFactoryProvider`,
   and the window and `factory.startReactNative(...)` leave `didFinishLaunchingWithOptions`.
@@ -224,7 +224,7 @@ redundant.
 
 The server sends through Firebase Cloud Messaging, so iOS registers an FCM token from
 `@react-native-firebase/messaging` rather than the APNs token `expo-notifications` returns
-([ADR 0008](../adr/0008-ios-push-tokens-from-firebase-messaging.md), DS-135). Four pieces of
+([ADR 0008](../../../home/docs/adr/mobile/0008-ios-push-tokens-from-firebase-messaging.md), DS-135). Four pieces of
 configuration hold it together:
 
 - **iOS-only linking.** `react-native.config.js` sets the package's `android` platform to `null`.
@@ -282,7 +282,7 @@ A `testflight` build is never the one submitted for App Review — it talks to t
 Builds up to 1.1.1 (22) used `macos-tahoe-26.5-xcode-26.6` and the iOS 26.5 SDK. App Store
 Connect accepted them with warning ITMS-90725: from April 2027, uploads must be built with the
 iOS 27 SDK or later. Xcode 27 also requires the scene lifecycle (`enableSceneSupport`, above), so
-the image and that setting change together ([ADR 0009](../adr/0009-xcode-27-scene-support-on-sdk-57.md)).
+the image and that setting change together ([ADR 0009](../../../home/docs/adr/mobile/0009-xcode-27-scene-support-on-sdk-57.md)).
 Pin an exact image from [Expo's list](https://docs.expo.dev/build-reference/infrastructure/)
 rather than an alias: `latest` and `sdk-58` move to new Xcode versions without a change here.
 
