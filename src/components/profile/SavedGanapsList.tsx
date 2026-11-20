@@ -46,6 +46,7 @@ export function SavedGanapsList({ contentTopPadding, contentBottomPadding }: Sav
         renderItem={({ item }: ListRenderItemInfo<SavedGanap>): ReactElement => (
           <SavedGanapCard
             ganap={item}
+            businessReturnTo="my-events"
             onPress={(): void => {
               router.push(Routes.ganapDetail(item.id, 'my-events'));
             }}
