@@ -112,12 +112,18 @@ function ChatSummaryRow({ summary, onOpen }: { summary: ChatConversationSummary;
   const theme = useResolvedTheme();
   const title: string = summaryTitle(summary);
   const kind: string = summaryKind(summary);
+  const stateLabel: string | null =
+    summary.type === 'EVENT' && summary.readOnlyReason
+      ? summary.readOnlyReason === 'CHAT_DISABLED'
+        ? 'Chat off'
+        : 'Read only'
+      : null;
   const unreadLabel: string = summary.unreadCount > 0 ? `, ${summary.unreadCount} unread` : '';
   const preview: string = summaryPreview(summary);
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${kind}: ${title}${unreadLabel}`}
+      accessibilityLabel={`${kind}${stateLabel ? `, ${stateLabel}` : ''}: ${title}${unreadLabel}`}
       onPress={onOpen}
       className="active:opacity-70"
     >
@@ -132,7 +138,9 @@ function ChatSummaryRow({ summary, onOpen }: { summary: ChatConversationSummary;
               <Text className="text-label-sm text-muted-foreground">{formatChatTime(summary.lastMessage.sentAt)}</Text>
             )}
           </View>
-          <Text className="mt-xs text-label-sm text-muted-foreground">{kind}</Text>
+          <Text className="mt-xs text-label-sm text-muted-foreground">
+            {stateLabel ? `${kind} · ${stateLabel}` : kind}
+          </Text>
           <Text className="mt-xs min-w-0 flex-1 text-body-md text-muted-foreground" numberOfLines={2}>
             {preview}
           </Text>

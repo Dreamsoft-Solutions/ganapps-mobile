@@ -17,11 +17,12 @@ import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { CHAT_MAX_MESSAGE_LENGTH } from '@/constants/chat';
 import { Colors, Spacing } from '@/constants/theme';
 import { MIN_TOUCH_TARGET } from '@/constants/touch-target';
-import type { FailedDraft } from '@/hooks/useChat';
+import type { ChatAccessLostReason, FailedDraft } from '@/hooks/useChat';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { ChatConnectionState } from '@/services/chat-socket.service';
 import { showToast } from '@/store/toast.store';
 import type { ChatImageDraft, ChatMessage, EventChatSession, ReactionSummary, ReactionType } from '@/types/chat.types';
+import { chatReadOnlyMessage } from '@/utils/chat';
 import { getChatMessageDateSeparatorLabel } from '@/utils/chat-date-groups';
 import { getChatImageErrorMessage, isChatImageAuthorizationError } from '@/utils/chat-image';
 import { useChatKeyboardVisible } from './useChatKeyboardVisible';
@@ -72,6 +73,8 @@ export interface EventChatThreadViewProps {
   /** Message currently waiting for the server to save a reaction. */
   reactionPendingMessageId?: string | null;
   accessLost: boolean;
+  /** Selects the access-lost copy; defaults to the registration-based NO_ACCESS copy. */
+  accessLostReason?: ChatAccessLostReason | null;
 }
 
 function formatMessageTime(sentAt: string): string {
@@ -313,8 +316,10 @@ function FailedDraftRow({
   draft,
   onRetry,
   onDiscard,
+  canRetry,
 }: {
   draft: FailedDraft;
+  canRetry: boolean;
   onRetry: () => void | Promise<void>;
   onDiscard: () => void;
 }): ReactElement {
@@ -325,15 +330,17 @@ function FailedDraftRow({
         {draft.content}
       </Text>
       <View className="mt-sm flex-row gap-sm">
-        <Button
-          size="sm"
-          variant="outline"
-          onPress={(): void => {
-            void onRetry();
-          }}
-        >
-          Retry message
-        </Button>
+        {canRetry && (
+          <Button
+            size="sm"
+            variant="outline"
+            onPress={(): void => {
+              void onRetry();
+            }}
+          >
+            Retry message
+          </Button>
+        )}
         <Button size="sm" variant="ghost" onPress={onDiscard}>
           Discard message
         </Button>
@@ -381,6 +388,7 @@ export function EventChatThreadView({
   onRetryImage = async (): Promise<void> => {},
   onRefreshImage = async (): Promise<void> => {},
   accessLost,
+  accessLostReason = null,
 }: EventChatThreadViewProps): ReactElement {
   const theme = useResolvedTheme();
   const insets = useSafeAreaInsets();
@@ -479,10 +487,14 @@ export function EventChatThreadView({
     return (
       <View className="flex-1 items-center justify-center bg-background p-xl">
         <Text className="mb-sm text-center font-inter-semibold text-headline-sm" accessibilityRole="header">
-          Event Chat access is no longer available
+          {accessLostReason === 'FEATURE_DISABLED'
+            ? "Event chat isn't available right now"
+            : 'Event Chat access is no longer available'}
         </Text>
         <Text className="mb-lg text-center text-body-md text-muted-foreground">
-          Event Hub shows the current registration status for this event.
+          {accessLostReason === 'FEATURE_DISABLED'
+            ? 'Chat is turned off for everyone at the moment. Check back later.'
+            : 'Event Hub shows the current registration status for this event.'}
         </Text>
         <Button variant="outline" onPress={onBack}>
           Back to Event Hub
@@ -546,7 +558,9 @@ export function EventChatThreadView({
             </View>
           );
         }}
-        ListEmptyComponent={<Empty message="No messages yet. Start the conversation." />}
+        ListEmptyComponent={
+          <Empty message={isReadOnly ? 'No messages yet.' : 'No messages yet. Start the conversation.'} />
+        }
         ListHeaderComponent={
           hasNextPage ? (
             <View className="items-center py-sm">
@@ -593,6 +607,7 @@ export function EventChatThreadView({
               <FailedDraftRow
                 key={draft.clientMessageId}
                 draft={draft}
+                canRetry={session?.canSend === true}
                 onRetry={(): void => {
                   void onRetryDraft(draft.clientMessageId);
                 }}
@@ -605,8 +620,12 @@ export function EventChatThreadView({
 
       {isReadOnly ? (
         <View className="border-t border-border px-md py-md" style={{ paddingBottom: insets.bottom + Spacing.sm }}>
-          <Text className="text-center text-body-md text-muted-foreground">
-            You can read this chat, but you cannot send messages.
+          <Text
+            className="text-center text-body-md text-muted-foreground"
+            accessibilityRole="text"
+            accessibilityLiveRegion="polite"
+          >
+            {chatReadOnlyMessage(session?.readOnlyReason)}
           </Text>
         </View>
       ) : session?.canSend ? (

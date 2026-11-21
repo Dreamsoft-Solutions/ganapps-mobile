@@ -160,6 +160,7 @@ export default function EventChatThreadScreen(): ReactElement {
         onMessageReaction={onReaction}
         reactionPendingMessageId={reactionPendingMessageId}
         accessLost={chat.accessLost}
+        accessLostReason={chat.accessLostReason}
       />
       <ModerationActionSheet
         visible={moderationTarget !== null}
