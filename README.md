@@ -103,27 +103,11 @@ Architecture decisions live in ganapps-home at `../home/docs/adr/mobile/`; see i
 
 ## Git workflow
 
-Work happens on `dev`; `master` is not a working branch. Commits follow
+Work happens on ticket branches cut from `master` and merged back by PR; there is no `dev`
+branch (ganapps-home ADR 0007). Commits follow
 [Conventional Commits](https://www.conventionalcommits.org/) and are enforced by commitlint
 (100 character header limit). Husky hooks run lint-staged on commit and lint + tests on
 push. Don't bypass them with `--no-verify`.
-
-### Promoting to `master`
-
-A release reaches `master` through a PR from `dev`, or from a release branch cut from `dev`
-without rewriting its commits. Merge that PR with **Create a merge commit**.
-
-Squash merges, rebase merges, cherry-picks, and release branches that rebuild `dev`'s work as
-new commits all give `master` copies of `dev`'s commits under new IDs. The two branches then
-stop sharing history, and the next promotion conflicts in every file both sides changed, even
-where the content is identical. This happened after
-[#114](https://github.com/Dreamsoft-Solutions/ganapps-mobile/pull/114) and was reconciled in
-[#122](https://github.com/Dreamsoft-Solutions/ganapps-mobile/pull/122).
-
-If a fix is committed to `master` directly, merge `master` back into `dev` before the next
-promotion. If the branches split again, first confirm that `master` has no change `dev` lacks.
-Then, on a branch cut from `dev`, run `git merge -s ours origin/master`, which records
-`master` as merged and keeps `dev`'s files, and promote that branch.
 
 ## License
 
