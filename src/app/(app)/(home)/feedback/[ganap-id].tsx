@@ -100,7 +100,8 @@ export default function FeedbackRoute(): ReactElement {
   /**
    * Leaves the feedback flow, once.
    *
-   * Dismisses, then goes back, and falls back to the Event Hub when nothing
+   * The form intent is opened from My Events (another tab), so it returns there.
+   * Otherwise it dismisses, then goes back, and falls back to the Event Hub when nothing
    * precedes this screen: an unguarded `back()` would then be a no-op and
    * strand the student on a spinner. A pending success toast is shown here so
    * the explicit exit after a submission and the auto-leave effect, which can
@@ -111,6 +112,12 @@ export default function FeedbackRoute(): ReactElement {
     hasLeft.current = true;
 
     if (exitToast.current !== null) showToast('success', exitToast.current);
+
+    if (intent === 'form') {
+      if (router.canDismiss()) router.dismiss();
+      router.replace(Routes.app.ganaps);
+      return;
+    }
 
     if (router.canDismiss()) {
       router.dismiss();
@@ -123,7 +130,7 @@ export default function FeedbackRoute(): ReactElement {
     }
 
     router.replace(Routes.eventHub(ganapId));
-  }, [ganapId, router]);
+  }, [ganapId, intent, router]);
 
   useEffect((): void => {
     if (feedback.isLoading || !hasData) return;

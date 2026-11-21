@@ -5,7 +5,7 @@ import type { ReactElement } from 'react';
 import { Pressable, View } from 'react-native';
 import { Button } from '@/components/common/Button';
 import { Card } from '@/components/common/Card';
-import { chipTextVariants, chipVariants } from '@/components/common/Chip';
+import { chipTextVariants } from '@/components/common/Chip';
 import { Text } from '@/components/common/Text';
 import { Routes } from '@/constants/routes';
 import { formatInterestLabel } from '@/constants/interests';
@@ -130,7 +130,7 @@ function FeedbackFormAction({ ganap }: { ganap: JoinedGanap }): ReactElement {
     return (
       <View
         accessibilityRole="text"
-        className={`${chipVariants({ selected: false })} mt-sm flex-row items-center self-start`}
+        className="mt-sm flex-row items-center self-start rounded-full border border-input bg-background px-4 py-2"
       >
         <View className="mr-xs">
           <CircleCheck size={14} className="text-primary" />
