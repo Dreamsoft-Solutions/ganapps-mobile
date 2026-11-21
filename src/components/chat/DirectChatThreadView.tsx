@@ -246,7 +246,7 @@ function MessageBubble({
 
   return (
     <View
-      className="relative min-w-0 shrink grow"
+      className="relative min-w-0 flex-1"
       style={{ paddingBottom: reactionState.hasReactionControls ? (MIN_TOUCH_TARGET - Spacing.xs) / 2 : 0 }}
     >
       <Pressable
@@ -263,7 +263,7 @@ function MessageBubble({
         accessibilityRole="button"
         accessibilityLabel={messageLabel}
         accessibilityHint={reactionState.accessibilityHint}
-        className={`min-w-0 rounded-xl px-md py-sm ${bubbleClassName}`}
+        className={`min-w-0 flex-1 rounded-xl px-md py-sm ${bubbleClassName}`}
       >
         {!isMine && <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>}
         {media ? (
@@ -333,7 +333,7 @@ function MessageRow({
   return (
     <View className={`mb-md flex-row items-end px-md ${isMine ? 'justify-end' : 'justify-start'}`}>
       {!isMine && <Avatar src={message.senderDisplayPicture} name={message.senderUsername} size="xs" />}
-      <View className={`min-w-[30%] max-w-[82%] flex-row items-end ${isMine ? '' : 'ml-sm'}`}>
+      <View className={`min-w-[30%] max-w-[82%] ${isMine ? '' : 'ml-sm'}`}>
         <MessageBubble
           message={message}
           isMine={isMine}
