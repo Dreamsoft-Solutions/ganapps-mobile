@@ -10,6 +10,7 @@ import {
   Share2,
   Users,
 } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import type { ReactElement, ReactNode } from 'react';
 import { FlatList, type ListRenderItemInfo, RefreshControl, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +22,7 @@ import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { formatInterestLabel } from '@/constants/interests';
+import { Routes } from '@/constants/routes';
 import { Colors, Spacing } from '@/constants/theme';
 import { useEventTime } from '@/hooks/useEventTime';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
@@ -546,6 +548,7 @@ export function EventHubView({
   onAnnouncementReaction = (): void => {},
   announcementReactionPendingId = null,
 }: EventHubViewProps): ReactElement {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
   const theme = useResolvedTheme();
@@ -610,6 +613,7 @@ export function EventHubView({
               announcement={item}
               organizationName={organizerName}
               organizationLogo={organizerLogo}
+              onOrganizationPress={(): void => router.push(Routes.businessProfile(ganap.businessId))}
               onReaction={(reaction: ReactionType | null): void => onAnnouncementReaction(item, reaction)}
               reactionPending={announcementReactionPendingId === item.id}
             />

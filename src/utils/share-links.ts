@@ -1,6 +1,7 @@
 import { isValidFriendCode, normalizeFriendCode } from '@/utils/friends';
 
 const GANAP_SHARE_ID_PATTERN: RegExp = /^[A-Za-z0-9_-]{1,128}$/;
+const BUSINESS_SHARE_SLUG_PATTERN: RegExp = /^[A-Za-z0-9_-]{1,128}$/;
 
 function isPrivateIpv4Address(hostname: string): boolean {
   const octets: number[] = hostname.split('.').map((octet: string): number => Number(octet));
@@ -83,6 +84,16 @@ function buildShareUrl(path: 'friends' | 'ganaps', identifier: string): string {
  */
 export function isValidGanapShareId(id: string): boolean {
   return GANAP_SHARE_ID_PATTERN.test(id);
+}
+
+/**
+ * Checks whether a Business slug is safe to use as one URL path segment.
+ *
+ * @param slug - Candidate Business share slug.
+ * @returns `true` when the slug contains only URL-safe identifier characters.
+ */
+export function isValidBusinessShareSlug(slug: string): boolean {
+  return BUSINESS_SHARE_SLUG_PATTERN.test(slug);
 }
 
 /**

@@ -148,7 +148,7 @@ module.exports = {
       versionCode: 9,
       googleServicesFile,
       intentFilters: appLinksHost
-        ? ['friends', 'ganaps'].map((path) => ({
+        ? ['friends', 'ganaps', 'businesses'].map((path) => ({
             action: 'VIEW',
             autoVerify: true,
             data: [{ scheme: 'https', host: appLinksHost, pathPrefix: `/${path}/` }],

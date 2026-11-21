@@ -19,3 +19,19 @@ export interface BusinessDetail {
   createdAt: string;
   updatedAt: string;
 }
+
+/** Public Business profile returned by `GET /businesses/public/:slug`. */
+export interface PublicBusinessProfile {
+  id: string;
+  slug: string;
+  name: string;
+  bio: string | null;
+  displayPicture: string | null;
+  coverImage: string | null;
+  address: string | null;
+  locationLat: number | null;
+  locationLong: number | null;
+  isVerified: boolean;
+  websiteUrl: string | null;
+  publicContactEmail: string | null;
+}

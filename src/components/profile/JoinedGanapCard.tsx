@@ -1,10 +1,12 @@
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { Calendar, CheckCircle2, ChevronRight, Clock } from 'lucide-react-native';
 import type { ReactElement } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, type AccessibilityActionEvent } from 'react-native';
 import { Card } from '@/components/common/Card';
 import { Text } from '@/components/common/Text';
 import { formatInterestLabel } from '@/constants/interests';
+import { Routes } from '@/constants/routes';
 import { useEventTime } from '@/hooks/useEventTime';
 import type { RegistrationStatus } from '@/types/ganap.types';
 import type { JoinedGanap } from '@/types/profile.types';
@@ -32,15 +34,22 @@ const REGISTRATION_LABELS: Record<RegistrationStatus, string> = {
 interface JoinedGanapCardProps {
   ganap: JoinedGanap;
   onPress?: () => void;
+  /** Where the Business profile returns to; the My Events lists pass `my-events`. */
+  businessReturnTo?: 'my-events';
 }
 
 /**
  * Compact joined Ganap row used in profile previews and lists.
  *
- * @param props - Ganap data and an optional detail navigation handler.
+ * @param props - Ganap data, an optional detail navigation handler, and the Business profile return origin.
  * @returns A pressable joined Ganap card.
  */
-export function JoinedGanapCard({ ganap, onPress }: JoinedGanapCardProps): ReactElement {
+export function JoinedGanapCard({ ganap, onPress, businessReturnTo }: JoinedGanapCardProps): ReactElement {
+  const router = useRouter();
+  const viewBusinessLabel = `View ${ganap.businessName} organization profile`;
+  const openBusiness = (): void => {
+    router.push(Routes.businessProfile(ganap.businessId, businessReturnTo));
+  };
   const registrationLabel: string = REGISTRATION_LABELS[ganap.registrationStatus];
   const now = useEventTime(ganap.endDate);
   const lifecycleLabel = getGanapLifecycleLabel(ganap, now);
@@ -51,6 +60,10 @@ export function JoinedGanapCard({ ganap, onPress }: JoinedGanapCardProps): React
     <Pressable
       onPress={onPress}
       disabled={!onPress}
+      accessibilityActions={onPress ? [{ name: 'viewBusiness', label: viewBusinessLabel }] : undefined}
+      onAccessibilityAction={(event: AccessibilityActionEvent): void => {
+        if (event.nativeEvent.actionName === 'viewBusiness') openBusiness();
+      }}
       accessibilityRole={onPress ? 'button' : undefined}
       className="active:opacity-80"
     >
@@ -73,9 +86,17 @@ export function JoinedGanapCard({ ganap, onPress }: JoinedGanapCardProps): React
           <Text className="text-headline-sm" numberOfLines={2}>
             {ganap.title}
           </Text>
-          <Text className="mt-1 text-label-sm text-muted-foreground" numberOfLines={1}>
-            {ganap.businessName}
-          </Text>
+          <Pressable
+            onPress={openBusiness}
+            hitSlop={14}
+            accessibilityRole="button"
+            accessibilityLabel={viewBusinessLabel}
+            className="mt-1 max-w-full self-start active:opacity-70"
+          >
+            <Text className="text-label-sm text-muted-foreground" numberOfLines={1}>
+              {ganap.businessName}
+            </Text>
+          </Pressable>
           <View className="mt-2 flex-row items-center">
             <View className="mr-xs">
               <Clock size={12} className="text-muted-foreground" />
