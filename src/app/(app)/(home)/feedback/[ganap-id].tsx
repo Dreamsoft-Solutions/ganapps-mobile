@@ -1,7 +1,8 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, BackHandler, View } from 'react-native';
+import Animated, { FadeInRight, FadeOut, LayoutAnimationConfig } from 'react-native-reanimated';
 import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
@@ -11,10 +12,16 @@ import { RatingStep } from '@/components/ganaps/RatingStep';
 import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { Routes } from '@/constants/routes';
 import { useGanapFeedback } from '@/hooks/useGanapFeedback';
-import type { SubmitFormAnswersInput } from '@/types/ganap.types';
+import { showToast } from '@/store/toast.store';
+import type { FeedbackIntent, SubmitFeedbackInput, SubmitFormAnswersInput } from '@/types/ganap.types';
 import type { FeedbackErrorModel, FeedbackStep } from '@/utils/feedback';
-import { mapFeedbackError, toSubmitFeedbackInput } from '@/utils/feedback';
+import { isFormRequiredForRating, mapFeedbackError, toSubmitFeedbackInput } from '@/utils/feedback';
 import { ratingSchema } from '@/utils/validation';
+
+const STEP_SUCCESS_COPY = {
+  form: 'Feedback form submitted',
+  rating: 'Thanks for rating this event',
+} as const satisfies Record<FeedbackStep, string>;
 
 /**
  * Narrows a caught value to an `Error`.
@@ -59,43 +66,59 @@ function FeedbackUnavailable({ message, onLeave }: FeedbackUnavailableProps): Re
 }
 
 /**
- * Post-event feedback route: the star rating, then the organizer's optional
- * feedback form, for a Ganap the student attended.
+ * Post-event feedback route: the organizer's feedback form and the star rating
+ * for a Ganap the student attended, each saved as soon as it is submitted.
  *
- * Which steps appear is derived by `getPendingFeedbackSteps` from server state;
- * the local `ratingDone` / `formDone` flags advance the flow within a session,
- * because the server fields backing that derivation may be absent and the
- * pending list will therefore not shrink on its own.
+ * Which steps appear is derived from server state by `getPendingFeedbackSteps`
+ * and the `intent` search param, so reopening the route resumes where the
+ * student left off. A submission writes its response into the cached detail, so
+ * the next step shows without waiting for a refetch. Every exit goes through
+ * `leave`, which runs once per visit, and a refetch never unmounts a form that
+ * is already on screen, so entered answers survive a recoverable error.
  *
  * @returns The current step, or a loading/error state.
  */
 export default function FeedbackRoute(): ReactElement {
-  const { 'ganap-id': ganapId } = useLocalSearchParams<{ 'ganap-id': string }>();
+  const { 'ganap-id': ganapId, intent: intentParam } = useLocalSearchParams<{ 'ganap-id': string; intent?: string }>();
+  const intent: FeedbackIntent = intentParam === 'form' ? 'form' : 'rate';
   const router = useRouter();
-  const feedback = useGanapFeedback(ganapId);
+  const feedback = useGanapFeedback(ganapId, intent);
 
-  const [ratingDone, setRatingDone] = useState<boolean>(false);
-  const [formDone, setFormDone] = useState<boolean>(false);
   const [isDirty, setIsDirty] = useState<boolean>(false);
   const [stepError, setStepError] = useState<FeedbackErrorModel | null>(null);
-  const [selectedRating, setSelectedRating] = useState<number | null>(null);
-  const [preserveFormAfterConflict, setPreserveFormAfterConflict] = useState<boolean>(false);
+  const hasLeft = useRef<boolean>(false);
+  const exitToast = useRef<string | null>(null);
+  const [initialStepCount, setInitialStepCount] = useState<number | null>(null);
+  const { pendingSteps, refetch, submitFeedback } = feedback;
   const isSubmitting: boolean = feedback.isSubmitting;
-  const hasPostAttendanceForm: boolean = feedback.blocks !== undefined && feedback.blocks.length > 0;
+  const hasData: boolean = feedback.ganap !== undefined && feedback.blocks !== undefined;
 
-  const currentStep: FeedbackStep | undefined = feedback.pendingSteps.find((step: FeedbackStep): boolean =>
-    step === 'rating' ? !ratingDone : !formDone,
-  );
+  if (initialStepCount === null && hasData) setInitialStepCount(pendingSteps.length);
+
+  const currentStep: FeedbackStep | undefined = pendingSteps[0];
 
   /**
-   * Leaves the feedback flow.
+   * Leaves the feedback flow, once.
    *
-   * Mirrors the scanner route's dismiss-then-back guard, with one addition: an
-   * unguarded `back()` is a no-op when nothing precedes this screen in the
-   * stack, which would leave the student watching a spinner forever. The Event
-   * Hub is where feedback belongs, so it is the fallback.
+   * The form intent is opened from My Events (another tab), so it returns there.
+   * Otherwise it dismisses, then goes back, and falls back to the Event Hub when nothing
+   * precedes this screen: an unguarded `back()` would then be a no-op and
+   * strand the student on a spinner. A pending success toast is shown here so
+   * the explicit exit after a submission and the auto-leave effect, which can
+   * fire first once the cache write empties the plan, behave the same.
    */
   const leave = useCallback((): void => {
+    if (hasLeft.current) return;
+    hasLeft.current = true;
+
+    if (exitToast.current !== null) showToast('success', exitToast.current);
+
+    if (intent === 'form') {
+      if (router.canDismiss()) router.dismiss();
+      router.replace(Routes.app.ganaps);
+      return;
+    }
+
     if (router.canDismiss()) {
       router.dismiss();
       return;
@@ -107,44 +130,36 @@ export default function FeedbackRoute(): ReactElement {
     }
 
     router.replace(Routes.eventHub(ganapId));
-  }, [ganapId, router]);
+  }, [ganapId, intent, router]);
 
-  // Leaving is an effect, not a render-time call: navigating during render is
-  // unsafe, and this fires both when the student finishes and when there was
-  // never anything pending — so neither path can dead-end on a blank screen.
   useEffect((): void => {
-    if (feedback.isLoading || feedback.error || !feedback.ganap) return;
+    if (feedback.isLoading || !hasData) return;
     if (currentStep === undefined) leave();
-  }, [currentStep, feedback.error, feedback.ganap, feedback.isLoading, leave]);
+  }, [currentStep, feedback.isLoading, hasData, leave]);
 
+  /**
+   * Reacts to a rejected submission.
+   *
+   * Eligibility, an already-saved rating and a form the organizer now requires
+   * all change server state, so those refetch it first. The rest stay inline on
+   * the current step so the student can retry with their input intact.
+   *
+   * @param caught - The rejection from the feedback mutation
+   */
   const recoverFromError = useCallback(
     async (caught: unknown): Promise<void> => {
       const model: FeedbackErrorModel = mapFeedbackError(toError(caught));
 
       switch (model.kind) {
-        // Eligibility can change while the route is open. Refresh the shared
-        // state and use the normal leave fallback rather than claiming success.
         case 'not-eligible':
           setStepError(null);
-          await feedback.refetch();
+          await refetch();
           leave();
           return;
 
-        // A rating is immutable. Clear the score held for an atomic form
-        // submission, refresh authoritative state, and keep the form mounted.
         case 'rating-conflict':
-          setSelectedRating(null);
-          // Mark this surface as recoverable before refetching: a rejected
-          // query updates `feedback.error` while the request is in flight,
-          // and rendering ErrorView there would unmount DynamicForm.
-          setPreserveFormAfterConflict(true);
-          try {
-            await feedback.refetch();
-            setPreserveFormAfterConflict(false);
-          } catch {
-            // Refetch is authoritative best effort; keep the form and retry
-            // surface mounted when it cannot refresh.
-          }
+        case 'answers-required':
+          await refetch();
           setStepError(model);
           return;
 
@@ -152,16 +167,37 @@ export default function FeedbackRoute(): ReactElement {
           setStepError(model);
       }
     },
-    [feedback.refetch, leave],
+    [refetch, leave],
+  );
+
+  /**
+   * Saves one step on its own.
+   *
+   * When the step is the last one in the plan, the success toast is queued
+   * before the request so the exit that follows it carries the toast.
+   *
+   * @param step - The step being submitted
+   * @param input - The request payload for that step
+   */
+  const submitStep = useCallback(
+    async (step: FeedbackStep, input: SubmitFeedbackInput): Promise<void> => {
+      setStepError(null);
+      const isLastStep: boolean = pendingSteps[pendingSteps.length - 1] === step;
+      exitToast.current = isLastStep ? STEP_SUCCESS_COPY[step] : null;
+
+      try {
+        await submitFeedback(input);
+        if (isLastStep) leave();
+      } catch (caught: unknown) {
+        exitToast.current = null;
+        await recoverFromError(caught);
+      }
+    },
+    [pendingSteps, submitFeedback, leave, recoverFromError],
   );
 
   const handleSubmitRating = useCallback(
     async (score: number): Promise<void> => {
-      setStepError(null);
-
-      // The five buttons cannot produce an out-of-range score today, but the
-      // value crosses from component state into an API payload here, so it is
-      // validated at the boundary rather than trusted.
       const parsed = ratingSchema.safeParse({ score });
       if (!parsed.success) {
         setStepError({
@@ -172,49 +208,16 @@ export default function FeedbackRoute(): ReactElement {
         return;
       }
 
-      const formPending: boolean = feedback.pendingSteps.includes('form');
-      if (formPending) {
-        setSelectedRating(parsed.data.score);
-        setRatingDone(true);
-        return;
-      }
-
-      try {
-        await feedback.submitFeedback({
-          ganapId,
-          input: toSubmitFeedbackInput({ rating: parsed.data.score }),
-        });
-        setRatingDone(true);
-      } catch (caught: unknown) {
-        await recoverFromError(caught);
-      }
+      await submitStep('rating', toSubmitFeedbackInput({ rating: parsed.data.score }));
     },
-    [feedback.pendingSteps, feedback.submitFeedback, ganapId, recoverFromError],
+    [submitStep],
   );
-
-  const handleSkipRating = useCallback((): void => {
-    setStepError(null);
-    setRatingDone(true);
-  }, []);
 
   const handleSubmitForm = useCallback(
     async (input: SubmitFormAnswersInput): Promise<void> => {
-      setStepError(null);
-      const rating: number | undefined =
-        selectedRating !== null && feedback.ganap?.myRating === null ? selectedRating : undefined;
-      try {
-        await feedback.submitFeedback({
-          ganapId,
-          input: toSubmitFeedbackInput({ rating, formAnswers: input }),
-        });
-        setRatingDone(true);
-        setFormDone(true);
-        setSelectedRating(null);
-      } catch (caught: unknown) {
-        await recoverFromError(caught);
-      }
+      await submitStep('form', toSubmitFeedbackInput({ formAnswers: input }));
     },
-    [feedback.ganap?.myRating, feedback.submitFeedback, ganapId, recoverFromError, selectedRating],
+    [submitStep],
   );
 
   const requestBack = useCallback((): void => {
@@ -242,14 +245,12 @@ export default function FeedbackRoute(): ReactElement {
     }, [requestBack]),
   );
 
-  // Both step components take an `Error`; the mapped copy is what the student
-  // reads, so the model's message becomes the error's message.
   const inlineError: Error | null = useMemo(
     (): Error | null => (stepError ? new Error(stepError.message) : null),
     [stepError],
   );
 
-  if (feedback.isLoading || (feedback.failure && !preserveFormAfterConflict)) {
+  if (feedback.isLoading || (feedback.failure && !hasData)) {
     return (
       <View className="flex-1 bg-background">
         <ScreenHeader title="Feedback" onBack={leave} backHint="Returns to the event" />
@@ -262,37 +263,50 @@ export default function FeedbackRoute(): ReactElement {
     );
   }
   if (!feedback.ganap) return <FeedbackUnavailable message="This event is no longer available." onLeave={leave} />;
+  if (currentStep === undefined) return <Loading />;
 
-  if (currentStep === 'rating') {
-    return (
-      <RatingStep
-        ganapTitle={feedback.ganap.title}
-        isSubmitting={feedback.isSubmitting}
-        submissionError={inlineError}
-        onSubmit={handleSubmitRating}
-        onSkip={hasPostAttendanceForm ? undefined : handleSkipRating}
-        onBack={requestBack}
-      />
-    );
-  }
+  const totalSteps: number = Math.max(initialStepCount ?? 0, pendingSteps.length);
+  const stepNumber: number = totalSteps - pendingSteps.length + 1;
+  const stepLabel: string | undefined = totalSteps >= 2 ? `Step ${stepNumber} of ${totalSteps}` : undefined;
 
-  if (currentStep === 'form') {
-    return (
-      <DynamicForm
-        title="Share your feedback"
-        description="The organization would like to hear how the event went."
-        submitLabel="Submit feedback"
-        ganapTitle={feedback.ganap.title}
-        blocks={feedback.blocks ?? []}
-        isSubmitting={feedback.isSubmitting}
-        submissionError={inlineError}
-        onBack={requestBack}
-        onDirtyChange={setIsDirty}
-        onSubmit={handleSubmitForm}
-      />
-    );
-  }
-
-  // Nothing pending: the effect above is navigating away this tick.
-  return <Loading />;
+  return (
+    <LayoutAnimationConfig skipEntering>
+      <Animated.View
+        key={currentStep}
+        className="flex-1"
+        entering={FadeInRight.duration(220)}
+        exiting={FadeOut.duration(150)}
+      >
+        {currentStep === 'rating' ? (
+          <RatingStep
+            ganapTitle={feedback.ganap.title}
+            stepLabel={stepLabel}
+            isSubmitting={isSubmitting}
+            submissionError={inlineError}
+            onSubmit={handleSubmitRating}
+            onSkip={leave}
+            onBack={requestBack}
+          />
+        ) : (
+          <DynamicForm
+            title="Share your feedback"
+            description={
+              intent === 'rate' && isFormRequiredForRating(feedback.ganap, feedback.blocks ?? [])
+                ? 'The organizer asks for this before you rate.'
+                : 'The organization would like to hear how the event went.'
+            }
+            submitLabel="Submit feedback"
+            ganapTitle={feedback.ganap.title}
+            stepLabel={stepLabel}
+            blocks={feedback.blocks ?? []}
+            isSubmitting={isSubmitting}
+            submissionError={inlineError}
+            onBack={requestBack}
+            onDirtyChange={setIsDirty}
+            onSubmit={handleSubmitForm}
+          />
+        )}
+      </Animated.View>
+    </LayoutAnimationConfig>
+  );
 }

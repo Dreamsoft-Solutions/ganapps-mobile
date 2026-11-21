@@ -7,6 +7,7 @@ import type { businessesAPI } from '../src/api/endpoints/businesses';
 import type { chatAPI } from '../src/api/endpoints/chat';
 import type { friendsAPI } from '../src/api/endpoints/friends';
 import type { ganapsAPI } from '../src/api/endpoints/ganaps';
+import type { profileAPI } from '../src/api/endpoints/profile';
 import type { refreshAccessToken } from '../src/api/interceptors/refresh-token';
 import type { useAuthStore } from '../src/store/auth.store';
 import { isValidFriendCode } from '../src/utils/friends';
@@ -71,6 +72,7 @@ async function client(
   chatAPI: typeof chatAPI;
   friendsAPI: typeof friendsAPI;
   ganapsAPI: typeof ganapsAPI;
+  profileAPI: typeof profileAPI;
   refreshAccessToken: typeof refreshAccessToken;
   useAuthStore: typeof useAuthStore;
 }> {
@@ -87,8 +89,9 @@ async function client(
   const { chatAPI } = await import('../src/api/endpoints/chat');
   const { friendsAPI } = await import('../src/api/endpoints/friends');
   const { ganapsAPI } = await import('../src/api/endpoints/ganaps');
+  const { profileAPI } = await import('../src/api/endpoints/profile');
   const { refreshAccessToken } = await import('../src/api/interceptors/refresh-token');
-  return { authAPI, businessesAPI, chatAPI, friendsAPI, ganapsAPI, refreshAccessToken, useAuthStore };
+  return { authAPI, businessesAPI, chatAPI, friendsAPI, ganapsAPI, profileAPI, refreshAccessToken, useAuthStore };
 }
 
 beforeAll(() => {
@@ -477,6 +480,85 @@ describe('mobile to server contract', () => {
           items: [{ id: 'ganap-1', title: 'Example Ganap' }],
           pagination: { total: 1, limit: 5 },
         });
+      });
+  });
+
+  it('loads My Events with the post-attendance form state', async () => {
+    await pact
+      .addInteraction()
+      .given('an attended user has a post-attendance form')
+      .uponReceiving('a mobile My Events request')
+      .withRequest('GET', '/api/v1/profile/me/joined-ganaps', (request) => {
+        request.headers(authHeaders).query({ skip: '0', take: '20', time: 'PAST' });
+      })
+      .willRespondWith(200, (response) => {
+        response.headers(responseHeaders).jsonBody({
+          success: true,
+          statusCode: 200,
+          data: {
+            items: eachLike({
+              id: string('feedback-ganap'),
+              businessId: string('business-1'),
+              businessName: string('Example Business'),
+              slug: string('feedback-ganap'),
+              title: string('Example Ganap'),
+              startDate: string('2026-01-01T00:00:00.000Z'),
+              status: string('PUBLISHED'),
+              tags: eachLike(string('community')),
+              registrationStatus: 'ATTENDED',
+              registeredAt: string('2026-01-01T00:00:00.000Z'),
+              postAttendanceFormPolicy: regex('^(OPTIONAL|REQUIRED)$', 'OPTIONAL'),
+              hasPostAttendanceForm: boolean(true),
+              postAttendanceFormSubmittedAt: null,
+            }),
+            pagination: {
+              total: integer(1),
+              skip: integer(0),
+              take: integer(20),
+              pages: integer(1),
+            },
+          },
+        });
+      })
+      .executeTest(async ({ url }) => {
+        const { profileAPI } = await client(url, true);
+        await expect(profileAPI.listJoinedGanaps({ skip: 0, take: 20, time: 'PAST' })).resolves.toMatchObject({
+          items: [
+            {
+              id: 'feedback-ganap',
+              postAttendanceFormPolicy: 'OPTIONAL',
+              hasPostAttendanceForm: true,
+              postAttendanceFormSubmittedAt: null,
+            },
+          ],
+        });
+      });
+  });
+
+  it('submits the post-attendance form without a rating', async () => {
+    const input = { answers: [{ formBlockId: 'feedback-block-1', textValue: 'Great event' }] };
+    await pact
+      .addInteraction()
+      .given('an attended user has an unsubmitted optional post-attendance form')
+      .uponReceiving('a mobile post-attendance form submission')
+      .withRequest('POST', '/api/v1/ganaps/feedback-ganap/feedback', (request) => {
+        request.headers({ ...authHeaders, 'Content-Type': 'application/json' }).jsonBody(input);
+      })
+      .willRespondWith(200, (response) => {
+        response.headers(responseHeaders).jsonBody({
+          success: true,
+          statusCode: 200,
+          data: {
+            myRating: null,
+            postAttendanceFormSubmittedAt: string('2026-01-02T00:00:00.000Z'),
+          },
+        });
+      })
+      .executeTest(async ({ url }) => {
+        const { ganapsAPI } = await client(url, true);
+        const result = await ganapsAPI.submitFeedback('feedback-ganap', input);
+        expect(result.myRating).toBeNull();
+        expect(result.postAttendanceFormSubmittedAt).toBe('2026-01-02T00:00:00.000Z');
       });
   });
 

@@ -1,7 +1,10 @@
-import type { GanapStatus, RegistrationStatus } from './ganap.types';
+import type { GanapStatus, PostAttendanceFormPolicy, RegistrationStatus } from './ganap.types';
 
 /**
  * A Ganap joined by the current User.
+ *
+ * The post-attendance fields are optional so an older server degrades to "no
+ * form action" on My Events.
  */
 export interface JoinedGanap {
   id: string;
@@ -16,6 +19,12 @@ export interface JoinedGanap {
   coverImage?: string | null;
   registrationStatus: RegistrationStatus;
   registeredAt: string;
+  /** Whether attendees must submit the post-attendance form before rating. */
+  postAttendanceFormPolicy?: PostAttendanceFormPolicy;
+  /** Whether the Ganap has at least one post-attendance question. */
+  hasPostAttendanceForm?: boolean;
+  /** When the caller submitted the post-attendance form; `null` when not submitted. */
+  postAttendanceFormSubmittedAt?: string | null;
 }
 
 /** Time range filters accepted by the current User's joined Ganap endpoint. */
