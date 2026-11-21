@@ -93,7 +93,7 @@ Follow the verification scope in AGENTS.md's Code Review Process. Report the che
 
 ## Boundaries
 
-- **Branch:** work happens on `dev`. `master` is not a working branch.
+- **Branch:** work happens on ticket branches cut from `master` and merged back by PR. There is no `dev` branch.
 - **Commits:** Conventional Commits, enforced by commitlint (100 char header limit).
   `pre-commit` runs lint-staged; `pre-push` runs format and lint checks, then tests. Don't bypass hooks with
   `--no-verify`.
