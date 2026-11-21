@@ -22,8 +22,12 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { useSocialSignInOptions } from '@/hooks/useSocialSignInOptions';
-import { clearPendingAppleName, getAppleSignInCredential, isAppleSignInCancelled } from '@/services/apple-auth.service';
-import { getGoogleFirebaseIdToken, isGoogleSignInCancelled } from '@/services/google-auth.service';
+import {
+  clearPendingAppleName,
+  getAppleSignInCredential,
+  getAppleSignInErrorMessage,
+} from '@/services/apple-auth.service';
+import { getGoogleFirebaseIdToken, getGoogleSignInErrorMessage } from '@/services/google-auth.service';
 import type { LoginDto, RegisterDto } from '@/types/auth.types';
 import {
   getPasswordRequirementStatus,
@@ -302,8 +306,7 @@ export function LoginForm(): ReactElement {
       const idToken = await getGoogleFirebaseIdToken();
       await googleLogin({ idToken });
     } catch (error: unknown) {
-      if (isGoogleSignInCancelled(error)) return;
-      setSocialError(error instanceof Error ? error.message : 'Google sign-in failed');
+      setSocialError(getGoogleSignInErrorMessage(error));
     }
   }, [googleLogin, clearSignInErrors]);
 
@@ -316,8 +319,7 @@ export function LoginForm(): ReactElement {
       await appleLogin(dto);
       clearPendingAppleName();
     } catch (error: unknown) {
-      if (isAppleSignInCancelled(error)) return;
-      setSocialError(error instanceof Error && error.message ? error.message : 'Apple sign-in failed');
+      setSocialError(getAppleSignInErrorMessage(error));
     } finally {
       appleInFlight.current = false;
     }

@@ -5,27 +5,32 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 const GOOGLE_SIGN_IN_CANCELLED = 'GOOGLE_SIGN_IN_CANCELLED';
+const GOOGLE_FAILED_MESSAGE = "Couldn't sign in with Google. Try again.";
 let isConfigured = false;
 
 /**
  * Signs in with Google natively, exchanges the credential through Firebase Auth,
  * and returns the Firebase ID token required by the Ganapps API.
  *
+ * In development, every failure is logged with its code and native message, including
+ * configuration failures, because the sign-in form shows plain copy instead.
+ *
  * @returns A Firebase ID token.
- * @throws {Error} When native Google Sign-In or Firebase Auth fails.
+ * @throws {Error} When Google Sign-In is not configured, or native Google Sign-In or
+ * Firebase Auth fails.
  */
 export async function getGoogleFirebaseIdToken(): Promise<string> {
-  const diagnostics = configureGoogleSignIn();
-  if (__DEV__) {
-    console.info('[GoogleAuth] configuration', diagnostics);
-  }
-  if (Platform.OS === 'android' && diagnostics.androidOAuthClientConfigured === false) {
-    throw new Error(
-      'Android Google OAuth client is missing. Add the app SHA-1/SHA-256 fingerprints in Firebase, then replace google-services.json.',
-    );
-  }
-
   try {
+    const diagnostics = configureGoogleSignIn();
+    if (__DEV__) {
+      console.info('[GoogleAuth] configuration', diagnostics);
+    }
+    if (Platform.OS === 'android' && diagnostics.androidOAuthClientConfigured === false) {
+      throw new Error(
+        'Android Google OAuth client is missing. Add the app SHA-1/SHA-256 fingerprints in Firebase, then replace google-services.json.',
+      );
+    }
+
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
     const response = await GoogleSignin.signIn();
     if (!isSuccessResponse(response)) {
@@ -63,13 +68,15 @@ export async function getGoogleFirebaseIdToken(): Promise<string> {
 }
 
 /**
- * Identifies a user-cancelled native Google sign-in attempt.
+ * Picks the message to show for a failed Google sign-in, never the Google Sign-In,
+ * Firebase Auth or configuration error text. Cancelling shows nothing.
  *
- * @param error - Unknown rejected value.
- * @returns True when the sign-in flow was cancelled.
+ * @param error - Unknown rejected value from {@link getGoogleFirebaseIdToken}.
+ * @returns The message to show, or undefined when the User cancelled.
  */
-export function isGoogleSignInCancelled(error: unknown): boolean {
-  return error instanceof Error && error.message === GOOGLE_SIGN_IN_CANCELLED;
+export function getGoogleSignInErrorMessage(error: unknown): string | undefined {
+  const isCancelled: boolean = error instanceof Error && error.message === GOOGLE_SIGN_IN_CANCELLED;
+  return isCancelled ? undefined : GOOGLE_FAILED_MESSAGE;
 }
 
 function configureGoogleSignIn(): {
