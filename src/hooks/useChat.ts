@@ -25,10 +25,12 @@ import {
   chatSocketClient,
 } from '@/services/chat-socket.service';
 import { useAuthStore } from '@/store/auth.store';
+import { showToast } from '@/store/toast.store';
 import type {
   ChatImageDraft,
   ChatMessage,
   ChatMessagesPage,
+  ChatReadOnlyReason,
   EventChatSession,
   EventChatSummary,
   EventChatSummaryPage,
@@ -39,7 +41,10 @@ import {
   compareChatMessages,
   createChatClientMessageId,
   getChatMessagePreview,
+  chatReadOnlyMessage,
   greatestChatMessage,
+  isChatDisabledError,
+  isChatFeatureDisabled,
   isChatForbidden,
   isChatNetworkError,
 } from '@/utils/chat';
@@ -62,6 +67,9 @@ export interface FailedDraft {
   content: string;
   error: Error;
 }
+
+/** Why the thread access-lost screen is shown. */
+export type ChatAccessLostReason = 'FEATURE_DISABLED' | 'NO_ACCESS';
 
 /** Public aggregate returned by {@link useChat}. */
 export interface UseChatResult {
@@ -95,6 +103,10 @@ export interface UseChatResult {
   accessLost: boolean;
   accessRevoked: boolean;
   isReadOnly: boolean;
+  /** Why the viewer cannot send in a readable chat, or null when sending is allowed. */
+  readOnlyReason: ChatReadOnlyReason | null;
+  /** FEATURE_DISABLED when chat is off platform-wide, NO_ACCESS for other access loss, null while access holds. */
+  accessLostReason: ChatAccessLostReason | null;
 }
 
 function patchSummaryForMessage(
@@ -342,6 +354,12 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
           handleUnsent(event);
           return;
         }
+        if (event.type === 'conversation-changed') {
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventSession(ganapId) });
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.eventList() });
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.summaries() });
+          return;
+        }
         if (event.type === 'read' && event.receipt.userId === userId) {
           queryClient.setQueryData<InfiniteData<EventChatSummaryPage, ChatPageParam>>(
             chatQueryKeys.eventList(),
@@ -438,7 +456,11 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
         // including an idempotent duplicate response after a retry.
         clearFailedDraft(variables.clientMessageId);
       } catch (error) {
-        if (error instanceof Error && isChatNetworkError(error)) saveFailedDraft(variables, error);
+        if (isChatDisabledError(error instanceof Error ? error : null)) {
+          showToast('error', chatReadOnlyMessage('CHAT_DISABLED'));
+        } else if (error instanceof Error && isChatNetworkError(error)) {
+          saveFailedDraft(variables, error);
+        }
       } finally {
         inFlightIds.current.delete(variables.clientMessageId);
       }
@@ -537,7 +559,12 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
         setImagePickerError(null);
       } catch (caughtError: unknown) {
         const error: Error = normalizeChatImageError(caughtError);
-        if (isChatImageMessageIdReused(error)) {
+        if (isChatDisabledError(caughtError instanceof Error ? caughtError : error)) {
+          showToast('error', chatReadOnlyMessage('CHAT_DISABLED'));
+          setImageDraft((current: ChatImageDraft | null): ChatImageDraft | null =>
+            current?.clientMessageId === draft.clientMessageId ? null : current,
+          );
+        } else if (isChatImageMessageIdReused(error)) {
           try {
             await messagesQuery.refetch();
           } catch {
@@ -598,6 +625,12 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
   const error: Error | null = sessionQuery.error ?? messagesQuery.error ?? null;
   const failedDrafts: FailedDraft[] = Object.values(failedDraftMap);
   const isReadOnly: boolean = Boolean(sessionQuery.data?.canRead && !sessionQuery.data.canSend);
+  const readOnlyReason: ChatReadOnlyReason | null = isReadOnly ? (sessionQuery.data?.readOnlyReason ?? null) : null;
+  const accessLostReason: ChatAccessLostReason | null = !accessLost
+    ? null
+    : isChatFeatureDisabled(sessionQuery.error) || isChatFeatureDisabled(messagesQuery.error)
+      ? 'FEATURE_DISABLED'
+      : 'NO_ACCESS';
 
   return {
     session: accessLost ? (sessionQuery.data ?? null) : (sessionQuery.data ?? null),
@@ -629,5 +662,7 @@ export function useChat(ganapId = '', enabled = true): UseChatResult {
     accessLost,
     accessRevoked,
     isReadOnly,
+    readOnlyReason,
+    accessLostReason,
   };
 }

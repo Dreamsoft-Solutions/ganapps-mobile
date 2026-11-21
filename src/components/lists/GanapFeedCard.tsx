@@ -1,9 +1,11 @@
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { Calendar, Clock, MapPin, Users } from 'lucide-react-native';
 import type { ReactElement } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, type AccessibilityActionEvent } from 'react-native';
 import { Card } from '@/components/common/Card';
 import { Text } from '@/components/common/Text';
+import { Routes } from '@/constants/routes';
 import { Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { GanapListItem } from '@/types/ganap.types';
@@ -53,9 +55,14 @@ export interface GanapFeedCardProps {
  */
 export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElement {
   const theme = useResolvedTheme();
+  const router = useRouter();
   const category: string | undefined = ganap.tags[0];
   const address: string | null = ganap.address ?? null;
   const initial: string = ganap.businessName.charAt(0).toUpperCase();
+  const viewBusinessLabel = `View ${ganap.businessName} organization profile`;
+  const openBusiness = (): void => {
+    router.push(Routes.businessProfile(ganap.businessId));
+  };
 
   /**
    * lucide-react-native registers no cssInterop, so a className on an icon is
@@ -70,6 +77,10 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${ganap.title}, hosted by ${ganap.businessName}, ${getAttendanceEstimate(ganap.registrationCount)}`}
+      accessibilityActions={[{ name: 'viewBusiness', label: viewBusinessLabel }]}
+      onAccessibilityAction={(event: AccessibilityActionEvent): void => {
+        if (event.nativeEvent.actionName === 'viewBusiness') openBusiness();
+      }}
       className="active:opacity-80"
     >
       <Card className="mb-sm">
@@ -121,7 +132,13 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
         </View>
 
         <View className="mt-sm flex-row items-center gap-sm border-t border-border pt-sm">
-          <View className="min-w-0 flex-1 flex-row items-center gap-xs">
+          <Pressable
+            onPress={openBusiness}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={viewBusinessLabel}
+            className="min-w-0 flex-1 flex-row items-center gap-xs active:opacity-70"
+          >
             <View className="h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
               <Text
                 testID="ganap-feed-card-host-initial"
@@ -133,7 +150,7 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
             <Text className="min-w-0 flex-1 font-inter-semibold text-body-md text-foreground" numberOfLines={1}>
               {ganap.businessName}
             </Text>
-          </View>
+          </Pressable>
 
           <View className="shrink-0 flex-row items-center gap-1 rounded-full bg-muted px-sm py-1">
             <Users size={14} color={subdued} />

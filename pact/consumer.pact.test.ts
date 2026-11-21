@@ -3,6 +3,7 @@ import path from 'node:path';
 import { MatchersV3, Pact } from '@pact-foundation/pact';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { authAPI } from '../src/api/endpoints/auth';
+import type { businessesAPI } from '../src/api/endpoints/businesses';
 import type { chatAPI } from '../src/api/endpoints/chat';
 import type { friendsAPI } from '../src/api/endpoints/friends';
 import type { ganapsAPI } from '../src/api/endpoints/ganaps';
@@ -67,6 +68,7 @@ async function client(
   authenticated = false,
 ): Promise<{
   authAPI: typeof authAPI;
+  businessesAPI: typeof businessesAPI;
   chatAPI: typeof chatAPI;
   friendsAPI: typeof friendsAPI;
   ganapsAPI: typeof ganapsAPI;
@@ -83,12 +85,13 @@ async function client(
       expiresAt: Date.now() + 900000,
     });
   const { authAPI } = await import('../src/api/endpoints/auth');
+  const { businessesAPI } = await import('../src/api/endpoints/businesses');
   const { chatAPI } = await import('../src/api/endpoints/chat');
   const { friendsAPI } = await import('../src/api/endpoints/friends');
   const { ganapsAPI } = await import('../src/api/endpoints/ganaps');
   const { profileAPI } = await import('../src/api/endpoints/profile');
   const { refreshAccessToken } = await import('../src/api/interceptors/refresh-token');
-  return { authAPI, chatAPI, friendsAPI, ganapsAPI, profileAPI, refreshAccessToken, useAuthStore };
+  return { authAPI, businessesAPI, chatAPI, friendsAPI, ganapsAPI, profileAPI, refreshAccessToken, useAuthStore };
 }
 
 beforeAll(() => {
@@ -404,6 +407,40 @@ describe('mobile to server contract', () => {
       });
   });
 
+  it('resolves a read-only Event Chat session when the organizer turned chat off', async () => {
+    await pact
+      .addInteraction()
+      .given('a registered attendee and an event whose organizer turned chat off')
+      .uponReceiving('a request to resolve a chat-disabled Event Chat session')
+      .withRequest('POST', '/api/v1/ganaps/chat-disabled-ganap/chat', (request) => {
+        request.headers(authHeaders);
+      })
+      .willRespondWith(200, (response) => {
+        response.headers(responseHeaders).jsonBody({
+          success: true,
+          statusCode: 200,
+          data: {
+            conversationId: string('conversation-1'),
+            ganapId: string('chat-disabled-ganap'),
+            type: 'EVENT',
+            capability: 'READ_ONLY',
+            canRead: true,
+            canSend: false,
+            isBusinessOnly: false,
+            ganapStatus: 'PUBLISHED',
+            isChatEnabled: false,
+            readOnlyReason: 'CHAT_DISABLED',
+          },
+        });
+      })
+      .executeTest(async ({ url }) => {
+        const { chatAPI } = await client(url, true);
+        const session = await chatAPI.resolveSession('chat-disabled-ganap');
+        expect(session.readOnlyReason).toBe('CHAT_DISABLED');
+        expect(session.isChatEnabled).toBe(false);
+      });
+  });
+
   it('loads a filtered page of published Ganaps', async () => {
     await pact
       .addInteraction()
@@ -522,6 +559,59 @@ describe('mobile to server contract', () => {
         const result = await ganapsAPI.submitFeedback('feedback-ganap', input);
         expect(result.myRating).toBeNull();
         expect(result.postAttendanceFormSubmittedAt).toBe('2026-01-02T00:00:00.000Z');
+      });
+  });
+
+  it('fetches a public Business profile by slug', async () => {
+    const profile = {
+      id: 'business-1',
+      slug: 'example',
+      name: 'Example Business',
+      bio: 'Example bio',
+      displayPicture: null,
+      coverImage: null,
+      address: null,
+      locationLat: null,
+      locationLong: null,
+      isVerified: true,
+      websiteUrl: null,
+      publicContactEmail: null,
+    };
+    await pact
+      .addInteraction()
+      .given('an active Business has a public profile')
+      .uponReceiving('a mobile public Business profile request')
+      .withRequest('GET', '/api/v1/businesses/public/example', (request) => {
+        request.headers(authHeaders);
+      })
+      .willRespondWith(200, (response) => {
+        response.headers(responseHeaders).jsonBody({ success: true, statusCode: 200, data: profile });
+      })
+      .executeTest(async ({ url }) => {
+        const { businessesAPI } = await client(url, true);
+        await expect(businessesAPI.getPublicBySlug('example')).resolves.toEqual(profile);
+      });
+  });
+
+  it('returns the server error for an unavailable public Business', async () => {
+    await pact
+      .addInteraction()
+      .given('a Business is not available')
+      .uponReceiving('a mobile public Business profile request for a missing Business')
+      .withRequest('GET', '/api/v1/businesses/public/missing', (request) => {
+        request.headers(authHeaders);
+      })
+      .willRespondWith(404, (response) => {
+        response.headers(responseHeaders).jsonBody({
+          success: false,
+          statusCode: 404,
+          errorCode: string('NOT_FOUND'),
+          message: 'Business not available',
+        });
+      })
+      .executeTest(async ({ url }) => {
+        const { businessesAPI } = await client(url, true);
+        await expect(businessesAPI.getPublicBySlug('missing')).rejects.toMatchObject({ status: 404 });
       });
   });
 });

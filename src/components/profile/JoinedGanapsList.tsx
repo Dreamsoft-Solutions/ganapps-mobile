@@ -52,6 +52,7 @@ export function JoinedGanapsList({
         renderItem={({ item }: ListRenderItemInfo<JoinedGanap>): ReactElement => (
           <JoinedGanapCard
             ganap={item}
+            businessReturnTo="my-events"
             onPress={(): void => {
               router.push(Routes.ganapDetail(item.id, 'my-events'));
             }}

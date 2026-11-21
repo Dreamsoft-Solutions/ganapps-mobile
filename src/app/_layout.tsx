@@ -40,7 +40,10 @@ function isUnauthenticatedGroup(segment: string | undefined): boolean {
 
 /** Keeps canonical share routes alive long enough to validate and forward them. */
 function isShareLinkRoute(segments: readonly string[]): boolean {
-  return segments[0] === '(public)' && (segments[1] === 'friends' || segments[1] === 'ganaps');
+  return (
+    segments[0] === '(public)' &&
+    (segments[1] === 'friends' || segments[1] === 'ganaps' || segments[1] === 'businesses')
+  );
 }
 
 function RootLayoutNav(): ReactElement {
