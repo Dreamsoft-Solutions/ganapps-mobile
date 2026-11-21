@@ -1,12 +1,9 @@
 name: CI
 
 on:
-  push:
-    branches: [dev, master]
   pull_request:
-    branches: [dev, master, 'feat/ds-217-heic-support', 'refactor/untangle-codebase']
+    branches: [master, 'feat/ds-217-heic-support', 'refactor/untangle-codebase']
 
-# A new push to the same branch supersedes any run still in progress.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -68,19 +65,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: Dreamsoft-Solutions/ganapps-server
-          ref: ${{ github.head_ref == vars.PACT_SERVER_REF && vars.PACT_SERVER_REF || ((github.base_ref || github.ref_name) == 'master' && 'master' || 'dev') }}
-          token: ${{ secrets.PACT_REPO_TOKEN }}
-          path: .pact-provider
-          persist-credentials: false
-      - name: Check out dev Pact provider for legacy master
-        if: >-
-          (github.base_ref || github.ref_name) == 'master' &&
-          !(vars.PACT_SERVER_REF && github.head_ref == vars.PACT_SERVER_REF) &&
-          hashFiles('.pact-provider/pact/provider.pact.test.ts') == ''
-        uses: actions/checkout@v7
-        with:
-          repository: Dreamsoft-Solutions/ganapps-server
-          ref: dev
+          ref: ${{ github.head_ref == vars.PACT_SERVER_REF && vars.PACT_SERVER_REF || 'master' }}
           token: ${{ secrets.PACT_REPO_TOKEN }}
           path: .pact-provider
           persist-credentials: false
