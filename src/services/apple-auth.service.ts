@@ -4,6 +4,10 @@ import * as Crypto from 'expo-crypto';
 import type { AppleAuthRequestDto } from '@/types/auth.types';
 
 const APPLE_CANCELLED_CODE = 'ERR_REQUEST_CANCELED';
+const APPLE_UNKNOWN_CODE = 'ERR_REQUEST_UNKNOWN';
+const APPLE_NO_ACCOUNT_MESSAGE =
+  "Couldn't sign in with Apple. Check that you're signed in to an Apple Account in Settings, then try again.";
+const APPLE_FAILED_MESSAGE = "Couldn't sign in with Apple. Try again.";
 const NONCE_BYTE_COUNT = 32;
 const MAX_NAME_LENGTH = 64;
 
@@ -60,19 +64,22 @@ export async function getAppleSignInCredential(): Promise<AppleAuthRequestDto> {
 }
 
 /**
- * Identifies a user-cancelled Apple sign-in sheet.
+ * Picks the message to show for a failed Apple sign-in, never the native error text.
  *
- * @param error - Unknown rejected value.
- * @returns True when the value carries the Apple cancellation error code.
+ * Expo reports `ASAuthorizationError.unknown` (1000) as `ERR_REQUEST_UNKNOWN`. iOS returns
+ * it when no Apple Account is signed in to the device, after offering to open Settings,
+ * so that message points there. Cancelling the sheet (`ERR_REQUEST_CANCELED`) shows nothing.
+ *
+ * @param error - Unknown rejected value from {@link getAppleSignInCredential}.
+ * @returns The message to show, or undefined when the User cancelled.
  */
-export function isAppleSignInCancelled(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    typeof error.code === 'string' &&
-    error.code === APPLE_CANCELLED_CODE
-  );
+export function getAppleSignInErrorMessage(error: unknown): string | undefined {
+  const code: string | undefined =
+    typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string'
+      ? error.code
+      : undefined;
+  if (code === APPLE_CANCELLED_CODE) return undefined;
+  return code === APPLE_UNKNOWN_CODE ? APPLE_NO_ACCOUNT_MESSAGE : APPLE_FAILED_MESSAGE;
 }
 
 /**
