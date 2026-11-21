@@ -17,6 +17,7 @@ export default function PublicLayout(): ReactElement {
       <Stack.Screen name="index" />
       <Stack.Screen name="friends/[code]" />
       <Stack.Screen name="ganaps/[id]" />
+      <Stack.Screen name="businesses/[slug]" />
     </Stack>
   );
 }

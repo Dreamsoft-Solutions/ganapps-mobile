@@ -92,7 +92,7 @@ module.exports = {
   expo: {
     name: 'Ganapps',
     slug: 'dreamsoft-cpu',
-    version: '1.1.3',
+    version: '1.1.4',
     orientation: 'portrait',
     icon: './assets/brand/ganap-logo-1.png',
     scheme: 'ganappsmobile',
@@ -145,10 +145,10 @@ module.exports = {
     },
     android: {
       package: 'com.ganapps.app',
-      versionCode: 8,
+      versionCode: 9,
       googleServicesFile,
       intentFilters: appLinksHost
-        ? ['friends', 'ganaps'].map((path) => ({
+        ? ['friends', 'ganaps', 'businesses'].map((path) => ({
             action: 'VIEW',
             autoVerify: true,
             data: [{ scheme: 'https', host: appLinksHost, pathPrefix: `/${path}/` }],
@@ -184,6 +184,7 @@ module.exports = {
             useFrameworks: 'static',
             usePrecompiledModules: false,
             forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBMessaging', 'RNFBRemoteConfig'],
+            enableSceneSupport: true,
           },
         },
       ],

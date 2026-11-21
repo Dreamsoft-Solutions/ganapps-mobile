@@ -85,6 +85,10 @@ _Avoid_: Survey, Questionnaire, Custom fields, Registration questions
 What an Attendee leaves after a Ganap: a rating, plus answers to any `POST_ATTENDANCE` form blocks.
 _Avoid_: Review, Comment, Survey response, Rating (that is one part of it)
 
+**Post-attendance Form Policy**:
+Whether a Ganap's `POST_ATTENDANCE` form must be submitted before the Attendee can rate it. `OPTIONAL` (default): the rating and the form are separate, and the form is answered from My Events. `REQUIRED`: every rating entrance collects and saves the form first.
+_Avoid_: Mandatory feedback, Required questions (that is a question's `isRequired`)
+
 **Block**:
 A directional moderation action by one User against another. The blocker no longer receives
 the blocked User's messages or new Direct requests, while other Event Chat participants keep

@@ -19,6 +19,10 @@ interface EventActionBarProps {
  * It sits directly above the app tab bar, which already reserves the bottom safe-area
  * inset, so the bar adds only its own padding.
  *
+ * The primary button is keyed by its variant, so a switch from `outline` to `default` mounts a new
+ * button. react-native-css-interop cannot add the default variant's shadow variables to a mounted
+ * button, and in development its upgrade warning throws "Couldn't find a navigation context".
+ *
  * @param props - Action model, pending state, primary/secondary action handlers, and the report handler.
  * @returns The fixed action bar with an optional secondary action and the Report Event link.
  */
@@ -29,6 +33,8 @@ export function EventActionBar({
   onSecondaryAction,
   onReport,
 }: EventActionBarProps): ReactElement {
+  const primaryVariant: 'outline' | 'default' = model.primary?.action === 'leave' ? 'outline' : 'default';
+
   return (
     <View className="absolute bottom-0 left-0 right-0 border-t border-border bg-background px-md pb-xs pt-sm">
       <View className="w-full max-w-3xl self-center">
@@ -37,8 +43,9 @@ export function EventActionBar({
         )}
         {model.primary && (
           <Button
+            key={primaryVariant}
             size="lg"
-            variant={model.primary.action === 'leave' ? 'outline' : 'default'}
+            variant={primaryVariant}
             loading={isPending}
             disabled={isPending}
             onPress={onPrimaryAction}

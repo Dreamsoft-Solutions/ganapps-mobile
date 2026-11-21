@@ -15,17 +15,13 @@ import { useBusinessDetailQuery } from '@/hooks/queries/useBusinessesQuery';
 import { useFriendGoingQuery } from '@/hooks/queries/useFriendsQuery';
 import { useGanapDetailQuery } from '@/hooks/queries/useGanapsQuery';
 import { useEventTime } from '@/hooks/useEventTime';
+import { useGanapAction } from '@/hooks/useGanapAction';
 import { useGanaps } from '@/hooks/useGanaps';
 import { showToast } from '@/store/toast.store';
 import type { FriendGoingRecord, FriendUserSummary } from '@/types/friends.types';
 import type { GanapReportReceipt, ReportGanapInput } from '@/types/ganap.types';
 import type { GanapAction, GanapActionConfirmation } from '@/utils/ganap-detail';
-import {
-  buildGanapShareMessage,
-  getGanapActionModel,
-  getGanapCapacityModel,
-  getGanapScheduleModel,
-} from '@/utils/ganap-detail';
+import { buildGanapShareMessage, getGanapCapacityModel, getGanapScheduleModel } from '@/utils/ganap-detail';
 import { getQueryFailure } from '@/utils/query-failure';
 import { buildGanapShareUrl } from '@/utils/share-links';
 
@@ -44,6 +40,7 @@ export default function GanapDetailScreen(): ReactElement {
   const failure: Error | null = getQueryFailure(ganapQuery);
   const businessQuery = useBusinessDetailQuery(ganap?.businessId);
   const now = useEventTime(ganap?.endDate);
+  const { actionModel, isResolving } = useGanapAction(ganap, now);
   const friendsGoingQuery = useFriendGoingQuery(true, ganapId);
   const { join, leave, toggleLike, toggleSave, report, isJoining, isLeaving, isTogglingLike, isTogglingSave } =
     useGanaps();
@@ -108,13 +105,12 @@ export default function GanapDetailScreen(): ReactElement {
     return renderFallbackState(<ErrorView error={failure} onRetry={(): void => void refetch()} />);
   }
 
-  if (!ganap) {
+  if (!ganap || !actionModel) {
     return renderFallbackState(<ErrorView error={new Error('Event not found')} />);
   }
 
   const schedule = getGanapScheduleModel(ganap.startDate, ganap.endDate);
   const capacity = getGanapCapacityModel(ganap);
-  const actionModel = getGanapActionModel(ganap, now);
   const friendsGoing: FriendUserSummary[] = friendsGoingQuery.going
     .filter((record: FriendGoingRecord): boolean => record.ganap.ganapId === ganap.id)
     .map((record: FriendGoingRecord): FriendUserSummary => record.user);
@@ -186,7 +182,7 @@ export default function GanapDetailScreen(): ReactElement {
         capacity={capacity}
         schedule={schedule}
         actionModel={actionModel}
-        isPrimaryPending={isJoining || isLeaving}
+        isPrimaryPending={isJoining || isLeaving || isResolving}
         isLikePending={isTogglingLike}
         isSavePending={isTogglingSave}
         friendsGoing={friendsGoing}

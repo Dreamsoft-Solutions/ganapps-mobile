@@ -1,11 +1,13 @@
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { Bookmark, Calendar, Clock } from 'lucide-react-native';
 import type { ReactElement } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, type AccessibilityActionEvent } from 'react-native';
 import { Card } from '@/components/common/Card';
 import { IconButton } from '@/components/common/IconButton';
 import { Text } from '@/components/common/Text';
 import { formatInterestLabel } from '@/constants/interests';
+import { Routes } from '@/constants/routes';
 import { Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { GanapStatus } from '@/types/ganap.types';
@@ -29,6 +31,8 @@ const STATUS_LABELS: Partial<Record<GanapStatus, string>> = {
 interface SavedGanapCardProps {
   ganap: SavedGanap;
   onPress?: () => void;
+  /** Where the Business profile returns to; the My Events lists pass `my-events`. */
+  businessReturnTo?: 'my-events';
   onUnsave?: () => void;
 }
 
@@ -38,10 +42,15 @@ interface SavedGanapCardProps {
  * Shows a status pill only when the event is in progress, over, or cancelled.
  * The saved list has no time filter, so a stale row has to say so itself.
  *
- * @param props - Ganap data, an optional detail handler, and an optional unsave handler.
+ * @param props - Ganap data, an optional detail handler, an optional unsave handler, and the Business profile return origin.
  * @returns A pressable saved Ganap card.
  */
-export function SavedGanapCard({ ganap, onPress, onUnsave }: SavedGanapCardProps): ReactElement {
+export function SavedGanapCard({ ganap, onPress, onUnsave, businessReturnTo }: SavedGanapCardProps): ReactElement {
+  const router = useRouter();
+  const viewBusinessLabel = `View ${ganap.businessName} organization profile`;
+  const openBusiness = (): void => {
+    router.push(Routes.businessProfile(ganap.businessId, businessReturnTo));
+  };
   const theme = useResolvedTheme();
   const statusLabel: string | undefined = STATUS_LABELS[ganap.status];
   const firstTag: string | undefined = ganap.tags[0];
@@ -52,6 +61,10 @@ export function SavedGanapCard({ ganap, onPress, onUnsave }: SavedGanapCardProps
     <Pressable
       onPress={onPress}
       disabled={!onPress}
+      accessibilityActions={onPress ? [{ name: 'viewBusiness', label: viewBusinessLabel }] : undefined}
+      onAccessibilityAction={(event: AccessibilityActionEvent): void => {
+        if (event.nativeEvent.actionName === 'viewBusiness') openBusiness();
+      }}
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={onPress ? ganap.title : undefined}
       className="active:opacity-80"
@@ -75,9 +88,17 @@ export function SavedGanapCard({ ganap, onPress, onUnsave }: SavedGanapCardProps
           <Text className="text-headline-sm" numberOfLines={2}>
             {ganap.title}
           </Text>
-          <Text className="mt-1 text-label-sm text-muted-foreground" numberOfLines={1}>
-            {ganap.businessName}
-          </Text>
+          <Pressable
+            onPress={openBusiness}
+            hitSlop={14}
+            accessibilityRole="button"
+            accessibilityLabel={viewBusinessLabel}
+            className="mt-1 max-w-full self-start active:opacity-70"
+          >
+            <Text className="text-label-sm text-muted-foreground" numberOfLines={1}>
+              {ganap.businessName}
+            </Text>
+          </Pressable>
           <View className="mt-2 flex-row items-center">
             <View className="mr-xs">
               <Clock size={12} className="text-muted-foreground" />

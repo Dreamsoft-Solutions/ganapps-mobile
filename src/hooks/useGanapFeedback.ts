@@ -1,10 +1,16 @@
-import type { UseMutateAsyncFunction, UseQueryResult } from '@tanstack/react-query';
-import type { FormBlock, GanapDetail, SubmitFeedbackResponse } from '@/types/ganap.types';
+import { type UseQueryResult, useQueryClient } from '@tanstack/react-query';
+import type {
+  FeedbackIntent,
+  FormBlock,
+  GanapDetail,
+  SubmitFeedbackInput,
+  SubmitFeedbackResponse,
+} from '@/types/ganap.types';
 import type { FeedbackStep } from '@/utils/feedback';
 import { getPendingFeedbackSteps } from '@/utils/feedback';
 import { getQueryFailure } from '@/utils/query-failure';
-import { type SubmitFeedbackVariables, useSubmitFeedbackMutation } from './mutations/useGanapMutation';
-import { useFormBlocksQuery, useGanapDetailQuery } from './queries/useGanapsQuery';
+import { useSubmitFeedbackMutation } from './mutations/useGanapMutation';
+import { ganapQueryKeys, useFormBlocksQuery, useGanapDetailQuery } from './queries/useGanapsQuery';
 
 /** State and actions needed by the post-event feedback route. */
 export interface UseGanapFeedbackResult {
@@ -17,7 +23,7 @@ export interface UseGanapFeedbackResult {
   /** The error to show in place of the content, or `null`; see `getQueryFailure`. */
   failure: Error | null;
   refetch: () => Promise<unknown>;
-  submitFeedback: UseMutateAsyncFunction<SubmitFeedbackResponse, Error, SubmitFeedbackVariables>;
+  submitFeedback: (input: SubmitFeedbackInput) => Promise<SubmitFeedbackResponse>;
   isSubmitting: boolean;
   submissionError: Error | null;
 }
@@ -27,18 +33,22 @@ export interface UseGanapFeedbackResult {
  * submission into the single value the feedback route needs.
  *
  * Both queries are shared by key with the rest of the app, so opening this
- * route does not refetch detail the Event Hub already loaded.
+ * route does not refetch detail the Event Hub already loaded. A successful
+ * submission writes the server's response into the cached detail before it
+ * resolves, so the pending steps advance even when the follow-up refetch fails.
  *
  * @param ganapId - Id of the Ganap being reviewed
- * @returns Feedback data, derived pending steps, and atomic submission state
+ * @param intent - Which entrance opened the route; `form` starts at the feedback form
+ * @returns Feedback data, derived pending steps, and submission state
  */
-export function useGanapFeedback(ganapId: string): UseGanapFeedbackResult {
+export function useGanapFeedback(ganapId: string, intent: FeedbackIntent = 'rate'): UseGanapFeedbackResult {
+  const queryClient = useQueryClient();
   const detailQuery: UseQueryResult<GanapDetail, Error> = useGanapDetailQuery(ganapId);
   const blocksQuery: UseQueryResult<FormBlock[], Error> = useFormBlocksQuery(ganapId, 'POST_ATTENDANCE');
   const feedbackMutation = useSubmitFeedbackMutation();
 
   const pendingSteps: FeedbackStep[] =
-    detailQuery.data && blocksQuery.data ? getPendingFeedbackSteps(detailQuery.data, blocksQuery.data) : [];
+    detailQuery.data && blocksQuery.data ? getPendingFeedbackSteps(detailQuery.data, blocksQuery.data, intent) : [];
 
   return {
     ganap: detailQuery.data,
@@ -48,7 +58,22 @@ export function useGanapFeedback(ganapId: string): UseGanapFeedbackResult {
     error: detailQuery.error ?? blocksQuery.error ?? null,
     failure: getQueryFailure(detailQuery) ?? getQueryFailure(blocksQuery),
     refetch: async (): Promise<unknown> => Promise.all([detailQuery.refetch(), blocksQuery.refetch()]),
-    submitFeedback: feedbackMutation.mutateAsync,
+    submitFeedback: async (input: SubmitFeedbackInput): Promise<SubmitFeedbackResponse> => {
+      const result: SubmitFeedbackResponse = await feedbackMutation.mutateAsync({ ganapId, input });
+      queryClient.setQueryData<GanapDetail>(
+        ganapQueryKeys.detail(ganapId),
+        (detail: GanapDetail | undefined): GanapDetail | undefined =>
+          detail && {
+            ...detail,
+            myRating: result.myRating,
+            myRegistration: detail.myRegistration && {
+              ...detail.myRegistration,
+              postAttendanceFormSubmittedAt: result.postAttendanceFormSubmittedAt,
+            },
+          },
+      );
+      return result;
+    },
     isSubmitting: feedbackMutation.isPending,
     submissionError: feedbackMutation.error ?? null,
   };

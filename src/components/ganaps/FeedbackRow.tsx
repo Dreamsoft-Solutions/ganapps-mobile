@@ -18,8 +18,9 @@ export interface FeedbackRowProps {
  * Event Hub row surfacing authoritative post-event feedback state.
  *
  * Unlike {@link AttendanceScanRow}, this row is hidden while the server
- * metadata is unavailable, confirms a completed submission statically, or
- * invites the student into the feedback flow when a step remains.
+ * metadata is unavailable, confirms a submitted rating statically (an optional
+ * form does not count), or invites the student to rate. When the organizer
+ * requires the feedback form before rating, the invitation says so.
  *
  * @param props - Authoritative state and the navigate-to-feedback callback.
  * @returns The row for the current state, or null when hidden.
@@ -35,13 +36,13 @@ export function FeedbackRow({ state, onPress }: FeedbackRowProps): ReactElement 
         testID="feedback-row"
         accessible
         pointerEvents="none"
-        accessibilityLabel="Feedback submitted"
+        accessibilityLabel="Rating submitted"
         className="flex-row items-center rounded-lg border border-border bg-muted px-md py-sm"
       >
         <View className="mr-sm">
           <CircleCheck size={16} color={Colors[theme].primary} />
         </View>
-        <Text className="min-w-0 flex-1 text-body-md">Feedback submitted</Text>
+        <Text className="min-w-0 flex-1 text-body-md">Rating submitted</Text>
       </View>
     );
   }
@@ -58,7 +59,10 @@ export function FeedbackRow({ state, onPress }: FeedbackRowProps): ReactElement 
       <View className="mr-sm">
         <MessageSquare size={16} color={Colors[theme].primary} />
       </View>
-      <Text className="min-w-0 flex-1 font-inter-semibold text-body-md text-primary">Rate this event</Text>
+      <View className="min-w-0 flex-1">
+        <Text className="font-inter-semibold text-body-md text-primary">Rate this event</Text>
+        {state.formFirst ? <Text className="text-body-md text-muted-foreground">Feedback form first</Text> : null}
+      </View>
     </Pressable>
   );
 }

@@ -1,9 +1,13 @@
 import { Image } from 'expo-image';
-import { Calendar, CheckCircle2, ChevronRight, Clock } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { Calendar, CheckCircle2, ChevronRight, CircleCheck, Clock } from 'lucide-react-native';
 import type { ReactElement } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, type AccessibilityActionEvent } from 'react-native';
+import { Button } from '@/components/common/Button';
 import { Card } from '@/components/common/Card';
+import { chipTextVariants } from '@/components/common/Chip';
 import { Text } from '@/components/common/Text';
+import { Routes } from '@/constants/routes';
 import { formatInterestLabel } from '@/constants/interests';
 import { useEventTime } from '@/hooks/useEventTime';
 import type { RegistrationStatus } from '@/types/ganap.types';
@@ -29,18 +33,28 @@ const REGISTRATION_LABELS: Record<RegistrationStatus, string> = {
   EVICTED: 'Removed',
 };
 
+const FORM_REQUIRED_HELPER = 'Required before you rate';
+const FORM_LOCKED_HELPER = 'Opens after your attendance is recorded';
+
 interface JoinedGanapCardProps {
   ganap: JoinedGanap;
   onPress?: () => void;
+  /** Where the Business profile returns to; the My Events lists pass `my-events`. */
+  businessReturnTo?: 'my-events';
 }
 
 /**
  * Compact joined Ganap row used in profile previews and lists.
  *
- * @param props - Ganap data and an optional detail navigation handler.
- * @returns A pressable joined Ganap card.
+ * @param props - Ganap data, an optional detail navigation handler, and the Business profile return origin.
+ * @returns A joined Ganap card: a pressable detail row, then the feedback form action when the Ganap has a form.
  */
-export function JoinedGanapCard({ ganap, onPress }: JoinedGanapCardProps): ReactElement {
+export function JoinedGanapCard({ ganap, onPress, businessReturnTo }: JoinedGanapCardProps): ReactElement {
+  const router = useRouter();
+  const viewBusinessLabel = `View ${ganap.businessName} organization profile`;
+  const openBusiness = (): void => {
+    router.push(Routes.businessProfile(ganap.businessId, businessReturnTo));
+  };
   const registrationLabel: string = REGISTRATION_LABELS[ganap.registrationStatus];
   const now = useEventTime(ganap.endDate);
   const lifecycleLabel = getGanapLifecycleLabel(ganap, now);
@@ -48,13 +62,17 @@ export function JoinedGanapCard({ ganap, onPress }: JoinedGanapCardProps): React
   const coverImage: string | null = ganap.coverImage || null;
 
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      accessibilityRole={onPress ? 'button' : undefined}
-      className="active:opacity-80"
-    >
-      <Card className="mb-sm flex-row items-start">
+    <Card className="mb-sm">
+      <Pressable
+        onPress={onPress}
+        disabled={!onPress}
+        accessibilityActions={onPress ? [{ name: 'viewBusiness', label: viewBusinessLabel }] : undefined}
+        onAccessibilityAction={(event: AccessibilityActionEvent): void => {
+          if (event.nativeEvent.actionName === 'viewBusiness') openBusiness();
+        }}
+        accessibilityRole={onPress ? 'button' : undefined}
+        className="flex-row items-start active:opacity-80"
+      >
         <View className="mr-sm h-10 w-10 overflow-hidden rounded-md bg-muted">
           {coverImage ? (
             <Image
@@ -73,9 +91,17 @@ export function JoinedGanapCard({ ganap, onPress }: JoinedGanapCardProps): React
           <Text className="text-headline-sm" numberOfLines={2}>
             {ganap.title}
           </Text>
-          <Text className="mt-1 text-label-sm text-muted-foreground" numberOfLines={1}>
-            {ganap.businessName}
-          </Text>
+          <Pressable
+            onPress={openBusiness}
+            hitSlop={14}
+            accessibilityRole="button"
+            accessibilityLabel={viewBusinessLabel}
+            className="mt-1 max-w-full self-start active:opacity-70"
+          >
+            <Text className="text-label-sm text-muted-foreground" numberOfLines={1}>
+              {ganap.businessName}
+            </Text>
+          </Pressable>
           <View className="mt-2 flex-row items-center">
             <View className="mr-xs">
               <Clock size={12} className="text-muted-foreground" />
@@ -102,8 +128,60 @@ export function JoinedGanapCard({ ganap, onPress }: JoinedGanapCardProps): React
             <ChevronRight size={18} className="text-muted-foreground" />
           </View>
         )}
-      </Card>
-    </Pressable>
+      </Pressable>
+      {ganap.hasPostAttendanceForm === true && <FeedbackFormAction ganap={ganap} />}
+    </Card>
+  );
+}
+
+/**
+ * Feedback form slot under a joined Ganap row: a submitted chip, an answer button, or a locked button.
+ *
+ * Lives beside the detail `Pressable`, not inside it, so screen readers can reach the button.
+ *
+ * @param props - The joined Ganap whose post-attendance form this slot reflects.
+ * @returns The chip, or the button with its helper line.
+ */
+function FeedbackFormAction({ ganap }: { ganap: JoinedGanap }): ReactElement {
+  const router = useRouter();
+
+  if (ganap.postAttendanceFormSubmittedAt) {
+    return (
+      <View
+        accessibilityRole="text"
+        className="mt-sm flex-row items-center self-start rounded-full border border-input bg-background px-4 py-2"
+      >
+        <View className="mr-xs">
+          <CircleCheck size={14} className="text-primary" />
+        </View>
+        <Text className={chipTextVariants({ selected: false })}>Feedback form submitted</Text>
+      </View>
+    );
+  }
+
+  const attended: boolean = ganap.registrationStatus === 'ATTENDED';
+  const helper: string | null = attended
+    ? ganap.postAttendanceFormPolicy === 'REQUIRED'
+      ? FORM_REQUIRED_HELPER
+      : null
+    : FORM_LOCKED_HELPER;
+
+  return (
+    <View className="mt-sm items-start">
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={!attended}
+        accessibilityLabel={`Answer the feedback form for ${ganap.title}`}
+        accessibilityHint={attended ? undefined : FORM_LOCKED_HELPER}
+        onPress={(): void => {
+          router.push(Routes.ganapFeedback(ganap.id, 'form'));
+        }}
+      >
+        Answer feedback form
+      </Button>
+      {helper && <Text className="mt-xs text-label-sm text-muted-foreground">{helper}</Text>}
+    </View>
   );
 }
 

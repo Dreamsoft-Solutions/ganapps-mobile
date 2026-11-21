@@ -12,6 +12,8 @@ import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 /** Props for the post-event star rating step. */
 export interface RatingStepProps {
   ganapTitle: string;
+  /** Position in a multi-step flow, e.g. "Step 2 of 2". Omitted for a single step. */
+  stepLabel?: string;
   isSubmitting: boolean;
   submissionError: Error | null;
   onSubmit: (score: number) => void | Promise<void>;
@@ -33,6 +35,7 @@ const SCORES: readonly number[] = [1, 2, 3, 4, 5];
  */
 export function RatingStep({
   ganapTitle,
+  stepLabel,
   isSubmitting,
   submissionError,
   onSubmit,
@@ -58,6 +61,7 @@ export function RatingStep({
       </View>
 
       <View className="flex-1 justify-center p-xl">
+        {stepLabel ? <Text className="mb-sm text-center text-label-sm text-muted-foreground">{stepLabel}</Text> : null}
         <Text className="mb-xs text-center font-inter-bold text-headline-md" accessibilityRole="header">
           How was it?
         </Text>

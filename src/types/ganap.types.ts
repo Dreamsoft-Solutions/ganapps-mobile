@@ -69,9 +69,19 @@ export interface SubmitFeedbackInput {
   answers?: SubmitFeedbackAnswerInput[];
 }
 
-/** Result returned after a combined feedback submission. */
+/** Whether attendees must submit the post-attendance form before rating. */
+export type PostAttendanceFormPolicy = 'OPTIONAL' | 'REQUIRED';
+
+/** Why the feedback route was opened: the rating entrances, or the My Events form action. */
+export type FeedbackIntent = 'rate' | 'form';
+
+/**
+ * Result returned after a feedback submission.
+ *
+ * `myRating` is `null` when only the form was submitted and the caller has not rated.
+ */
 export interface SubmitFeedbackResponse {
-  myRating: number;
+  myRating: number | null;
   postAttendanceFormSubmittedAt: string | null;
 }
 
@@ -198,6 +208,8 @@ export interface GanapDetail {
   tags: string[];
   coverImage?: string | null;
   bannerImage?: string | null;
+  /** Whether the organizer left Event Chat on; undefined from older servers means enabled. */
+  isChatEnabled?: boolean;
   mapPinImage?: string | null;
   registrationCount: number;
   likesCount?: number;
@@ -212,6 +224,13 @@ export interface GanapDetail {
    * `400 Already rated this event`.
    */
   myRating?: number | null;
+  /**
+   * Whether attendees must submit the post-attendance form before rating.
+   *
+   * Absent from an older server, which always required the form: treat
+   * `undefined` as `REQUIRED`.
+   */
+  postAttendanceFormPolicy?: PostAttendanceFormPolicy;
   isLiked?: boolean;
   isSaved?: boolean;
   myRegistration?: {

@@ -61,6 +61,9 @@ export interface ChatImageDraft {
   retryAfterUntil?: number;
 }
 
+/** Server reasons a readable Event Chat cannot accept new messages (precedence order). */
+export type ChatReadOnlyReason = 'EVENT_ENDED' | 'CHAT_DISABLED' | 'MODERATION_UNAVAILABLE' | 'BUSINESS_ONLY';
+
 /** A server-owned latest-message projection used by the chat list. */
 export interface EventChatLastMessage {
   id: string;
@@ -79,6 +82,8 @@ export interface EventChatSummary {
   unreadCount: number;
   canRead: boolean;
   canSend: boolean;
+  /** Why the viewer cannot send; absent on older servers. */
+  readOnlyReason?: ChatReadOnlyReason | null;
   updatedAt: string;
 }
 
@@ -116,6 +121,10 @@ export interface EventChatSession {
   canSend: boolean;
   isBusinessOnly: boolean;
   ganapStatus: Extract<GanapStatus, 'PUBLISHED' | 'ONGOING' | 'COMPLETED'>;
+  /** Organizer per-event switch; absent on older servers (treat as enabled). */
+  isChatEnabled?: boolean;
+  /** Why the viewer cannot send; null when canSend, absent on older servers. */
+  readOnlyReason?: ChatReadOnlyReason | null;
 }
 
 /** One canonical text message from the Event Chat API or socket. */

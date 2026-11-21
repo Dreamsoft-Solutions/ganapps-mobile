@@ -1,5 +1,6 @@
 import { ErrorCodes } from '@/constants/errors';
 import type {
+  FeedbackIntent,
   FormAnswerItem,
   FormBlock,
   GanapDetail,
@@ -12,6 +13,20 @@ import type {
 export type FeedbackStep = 'rating' | 'form';
 
 /**
+ * Whether the organizer requires the post-attendance form before a rating.
+ *
+ * A policy absent from an older server counts as `REQUIRED`, the behaviour
+ * that server enforced. A Ganap with no questions never requires the form.
+ *
+ * @param ganap - Ganap detail carrying the form policy
+ * @param blocks - The Ganap's `POST_ATTENDANCE` blocks, empty when none exist
+ * @returns `true` when the form must be submitted before rating
+ */
+export function isFormRequiredForRating(ganap: GanapDetail, blocks: FormBlock[]): boolean {
+  return blocks.length > 0 && (ganap.postAttendanceFormPolicy ?? 'REQUIRED') === 'REQUIRED';
+}
+
+/**
  * Derives which feedback steps are still outstanding for the current student.
  *
  * Only an `ATTENDED` registration has anything to answer. The two pending
@@ -20,30 +35,52 @@ export type FeedbackStep = 'rating' | 'form';
  * unknown rating state hides the step; re-submitting the form is a harmless
  * upsert, so an unknown form submission state still offers it.
  *
+ * A required, unsubmitted form comes before the rating. With the `rate`
+ * intent the rating gates everything: once rated, nothing is left. With the
+ * `form` intent (My Events) the form is the goal, and a rating still pending
+ * after a required form is offered as the follow-up step.
+ *
  * @param ganap - Ganap detail including the caller's registration and rating
  * @param blocks - The Ganap's `POST_ATTENDANCE` blocks, empty when none exist
+ * @param intent - Why the feedback route was opened; defaults to `rate`
  * @returns The outstanding steps in the order they should be presented
  */
-export function getPendingFeedbackSteps(ganap: GanapDetail, blocks: FormBlock[]): FeedbackStep[] {
+export function getPendingFeedbackSteps(
+  ganap: GanapDetail,
+  blocks: FormBlock[],
+  intent: FeedbackIntent = 'rate',
+): FeedbackStep[] {
   const registration = ganap.myRegistration;
   if (registration?.status !== 'ATTENDED') return [];
 
-  const steps: FeedbackStep[] = [];
-
-  if (ganap.myRating === null) steps.push('rating');
-
   const submittedAt = registration.postAttendanceFormSubmittedAt;
-  if (blocks.length > 0 && (submittedAt === null || submittedAt === undefined)) steps.push('form');
+  const ratingPending = ganap.myRating === null;
+  const formPending = blocks.length > 0 && (submittedAt === null || submittedAt === undefined);
+  const required = isFormRequiredForRating(ganap, blocks);
 
-  return steps;
+  if (intent === 'rate') {
+    if (!ratingPending) return [];
+    return formPending && required ? ['form', 'rating'] : ['rating'];
+  }
+
+  if (!formPending) return ratingPending && required ? ['rating'] : [];
+  return ratingPending && required ? ['form', 'rating'] : ['form'];
 }
 
-/** The feedback row state rendered by Event Hub. */
-export type FeedbackRowState = { kind: 'hidden' } | { kind: 'actionable' } | { kind: 'submitted' };
+/**
+ * The feedback row state rendered by Event Hub.
+ *
+ * `formFirst` marks an actionable row whose organizer-required form must be
+ * answered before the rating.
+ */
+export type FeedbackRowState = { kind: 'hidden' } | { kind: 'actionable'; formFirst: boolean } | { kind: 'submitted' };
 
 /**
- * Derives whether the Event Hub may show feedback, an actionable row, or a
- * submitted confirmation from authoritative metadata.
+ * Derives whether the Event Hub may show feedback, an actionable rating row,
+ * or a submitted-rating confirmation from authoritative metadata.
+ *
+ * The row is the rating entrance: it is actionable while the caller has not
+ * rated, and `formFirst` flags a required form that comes before the rating.
  *
  * @param ganap - Ganap detail including the caller's registration and rating
  * @param blocks - Loaded post-attendance form blocks, or undefined while unknown
@@ -59,10 +96,10 @@ export function getFeedbackRowState(
   if (accessLost || blocks === undefined || ganap.myRating === undefined || registration?.status !== 'ATTENDED') {
     return { kind: 'hidden' };
   }
-  if (blocks.length > 0 && registration.postAttendanceFormSubmittedAt === undefined) {
-    return { kind: 'hidden' };
-  }
-  return getPendingFeedbackSteps(ganap, blocks).length > 0 ? { kind: 'actionable' } : { kind: 'submitted' };
+  if (ganap.myRating !== null) return { kind: 'submitted' };
+  const submittedAt = registration.postAttendanceFormSubmittedAt;
+  const formPending = blocks.length > 0 && (submittedAt === null || submittedAt === undefined);
+  return { kind: 'actionable', formFirst: formPending && isFormRequiredForRating(ganap, blocks) };
 }
 
 /** Parts of a feedback request collected by the rating and form steps. */
@@ -135,7 +172,7 @@ const STATIC_FEEDBACK_ERROR_MODELS: Record<StaticFeedbackErrorCode, FeedbackErro
   [ErrorCodes.FEEDBACK_ANSWERS_REQUIRED]: {
     kind: 'answers-required',
     title: 'Feedback form required',
-    message: 'Complete the post-event form before submitting feedback.',
+    message: 'Submit the feedback form before rating this event.',
   },
   [ErrorCodes.FEEDBACK_RATING_CONFLICT]: {
     kind: 'rating-conflict',

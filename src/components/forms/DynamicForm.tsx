@@ -22,6 +22,8 @@ export interface DynamicFormProps {
   /** Submit button label, e.g. "Submit registration". */
   submitLabel: string;
   ganapTitle: string;
+  /** Position in a multi-step flow, e.g. "Step 1 of 2". Omitted for a single step. */
+  stepLabel?: string;
   blocks: FormBlock[];
   isSubmitting: boolean;
   submissionError: Error | null;
@@ -41,6 +43,7 @@ export function DynamicForm({
   description,
   submitLabel,
   ganapTitle,
+  stepLabel,
   blocks,
   isSubmitting,
   submissionError,
@@ -98,6 +101,7 @@ export function DynamicForm({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
+            {stepLabel ? <Text className="mb-xs text-label-sm text-muted-foreground">{stepLabel}</Text> : null}
             <Text className="mb-lg text-body-lg text-muted-foreground">{description}</Text>
             <View className="gap-xl">
               {orderedBlocks.map(

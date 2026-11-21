@@ -47,6 +47,13 @@ export interface ChatSocketMessageUnsentEvent {
   unsentAt: string;
 }
 
+/** Availability change for one Event Chat; clients refetch the session. */
+export interface ChatSocketConversationChangedEvent {
+  conversationId: string;
+  ganapId: string;
+  isChatEnabled: boolean;
+}
+
 /** Minimal process-wide event that marks one summary feed as stale. */
 export interface ChatSocketSummaryChangedEvent {
   conversationId: string;
@@ -58,6 +65,7 @@ export type ChatSocketEvent =
   | { type: 'read'; receipt: ChatSocketReadReceipt }
   | { type: 'message-reaction'; event: ChatSocketMessageReactionEvent }
   | { type: 'message-unsent'; event: ChatSocketMessageUnsentEvent }
+  | { type: 'conversation-changed'; event: ChatSocketConversationChangedEvent }
   | { type: 'message-hidden'; event: ChatSocketMessageHiddenEvent }
   | { type: 'access-revoked'; event: ChatSocketAccessRevokedEvent };
 
@@ -210,6 +218,17 @@ function isMessageUnsentEvent(value: unknown): value is ChatSocketMessageUnsentE
     typeof candidate.messageId === 'string' &&
     candidate.type === 'UNSENT' &&
     typeof candidate.unsentAt === 'string'
+  );
+}
+
+function isConversationChangedEvent(value: unknown): value is ChatSocketConversationChangedEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChatSocketConversationChangedEvent>;
+  return (
+    typeof candidate.conversationId === 'string' &&
+    candidate.conversationId.length > 0 &&
+    typeof candidate.ganapId === 'string' &&
+    typeof candidate.isChatEnabled === 'boolean'
   );
 }
 
@@ -510,6 +529,7 @@ export class ChatSocketClient {
     socket.on('chat:message:read', this.handleRead);
     socket.on('chat:message:reaction', this.handleMessageReaction);
     socket.on('chat:message:unsent', this.handleMessageUnsent);
+    socket.on('chat:conversation:changed', this.handleConversationChanged);
     socket.on('chat:summary:changed', this.handleSummaryChanged);
     socket.on('chat:message:hidden', this.handleMessageHidden);
     socket.on('chat:access:revoked', this.handleAccessRevoked);
@@ -626,6 +646,17 @@ export class ChatSocketClient {
     const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
     room?.listeners.forEach((listener: ChatSocketListener): void => {
       listener({ type: 'message-unsent', event: value });
+    });
+  };
+
+  private readonly handleConversationChanged = (value: unknown): void => {
+    if (!isConversationChangedEvent(value)) return;
+    const room: RoomSubscription | undefined = this.rooms.get(value.conversationId);
+    room?.listeners.forEach((listener: ChatSocketListener): void => {
+      listener({ type: 'conversation-changed', event: value });
+    });
+    this.summaryListeners.forEach((listener: ChatSocketSummaryListener): void => {
+      listener({ conversationId: value.conversationId });
     });
   };
 
