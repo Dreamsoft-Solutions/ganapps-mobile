@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance } from 'axios';
+import axios, { type AxiosError, type AxiosInstance } from 'axios';
 import { API_BASE_URL } from './config';
 import { connectionInterceptor } from './interceptors/connection.interceptor';
 import { errorInterceptor } from './interceptors/error.interceptor';
@@ -22,8 +22,10 @@ if (__DEV__) {
       console.log(`[API] ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
       return response;
     },
-    (error) => {
-      if (error.response) {
+    (error: AxiosError): Promise<never> => {
+      if (axios.isCancel(error)) {
+        console.log(`[API] CANCELED ${error.config?.method?.toUpperCase()} ${error.config?.url}`);
+      } else if (error.response) {
         console.error(
           `[API] ${error.response.status} ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
           error.response.data,
