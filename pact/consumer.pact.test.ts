@@ -9,6 +9,7 @@ import type { friendsAPI } from '../src/api/endpoints/friends';
 import type { ganapsAPI } from '../src/api/endpoints/ganaps';
 import type { profileAPI } from '../src/api/endpoints/profile';
 import type { refreshAccessToken } from '../src/api/interceptors/refresh-token';
+import type { walkAPI } from '../src/api/endpoints/walk';
 import type { useAuthStore } from '../src/store/auth.store';
 import { isValidFriendCode } from '../src/utils/friends';
 
@@ -63,6 +64,18 @@ const user = {
   createdAt: string('2026-01-01T00:00:00.000Z'),
 };
 
+const walkCard = {
+  id: string('ganap-1'),
+  title: string('Example Ganap'),
+  startDate: string('2026-12-01T10:00:00.000Z'),
+  mainTag: string('Food & Drink'),
+  subTags: atLeastLike(string('coffee'), 0, 1),
+  tags: eachLike(string('Food & Drink')),
+  distanceKm: number(2.4),
+  isLiked: boolean(false),
+  isSaved: boolean(false),
+};
+
 async function client(
   url: string,
   authenticated = false,
@@ -74,6 +87,7 @@ async function client(
   ganapsAPI: typeof ganapsAPI;
   profileAPI: typeof profileAPI;
   refreshAccessToken: typeof refreshAccessToken;
+  walkAPI: typeof walkAPI;
   useAuthStore: typeof useAuthStore;
 }> {
   vi.stubEnv('EXPO_PUBLIC_API_URL', `${url}/api/v1`);
@@ -91,7 +105,18 @@ async function client(
   const { ganapsAPI } = await import('../src/api/endpoints/ganaps');
   const { profileAPI } = await import('../src/api/endpoints/profile');
   const { refreshAccessToken } = await import('../src/api/interceptors/refresh-token');
-  return { authAPI, businessesAPI, chatAPI, friendsAPI, ganapsAPI, profileAPI, refreshAccessToken, useAuthStore };
+  const { walkAPI } = await import('../src/api/endpoints/walk');
+  return {
+    authAPI,
+    businessesAPI,
+    chatAPI,
+    friendsAPI,
+    ganapsAPI,
+    profileAPI,
+    refreshAccessToken,
+    walkAPI,
+    useAuthStore,
+  };
 }
 
 beforeAll(() => {
@@ -612,6 +637,103 @@ describe('mobile to server contract', () => {
       .executeTest(async ({ url }) => {
         const { businessesAPI } = await client(url, true);
         await expect(businessesAPI.getPublicBySlug('missing')).rejects.toMatchObject({ status: 404 });
+      });
+  });
+
+  it('starts an Event Walk from a position and seeds', async () => {
+    await pact
+      .addInteraction()
+      .given('a verified user can start an Event Walk')
+      .uponReceiving('a mobile Event Walk first page request')
+      .withRequest('GET', '/api/v1/walk', (request) => {
+        request.headers(authHeaders).query({ lat: '10.72', long: '122.56', seed: 'seed-ganap-1,seed-ganap-2' });
+      })
+      .willRespondWith(200, (response) => {
+        response.headers(responseHeaders).jsonBody({
+          success: true,
+          statusCode: 200,
+          data: {
+            asOf: string('2026-11-24T10:00:00.000Z'),
+            walkToken: string('signed-walk-token'),
+            items: eachLike(walkCard),
+            pagination: {
+              total: integer(23),
+              cursor: null,
+              nextCursor: string('next-walk-cursor'),
+              limit: integer(10),
+            },
+          },
+        });
+      })
+      .executeTest(async ({ url }) => {
+        const { walkAPI } = await client(url, true);
+        await expect(
+          walkAPI.list({ lat: 10.72, long: 122.56, seed: ['seed-ganap-1', 'seed-ganap-2'] }),
+        ).resolves.toMatchObject({
+          asOf: '2026-11-24T10:00:00.000Z',
+          walkToken: 'signed-walk-token',
+          items: [{ id: 'ganap-1', mainTag: 'Food & Drink', distanceKm: 2.4, isLiked: false, isSaved: false }],
+          pagination: { total: 23, nextCursor: 'next-walk-cursor' },
+        });
+      });
+  });
+
+  it('continues an Event Walk with the cursor from the previous page', async () => {
+    await pact
+      .addInteraction()
+      .given('an Event Walk has a further page')
+      .uponReceiving('a mobile Event Walk cursor page request')
+      .withRequest('GET', '/api/v1/walk', (request) => {
+        request
+          .headers(authHeaders)
+          // oxlint-disable-next-line eslint/no-template-curly-in-string -- Pact substitutes the provider's signed cursor.
+          .query({ cursor: fromProviderState('${cursor}', 'pact-walk-cursor') });
+      })
+      .willRespondWith(200, (response) => {
+        response.headers(responseHeaders).jsonBody({
+          success: true,
+          statusCode: 200,
+          data: {
+            asOf: string('2026-11-24T10:00:00.000Z'),
+            walkToken: string('signed-walk-token'),
+            items: eachLike(walkCard),
+            pagination: {
+              total: integer(23),
+              cursor: string('pact-walk-cursor'),
+              nextCursor: null,
+              limit: integer(10),
+            },
+          },
+        });
+      })
+      .executeTest(async ({ url }) => {
+        const { walkAPI } = await client(url, true);
+        await expect(walkAPI.list({}, 'pact-walk-cursor')).resolves.toMatchObject({
+          items: [{ id: 'ganap-1' }],
+          pagination: { nextCursor: null },
+        });
+      });
+  });
+
+  it('records a skipped Event Walk card', async () => {
+    await pact
+      .addInteraction()
+      .given('a verified user can record an Event Walk interaction')
+      .uponReceiving('a mobile Event Walk interaction request')
+      .withRequest('POST', '/api/v1/walk/interactions', (request) => {
+        request.headers({ ...authHeaders, 'Content-Type': 'application/json' }).jsonBody({
+          ganapId: 'walk-ganap-1',
+          type: 'SKIPPED',
+          // oxlint-disable-next-line eslint/no-template-curly-in-string -- Pact substitutes the provider's signed walk token.
+          walkToken: fromProviderState('${walkToken}', 'pact-walk-token'),
+        });
+      })
+      .willRespondWith(204)
+      .executeTest(async ({ url }) => {
+        const { walkAPI } = await client(url, true);
+        await expect(
+          walkAPI.interact({ ganapId: 'walk-ganap-1', type: 'SKIPPED', walkToken: 'pact-walk-token' }),
+        ).resolves.toBeUndefined();
       });
   });
 });
