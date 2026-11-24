@@ -25,6 +25,7 @@ const LOCATION: WalkLocation = { status: 'ready', coords: { latitude: 10.72, lon
 interface FakeServer {
   pages: Record<string, WalkPage>;
   walkStatus: number;
+  cursorStatus: Record<string, number>;
   interactionStatus: number;
   likeStatus: number;
   walkRequests: Array<Record<string, unknown>>;
@@ -36,6 +37,7 @@ interface FakeServer {
 const server: FakeServer = {
   pages: {},
   walkStatus: 200,
+  cursorStatus: {},
   interactionStatus: 204,
   likeStatus: 201,
   walkRequests: [],
@@ -114,8 +116,9 @@ async function walkServer(config: InternalAxiosRequestConfig): Promise<AxiosResp
   if (request === 'get /walk') {
     const params = (config.params ?? {}) as Record<string, unknown>;
     server.walkRequests.push(params);
-    if (server.walkStatus !== 200) throw reject(config, server.walkStatus);
     const cursor = typeof params.cursor === 'string' ? params.cursor : 'first';
+    const status = server.cursorStatus[cursor] ?? server.walkStatus;
+    if (status !== 200) throw reject(config, status);
     return respond(config, 200, server.pages[cursor]);
   }
   if (request === 'post /walk/interactions') {
@@ -169,6 +172,7 @@ afterEach((): void => {
   useAuthStore.setState({ token: null, user: null });
   server.pages = {};
   server.walkStatus = 200;
+  server.cursorStatus = {};
   server.interactionStatus = 204;
   server.likeStatus = 201;
   server.walkRequests = [];
@@ -331,6 +335,15 @@ describe('Event Walk', (): void => {
 
       expect(walk().screen.kind).toBe('closed');
       expect(server.walkRequests).toHaveLength(1);
+    });
+
+    it('closes the walk when a later page is refused, even with cards still on screen', async (): Promise<void> => {
+      server.cursorStatus = { 'cursor-2': 403 };
+
+      await startWalk();
+
+      await vi.waitFor((): void => expect(walk().screen.kind).toBe('closed'));
+      expect(server.walkRequests.map((request) => request.cursor)).toEqual([undefined, 'cursor-2']);
     });
 
     it('closes the walk when an interaction is refused', async (): Promise<void> => {

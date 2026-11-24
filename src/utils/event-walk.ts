@@ -183,7 +183,7 @@ export function isWalkForbidden(error: Error): boolean {
  *
  * A pure function of the User's position in the walk and the state of its query, so every
  * combination is a case here rather than a flag on the screen. A 403 from the server closes
- * the walk; any other failure is an error the User can retry.
+ * the walk, on any page; any other failure is an error the User can retry.
  *
  * @param state - Where the User is in the walk
  * @param cards - The walk's cards in order, once each
@@ -198,8 +198,9 @@ export function selectWalkScreen(
   registeredIds: ReadonlySet<string>,
 ): WalkScreen {
   if (state.isClosed) return { kind: 'closed' };
+  if (query.error !== null && isWalkForbidden(query.error)) return { kind: 'closed' };
   if (query.status === 'error' && query.error !== null && !query.isFetchNextPageError) {
-    return isWalkForbidden(query.error) ? { kind: 'closed' } : { kind: 'error', error: query.error };
+    return { kind: 'error', error: query.error };
   }
   if (query.status === 'pending') return { kind: 'loading' };
 
