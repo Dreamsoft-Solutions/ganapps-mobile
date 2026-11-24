@@ -6,6 +6,7 @@ export default function HomeLayout(): ReactElement {
     <Stack screenOptions={{ headerBackTitle: 'Back' }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="[ganap-id]" options={{ headerShown: false }} />
+      <Stack.Screen name="walk" options={{ headerShown: false }} />
       <Stack.Screen name="registration/[ganap-id]" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="event-hub/[ganap-id]" options={{ headerShown: false }} />
       <Stack.Screen name="scan/[ganap-id]" options={{ headerShown: false, gestureEnabled: false }} />

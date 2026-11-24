@@ -126,7 +126,8 @@ linked to the user and for what purpose; the App Privacy label below takes those
 
 The source for the App Store Connect answers. The app manifest (`ios.privacyManifests` in
 `app.config.js`) declares only Ganapps' own collection: nine types, each linked to the user, not
-used for tracking, and for app functionality only, plus `NSPrivacyTracking: false`. Device ID, the
+used for tracking, and for app functionality (Product Interaction also declares Product
+Personalization), plus `NSPrivacyTracking: false`. Device ID, the
 push token collected since DS-135 (below), was added after build 1.1.1 (21), so it reaches the
 built manifest from the next prebuild and build. Each SDK declares its own collection in its own manifest.
 App Store Connect needs the combination; where Ganapps and an SDK both declare a type, the stricter
@@ -142,7 +143,7 @@ answer wins.
 | Emails or Text Messages | Yes | No | App Functionality | Ganapps |
 | Contacts | Yes | No | App Functionality | Ganapps |
 | Other User Content | Yes | No | App Functionality | Ganapps |
-| Product Interaction | Yes | No | App Functionality, Analytics | Ganapps (linked); Mapbox (analytics) |
+| Product Interaction | Yes | No | App Functionality, Product Personalization, Analytics | Ganapps (linked); Mapbox (analytics) |
 | Precise Location | No | No | App Functionality, Analytics | Mapbox |
 | Coarse Location | Yes | No | App Functionality, Analytics | Google Sign-In (IP address, fraud prevention; linked per its manifest); Mapbox (analytics) |
 | Other Usage Data | No | No | App Functionality, Analytics | Mapbox |
@@ -164,7 +165,8 @@ chat images. Emails or Text Messages: Event and Direct Chat messages and their r
 Contacts: the friend list and blocks (Apple's definition includes a social graph). Other User
 Content: bio, interests, ratings, registration and feedback form answers, message and announcement
 reactions, and moderation reports. Product Interaction: likes, saves, registrations and QR
-check-ins.
+check-ins, plus the events a User opens or skips in the Event Walk ("For you"). The server uses them
+to rank that User's later walks, which is why this type also declares Product Personalization.
 
 **Sources for the SDK rows.**
 

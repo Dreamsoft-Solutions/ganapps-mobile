@@ -77,6 +77,14 @@ _Avoid_: Invite code, Password, Token
 A Ganap a User has kept for later. Backed by the `SavedEvent` model server-side, which is historical naming — write "saved Ganap" in mobile code and "saved" in UI copy.
 _Avoid_: Favorite, Bookmark, Liked (liking a Ganap is a separate action), Watchlist
 
+**Event Walk**:
+A ranked queue of recommended Ganaps that a User steps through one at a time from the map tab. It sits beside the map and feed; it does not replace them. UI copy calls it "For you".
+_Avoid_: Playlist, recommendations feed, swipe deck
+
+**Skip**:
+Moving past a Ganap in an Event Walk without opening, liking, saving, or registering for it. A Skip is a weak negative signal for the next walk's ranking, not a hide: the Ganap stays discoverable everywhere else.
+_Avoid_: Dismiss, reject, hide
+
 **Registration Form**:
 The Organizer-defined questions attached to a Ganap as form blocks, scoped either `REGISTRATION` (asked at signup) or `POST_ATTENDANCE` (asked afterwards). Always built dynamically from the Ganap — its fields are never hardcoded.
 _Avoid_: Survey, Questionnaire, Custom fields, Registration questions

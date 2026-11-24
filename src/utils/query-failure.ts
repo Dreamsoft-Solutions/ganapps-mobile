@@ -26,6 +26,17 @@ export function isNetworkFailure(error: Error): boolean {
 }
 
 /**
+ * Returns whether the server answered with a 4xx status, which a retry cannot change.
+ *
+ * @param error - The rejection, usually a `ParsedApiError` from the API layer
+ * @returns `true` when the response status is 400 to 499
+ */
+export function isClientError(error: Error): boolean {
+  const status: number | undefined = (error as ParsedApiError).status;
+  return status !== undefined && status >= 400 && status < 500;
+}
+
+/**
  * Decides which error, if any, a screen should show in place of its content.
  *
  * A screen with cached data keeps showing it when a refresh fails for lack of a

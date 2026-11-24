@@ -110,6 +110,7 @@ This is an inventory for the declaration owner, not a completed Data safety form
 | Account/profile API and Google/Firebase sign-in | Email, username, names, user IDs, credentials/tokens, profile image, interests, biography |
 | Registrations, QR check-in, and feedback | Event participation, attendance, form answers and ratings; organizer-defined forms may request additional data |
 | Event and Direct Chat, friends, presence | Messages, selected images, social relationships, coarse activity, read receipts and reactions |
+| Event Walk ("For you") | App activity: App interactions, collected for Personalization. The events a User opens or skips, sent to the server with the like, save and registration history it already holds, to rank that User's later walks. Declare it once the `feature_event_walk` flag is on in production |
 | Moderation | Reports, blocked users, report details and evidence retention |
 | Push registration and Firebase | Device push token, device/app identifiers and SDK diagnostics; inspect provider configuration |
 | Mapbox | Map/network requests and SDK telemetry; confirm current SDK disclosures and user controls before declaring location or diagnostics behavior |

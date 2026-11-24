@@ -29,9 +29,11 @@ import type {
   SubmitFormAnswersInput,
 } from '@/types/ganap.types';
 import type { SavedGanap } from '@/types/profile.types';
+import type { WalkPage } from '@/types/walk.types';
 import { SUPPRESS_GLOBAL_ERROR_TOAST_META, showErrorToast } from '@/utils/toast-message';
 import { ganapQueryKeys } from '../queries/useGanapsQuery';
 import { profileQueryKeys } from '../queries/useProfileQuery';
+import { walkQueryKeys } from '../queries/walk-query-keys';
 
 /** Arguments for the like toggle: the Ganap and whether it is already liked. */
 export interface ToggleLikeVariables {
@@ -169,6 +171,12 @@ type GanapEngagementUpdate = <T extends GanapEngagement>(ganap: T) => T;
 
 type GanapListPage = CursorPage<GanapListItem>;
 type GanapListCache = GanapListPage | InfiniteData<GanapListPage, string | undefined>;
+type WalkCache = InfiniteData<WalkPage, string | undefined>;
+
+/** A page of Ganaps that a like or save can change: a list page or an Event Walk page. */
+interface EngagementPage<T extends GanapEngagement & { id: string }> {
+  items: T[];
+}
 
 /** How a like or save left the device: sent to the server, or queued for replay. */
 export type ToggleOutcome = 'sent' | 'queued';
@@ -217,11 +225,15 @@ function listPages(data: unknown): GanapListPage[] {
  * @param update - The change to apply
  * @returns The updated page, or the same page when it does not change
  */
-function updateGanapInPage(page: GanapListPage, ganapId: string, update: GanapEngagementUpdate): GanapListPage {
+function updateGanapInPage<T extends GanapEngagement & { id: string }, P extends EngagementPage<T>>(
+  page: P,
+  ganapId: string,
+  update: GanapEngagementUpdate,
+): P {
   let changed = false;
-  const items: GanapListItem[] = page.items.map((item: GanapListItem): GanapListItem => {
+  const items: T[] = page.items.map((item: T): T => {
     if (item.id !== ganapId) return item;
-    const next: GanapListItem = update(item);
+    const next: T = update(item);
     if (next !== item) changed = true;
     return next;
   });
@@ -229,21 +241,24 @@ function updateGanapInPage(page: GanapListPage, ganapId: string, update: GanapEn
 }
 
 /**
- * Applies an update to one Ganap in a cached map, filter or feed list.
+ * Applies an update to one Ganap in a cached map, filter, feed or Event Walk list.
  *
  * @param data - A single page (map and filters) or paged feed data
  * @param ganapId - Id of the Ganap to update
  * @param update - The change to apply
  * @returns The updated data, or the same data when it does not change
  */
-function updateGanapInList(data: GanapListCache, ganapId: string, update: GanapEngagementUpdate): GanapListCache {
-  if (!('pages' in data)) return updateGanapInPage(data, ganapId, update);
+function updateGanapInList<
+  T extends GanapEngagement & { id: string },
+  P extends EngagementPage<T>,
+  C extends P | InfiniteData<P, string | undefined>,
+>(data: C, ganapId: string, update: GanapEngagementUpdate): C {
+  if (!('pages' in data)) return updateGanapInPage<T, P>(data as P, ganapId, update) as C;
 
-  const pages: GanapListPage[] = data.pages.map(
-    (page: GanapListPage): GanapListPage => updateGanapInPage(page, ganapId, update),
-  );
-  const changed: boolean = pages.some((page: GanapListPage, index: number): boolean => page !== data.pages[index]);
-  return changed ? { ...data, pages } : data;
+  const cache = data as InfiniteData<P, string | undefined>;
+  const pages: P[] = cache.pages.map((page: P): P => updateGanapInPage<T, P>(page, ganapId, update));
+  const changed: boolean = pages.some((page: P, index: number): boolean => page !== cache.pages[index]);
+  return changed ? ({ ...cache, pages } as C) : data;
 }
 
 /**
@@ -252,7 +267,10 @@ function updateGanapInList(data: GanapListCache, ganapId: string, update: GanapE
  * Only queries that hold the Ganap are touched: their in-flight refetches are
  * cancelled first so an older response cannot overwrite the change, and a copy
  * that already shows the state is left alone, so unrelated lists keep their
- * freshness and pending invalidations.
+ * freshness and pending invalidations. Event Walk pages are edited the same way
+ * and never invalidated: a walk is a snapshot, and refetching it would reorder it.
+ * Cancelling a walk's in-flight page fetch is deliberate, since a page that
+ * landed after the change would carry the old state; the walk fetches it again.
  *
  * @param queryClient - The app's query client
  * @param ganapId - Id of the Ganap being toggled
@@ -272,6 +290,7 @@ async function showGanapToggle(
   await Promise.all([
     queryClient.cancelQueries({ queryKey: detailKey, exact: true }),
     queryClient.cancelQueries({ queryKey: ganapQueryKeys.lists(), predicate: holdsGanap }),
+    queryClient.cancelQueries({ queryKey: walkQueryKeys.all, predicate: holdsGanap }),
   ]);
 
   queryClient.setQueryData<GanapDetail>(detailKey, (data: GanapDetail | undefined): GanapDetail | undefined => {
@@ -284,6 +303,14 @@ async function showGanapToggle(
     (data: GanapListCache | undefined): GanapListCache | undefined => {
       if (data === undefined) return undefined;
       const next: GanapListCache = updateGanapInList(data, ganapId, update);
+      return next === data ? undefined : next;
+    },
+  );
+  queryClient.setQueriesData<WalkCache>(
+    { queryKey: walkQueryKeys.all, predicate: holdsGanap },
+    (data: WalkCache | undefined): WalkCache | undefined => {
+      if (data === undefined) return undefined;
+      const next: WalkCache = updateGanapInList(data, ganapId, update);
       return next === data ? undefined : next;
     },
   );

@@ -51,14 +51,14 @@ export function MapSearchBar({
 
   return (
     <View className="relative z-20">
-      <View className="flex-row items-center gap-3 rounded-xl bg-card px-4 py-3 shadow-md">
-        <Search size={20} className="text-muted-foreground" />
+      <View className="h-touch flex-row items-center gap-sm rounded-full border border-border bg-card px-md shadow-sm">
+        <Search size={18} className="text-muted-foreground" />
         <TextInput
           value={value}
           onChangeText={handleChangeText}
           onFocus={handleFocus}
           placeholder={placeholder}
-          className="flex-1 text-input-md text-foreground placeholder:text-muted-foreground"
+          className="h-full flex-1 py-0 text-input-md text-foreground placeholder:text-muted-foreground"
           accessibilityLabel="Search events"
           accessibilityHint="Shows matching events on the map"
         />
