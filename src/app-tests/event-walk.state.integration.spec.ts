@@ -32,6 +32,7 @@ interface FakeServer {
   interactions: WalkInteractionInput[];
   likes: string[];
   onLike: (() => void) | null;
+  likeGate: Promise<void> | null;
 }
 
 const server: FakeServer = {
@@ -44,6 +45,7 @@ const server: FakeServer = {
   interactions: [],
   likes: [],
   onLike: null,
+  likeGate: null,
 };
 const probe: { result: UseEventWalkResult | null } = { result: null };
 
@@ -130,6 +132,7 @@ async function walkServer(config: InternalAxiosRequestConfig): Promise<AxiosResp
   if (request.startsWith('post /ganaps/') && (request.endsWith('/like') || request.endsWith('/save'))) {
     server.likes.push(String(config.url));
     server.onLike?.();
+    await server.likeGate;
     if (server.likeStatus >= 400) throw reject(config, server.likeStatus);
     return respond(config, server.likeStatus, null);
   }
@@ -179,6 +182,7 @@ afterEach((): void => {
   server.interactions = [];
   server.likes = [];
   server.onLike = null;
+  server.likeGate = null;
   probe.result = null;
   onlineManager.setOnline(true);
 });
@@ -228,13 +232,17 @@ describe('Event Walk', (): void => {
 
     it('puts the card back when the server rejects the like', async (): Promise<void> => {
       server.likeStatus = 500;
-      const likeRefused = Promise.withResolvers<void>();
-      server.onLike = (): void => likeRefused.resolve();
+      const likeSent = Promise.withResolvers<void>();
+      const likeAnswer = Promise.withResolvers<void>();
+      server.onLike = (): void => likeSent.resolve();
+      server.likeGate = likeAnswer.promise;
       await startWalk();
 
       walk().toggleLike();
 
-      await likeRefused.promise;
+      await likeSent.promise;
+      await vi.waitFor((): void => expect(currentCard()).toMatchObject({ id: 'c1', isLiked: true, likesCount: 2 }));
+      likeAnswer.resolve();
       await vi.waitFor((): void => expect(currentCard()).toMatchObject({ id: 'c1', isLiked: false, likesCount: 1 }));
     });
   });
