@@ -44,6 +44,8 @@ export interface RouteTable {
   profileJoined: Href;
   businessProfile: (businessId: string, returnTo?: 'my-events') => Href;
   friendAddWithCode: (code: string) => Href;
+  /** The Event Walk: recommended events, one at a time. */
+  eventWalk: Href;
   ganapDetail: (ganapId: string, returnTo?: 'my-events') => Href;
   ganapRegistration: (ganapId: string) => Href;
   eventHub: (ganapId: string) => Href;
@@ -135,6 +137,8 @@ export const Routes: RouteTable = {
   profileEdit: { pathname: '/(app)/(profile)/edit' },
   profileSettings: { pathname: '/(app)/(profile)/settings' },
   profileJoined: { pathname: '/(app)/(profile)/joined' },
+
+  eventWalk: { pathname: '/(app)/(home)/walk' },
 
   /** Builds an authenticated organization profile route.
    * @param businessId - Business identity from the Ganap

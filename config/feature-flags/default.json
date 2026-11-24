@@ -8,6 +8,10 @@
       "enabled": true,
       "description": "Enables Sign in with Apple on iOS"
     },
+    "feature_event_walk": {
+      "enabled": false,
+      "description": "Shows the For you Event Walk on the map"
+    },
     "example-feature": {
       "enabled": false,
       "description": "Example feature flag"

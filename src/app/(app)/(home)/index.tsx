@@ -19,6 +19,7 @@ import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { ClusteredGanapMarkers } from '@/components/map/ClusteredGanapMarkers';
+import { ForYouButton } from '@/components/map/ForYouButton';
 import { GanapFeedSheet } from '@/components/map/GanapFeedSheet';
 import { LocateMeButton } from '@/components/map/LocateMeButton';
 import { LocationPrimingSheet } from '@/components/map/LocationPrimingSheet';
@@ -28,6 +29,7 @@ import { MAX_MAP_PITCH, MapViewControls } from '@/components/map/MapViewControls
 import { ReducedAccuracyNotice } from '@/components/map/ReducedAccuracyNotice';
 import { TagChips } from '@/components/map/TagChips';
 import { Routes } from '@/constants/routes';
+import { useFeatureFlag } from '@/hooks/useFeatureFlag';
 import { useGanapDiscovery } from '@/hooks/useGanapDiscovery';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { Coords } from '@/services/location.service';
@@ -240,6 +242,7 @@ export default function HomeScreen(): ReactElement {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const discovery = useGanapDiscovery();
+  const isEventWalkEnabled: boolean = useFeatureFlag('feature_event_walk');
   const { search, setSearch, tag, setTag, tags, map, feed, nearby } = discovery;
   const { items, isLoading, isError, failure, refetch } = map;
   const userCoords = nearby.coords;
@@ -656,15 +659,24 @@ export default function HomeScreen(): ReactElement {
       </MapView>
 
       <View className="absolute left-0 right-0" style={{ top: insets.top + 12 }} pointerEvents="box-none">
-        <View className="mx-4">
-          <MapSearchBar
-            value={search}
-            onChangeText={setSearch}
-            suggestions={items}
-            isLoadingSuggestions={hasPendingSearch}
-            isErrorSuggestions={hasSearchError}
-            onSelectSuggestion={handleSelectSearchSuggestion}
-          />
+        <View className="z-20 mx-4 flex-row items-start gap-xs">
+          <View className="min-w-0 flex-1">
+            <MapSearchBar
+              value={search}
+              onChangeText={setSearch}
+              suggestions={items}
+              isLoadingSuggestions={hasPendingSearch}
+              isErrorSuggestions={hasSearchError}
+              onSelectSuggestion={handleSelectSearchSuggestion}
+            />
+          </View>
+          {isEventWalkEnabled ? (
+            <ForYouButton
+              onPress={(): void => {
+                router.push(Routes.eventWalk);
+              }}
+            />
+          ) : null}
         </View>
         <TagChips
           tags={tags}
