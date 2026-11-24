@@ -14,6 +14,9 @@ startNetworkStatus();
  * reached after retries are exhausted) and background refetches of data that
  * already rendered, so a stale-then-failed refresh does not nag the user.
  *
+ * A query whose screen renders its own failure opts out through `meta`, as a
+ * mutation does.
+ *
  * @param query - The failed query.
  * @returns `true` when the failure is a foreground, final one.
  */
@@ -24,6 +27,7 @@ function isForegroundFinalFailure(query: Query<unknown, unknown, unknown>): bool
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error: Error, query: Query<unknown, unknown, unknown>): void => {
+      if (query.meta?.[SUPPRESS_GLOBAL_ERROR_TOAST_META] === true) return;
       if (isForegroundFinalFailure(query)) showErrorToast(error);
     },
   }),
