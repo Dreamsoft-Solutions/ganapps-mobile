@@ -13,8 +13,8 @@ interface ForYouButtonProps {
 /**
  * The floating "For you" button beside the map's search bar, which starts an Event Walk.
  *
- * It matches the search bar's surface and stretches to the search bar's height, so the two read as one
- * row at any text size. It is never shorter than 48dp.
+ * It matches the search bar's surface, a 48dp fully rounded pill with a hairline border, so the two read
+ * as one row.
  *
  * @param props - The press handler
  * @returns A pressable pill with the walk's icon and label
@@ -28,9 +28,9 @@ export function ForYouButton({ onPress }: ForYouButtonProps): ReactElement {
       accessibilityRole="button"
       accessibilityLabel="For you"
       accessibilityHint="Opens recommended events one at a time"
-      className="min-h-touch flex-row items-center gap-xs self-stretch rounded-xl bg-card px-md shadow-md active:opacity-70"
+      className="h-touch flex-row items-center gap-xs rounded-full border border-border bg-card px-md shadow-sm active:opacity-70"
     >
-      <Sparkles size={18} color={Colors[theme].primary} />
+      <Sparkles size={16} color={Colors[theme].primary} />
       <Text className="font-inter-semibold text-body-md">For you</Text>
     </Pressable>
   );
