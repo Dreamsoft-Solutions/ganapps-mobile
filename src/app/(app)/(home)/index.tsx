@@ -659,7 +659,7 @@ export default function HomeScreen(): ReactElement {
       </MapView>
 
       <View className="absolute left-0 right-0" style={{ top: insets.top + 12 }} pointerEvents="box-none">
-        <View className="z-20 mx-4 flex-row items-start gap-xs">
+        <View className="z-20 mx-4 flex-row gap-xs">
           <View className="min-w-0 flex-1">
             <MapSearchBar
               value={search}
