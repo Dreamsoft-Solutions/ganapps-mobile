@@ -77,12 +77,21 @@ function getGoogleClientConfiguration() {
   }
 }
 
-function collectedForAppFunctionality(dataType) {
+/**
+ * Product Interaction also declares personalization: Event Walk opens and skips rank the
+ * User's next walk. Every other type is for app functionality only.
+ */
+const PERSONALIZED_DATA_TYPES = new Set(['NSPrivacyCollectedDataTypeProductInteraction']);
+
+function collectedLinkedDataType(dataType) {
   return {
     NSPrivacyCollectedDataType: dataType,
     NSPrivacyCollectedDataTypeLinked: true,
     NSPrivacyCollectedDataTypeTracking: false,
-    NSPrivacyCollectedDataTypePurposes: ['NSPrivacyCollectedDataTypePurposeAppFunctionality'],
+    NSPrivacyCollectedDataTypePurposes: [
+      'NSPrivacyCollectedDataTypePurposeAppFunctionality',
+      ...(PERSONALIZED_DATA_TYPES.has(dataType) ? ['NSPrivacyCollectedDataTypePurposeProductPersonalization'] : []),
+    ],
   };
 }
 
@@ -139,7 +148,7 @@ module.exports = {
           'NSPrivacyCollectedDataTypeOtherUserContent',
           'NSPrivacyCollectedDataTypeProductInteraction',
           'NSPrivacyCollectedDataTypeDeviceID',
-        ].map(collectedForAppFunctionality),
+        ].map(collectedLinkedDataType),
         NSPrivacyTracking: false,
       },
     },
