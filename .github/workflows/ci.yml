@@ -61,11 +61,27 @@ jobs:
         with:
           version: 11.5.3
 
+      - name: Pick Pact provider branch (same head branch name, else master)
+        id: pact-ref
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          PACT_REPO_TOKEN: ${{ secrets.PACT_REPO_TOKEN }}
+        run: |
+          rc=0
+          git ls-remote --exit-code --heads "https://x-access-token:${PACT_REPO_TOKEN}@github.com/Dreamsoft-Solutions/ganapps-server.git" "refs/heads/$HEAD_REF" > /dev/null 2>&1 || rc=$?
+          case "$rc" in
+            0) server="$HEAD_REF" ;;
+            2) server=master ;;
+            *) echo "::error::Cannot list ganapps-server branches (git exit $rc); check PACT_REPO_TOKEN"; exit 1 ;;
+          esac
+          echo "Pact provider: server=$server"
+          echo "server=$server" >> "$GITHUB_OUTPUT"
+
       - name: Check out Pact provider
         uses: actions/checkout@v7
         with:
           repository: Dreamsoft-Solutions/ganapps-server
-          ref: ${{ github.head_ref == vars.PACT_SERVER_REF && vars.PACT_SERVER_REF || 'master' }}
+          ref: ${{ steps.pact-ref.outputs.server }}
           token: ${{ secrets.PACT_REPO_TOKEN }}
           path: .pact-provider
           persist-credentials: false
