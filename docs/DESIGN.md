@@ -5,8 +5,8 @@ This document defines the visual design system for the Ganapps mobile app, calle
 component patterns. Any new UI work must follow these tokens.
 
 The token values live in `docs/design/tokens.json`. `src/global.css`, `src/constants/theme.ts`
-and `tailwind.config.js` are built from it, and `npm run check:tokens` fails when they drift
-apart. This document names every token and says what it is for. When it and `tokens.json`
+and `tailwind.config.js` carry the same values by hand, and `npm run check:tokens` fails when
+they drift apart. This document names every token and says what it is for. When it and `tokens.json`
 disagree, `tokens.json` wins and this document is the bug.
 
 ## Principles
