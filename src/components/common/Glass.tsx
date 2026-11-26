@@ -116,7 +116,7 @@ export function Glass({
       left: inset,
       borderRadius: flat ? 0 : Math.max(radius - Rim[rim], 0),
       backgroundColor: variant === 'tint' ? colors.primary : colors['glass-fill-solid'],
-      experimental_backgroundImage: (flat ? [tint, mintReturn] : [tint, sweep, mintReturn]).join(', '),
+      experimental_backgroundImage: (flat ? [mintReturn, tint] : [sweep, mintReturn, tint]).join(', '),
       boxShadow: joinShadow(shadow.filter((layer) => layer.startsWith('inset'))),
     };
   }, [theme, flat, rim, radius, variant, pressed, lift]);
