@@ -584,7 +584,7 @@ export function DirectChatThreadView({
         </View>
         {isMarkingRead && (
           <ActivityIndicator
-            color={Colors[theme].primary}
+            color={Colors[theme]['primary-text']}
             accessibilityLabel="Updating seen status"
             accessibilityHint="Your read position is being saved"
           />

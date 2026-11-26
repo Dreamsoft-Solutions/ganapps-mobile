@@ -152,7 +152,7 @@ function ChatSummaryRow({ summary, onOpen }: { summary: ChatConversationSummary;
             </Text>
           </View>
         )}
-        <MessageCircle className="ml-sm" size={16} color={Colors[theme].primary} />
+        <MessageCircle className="ml-sm" size={16} color={Colors[theme]['primary-text']} />
       </Card>
     </Pressable>
   );
@@ -270,7 +270,7 @@ function ActiveFriends({
   return (
     <View className="mb-md">
       <View className="mb-sm flex-row items-center">
-        <Users size={18} className="text-primary" />
+        <Users size={18} className="text-primary-text" />
         <Text className="ml-sm font-inter-semibold text-headline-sm">Active friends</Text>
       </View>
       {friends.length === 0 ? (
@@ -540,7 +540,7 @@ function AddFriendModal({
             </Card>
           )}
           {requestNotice && (
-            <Text accessibilityLiveRegion="polite" className="mt-md text-body-md text-primary">
+            <Text accessibilityLiveRegion="polite" className="mt-md text-body-md text-primary-text">
               {requestNotice}
             </Text>
           )}
@@ -816,7 +816,7 @@ export function FriendsHubView({
           requestMutationPending={isRequestActionPending}
         />
         {requestNotice && !isAddFriendOpen && (
-          <Text accessibilityLiveRegion="polite" className="mt-md text-body-md text-primary">
+          <Text accessibilityLiveRegion="polite" className="mt-md text-body-md text-primary-text">
             {requestNotice}
           </Text>
         )}

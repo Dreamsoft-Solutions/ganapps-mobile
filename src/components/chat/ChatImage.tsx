@@ -93,7 +93,7 @@ function ViewerContent({
               <ActivityIndicator
                 accessibilityLabel="Loading photo"
                 style={{ position: 'absolute' }}
-                color={Colors[theme].primary}
+                color={Colors[theme]['primary-text']}
               />
             )}
           </>
