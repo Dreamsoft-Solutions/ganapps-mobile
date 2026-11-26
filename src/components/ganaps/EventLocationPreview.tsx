@@ -34,7 +34,7 @@ function AddressCard({ ganap }: EventLocationPreviewProps): ReactElement {
       locationName={ganap.address}
     >
       <Card className="flex-row items-center">
-        <MapPin size={20} className="mr-sm text-primary" />
+        <MapPin size={20} className="mr-sm text-primary-text" />
         <Text className="flex-1 text-body-md" accessibilityRole="text">
           {label}
         </Text>
@@ -74,7 +74,7 @@ export function EventLocationPreview({ ganap }: EventLocationPreviewProps): Reac
     return (
       <View>
         <View className="h-40 items-center justify-center overflow-hidden rounded-xl bg-muted">
-          <ActivityIndicator color={Colors[theme].primary} />
+          <ActivityIndicator color={Colors[theme]['primary-text']} />
         </View>
         <AddressCard ganap={ganap} />
       </View>
@@ -99,7 +99,7 @@ export function EventLocationPreview({ ganap }: EventLocationPreviewProps): Reac
         >
           <Camera centerCoordinate={[ganap.locationLong, ganap.locationLat]} zoomLevel={15.5} animationMode="none" />
           <MarkerView coordinate={[ganap.locationLong, ganap.locationLat]} anchor={{ x: 0.5, y: 0.5 }}>
-            <View className="h-10 w-10 items-center justify-center rounded-full border-2 border-primary-foreground bg-primary shadow">
+            <View className="h-10 w-10 items-center justify-center rounded-full border-2 border-glass-ice bg-primary shadow">
               <MapPin size={20} className="text-primary-foreground" />
             </View>
           </MarkerView>

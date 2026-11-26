@@ -296,12 +296,12 @@ function EventHubAnnouncementHeader({
 
         <View testID="event-hub-schedule" className={`mt-md gap-md ${stackSchedule ? '' : 'flex-row'}`}>
           <ScheduleItem
-            icon={<Calendar size={16} color={Colors[theme].primary} />}
+            icon={<Calendar size={16} color={Colors[theme]['primary-text']} />}
             label="Date"
             value={schedule.dateLabel}
           />
           <ScheduleItem
-            icon={<Clock size={16} color={Colors[theme].primary} />}
+            icon={<Clock size={16} color={Colors[theme]['primary-text']} />}
             label="Time"
             value={schedule.timeLabel}
           />
@@ -315,7 +315,7 @@ function EventHubAnnouncementHeader({
         >
           <View className="min-h-touch flex-row items-center">
             <SummaryIconTile>
-              <MapPin size={16} color={Colors[theme].primary} />
+              <MapPin size={16} color={Colors[theme]['primary-text']} />
             </SummaryIconTile>
             <Text className="min-w-0 flex-1 font-inter-semibold text-body-md">
               {address ?? 'Location to be announced'}
@@ -325,7 +325,7 @@ function EventHubAnnouncementHeader({
 
         <View className="mt-md flex-row items-start">
           <SummaryIconTile>
-            <Users size={16} color={Colors[theme].primary} />
+            <Users size={16} color={Colors[theme]['primary-text']} />
           </SummaryIconTile>
           <Text className="min-w-0 flex-1 font-inter-semibold text-body-md">
             {getAttendanceEstimate(ganap.registrationCount)}
@@ -344,7 +344,7 @@ function EventHubAnnouncementHeader({
       <View className="mt-md flex-row items-center justify-between border-t border-border px-md py-sm">
         <View className="min-w-0 flex-1 flex-row items-center">
           <View className="mr-xs">
-            <Megaphone size={16} color={Colors[theme].primary} />
+            <Megaphone size={16} color={Colors[theme]['primary-text']} />
           </View>
           <Text className="min-w-0 flex-1 font-inter-semibold text-headline-sm" accessibilityRole="header">
             Announcements
