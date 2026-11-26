@@ -119,7 +119,7 @@ function renderChoiceOptions(
             onPress={optionPressHandler(field, block, option)}
           >
             <View accessible={false}>
-              <Icon size={24} className={checked ? 'text-primary' : 'text-muted-foreground'} />
+              <Icon size={24} className={checked ? 'text-primary-text' : 'text-muted-foreground'} />
             </View>
             <Text className="flex-1 text-body-md">{option.label}</Text>
           </Pressable>
@@ -162,7 +162,7 @@ function renderScaleOptions(
               }`}
               onPress={(): void => field.onChange(option)}
             >
-              <Text className={checked ? 'text-primary' : 'text-foreground'}>{String(option)}</Text>
+              <Text className={checked ? 'text-primary-text' : 'text-foreground'}>{String(option)}</Text>
             </Pressable>
           );
         })}

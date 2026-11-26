@@ -111,7 +111,7 @@ function FeedSheetHeader({ title, mode, onZoomIn, onClose }: FeedSheetHeaderProp
               accessibilityRole="button"
               accessibilityLabel="Zoom in to this area"
             >
-              <ZoomIn size={HEADER_ACTION_ICON_SIZE} color={Colors[theme].primary} />
+              <ZoomIn size={HEADER_ACTION_ICON_SIZE} color={Colors[theme]['primary-text']} />
             </Pressable>
           )}
           <IconButton size="sm" accessibilityLabel="Close events list" onPress={onClose}>
