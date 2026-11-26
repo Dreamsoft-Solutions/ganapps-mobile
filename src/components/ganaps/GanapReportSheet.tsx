@@ -94,7 +94,7 @@ export function GanapReportSheet({
             contentContainerStyle={{ padding: Spacing.md, paddingBottom: insets.bottom + Spacing.md }}
           >
             <View className="mb-md flex-row items-center justify-between">
-              <Text className="flex-1 font-inter-bold text-headline-sm" accessibilityRole="header">
+              <Text className="flex-1 font-allo-bold text-headline-sm" accessibilityRole="header">
                 Report this event
               </Text>
               <IconButton accessibilityLabel="Close report" onPress={close} disabled={isSubmitting}>
@@ -125,7 +125,7 @@ export function GanapReportSheet({
               )}
             </View>
             <View className="mb-md">
-              <Text nativeID="ganap-report-details-label" className="mb-xs font-inter-semibold text-label-md">
+              <Text nativeID="ganap-report-details-label" className="mb-xs font-allo-semibold text-label-md">
                 Details (optional)
               </Text>
               <TextInput

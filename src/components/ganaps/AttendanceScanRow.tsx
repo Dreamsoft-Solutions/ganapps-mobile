@@ -119,7 +119,7 @@ export function AttendanceScanRow({
       <View className="mr-sm">
         <QrCode size={16} color={Colors[theme]['primary-text']} />
       </View>
-      <Text className="min-w-0 flex-1 font-inter-semibold text-body-md text-primary-text">Scan attendance QR</Text>
+      <Text className="min-w-0 flex-1 font-allo-semibold text-body-md text-primary-text">Scan attendance QR</Text>
     </Pressable>
   );
 }

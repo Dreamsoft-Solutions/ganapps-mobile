@@ -140,7 +140,7 @@ export default function BusinessProfileScreen(): ReactElement {
               )}
             </View>
             <View className="gap-sm">
-              <Text accessibilityRole="header" className="font-inter-semibold text-headline-sm">
+              <Text accessibilityRole="header" className="font-allo-semibold text-headline-sm">
                 About
               </Text>
               <Text className="text-body-lg">
@@ -149,7 +149,7 @@ export default function BusinessProfileScreen(): ReactElement {
             </View>
             {business.address?.trim() && (
               <View className="gap-sm">
-                <Text accessibilityRole="header" className="font-inter-semibold text-headline-sm">
+                <Text accessibilityRole="header" className="font-allo-semibold text-headline-sm">
                   Organization location
                 </Text>
                 <Text className="text-body-lg">{business.address}</Text>

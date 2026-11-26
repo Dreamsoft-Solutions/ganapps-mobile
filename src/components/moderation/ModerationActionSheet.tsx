@@ -210,7 +210,7 @@ export function ModerationActionSheet({
 
   const renderHeader = (title: string): ReactElement => (
     <View className="mb-md flex-row items-center justify-between">
-      <Text className="flex-1 font-inter-bold text-headline-sm" accessibilityRole="header">
+      <Text className="flex-1 font-allo-bold text-headline-sm" accessibilityRole="header">
         {title}
       </Text>
       <IconButton accessibilityLabel="Close moderation actions" onPress={close} disabled={isSubmitting}>
@@ -306,7 +306,7 @@ export function ModerationActionSheet({
         </View>
         {reason === 'OTHER' && (
           <View className="mb-md">
-            <Text nativeID="moderation-details-label" className="mb-xs font-inter-semibold text-label-md">
+            <Text nativeID="moderation-details-label" className="mb-xs font-allo-semibold text-label-md">
               Details (optional)
             </Text>
             <TextInput

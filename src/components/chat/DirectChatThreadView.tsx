@@ -213,7 +213,7 @@ function MessageTimestamp({ isMine, sentAt, seen }: MessageTimestampProps): Reac
     <View className="mt-xs flex-row items-center justify-end gap-xs">
       <Text className={`text-label-sm ${textClassName}`}>{formatMessageTime(sentAt)}</Text>
       {seen && (
-        <Text accessibilityLabel="Seen" className={`text-label-sm font-inter-semibold ${textClassName}`}>
+        <Text accessibilityLabel="Seen" className={`text-label-sm font-allo-semibold ${textClassName}`}>
           Seen
         </Text>
       )}
@@ -265,7 +265,7 @@ function MessageBubble({
         accessibilityHint={reactionState.accessibilityHint}
         className={`min-w-0 flex-1 rounded-xl px-md py-sm ${bubbleClassName}`}
       >
-        {!isMine && <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>}
+        {!isMine && <Text className="font-allo-semibold text-label-md">{message.senderUsername}</Text>}
         {media ? (
           <ChatImageBubble
             media={media}
@@ -526,7 +526,7 @@ export function DirectChatThreadView({
   if (accessLost) {
     return (
       <View className="flex-1 items-center justify-center bg-background p-xl">
-        <Text className="mb-sm text-center font-inter-semibold text-headline-sm" accessibilityRole="header">
+        <Text className="mb-sm text-center font-allo-semibold text-headline-sm" accessibilityRole="header">
           Direct Chat access is no longer available
         </Text>
         <Text className="mb-lg text-center text-body-md text-muted-foreground">
@@ -573,7 +573,7 @@ export function DirectChatThreadView({
         </IconButton>
         <Avatar src={friend?.displayPicture} name={friendName} size="sm" />
         <View className="min-w-0 flex-1">
-          <Text className="font-inter-bold text-headline-md" numberOfLines={1} accessibilityRole="header">
+          <Text className="font-allo-bold text-headline-md" numberOfLines={1} accessibilityRole="header">
             {friendName}
           </Text>
           {friendSubline && (
@@ -694,7 +694,7 @@ export function DirectChatThreadView({
           style={{ paddingBottom: composerBottomPadding }}
         >
           {imageDraft && <ChatImagePreview draft={imageDraft} onRemove={onRemoveImage} />}
-          <Text nativeID="direct-chat-composer-label" className="mb-xs font-inter-semibold text-label-md">
+          <Text nativeID="direct-chat-composer-label" className="mb-xs font-allo-semibold text-label-md">
             Message
           </Text>
           <View className="flex-row items-end gap-sm">

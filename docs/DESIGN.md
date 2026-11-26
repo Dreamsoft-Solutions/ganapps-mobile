@@ -43,13 +43,13 @@ The no-emojis rule has one narrow, system-native exception: message reactions in
 and Direct Chat, plus the separate acknowledgement reactions on eligible Event Hub
 Announcements. The wire enum and glyph set are closed:
 
-| Wire value | Glyph |
-|---|---|
-| `HEART` | `❤️` |
-| `LAUGH` | `😂` |
-| `THUMBS_UP` | `👍` |
-| `SAD` | `😢` |
-| `ANGRY` | `😡` |
+| Wire value  | Glyph |
+| ----------- | ----- |
+| `HEART`     | `❤️`  |
+| `LAUGH`     | `😂`  |
+| `THUMBS_UP` | `👍`  |
+| `SAD`       | `😢`  |
+| `ANGRY`     | `😡`  |
 
 These glyphs may appear only inside a reaction control or its count. They must not appear in
 general UI copy, labels, errors, notifications, profile text, message previews, or as a
@@ -72,14 +72,14 @@ motion curves — this design system wins, so the app still looks like itself on
 
 ### What the guidelines bind
 
-| Concern | iOS | Android | How it lands here |
-|---|---|---|---|
-| Touch target | 44×44pt | 48×48dp | Size the control to clear both, or extend it with `hitSlop` |
-| Back | Left edge-swipe plus a visible back control | System back gesture and button | Pushed screens and modals answer to both; `BackHandler` covers the Android half |
-| Text scaling | Dynamic Type | Font size setting | Text scales by default — keep layouts working as it grows |
-| Screen reader | VoiceOver | TalkBack | `accessibilityLabel` and `accessibilityRole` on every control, `accessibilityHint` where the result is not obvious |
-| Safe area | Notch, home indicator | Display cutout, gesture bar | `useSafeAreaInsets` or `SafeAreaView`, never a hardcoded inset — see [Safe areas in modals](#safe-areas-in-modals) |
-| Reduced motion | Reduce Motion | Remove animations | `ReduceMotion.System` on Reanimated entering/exiting animations, as `components/common/Toast.tsx` does |
+| Concern        | iOS                                         | Android                        | How it lands here                                                                                                  |
+| -------------- | ------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Touch target   | 44×44pt                                     | 48×48dp                        | Size the control to clear both, or extend it with `hitSlop`                                                        |
+| Back           | Left edge-swipe plus a visible back control | System back gesture and button | Pushed screens and modals answer to both; `BackHandler` covers the Android half                                    |
+| Text scaling   | Dynamic Type                                | Font size setting              | Text scales by default — keep layouts working as it grows                                                          |
+| Screen reader  | VoiceOver                                   | TalkBack                       | `accessibilityLabel` and `accessibilityRole` on every control, `accessibilityHint` where the result is not obvious |
+| Safe area      | Notch, home indicator                       | Display cutout, gesture bar    | `useSafeAreaInsets` or `SafeAreaView`, never a hardcoded inset — see [Safe areas in modals](#safe-areas-in-modals) |
+| Reduced motion | Reduce Motion                               | Remove animations              | `ReduceMotion.System` on Reanimated entering/exiting animations, as `components/common/Toast.tsx` does             |
 
 Both guidelines are also App Store and Play review surface, so a violation is a release risk,
 not only a polish one.
@@ -115,12 +115,12 @@ The reasoning behind binding both, and behind the affordance/ornament split, is 
 (`inlineRem = 14`), and `metro.config.js` does not override it. Every class on
 Tailwind's default numeric scale therefore renders at 0.875x its documented value:
 
-| Class | Tailwind says | Renders here |
-|---|---|---|
-| `w-12` / `h-12` | 48 | **42dp** |
-| `w-11` / `h-11` | 44 | 38.5dp |
-| `w-8` / `h-8` | 32 | 28dp |
-| `py-3` | 12 | 10.5dp |
+| Class           | Tailwind says | Renders here |
+| --------------- | ------------- | ------------ |
+| `w-12` / `h-12` | 48            | **42dp**     |
+| `w-11` / `h-11` | 44            | 38.5dp       |
+| `w-8` / `h-8`   | 32            | 28dp         |
+| `py-3`          | 12            | 10.5dp       |
 
 The named tokens in `tailwind.config.js` — `base`, `xs`, `sm`, `md`, `lg`, `xl`, `touch`,
 `island-inset`, `tabbar-clearance`, `sign-in` — are declared in literal px and are **not**
@@ -180,100 +180,100 @@ Rules that apply to every token:
 
 Solid ground for content, and the ink that sits on it.
 
-| Token | Light | Dark | Use |
-|---|---|---|---|
-| `background` | `#f3f6f4` | `#061a22` | Screen background behind solid content (lists, profile, chat). Dark is the night teal-navy of the Ganapps logo ground. Tailwind `bg-background`. |
-| `foreground` | `#0a1a14` | `#eef6f2` | Primary text and icons on `background`, `card`, `muted` and every glass fill (16:1 or better in both themes). Tailwind `text-foreground`. |
-| `card` | `#ffffff` | `#0d252e` | Solid content surfaces: event rows, stat tiles, info cards, settings groups. Content lives on solid card, never on glass. |
-| `card-foreground` | `#0a1a14` | `#eef6f2` | Text on `card`. Same ink as `foreground`. |
-| `popover` | `#ffffff` | `#102c36` | Menus, modals and the opaque body of bottom sheets once expanded past half height. |
-| `popover-foreground` | `#0a1a14` | `#eef6f2` | Text on `popover`. |
-| `muted` | `#e9efec` | `#12303a` | Quiet fills: the solid segment track, avatar initials ground, skeletons, disabled controls. |
-| `muted-foreground` | `#56665f` | `#9fb7b4` | Secondary text: metadata (organizer, date), placeholders, inactive tab labels, helper text. 5.1:1+ on `background`, `card`, `muted` and `glass-fill-strong`. |
-| `accent` | `#e9efec` | `#12303a` | Pressed and hovered row background on solid surfaces. |
-| `accent-foreground` | `#1f2937` | `#eef6f2` | Text on `accent`. |
+| Token                | Light     | Dark      | Use                                                                                                                                                          |
+| -------------------- | --------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `background`         | `#f3f6f4` | `#061a22` | Screen background behind solid content (lists, profile, chat). Dark is the night teal-navy of the Ganapps logo ground. Tailwind `bg-background`.             |
+| `foreground`         | `#0a1a14` | `#eef6f2` | Primary text and icons on `background`, `card`, `muted` and every glass fill (16:1 or better in both themes). Tailwind `text-foreground`.                    |
+| `card`               | `#ffffff` | `#0d252e` | Solid content surfaces: event rows, stat tiles, info cards, settings groups. Content lives on solid card, never on glass.                                    |
+| `card-foreground`    | `#0a1a14` | `#eef6f2` | Text on `card`. Same ink as `foreground`.                                                                                                                    |
+| `popover`            | `#ffffff` | `#102c36` | Menus, modals and the opaque body of bottom sheets once expanded past half height.                                                                           |
+| `popover-foreground` | `#0a1a14` | `#eef6f2` | Text on `popover`.                                                                                                                                           |
+| `muted`              | `#e9efec` | `#12303a` | Quiet fills: the solid segment track, avatar initials ground, skeletons, disabled controls.                                                                  |
+| `muted-foreground`   | `#56665f` | `#9fb7b4` | Secondary text: metadata (organizer, date), placeholders, inactive tab labels, helper text. 5.1:1+ on `background`, `card`, `muted` and `glass-fill-strong`. |
+| `accent`             | `#e9efec` | `#12303a` | Pressed and hovered row background on solid surfaces.                                                                                                        |
+| `accent-foreground`  | `#1f2937` | `#eef6f2` | Text on `accent`.                                                                                                                                            |
 
 ### Brand and action
 
 Green means the action or the place. `destructive` is the only red.
 
-| Token | Light | Dark | Use |
-|---|---|---|---|
-| `primary` | `#22c55e` | `#22c55e` | Ganapps green, unchanged from the current app. Fills the one main action per view (Log In, Enter Event Hub, Send), selected chips, cluster pins and the unread dot. Always paired with `primary-foreground` ink, never white. |
-| `primary-foreground` | `#052e16` | `#052e16` | Label ink on a `primary` fill (6.5:1). Replaces the old white-on-green, which measured 2.3:1. |
-| `primary-text` | `#166534` | `#4ade80` | Green used AS text or a thin icon: links (Forgot Password?, Sign Up), the active tab label and glyph, ghost buttons, the selected segment label. 5.1:1+ on `background`, `card`, every glass fill and the `glass-lens` droplet over any map color, in both themes. |
-| `brand-lime` | `#69af01` | `#9bd300` | The lime of the G-pin mark. Reserved for brand moments: the splash glow, the Map tab mark ring and your own location puck. Not for buttons or text. |
-| `secondary` | `#1f2937` | `#1d3a44` | Secondary solid action (My Code, Sign Out). Dark is lifted off the navy ground so it still reads as a button. |
-| `secondary-foreground` | `#ffffff` | `#eef6f2` | Label ink on `secondary`. |
-| `destructive` | `#b91c1c` | `#f87171` | Destructive actions (Delete account, Leave event confirmation) and field errors. Always with a verb label. Light is red-700 so white labels keep 4.8:1 even under the bezel sheen. |
-| `destructive-foreground` | `#ffffff` | `#2a0a0a` | Label ink on a `destructive` fill. |
-| `like` | `#dc2626` | `#f87171` | Filled heart and like counts. Pair with the heart glyph, never color alone. |
-| `save` | `#a16207` | `#facc15` | Filled bookmark for saved Ganaps. |
+| Token                    | Light     | Dark      | Use                                                                                                                                                                                                                                                                |
+| ------------------------ | --------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `primary`                | `#22c55e` | `#22c55e` | Ganapps green, unchanged from the current app. Fills the one main action per view (Log In, Enter Event Hub, Send), selected chips, cluster pins and the unread dot. Always paired with `primary-foreground` ink, never white.                                      |
+| `primary-foreground`     | `#052e16` | `#052e16` | Label ink on a `primary` fill (6.5:1). Replaces the old white-on-green, which measured 2.3:1.                                                                                                                                                                      |
+| `primary-text`           | `#166534` | `#4ade80` | Green used AS text or a thin icon: links (Forgot Password?, Sign Up), the active tab label and glyph, ghost buttons, the selected segment label. 5.1:1+ on `background`, `card`, every glass fill and the `glass-lens` droplet over any map color, in both themes. |
+| `brand-lime`             | `#69af01` | `#9bd300` | The lime of the G-pin mark. Reserved for brand moments: the splash glow, the Map tab mark ring and your own location puck. Not for buttons or text.                                                                                                                |
+| `secondary`              | `#1f2937` | `#1d3a44` | Secondary solid action (My Code, Sign Out). Dark is lifted off the navy ground so it still reads as a button.                                                                                                                                                      |
+| `secondary-foreground`   | `#ffffff` | `#eef6f2` | Label ink on `secondary`.                                                                                                                                                                                                                                          |
+| `destructive`            | `#b91c1c` | `#f87171` | Destructive actions (Delete account, Leave event confirmation) and field errors. Always with a verb label. Light is red-700 so white labels keep 4.8:1 even under the bezel sheen.                                                                                 |
+| `destructive-foreground` | `#ffffff` | `#2a0a0a` | Label ink on a `destructive` fill.                                                                                                                                                                                                                                 |
+| `like`                   | `#dc2626` | `#f87171` | Filled heart and like counts. Pair with the heart glyph, never color alone.                                                                                                                                                                                        |
+| `save`                   | `#a16207` | `#facc15` | Filled bookmark for saved Ganaps.                                                                                                                                                                                                                                  |
 
 ### Status
 
 Soft fills with a same-hue foreground. See [Tonal status badges](#tonal-status-badges).
 
-| Token | Light | Dark | Use |
-|---|---|---|---|
-| `info` | `#dbeafe` | `#172554` | Info banner ground (Public visibility pill, reduced-accuracy notice). |
-| `info-foreground` | `#1e40af` | `#93c5fd` | Text and icon on `info`. |
-| `warning` | `#fef3c7` | `#451a03` | Warning banner ground. |
-| `warning-foreground` | `#78350f` | `#fcd34d` | Text and icon on `warning`. |
-| `notice` | `#ede9fe` | `#2e1065` | Organizer announcement highlight ground. |
-| `notice-foreground` | `#5b21b6` | `#c4b5fd` | Text on `notice`. |
+| Token                | Light     | Dark      | Use                                                                   |
+| -------------------- | --------- | --------- | --------------------------------------------------------------------- |
+| `info`               | `#dbeafe` | `#172554` | Info banner ground (Public visibility pill, reduced-accuracy notice). |
+| `info-foreground`    | `#1e40af` | `#93c5fd` | Text and icon on `info`.                                              |
+| `warning`            | `#fef3c7` | `#451a03` | Warning banner ground.                                                |
+| `warning-foreground` | `#78350f` | `#fcd34d` | Text and icon on `warning`.                                           |
+| `notice`             | `#ede9fe` | `#2e1065` | Organizer announcement highlight ground.                              |
+| `notice-foreground`  | `#5b21b6` | `#c4b5fd` | Text on `notice`.                                                     |
 
 ### Lines and focus
 
-| Token | Light | Dark | Use |
-|---|---|---|---|
-| `border` | `#d5ded9` | `#1f3d47` | Hairlines between rows and around solid cards. Decorative only; anything interactive uses `input`. |
-| `input` | `#7a8a83` | `#4f727a` | Outline of text fields, outline buttons and unselected chips on solid ground (3:1+ on `background` and `card`). |
-| `ring` | `#15803d` | `#4ade80` | Focus ring: 2px solid, 2px offset, on every focusable control. 4.6:1+ on every surface in both themes. |
+| Token    | Light     | Dark      | Use                                                                                                             |
+| -------- | --------- | --------- | --------------------------------------------------------------------------------------------------------------- |
+| `border` | `#d5ded9` | `#1f3d47` | Hairlines between rows and around solid cards. Decorative only; anything interactive uses `input`.              |
+| `input`  | `#7a8a83` | `#4f727a` | Outline of text fields, outline buttons and unselected chips on solid ground (3:1+ on `background` and `card`). |
+| `ring`   | `#15803d` | `#4ade80` | Focus ring: 2px solid, 2px offset, on every focusable control. 4.6:1+ on every surface in both themes.          |
 
 ### Glass colors
 
 The material for controls that float over content. See [Glass](#glass).
 
-| Token | Light | Dark | Use |
-|---|---|---|---|
-| `glass-fill` | `rgba(255, 255, 255, 0.46)` | `rgba(9, 32, 40, 0.42)` | The default liquid-glass body for controls floating over the map: the tab bar island, map control buttons, top-bar actions. Thin on purpose, so the map glows through. Glyphs and one-word labels only, in `foreground`, `on-glass-muted` or `on-glass-primary`. No sentences. |
-| `glass-fill-strong` | `rgba(255, 255, 255, 0.76)` | `rgba(9, 32, 40, 0.66)` | Glass that carries sentences or inputs: the map search bar, toasts, the peek state of the Ganap sheet, the chat composer, chips. Keeps `foreground`, `primary-text` and `on-glass-muted` at 4.5:1 over every map color and map glow. |
-| `glass-fill-solid` | `#f7faf8` | `#0c242d` | The Reduce Transparency fallback and the default on Android, where GlassView renders as a plain View. Same shape, rim and shadow; no blur. |
-| `glass-ice` | `#ffffff` | `#e6fff5` | The brightest light in the material: the top-left stop of the rim and the tint that runs across a glass body. Never a fill or a text color. |
-| `mint` | `#16a34a` | `#86efac` | The green light inside glass: the bottom-right stop of the rim, the floor light and the inner volume. A lighter step of Ganapps green, so the whole system stays one hue. It is light, not paint: never a control fill or a text color. `primary` stays reserved for the one main action. |
-| `glass-rim` | `rgba(255, 255, 255, 0.72)` | `rgba(255, 255, 255, 0.14)` | The quiet middle of the rim ring, between its lit top-left (`glass-ice`) and bottom-right (`mint`) ends. The rim is what makes glass read as an object rather than a blur. |
-| `glass-highlight` | `rgba(255, 255, 255, 0.90)` | `rgba(255, 255, 255, 0.24)` | The specular sweep that falls across the top-left corner of a glass shape and fades out before mid-width. |
-| `glass-lens` | `rgba(255, 255, 255, 0.78)` | `rgba(255, 255, 255, 0.14)` | The droplet under the selected glass segment, the chosen reaction in the tray and a pressed menu row: a brighter glass inside the glass. |
-| `glass-tint-primary` | `rgba(34, 197, 94, 0.22)` | `rgba(34, 197, 94, 0.30)` | Green-tinted glass for a primary action that floats over imagery (Send in the composer, Directions on the map) and for quiet green grounds (icon discs, the Joined badge). Label in `on-glass-primary`. |
-| `on-glass-primary` | `#14532d` | `#bbf7d0` | Label and icon ink on `glass-tint-primary` (7.7:1+). |
-| `on-glass-muted` | `#3c4b45` | `#cddcd9` | Secondary text on any glass fill: metadata in a floating row, placeholders in the search bar and composer, toast messages. Inside glass, `muted-foreground` resolves to this, because flat grey loses contrast over a moving backdrop. 4.5:1 or better on `glass-fill-strong`. |
-| `scrim` | `rgba(10, 26, 20, 0.32)` | `rgba(3, 12, 16, 0.60)` | Dims the screen behind a modal sheet or dialog. |
+| Token                | Light                       | Dark                        | Use                                                                                                                                                                                                                                                                                       |
+| -------------------- | --------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `glass-fill`         | `rgba(255, 255, 255, 0.46)` | `rgba(9, 32, 40, 0.42)`     | The default liquid-glass body for controls floating over the map: the tab bar island, map control buttons, top-bar actions. Thin on purpose, so the map glows through. Glyphs and one-word labels only, in `foreground`, `on-glass-muted` or `on-glass-primary`. No sentences.            |
+| `glass-fill-strong`  | `rgba(255, 255, 255, 0.76)` | `rgba(9, 32, 40, 0.66)`     | Glass that carries sentences or inputs: the map search bar, toasts, the peek state of the Ganap sheet, the chat composer, chips. Keeps `foreground`, `primary-text` and `on-glass-muted` at 4.5:1 over every map color and map glow.                                                      |
+| `glass-fill-solid`   | `#f7faf8`                   | `#0c242d`                   | The Reduce Transparency fallback and the default on Android, where GlassView renders as a plain View. Same shape, rim and shadow; no blur.                                                                                                                                                |
+| `glass-ice`          | `#ffffff`                   | `#e6fff5`                   | The brightest light in the material: the top-left stop of the rim and the tint that runs across a glass body. Never a fill or a text color.                                                                                                                                               |
+| `mint`               | `#16a34a`                   | `#86efac`                   | The green light inside glass: the bottom-right stop of the rim, the floor light and the inner volume. A lighter step of Ganapps green, so the whole system stays one hue. It is light, not paint: never a control fill or a text color. `primary` stays reserved for the one main action. |
+| `glass-rim`          | `rgba(255, 255, 255, 0.72)` | `rgba(255, 255, 255, 0.14)` | The quiet middle of the rim ring, between its lit top-left (`glass-ice`) and bottom-right (`mint`) ends. The rim is what makes glass read as an object rather than a blur.                                                                                                                |
+| `glass-highlight`    | `rgba(255, 255, 255, 0.90)` | `rgba(255, 255, 255, 0.24)` | The specular sweep that falls across the top-left corner of a glass shape and fades out before mid-width.                                                                                                                                                                                 |
+| `glass-lens`         | `rgba(255, 255, 255, 0.78)` | `rgba(255, 255, 255, 0.14)` | The droplet under the selected glass segment, the chosen reaction in the tray and a pressed menu row: a brighter glass inside the glass.                                                                                                                                                  |
+| `glass-tint-primary` | `rgba(34, 197, 94, 0.22)`   | `rgba(34, 197, 94, 0.30)`   | Green-tinted glass for a primary action that floats over imagery (Send in the composer, Directions on the map) and for quiet green grounds (icon discs, the Joined badge). Label in `on-glass-primary`.                                                                                   |
+| `on-glass-primary`   | `#14532d`                   | `#bbf7d0`                   | Label and icon ink on `glass-tint-primary` (7.7:1+).                                                                                                                                                                                                                                      |
+| `on-glass-muted`     | `#3c4b45`                   | `#cddcd9`                   | Secondary text on any glass fill: metadata in a floating row, placeholders in the search bar and composer, toast messages. Inside glass, `muted-foreground` resolves to this, because flat grey loses contrast over a moving backdrop. 4.5:1 or better on `glass-fill-strong`.            |
+| `scrim`              | `rgba(10, 26, 20, 0.32)`    | `rgba(3, 12, 16, 0.60)`     | Dims the screen behind a modal sheet or dialog.                                                                                                                                                                                                                                           |
 
 ### Light
 
 Glows and highlights. They are light, not paint.
 
-| Token | Light | Dark | Use |
-|---|---|---|---|
-| `primary-glow` | `rgba(34, 197, 94, 0.35)` | `rgba(34, 197, 94, 0.45)` | The soft halo under a selected map pin and the active-tab droplet. |
-| `glow` | `rgba(34, 197, 94, 0.14)` | `rgba(74, 222, 128, 0.30)` | A pool of green light behind glass: the `Lobe` on solid screens and the glow over busy parts of the map. Glass needs light behind it to look like glass. Keep the centre off-canvas or away from `muted-foreground` text. |
-| `glow-lime` | `rgba(105, 175, 1, 0.10)` | `rgba(155, 211, 0, 0.14)` | The outer ring of a `Lobe` and the second map glow, in the lime of the G-pin mark. |
-| `bezel-sheen` | `rgba(255, 255, 255, 0.55)` | `rgba(255, 255, 255, 0.42)` | The specular highlight on a solid control (primary, secondary and destructive buttons, the selected chip, cluster pins). It falls on the top-left corner only and is gone before the label, so labels keep their contrast. |
+| Token          | Light                       | Dark                        | Use                                                                                                                                                                                                                        |
+| -------------- | --------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `primary-glow` | `rgba(34, 197, 94, 0.35)`   | `rgba(34, 197, 94, 0.45)`   | The soft halo under a selected map pin and the active-tab droplet.                                                                                                                                                         |
+| `glow`         | `rgba(34, 197, 94, 0.14)`   | `rgba(74, 222, 128, 0.30)`  | A pool of green light behind glass: the `Lobe` on solid screens and the glow over busy parts of the map. Glass needs light behind it to look like glass. Keep the centre off-canvas or away from `muted-foreground` text.  |
+| `glow-lime`    | `rgba(105, 175, 1, 0.10)`   | `rgba(155, 211, 0, 0.14)`   | The outer ring of a `Lobe` and the second map glow, in the lime of the G-pin mark.                                                                                                                                         |
+| `bezel-sheen`  | `rgba(255, 255, 255, 0.55)` | `rgba(255, 255, 255, 0.42)` | The specular highlight on a solid control (primary, secondary and destructive buttons, the selected chip, cluster pins). It falls on the top-left corner only and is gone before the label, so labels keep their contrast. |
 
 ### Map
 
 These style the Mapbox map (hub #277). They are not UI colors, so never use them on a control.
 
-| Token | Light | Dark | Use |
-|---|---|---|---|
-| `map-land` | `#eef1ec` | `#0b2028` | Mapbox style: land fill. The night style matches `background` so glass sits on a calm ground. |
-| `map-block` | `#e2e6df` | `#10272f` | Mapbox style: building footprints. |
-| `map-road` | `#ffffff` | `#1b3a44` | Mapbox style: minor roads. |
-| `map-road-major` | `#f6f1e4` | `#2a4f5a` | Mapbox style: arterials (Diversion Road, Iznart). |
-| `map-water` | `#a9d8ee` | `#072d3d` | Mapbox style: water (Iloilo River, Guimaras Strait). |
-| `map-park` | `#cfe8c9` | `#0f3326` | Mapbox style: parks and plazas. |
-| `map-label` | `#6b7280` | `#6f8f95` | Mapbox style: street and place labels. Labels stay quiet so pins and glass lead. |
+| Token            | Light     | Dark      | Use                                                                                           |
+| ---------------- | --------- | --------- | --------------------------------------------------------------------------------------------- |
+| `map-land`       | `#eef1ec` | `#0b2028` | Mapbox style: land fill. The night style matches `background` so glass sits on a calm ground. |
+| `map-block`      | `#e2e6df` | `#10272f` | Mapbox style: building footprints.                                                            |
+| `map-road`       | `#ffffff` | `#1b3a44` | Mapbox style: minor roads.                                                                    |
+| `map-road-major` | `#f6f1e4` | `#2a4f5a` | Mapbox style: arterials (Diversion Road, Iznart).                                             |
+| `map-water`      | `#a9d8ee` | `#072d3d` | Mapbox style: water (Iloilo River, Guimaras Strait).                                          |
+| `map-park`       | `#cfe8c9` | `#0f3326` | Mapbox style: parks and plazas.                                                               |
+| `map-label`      | `#6b7280` | `#6f8f95` | Mapbox style: street and place labels. Labels stay quiet so pins and glass lead.              |
 
 ### Tonal status badges
 
@@ -303,7 +303,7 @@ They use Tailwind primitives directly — `bg-red-500`, `bg-blue-500`,
 `bg-amber-500`, `bg-purple-500`, `bg-orange-500`, `bg-teal-500` — rather than
 semantic roles.
 
-Semantic roles name a *function* in the interface. A category color names a
+Semantic roles name a _function_ in the interface. A category color names a
 category, and the category list is data that grows as organizers add event
 types. Minting `category-social`, `category-sports`, and so on would freeze that
 list into the design system and require a token change to add a category. Tags
@@ -345,16 +345,16 @@ Never put glass on glass. The lens inside a glass segment is the one exception.
 
 ### Glass layers
 
-| Layer | Recipe | Where |
-|---|---|---|
-| Regular | `glass-fill`, `blur-regular`, `rim-md`, `shadow-glass` | Map buttons, top-bar actions. Glyphs and one-word labels only |
-| Strong | `glass-fill-strong`, quieter sweep | Search bar, chips, one-sentence toasts, composer, the action bar |
-| Island | `glass-fill` for the tab bar, `glass-fill-strong` for the action bar and sheets, `blur-thick`, `rim-lg`, `shadow-island` | The highest layer |
-| Menu | `glass-fill-solid` at 90%, `rim-lg` | Context menus, which are all text |
-| Tint | `glass-tint-primary`, `on-glass-primary` | A primary action floating over imagery (Send) |
-| Lens | `glass-lens`, `rim-sm`, `shadow-lens` | The selected glass segment and the chosen reaction |
-| Bar | Strong body, no rim, no radius | A header that spans the screen; content fades under it |
-| Solid | `glass-fill-solid`, same rim and shadow, no blur | Notices, the offline banner, error toasts, help popovers, the map preview row, form and detail sheets; also every glass surface under Reduce Transparency, Increase Contrast, and wherever the platform has no glass |
+| Layer   | Recipe                                                                                                                   | Where                                                                                                                                                                                                                |
+| ------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Regular | `glass-fill`, `blur-regular`, `rim-md`, `shadow-glass`                                                                   | Map buttons, top-bar actions. Glyphs and one-word labels only                                                                                                                                                        |
+| Strong  | `glass-fill-strong`, quieter sweep                                                                                       | Search bar, chips, one-sentence toasts, composer, the action bar                                                                                                                                                     |
+| Island  | `glass-fill` for the tab bar, `glass-fill-strong` for the action bar and sheets, `blur-thick`, `rim-lg`, `shadow-island` | The highest layer                                                                                                                                                                                                    |
+| Menu    | `glass-fill-solid` at 90%, `rim-lg`                                                                                      | Context menus, which are all text                                                                                                                                                                                    |
+| Tint    | `glass-tint-primary`, `on-glass-primary`                                                                                 | A primary action floating over imagery (Send)                                                                                                                                                                        |
+| Lens    | `glass-lens`, `rim-sm`, `shadow-lens`                                                                                    | The selected glass segment and the chosen reaction                                                                                                                                                                   |
+| Bar     | Strong body, no rim, no radius                                                                                           | A header that spans the screen; content fades under it                                                                                                                                                               |
+| Solid   | `glass-fill-solid`, same rim and shadow, no blur                                                                         | Notices, the offline banner, error toasts, help popovers, the map preview row, form and detail sheets; also every glass surface under Reduce Transparency, Increase Contrast, and wherever the platform has no glass |
 
 ### Text limits for glass
 
@@ -374,21 +374,21 @@ A thick rim swallows a small control, so the rim grows with the surface. In `the
 are the `Rim` constants. Tailwind has matching `borderWidth` entries (for example
 `border-rim-md`).
 
-| Token | Width | Use |
-|---|---|---|
-| `rim-hair` | 1px | Glass under 32px tall: the reaction pill, pin labels, progress tracks |
-| `rim-sm` | 1.5px | Chips, 36px icon buttons, the tab lens, the selected segment, map pins |
-| `rim-md` | 2px | 48px controls, the search bar, toasts, the composer |
-| `rim-lg` | 2.5px | The tab island, the action bar, sheets, menus |
+| Token      | Width | Use                                                                    |
+| ---------- | ----- | ---------------------------------------------------------------------- |
+| `rim-hair` | 1px   | Glass under 32px tall: the reaction pill, pin labels, progress tracks  |
+| `rim-sm`   | 1.5px | Chips, 36px icon buttons, the tab lens, the selected segment, map pins |
+| `rim-md`   | 2px   | 48px controls, the search bar, toasts, the composer                    |
+| `rim-lg`   | 2.5px | The tab island, the action bar, sheets, menus                          |
 
 ### Blur
 
-| Token | Value | Use |
-|---|---|---|
-| `blur-thin` | 12px | Chips and pins over the map |
-| `blur-regular` | 22px | Map controls, the search bar, toasts, the composer |
-| `blur-thick` | 40px | The tab island and sheets |
-| `glass-saturate` | 180% | Saturation boost behind every blur |
+| Token            | Value | Use                                                |
+| ---------------- | ----- | -------------------------------------------------- |
+| `blur-thin`      | 12px  | Chips and pins over the map                        |
+| `blur-regular`   | 22px  | Map controls, the search bar, toasts, the composer |
+| `blur-thick`     | 40px  | The tab island and sheets                          |
+| `glass-saturate` | 180%  | Saturation boost behind every blur                 |
 
 These are CSS values for web and Storybook only. iOS 26 `GlassView` ignores them. In
 `src/constants/theme.ts` they are `Blur` and `GLASS_SATURATE` (1.8), and only the blur tier
@@ -412,11 +412,11 @@ recessed means typeable.
 
 Glass is drawn three ways. Which one a device gets is decided in one place, not per screen.
 
-| Tier | Where | How |
-|---|---|---|
-| Liquid Glass | iOS 26 and newer | `GlassView` from `expo-glass-effect`, behind `isLiquidGlassAvailable()` and `isGlassEffectAPIAvailable()` |
-| Drawn blur | Android 12 and newer | `BlurView` and `BlurTargetView` from `expo-blur` |
-| Solid | Everything else: Android 11 and older, iOS 25 and older, Reduce Transparency, Increase Contrast | `glass-fill-solid`, same shape, rim and shadow, no blur |
+| Tier         | Where                                                                                           | How                                                                                                       |
+| ------------ | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Liquid Glass | iOS 26 and newer                                                                                | `GlassView` from `expo-glass-effect`, behind `isLiquidGlassAvailable()` and `isGlassEffectAPIAvailable()` |
+| Drawn blur   | Android 12 and newer                                                                            | `BlurView` and `BlurTargetView` from `expo-blur`                                                          |
+| Solid        | Everything else: Android 11 and older, iOS 25 and older, Reduce Transparency, Increase Contrast | `glass-fill-solid`, same shape, rim and shadow, no blur                                                   |
 
 Solid is the baseline. The other two tiers are upgrades over it.
 
@@ -450,41 +450,37 @@ lands, build glass-shaped controls from the tokens above with the Solid recipe.
 Font family: **Allo Ganapps**, a cut of Allo 1.0.1 fitted to SF. It ships as four static
 files, never the variable font (`AlloVariable.woff2` is a web lab font only):
 
-| Utility (planned) | File | Weight |
-|---|---|---|
-| `font-sans` | `AlloGanapps-Regular` | 400 |
-| `font-allo-medium` | `AlloGanapps-Medium` | 500 |
-| `font-allo-semibold` | `AlloGanapps-SemiBold` | 600 |
-| `font-allo-bold` | `AlloGanapps-Bold` | 700 |
+| Utility              | File                       | Weight          |
+| -------------------- | -------------------------- | --------------- |
+| `font-sans`          | `AlloGanapps-Regular.ttf`  | 400             |
+| `font-allo-medium`   | `AlloGanapps-Medium.ttf`   | 500             |
+| `font-allo-semibold` | `AlloGanapps-SemiBold.ttf` | 590 (class 600) |
+| `font-allo-bold`     | `AlloGanapps-Bold.ttf`     | 700             |
 
-**Not landed yet.** The fonts arrive with hub #274. Today the repo still ships Inter, with
-`font-inter-*` utilities (including `font-inter-black`) and no `display` token. #274 does the
-following in one change:
+The files are Allo cut at roundness 0 and its Text optical size, with units per em set to
+2115 so a capital is as tall as SF's at the same point size. Sizes in the scale need no
+adjustment. Each file's PostScript name equals its file name, so the same family name works
+on Android (file name) and iOS (PostScript name). The licence is `assets/fonts/Allo-OFL.txt`
+(SIL OFL 1.1); keep it with the files.
 
-- Adds the four TTFs to `assets/fonts/` and lists them in the `expo-font` plugin in
-  `app.config.js`.
-- Renames the `font-inter-*` utilities to `font-allo-*`. `DynamicFormQuestion` hardcodes
-  `'Inter-Bold'` and needs the swap too.
-- Adds each style's tracking as `letterSpacing` in the `fontSize` entries of
-  `tailwind.config.js`, and adds `display`.
-
-Until then, read a `font-allo-*` utility below as the matching `font-inter-*` one.
+Outside `className` (for example a Markdown style map), use `Fonts` from
+`src/constants/theme.ts` and set the family for the weight instead of `fontWeight`.
 
 ### Scale
 
-| Style | Size / leading | Weight | Tracking (px) |
-|---|---|---|---|
-| `display` | 40 / 44 | 700 | -1.51 |
-| `headline-lg` | 32 / 40 | 700 | -0.78 |
-| `headline-md` | 20 / 28 | 600 | -0.06 |
-| `headline-sm` | 16 / 24 | 600 | +0.22 |
-| `body-xl` | 18 / 28 | 400 | -0.09 |
-| `body-lg` | 16 / 24 | 400 | +0.04 |
-| `body-md` | 14 / 20 | 400 | +0.16 |
-| `label-md` | 12 / 16 | 600 | +1.03 |
-| `label-sm` | 11 / 14 | 500 | +0.38 |
-| `input-lg` | 16 / — | 400 | — |
-| `input-md` | 14 / — | 400 | — |
+| Style         | Size / leading | Weight | Tracking (px) |
+| ------------- | -------------- | ------ | ------------- |
+| `display`     | 40 / 44        | 700    | -1.51         |
+| `headline-lg` | 32 / 40        | 700    | -0.78         |
+| `headline-md` | 20 / 28        | 600    | -0.06         |
+| `headline-sm` | 16 / 24        | 600    | +0.22         |
+| `body-xl`     | 18 / 28        | 400    | -0.09         |
+| `body-lg`     | 16 / 24        | 400    | +0.04         |
+| `body-md`     | 14 / 20        | 400    | +0.16         |
+| `label-md`    | 12 / 16        | 600    | +1.03         |
+| `label-sm`    | 11 / 14        | 500    | +0.38         |
+| `input-lg`    | 16 / —         | 400    | —             |
+| `input-md`    | 14 / —         | 400    | —             |
 
 `display`, `headline-lg` and `label-md` include the scale's own tracking (-0.03em, -0.02em and
 +0.05em). Every other style takes the tracking Allo calls for at its size and weight.
@@ -503,12 +499,12 @@ Use:
 
 For a size the scale does not name, take the tracking from this table (px):
 
-| Size | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 20 | 22 | 24 | 28 | 32 | 40 |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Regular | +0.31 | +0.27 | +0.21 | +0.16 | +0.10 | +0.04 | -0.05 | -0.09 | -0.30 | -0.49 | -0.61 | -0.72 | -0.86 | -1.21 |
-| Medium | +0.38 | +0.35 | +0.30 | +0.26 | +0.20 | +0.15 | +0.06 | +0.03 | -0.15 | -0.32 | -0.41 | -0.49 | -0.59 | -0.87 |
+| Size     | 11    | 12    | 13    | 14    | 15    | 16    | 17    | 18    | 20    | 22    | 24    | 28    | 32    | 40    |
+| -------- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
+| Regular  | +0.31 | +0.27 | +0.21 | +0.16 | +0.10 | +0.04 | -0.05 | -0.09 | -0.30 | -0.49 | -0.61 | -0.72 | -0.86 | -1.21 |
+| Medium   | +0.38 | +0.35 | +0.30 | +0.26 | +0.20 | +0.15 | +0.06 | +0.03 | -0.15 | -0.32 | -0.41 | -0.49 | -0.59 | -0.87 |
 | SemiBold | +0.43 | +0.40 | +0.36 | +0.32 | +0.27 | +0.22 | +0.14 | +0.12 | -0.06 | -0.20 | -0.28 | -0.33 | -0.40 | -0.64 |
-| Bold | +0.51 | +0.48 | +0.45 | +0.41 | +0.37 | +0.33 | +0.25 | +0.23 | +0.08 | -0.04 | -0.09 | -0.09 | -0.14 | -0.31 |
+| Bold     | +0.51 | +0.48 | +0.45 | +0.41 | +0.37 | +0.33 | +0.25 | +0.23 | +0.08 | -0.04 | -0.09 | -0.09 | -0.14 | -0.31 |
 
 Allo differs from SF by about a tenth of its ink. Its bold at body size and its regular at 28px
 and above fit SF less well, and the app uses neither.
@@ -527,43 +523,39 @@ Default body color is `text-foreground`. Each size token carries its own
 synthesizes it over the regular file. Override it only when you need a weight
 the size token does not provide.
 
-React Native does not synthesize *named* families — the font family *is* the
+React Native does not synthesize _named_ families — the font family _is_ the
 weight, and each one is a separate file registered by the `expo-font` config
 plugin in `app.config.js`. Adding a weight means adding the file, listing it in
 `app.config.js`, adding the token, **and** running `npx expo prebuild --clean`
 plus a native rebuild — a config plugin does not take effect on a Metro reload.
 
-Today's files are Inter v4.1: `Inter-Regular.otf` (`font-sans`), `Inter-Medium.otf`
-(`font-inter-medium`), `Inter-SemiBold.otf` (`font-inter-semibold`), `Inter-Bold.otf`
-(`font-inter-bold`) and `Inter-Black.otf` (`font-inter-black`). `Inter-Black` is registered but
-is **not** in the current native build, so `font-inter-black` falls back until someone
-rebuilds. #274 drops it.
+`npm run check:tokens` checks the scale (size, line height, weight and tracking) and the
+four families in `tailwind.config.js` against `docs/design/tokens.json`.
 
 ### Why `Text` drops its default family
 
 `components/common/Text.tsx` applies `font-sans` only when the caller has not
 named a family of its own. Tailwind emits `.font-sans` after every
-named-family utility (`.font-inter-*` today, `.font-allo-*` after #274), so a default kept
-alongside the caller's class wins on source order — which silently rendered every
-`font-inter-bold` and `font-inter-semibold` in the app as regular, including inside `Button`
-and `Avatar`. Any new text primitive that hardcodes a family owes callers the same
+named-family utility (`.font-allo-*`), so a default kept alongside the caller's class wins
+on source order — which once silently rendered every bold and semibold label in the app as
+regular, including inside `Button` and `Avatar`. `text-foreground` follows the same rule. Any new text primitive that hardcodes a family owes callers the same
 escape hatch.
 
 ## Spacing
 
-| Token | Value | Use |
-|---|---|---|
-| `base` | 4px | Hairline gaps (`p-base`) |
-| `xs` | 8px | Icon to label (`gap-xs`) |
-| `sm` | 12px | Chip and segment padding (`p-sm`) |
-| `md` | 16px | Card padding (`p-md`) |
-| `lg` | 24px | Between sections (`gap-lg`) |
-| `xl` | 32px | Above a screen's primary action group (`gap-xl`) |
-| `touch` | 48px | Minimum touch target, ADR 0005 (`min-h-touch`, `MIN_TOUCH_TARGET`) |
-| `margin-mobile` | 16px | Screen side margin (`px-margin-mobile`) |
-| `gutter-mobile` | 12px | Gap between grid items (`gap-gutter-mobile`) |
-| `island-inset` | 12px | Gap between the floating tab bar and the bottom safe-area edge, and its side inset |
-| `tabbar-clearance` | 96px | 64 bar, 12 inset and 20 breathing room. Tab screens add this plus the bottom inset to their scroll padding |
+| Token              | Value | Use                                                                                                        |
+| ------------------ | ----- | ---------------------------------------------------------------------------------------------------------- |
+| `base`             | 4px   | Hairline gaps (`p-base`)                                                                                   |
+| `xs`               | 8px   | Icon to label (`gap-xs`)                                                                                   |
+| `sm`               | 12px  | Chip and segment padding (`p-sm`)                                                                          |
+| `md`               | 16px  | Card padding (`p-md`)                                                                                      |
+| `lg`               | 24px  | Between sections (`gap-lg`)                                                                                |
+| `xl`               | 32px  | Above a screen's primary action group (`gap-xl`)                                                           |
+| `touch`            | 48px  | Minimum touch target, ADR 0005 (`min-h-touch`, `MIN_TOUCH_TARGET`)                                         |
+| `margin-mobile`    | 16px  | Screen side margin (`px-margin-mobile`)                                                                    |
+| `gutter-mobile`    | 12px  | Gap between grid items (`gap-gutter-mobile`)                                                               |
+| `island-inset`     | 12px  | Gap between the floating tab bar and the bottom safe-area edge, and its side inset                         |
+| `tabbar-clearance` | 96px  | 64 bar, 12 inset and 20 breathing room. Tab screens add this plus the bottom inset to their scroll padding |
 
 In code these are `Spacing` in `src/constants/theme.ts` (`'margin-mobile'`, `'gutter-mobile'`,
 `'island-inset'`, `'tabbar-clearance'` are quoted keys). `tailwind.config.js` also has
@@ -571,14 +563,14 @@ In code these are `Spacing` in `src/constants/theme.ts` (`'margin-mobile'`, `'gu
 
 ## Radii
 
-| Token | Value | Use |
-|---|---|---|
-| `sm` | 4px | Unread badges with a count, progress tracks |
-| `md` | 12px | Segment lenses, thumbnails, image corners inside cards |
-| `lg` | 16px | Inputs and rectangular buttons |
-| `xl` | 24px | Cards, event rows, the segment track, toasts |
-| `2xl` | 32px | Bottom sheets (top corners), the action bar and the hero image on Ganap detail. Matches the iPhone display corner, so sheets nest concentrically |
-| `full` | 9999px | Pills and circles: the tab bar island, chips, map controls, avatars, the primary button on glass |
+| Token  | Value  | Use                                                                                                                                              |
+| ------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sm`   | 4px    | Unread badges with a count, progress tracks                                                                                                      |
+| `md`   | 12px   | Segment lenses, thumbnails, image corners inside cards                                                                                           |
+| `lg`   | 16px   | Inputs and rectangular buttons                                                                                                                   |
+| `xl`   | 24px   | Cards, event rows, the segment track, toasts                                                                                                     |
+| `2xl`  | 32px   | Bottom sheets (top corners), the action bar and the hero image on Ganap detail. Matches the iPhone display corner, so sheets nest concentrically |
+| `full` | 9999px | Pills and circles: the tab bar island, chips, map controls, avatars, the primary button on glass                                                 |
 
 Buttons are pills (`full`) in Ganapps Glass. `Button` still uses `rounded-lg` today, and moves to
 `rounded-full` with the primitives work.
@@ -588,16 +580,16 @@ Buttons are pills (`full`) in Ganapps Glass. `Button` still uses `rounded-lg` to
 Ganapps Glass has eight shadow tokens. Two are the plain elevation of solid surfaces. Six
 belong to glass and capsules, and are made of several layers, some of them `inset`.
 
-| Token | Where it is used |
-|---|---|
-| `shadow-sm` | Solid cards on `background` |
-| `shadow-md` | The primary button and selected pins |
-| `shadow-glass` | The glass material on every glass control except the island and sheets |
-| `shadow-island` | The tab island, the action bar and sheets |
-| `shadow-lens` | The selected glass segment and the chosen reaction |
-| `shadow-bezel` | The lit volume on solid capsules. The stylesheet adds a drop glow in the control's fill color |
-| `shadow-bezel-pressed` | The pressed state of any control, solid or glass |
-| `shadow-well` | Carved-in surfaces: text fields, the segment track, the composer field |
+| Token                  | Where it is used                                                                              |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| `shadow-sm`            | Solid cards on `background`                                                                   |
+| `shadow-md`            | The primary button and selected pins                                                          |
+| `shadow-glass`         | The glass material on every glass control except the island and sheets                        |
+| `shadow-island`        | The tab island, the action bar and sheets                                                     |
+| `shadow-lens`          | The selected glass segment and the chosen reaction                                            |
+| `shadow-bezel`         | The lit volume on solid capsules. The stylesheet adds a drop glow in the control's fill color |
+| `shadow-bezel-pressed` | The pressed state of any control, solid or glass                                              |
+| `shadow-well`          | Carved-in surfaces: text fields, the segment track, the composer field                        |
 
 Each token has a light and a dark value, and the dark values are deeper. The full strings are
 in `docs/design/tokens.json`.
@@ -611,7 +603,7 @@ Themed shadows come only from `Shadows[theme]` in `src/constants/theme.ts`, with
 ```tsx
 const theme = useResolvedTheme();
 
-<View style={{ boxShadow: Shadows[theme].glass }} />
+<View style={{ boxShadow: Shadows[theme].glass }} />;
 ```
 
 NativeWind cannot theme `shadow-*` classes. Its native shadow plugin cannot read `var()`, keeps
@@ -693,7 +685,7 @@ better on every surface in both themes.
 Every screen that draws its own header uses `ScreenHeader`
 (`components/navigation/ScreenHeader.tsx`). It owns the top inset plus 16dp, a 48dp row,
 the filled back button (`IconButton` `variant="default"` with `ArrowLeft` at 20), and a
-bold `text-headline-md` title (`font-inter-bold` today, `font-allo-bold` after #274). Stacks hide their native headers. Loading and error
+bold `text-headline-md` title (`font-allo-bold`). Stacks hide their native headers. Loading and error
 states render the header too, so a screen is never left without a way back; registration and
 feedback turn off swipe-back, which makes this the only exit there. Event details and the Event
 Hub keep their own header because it floats over a photo, with the same back button.
@@ -703,19 +695,18 @@ radius, and the content fades under it.
 
 ### Type roles
 
-| Role | Style | Weight |
-|---|---|---|
-| Welcome and splash title | `display` | Bold |
-| Screen title | `headline-lg` | Bold |
-| Full-screen modal title | `headline-md` | Bold |
-| Bottom sheet title | `headline-sm` | Bold |
-| Section heading | `headline-sm` | SemiBold |
-| Overline | `text-label-md uppercase tracking-widest text-muted-foreground` | SemiBold |
-| Field label | `text-label-md text-foreground` | SemiBold |
-| Body, empty, loading and error copy | `text-body-md` | Regular |
+| Role                                | Style                                                           | Weight   |
+| ----------------------------------- | --------------------------------------------------------------- | -------- |
+| Welcome and splash title            | `display`                                                       | Bold     |
+| Screen title                        | `headline-lg`                                                   | Bold     |
+| Full-screen modal title             | `headline-md`                                                   | Bold     |
+| Bottom sheet title                  | `headline-sm`                                                   | Bold     |
+| Section heading                     | `headline-sm`                                                   | SemiBold |
+| Overline                            | `text-label-md uppercase tracking-widest text-muted-foreground` | SemiBold |
+| Field label                         | `text-label-md text-foreground`                                 | SemiBold |
+| Body, empty, loading and error copy | `text-body-md`                                                  | Regular  |
 
-The weight is the family utility: `font-inter-bold` and `font-inter-semibold` today,
-`font-allo-bold` and `font-allo-semibold` after #274. `ScreenHeader` still sets its title in
+The weight is the family utility: `font-allo-bold` and `font-allo-semibold`. `ScreenHeader` still sets its title in
 `headline-md`; moving screen titles to `headline-lg` happens with the screen work, not here.
 
 ### Button sizes by role
@@ -740,15 +731,15 @@ gesture is always a shortcut, never the only way.
 
 ### Gestures
 
-| Gesture | Used for |
-|---|---|
-| Tap | The primary action |
-| Swipe a row (`SwipeRow`) | Trailing actions on a list row |
+| Gesture                                       | Used for                        |
+| --------------------------------------------- | ------------------------------- |
+| Tap                                           | The primary action              |
+| Swipe a row (`SwipeRow`)                      | Trailing actions on a list row  |
 | Touch and hold (`ContextMenu`, `ReactionBar`) | Secondary actions and reactions |
-| Left-edge swipe | Back |
-| Pull to refresh | Reloading a list |
-| Sheet drag | Resizing and dismissing a sheet |
-| Map gestures | Pan, pinch, rotate, tilt |
+| Left-edge swipe                               | Back                            |
+| Pull to refresh                               | Reloading a list                |
+| Sheet drag                                    | Resizing and dismissing a sheet |
+| Map gestures                                  | Pan, pinch, rotate, tilt        |
 
 Swipe rows have at most three actions per side. A full swipe commits only what is trivial to
 undo. One row is open at a time.
@@ -779,12 +770,12 @@ never the only signal. `expo-haptics` is not installed yet.
 
 ### Motion
 
-| Kind | Duration |
-|---|---|
-| Press | 100 to 160ms |
-| Popovers | 150 to 200ms |
-| Sheets | Up to 500ms |
-| Exits | Quicker than the entrance |
+| Kind     | Duration                  |
+| -------- | ------------------------- |
+| Press    | 100 to 160ms              |
+| Popovers | 150 to 200ms              |
+| Sheets   | Up to 500ms               |
+| Exits    | Quicker than the entrance |
 
 With Reduce Motion on, use a 150ms cross-fade: no overshoot and no animated blur.
 

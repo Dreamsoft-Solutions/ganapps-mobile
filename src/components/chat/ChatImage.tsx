@@ -61,7 +61,7 @@ function ViewerContent({
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
       <View className="flex-row items-center justify-between px-md py-sm">
-        <Text className="min-w-0 flex-1 font-inter-bold text-headline-md" numberOfLines={1} accessibilityRole="header">
+        <Text className="min-w-0 flex-1 font-allo-bold text-headline-md" numberOfLines={1} accessibilityRole="header">
           Photo from {senderUsername}
         </Text>
         <IconButton accessibilityLabel="Close photo" onPress={onClose}>

@@ -103,11 +103,11 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
           <View className="min-w-0 flex-1">
             {category && (
               <View testID="ganap-feed-card-category" className="mb-xs self-start rounded-full bg-muted px-sm py-1">
-                <Text className="font-inter-bold text-label-md uppercase text-primary-text">{category}</Text>
+                <Text className="font-allo-bold text-label-md uppercase text-primary-text">{category}</Text>
               </View>
             )}
 
-            <Text className="font-inter-bold text-body-xl text-foreground" numberOfLines={2}>
+            <Text className="font-allo-bold text-body-xl text-foreground" numberOfLines={2}>
               {ganap.title}
             </Text>
 
@@ -142,19 +142,19 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
             <View className="h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
               <Text
                 testID="ganap-feed-card-host-initial"
-                className="font-inter-bold text-label-md text-muted-foreground"
+                className="font-allo-bold text-label-md text-muted-foreground"
               >
                 {initial}
               </Text>
             </View>
-            <Text className="min-w-0 flex-1 font-inter-semibold text-body-md text-foreground" numberOfLines={1}>
+            <Text className="min-w-0 flex-1 font-allo-semibold text-body-md text-foreground" numberOfLines={1}>
               {ganap.businessName}
             </Text>
           </Pressable>
 
           <View className="shrink-0 flex-row items-center gap-1 rounded-full bg-muted px-sm py-1">
             <Users size={14} color={subdued} />
-            <Text className="font-inter-medium text-label-md text-muted-foreground">
+            <Text className="font-allo-medium text-label-md text-muted-foreground">
               {getAttendanceEstimate(ganap.registrationCount)}
             </Text>
           </View>

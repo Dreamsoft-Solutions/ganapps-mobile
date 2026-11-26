@@ -107,10 +107,10 @@ export function AnnouncementCard({
     <>
       <Avatar src={organizationLogo} name={organizationName} size="xs" />
       <View className="ml-xs min-w-0 flex-1">
-        <Text numberOfLines={1} className="font-inter-semibold text-headline-sm">
+        <Text numberOfLines={1} className="font-allo-semibold text-headline-sm">
           {organizationName}
         </Text>
-        <Text className="mt-1 font-inter-medium text-label-sm text-muted-foreground">Event organizer</Text>
+        <Text className="mt-1 font-allo-medium text-label-sm text-muted-foreground">Event organizer</Text>
       </View>
     </>
   );
@@ -131,7 +131,7 @@ export function AnnouncementCard({
         ) : (
           <View className={`min-w-0 flex-row items-center ${stackHeader ? '' : 'flex-1'}`}>{author}</View>
         )}
-        <Text className="font-inter-medium text-label-sm text-muted-foreground">
+        <Text className="font-allo-medium text-label-sm text-muted-foreground">
           {formatDateTime(announcement.createdAt)}
         </Text>
       </View>
@@ -141,10 +141,10 @@ export function AnnouncementCard({
           {/* lucide-react-native has no cssInterop, so a className here would be ignored. */}
           <TypeIcon size={12} color={Colors[theme][config.iconColor]} />
         </View>
-        <Text className={`font-inter-semibold text-label-sm ${config.textClassName}`}>{config.label}</Text>
+        <Text className={`font-allo-semibold text-label-sm ${config.textClassName}`}>{config.label}</Text>
       </View>
 
-      {title && <Text className="mt-sm font-inter-semibold text-headline-sm">{title}</Text>}
+      {title && <Text className="mt-sm font-allo-semibold text-headline-sm">{title}</Text>}
 
       <Text className="mt-sm text-body-md">{announcement.content}</Text>
 

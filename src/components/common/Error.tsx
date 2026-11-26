@@ -22,7 +22,7 @@ export function ErrorView({ error, onRetry }: ErrorViewProps): ReactElement {
   return (
     <View className="flex-1 items-center justify-center p-xl">
       <Text
-        className="mb-sm text-center font-inter-semibold text-headline-sm text-foreground"
+        className="mb-sm text-center font-allo-semibold text-headline-sm text-foreground"
         accessibilityRole="header"
       >
         Something went wrong

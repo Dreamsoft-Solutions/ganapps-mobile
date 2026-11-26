@@ -55,7 +55,7 @@ export function Avatar({ src, name = '', size = 'md' }: AvatarProps): ReactEleme
       {src ? (
         <Image source={{ uri: src }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
       ) : initials ? (
-        <Text className={`${textSizeClasses[size]} font-inter-bold text-primary-text`}>{initials}</Text>
+        <Text className={`${textSizeClasses[size]} font-allo-bold text-primary-text`}>{initials}</Text>
       ) : (
         <Image source={Assets.defaultAvatar} style={{ width: '100%', height: '100%' }} contentFit="cover" />
       )}

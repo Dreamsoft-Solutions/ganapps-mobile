@@ -131,7 +131,7 @@ function ChatSummaryRow({ summary, onOpen }: { summary: ChatConversationSummary;
         <Avatar src={summary.type === 'DIRECT' ? summary.friend.displayPicture : null} name={title} size="sm" />
         <View className="ml-sm min-w-0 flex-1">
           <View className="flex-row items-center justify-between gap-sm">
-            <Text className="min-w-0 flex-1 font-inter-semibold text-body-lg" numberOfLines={1}>
+            <Text className="min-w-0 flex-1 font-allo-semibold text-body-lg" numberOfLines={1}>
               {title}
             </Text>
             {summary.lastMessage && (
@@ -147,7 +147,7 @@ function ChatSummaryRow({ summary, onOpen }: { summary: ChatConversationSummary;
         </View>
         {summary.unreadCount > 0 && (
           <View className="ml-sm min-w-7 items-center rounded-full bg-primary px-sm py-xs">
-            <Text className="font-inter-semibold text-label-sm text-primary-foreground">
+            <Text className="font-allo-semibold text-label-sm text-primary-foreground">
               {summary.unreadCount > 99 ? '99+' : String(summary.unreadCount)}
             </Text>
           </View>
@@ -169,7 +169,7 @@ function FriendRow({ friend, onOpen }: { friend: FriendUserSummary; onOpen: () =
       <Card className="mb-sm flex-row items-center">
         <Avatar src={friend.displayPicture} name={friend.displayName} size="sm" />
         <View className="ml-sm min-w-0 flex-1">
-          <Text className="font-inter-semibold text-body-lg" numberOfLines={1}>
+          <Text className="font-allo-semibold text-body-lg" numberOfLines={1}>
             {friend.displayName}
           </Text>
           <Text className="text-body-md text-muted-foreground" numberOfLines={1}>
@@ -212,7 +212,7 @@ function RequestRow({
       >
         <Avatar src={request.user.displayPicture} name={request.user.displayName} size="sm" />
         <View className="ml-sm min-w-0 flex-1">
-          <Text className="font-inter-semibold text-body-lg" numberOfLines={1}>
+          <Text className="font-allo-semibold text-body-lg" numberOfLines={1}>
             {request.user.displayName}
           </Text>
           <Text className="text-body-md text-muted-foreground" numberOfLines={1}>
@@ -271,7 +271,7 @@ function ActiveFriends({
     <View className="mb-md">
       <View className="mb-sm flex-row items-center">
         <Users size={18} className="text-primary-text" />
-        <Text className="ml-sm font-inter-semibold text-headline-sm">Active friends</Text>
+        <Text className="ml-sm font-allo-semibold text-headline-sm">Active friends</Text>
       </View>
       {friends.length === 0 ? (
         <Text className="text-body-md text-muted-foreground">No friends are active right now.</Text>
@@ -337,7 +337,7 @@ function CodeModal({
     >
       <View className="flex-1 bg-background px-md" style={{ paddingTop: insets.top + Spacing.md }}>
         <View className="mb-lg flex-row items-center justify-between">
-          <Text className="font-inter-bold text-headline-md" accessibilityRole="header">
+          <Text className="font-allo-bold text-headline-md" accessibilityRole="header">
             My code
           </Text>
           <IconButton accessibilityLabel="Close My code" onPress={onClose}>
@@ -367,7 +367,7 @@ function CodeModal({
                       Your Friend Code
                     </Text>
                     <Text
-                      className="mt-md text-center font-inter-bold text-headline-lg"
+                      className="mt-md text-center font-allo-bold text-headline-lg"
                       accessibilityLabel={`Friend Code ${formatFriendCode(code)}`}
                     >
                       {formatFriendCode(code)}
@@ -465,7 +465,7 @@ function AddFriendModal({
           className="flex-1 px-md"
         >
           <View className="mb-lg flex-row items-center justify-between">
-            <Text className="font-inter-bold text-headline-md" accessibilityRole="header">
+            <Text className="font-allo-bold text-headline-md" accessibilityRole="header">
               Add friend
             </Text>
             <IconButton accessibilityLabel="Close Add friend" onPress={onClose}>
@@ -513,7 +513,7 @@ function AddFriendModal({
               >
                 <Avatar src={target.displayPicture} name={target.displayName} size="md" />
                 <View className="ml-md min-w-0 flex-1">
-                  <Text className="font-inter-semibold text-body-lg" numberOfLines={1}>
+                  <Text className="font-allo-semibold text-body-lg" numberOfLines={1}>
                     {target.displayName}
                   </Text>
                   <Text className="text-body-md text-muted-foreground" numberOfLines={1}>

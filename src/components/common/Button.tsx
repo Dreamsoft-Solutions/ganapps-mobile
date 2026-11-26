@@ -47,7 +47,7 @@ export const buttonVariants = cva('flex flex-row items-center justify-center rou
  * Exported so `Button.test.tsx` can resolve the real line height behind each
  * size rather than trusting the number written in {@link buttonSizeTargets}.
  */
-export const buttonTextVariants = cva('font-inter-semibold text-center', {
+export const buttonTextVariants = cva('font-allo-semibold text-center', {
   variants: {
     variant: {
       default: 'text-primary-foreground',
@@ -55,7 +55,7 @@ export const buttonTextVariants = cva('font-inter-semibold text-center', {
       outline: 'text-foreground',
       ghost: 'text-primary-text',
       destructive: 'text-destructive-foreground',
-      link: 'text-primary-text font-inter-semibold',
+      link: 'text-primary-text font-allo-semibold',
     },
     size: {
       sm: 'text-sm',

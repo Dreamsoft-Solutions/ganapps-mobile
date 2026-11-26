@@ -178,7 +178,7 @@ function MessageBubbleContent({
 }: MessageBubbleContentProps): ReactElement {
   return (
     <>
-      {!isMine && <Text className="font-inter-semibold text-label-md">{message.senderUsername}</Text>}
+      {!isMine && <Text className="font-allo-semibold text-label-md">{message.senderUsername}</Text>}
       {media ? (
         <ChatImageBubble
           media={media}
@@ -486,7 +486,7 @@ export function EventChatThreadView({
   if (accessLost) {
     return (
       <View className="flex-1 items-center justify-center bg-background p-xl">
-        <Text className="mb-sm text-center font-inter-semibold text-headline-sm" accessibilityRole="header">
+        <Text className="mb-sm text-center font-allo-semibold text-headline-sm" accessibilityRole="header">
           {accessLostReason === 'FEATURE_DISABLED'
             ? "Event chat isn't available right now"
             : 'Event Chat access is no longer available'}
@@ -635,7 +635,7 @@ export function EventChatThreadView({
           style={{ paddingBottom: composerBottomPadding }}
         >
           {imageDraft && <ChatImagePreview draft={imageDraft} onRemove={onRemoveImage} />}
-          <Text nativeID="event-chat-composer-label" className="mb-xs font-inter-semibold text-label-md">
+          <Text nativeID="event-chat-composer-label" className="mb-xs font-allo-semibold text-label-md">
             Message
           </Text>
           <View className="flex-row items-end gap-sm">

@@ -45,7 +45,7 @@ function renderClusterMarker(
         onPress={(): void => onPress(feature)}
         className="h-14 min-w-14 items-center justify-center rounded-full border-2 border-glass-ice bg-primary px-3"
       >
-        <Text className="font-inter-bold text-body-lg text-primary-foreground">
+        <Text className="font-allo-bold text-body-lg text-primary-foreground">
           {feature.properties.point_count_abbreviated}
         </Text>
       </Pressable>

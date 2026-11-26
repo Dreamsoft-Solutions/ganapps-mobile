@@ -51,7 +51,7 @@ export default function SettingsScreen(): ReactElement {
     <View className="flex-1 bg-background">
       <ScreenHeader title="Settings" onBack={(): void => router.back()} backHint="Returns to your profile" />
       <ScrollView className="flex-1" contentContainerClassName="p-md">
-        <Text className="mb-xs font-inter-semibold text-headline-sm" accessibilityRole="header">
+        <Text className="mb-xs font-allo-semibold text-headline-sm" accessibilityRole="header">
           Theme
         </Text>
         <View className="gap-sm">
@@ -80,7 +80,7 @@ export default function SettingsScreen(): ReactElement {
         </View>
 
         <View className="mt-xl">
-          <Text className="mb-sm font-inter-semibold text-headline-sm" accessibilityRole="header">
+          <Text className="mb-sm font-allo-semibold text-headline-sm" accessibilityRole="header">
             Account and privacy
           </Text>
           <LegalLinks />
@@ -90,7 +90,7 @@ export default function SettingsScreen(): ReactElement {
         </View>
 
         <View className="mt-xl">
-          <Text className="mb-sm font-inter-semibold text-headline-sm" accessibilityRole="header">
+          <Text className="mb-sm font-allo-semibold text-headline-sm" accessibilityRole="header">
             Blocked users
           </Text>
           {blockedUsersQuery.isLoading && blockedUsersQuery.blockedUsers.length === 0 ? (
@@ -115,7 +115,7 @@ export default function SettingsScreen(): ReactElement {
                   >
                     <Avatar src={blockedUser.displayPicture} name={blockedUser.displayName} size="sm" />
                     <View className="ml-sm min-w-0 flex-1">
-                      <Text className="font-inter-semibold text-body-lg" numberOfLines={1}>
+                      <Text className="font-allo-semibold text-body-lg" numberOfLines={1}>
                         {blockedUser.displayName}
                       </Text>
                       <Text className="text-body-md text-muted-foreground" numberOfLines={1}>

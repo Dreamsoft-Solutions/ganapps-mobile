@@ -85,7 +85,7 @@ export function GanapShareModal({
     >
       <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
         <View className="flex-row items-center justify-between border-b border-border px-md py-sm">
-          <Text className="font-inter-bold text-headline-md" accessibilityRole="header">
+          <Text className="font-allo-bold text-headline-md" accessibilityRole="header">
             Share this event
           </Text>
           <IconButton accessibilityLabel="Close sharing" accessibilityHint="Returns to event details" onPress={onClose}>

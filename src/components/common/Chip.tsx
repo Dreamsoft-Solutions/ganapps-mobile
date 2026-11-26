@@ -17,7 +17,7 @@ export const chipVariants = cva('rounded-full border px-4 py-2 active:opacity-70
 });
 
 /** Label classes for a {@link Chip}, exported alongside {@link chipVariants}. */
-export const chipTextVariants = cva('text-body-md font-inter-semibold', {
+export const chipTextVariants = cva('text-body-md font-allo-semibold', {
   variants: {
     selected: {
       true: 'text-primary-foreground',

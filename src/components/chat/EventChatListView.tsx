@@ -58,7 +58,7 @@ function EventChatRow({ summary, onOpen }: { summary: EventChatSummary; onOpen: 
         </View>
         <View className="min-w-0 flex-1">
           <View className="flex-row items-center justify-between gap-sm">
-            <Text className="min-w-0 flex-1 font-inter-semibold text-body-lg" numberOfLines={1}>
+            <Text className="min-w-0 flex-1 font-allo-semibold text-body-lg" numberOfLines={1}>
               {summary.title}
             </Text>
             {summary.lastMessage && (
@@ -71,7 +71,7 @@ function EventChatRow({ summary, onOpen }: { summary: EventChatSummary; onOpen: 
         </View>
         {summary.unreadCount > 0 && (
           <View className="ml-sm min-w-7 items-center rounded-full bg-primary px-sm py-xs">
-            <Text className="font-inter-semibold text-label-sm text-primary-foreground">
+            <Text className="font-allo-semibold text-label-sm text-primary-foreground">
               {summary.unreadCount > 99 ? '99+' : String(summary.unreadCount)}
             </Text>
           </View>
@@ -110,7 +110,7 @@ export function EventChatListView({
     <View className="flex-1 bg-background px-md" style={{ paddingTop: insets.top + Spacing.md }}>
       <View className="mb-md flex-row items-center">
         <MessageCircle size={22} color={Colors[theme]['primary-text']} />
-        <Text className="ml-sm font-inter-bold text-headline-md">Event Chat</Text>
+        <Text className="ml-sm font-allo-bold text-headline-md">Event Chat</Text>
       </View>
       <FlatList
         data={summaries}

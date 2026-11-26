@@ -86,7 +86,7 @@ export const ShareQrCode: ForwardRefExoticComponent<ShareQrCodeProps & RefAttrib
     <View className="gap-md">
       <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }} style={{ alignSelf: 'stretch' }}>
         <View className="items-center rounded-xl border border-border bg-card px-md py-lg">
-          <Text className="mb-md text-center font-inter-semibold text-headline-sm" accessibilityRole="header">
+          <Text className="mb-md text-center font-allo-semibold text-headline-sm" accessibilityRole="header">
             {title}
           </Text>
           <View

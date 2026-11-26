@@ -173,14 +173,14 @@ export default function FriendProfileScreen(): ReactElement {
         </Card>
         {profile.going !== undefined && (
           <View className="mt-lg">
-            <Text className="mb-sm font-inter-semibold text-headline-sm">Going</Text>
+            <Text className="mb-sm font-allo-semibold text-headline-sm">Going</Text>
             {profile.going.length === 0 ? (
               <Text className="text-body-md text-muted-foreground">No upcoming or ongoing Ganaps shared.</Text>
             ) : (
               profile.going.map(
                 (item: FriendGoingItem): ReactElement => (
                   <Card key={item.ganapId} className="mb-sm">
-                    <Text className="font-inter-semibold text-body-lg">{item.title}</Text>
+                    <Text className="font-allo-semibold text-body-lg">{item.title}</Text>
                     <Text className="mt-xs text-body-md text-muted-foreground">{formatGoingDate(item.startDate)}</Text>
                     <Text className="mt-xs text-label-md text-primary-text">{item.status}</Text>
                   </Card>

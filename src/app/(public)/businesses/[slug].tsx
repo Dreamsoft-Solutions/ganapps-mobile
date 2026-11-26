@@ -43,7 +43,7 @@ export default function BusinessShareRoute(): ReactElement {
   if (query.error !== null && (query.error as ParsedApiError).status === 404) {
     return (
       <View className="flex-1 items-center justify-center bg-background p-xl">
-        <Text className="mb-sm text-center font-inter-semibold text-headline-sm" accessibilityRole="header">
+        <Text className="mb-sm text-center font-allo-semibold text-headline-sm" accessibilityRole="header">
           This Business is not available
         </Text>
         <Text className="mb-lg text-center text-body-md text-muted-foreground">

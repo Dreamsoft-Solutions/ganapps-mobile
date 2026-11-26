@@ -109,7 +109,7 @@ function FriendsGoingRow({ friends, isLoading, error, hasMore, onRetry }: Friend
 
   return (
     <View testID="friends-going" className="mt-sm rounded-xl border border-border bg-muted px-sm py-sm">
-      <Text className="font-inter-semibold text-label-md">Friends going</Text>
+      <Text className="font-allo-semibold text-label-md">Friends going</Text>
       {isLoading ? (
         <Text className="mt-xs text-body-md text-muted-foreground">Checking your friends…</Text>
       ) : error ? (
@@ -142,7 +142,7 @@ function FriendsGoingRow({ friends, isLoading, error, hasMore, onRetry }: Friend
               ),
             )}
           </View>
-          <Text className="min-w-0 flex-1 font-inter-semibold text-body-md">
+          <Text className="min-w-0 flex-1 font-allo-semibold text-body-md">
             {getFriendsGoingLabel(friends, hasMore)}
           </Text>
         </View>
@@ -181,8 +181,8 @@ function ScheduleItem({ icon, label, value }: ScheduleItemProps): ReactElement {
     <View className="min-w-0 flex-1 flex-row items-start">
       <SummaryIconTile>{icon}</SummaryIconTile>
       <View className="min-w-0 flex-1">
-        <Text className="font-inter-semibold text-label-md text-muted-foreground">{label}</Text>
-        <Text className="mt-1 font-inter-semibold text-body-md">{value}</Text>
+        <Text className="font-allo-semibold text-label-md text-muted-foreground">{label}</Text>
+        <Text className="mt-1 font-allo-semibold text-body-md">{value}</Text>
       </View>
     </View>
   );
@@ -210,7 +210,7 @@ function EventHubEmptyState({
   if (accessLost) {
     return (
       <View className="flex-1 items-center justify-center p-xl">
-        <Text className="mb-sm text-center font-inter-semibold text-headline-sm">
+        <Text className="mb-sm text-center font-allo-semibold text-headline-sm">
           Event Hub access is no longer available
         </Text>
         <Text className="mb-lg text-center text-body-md text-muted-foreground">
@@ -273,7 +273,7 @@ function EventHubAnnouncementHeader({
   return (
     <>
       <View className="px-md pt-md">
-        <Text className="font-inter-bold text-headline-md">{ganap.title}</Text>
+        <Text className="font-allo-bold text-headline-md">{ganap.title}</Text>
         {lifecycleLabel && <Text className="mt-sm text-label-md text-muted-foreground">{lifecycleLabel}</Text>}
 
         <View className="mt-sm flex-row flex-wrap items-center gap-sm">
@@ -288,7 +288,7 @@ function EventHubAnnouncementHeader({
             <View className="mr-xs">
               <Globe size={12} color={Colors[theme]['info-foreground']} />
             </View>
-            <Text className="font-inter-semibold text-label-sm text-info-foreground">Public</Text>
+            <Text className="font-allo-semibold text-label-sm text-info-foreground">Public</Text>
           </View>
         </View>
 
@@ -317,7 +317,7 @@ function EventHubAnnouncementHeader({
             <SummaryIconTile>
               <MapPin size={16} color={Colors[theme]['primary-text']} />
             </SummaryIconTile>
-            <Text className="min-w-0 flex-1 font-inter-semibold text-body-md">
+            <Text className="min-w-0 flex-1 font-allo-semibold text-body-md">
               {address ?? 'Location to be announced'}
             </Text>
           </View>
@@ -327,7 +327,7 @@ function EventHubAnnouncementHeader({
           <SummaryIconTile>
             <Users size={16} color={Colors[theme]['primary-text']} />
           </SummaryIconTile>
-          <Text className="min-w-0 flex-1 font-inter-semibold text-body-md">
+          <Text className="min-w-0 flex-1 font-allo-semibold text-body-md">
             {getAttendanceEstimate(ganap.registrationCount)}
           </Text>
         </View>
@@ -346,12 +346,12 @@ function EventHubAnnouncementHeader({
           <View className="mr-xs">
             <Megaphone size={16} color={Colors[theme]['primary-text']} />
           </View>
-          <Text className="min-w-0 flex-1 font-inter-semibold text-headline-sm" accessibilityRole="header">
+          <Text className="min-w-0 flex-1 font-allo-semibold text-headline-sm" accessibilityRole="header">
             Announcements
           </Text>
         </View>
         <View className="ml-sm rounded-full bg-primary px-sm py-xs">
-          <Text testID="announcement-total" className="font-inter-semibold text-label-sm text-primary-foreground">
+          <Text testID="announcement-total" className="font-allo-semibold text-label-sm text-primary-foreground">
             {String(accessLost ? 0 : total)}
           </Text>
         </View>
@@ -387,7 +387,7 @@ function EventHubTopBar({
          * off-centre by half their width difference.
          */}
         <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
-          <Text className="font-inter-bold text-headline-sm" accessibilityRole="header">
+          <Text className="font-allo-bold text-headline-sm" accessibilityRole="header">
             Event Hub
           </Text>
         </View>

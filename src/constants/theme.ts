@@ -191,3 +191,15 @@ export const BorderRadius = {
   '2xl': 32,
   full: 9999,
 } as const;
+
+/**
+ * Allo Ganapps font families, for styles set outside `className` (for example
+ * Markdown style maps). Each weight is its own file, so set the family and
+ * leave `fontWeight` unset: Android cannot pick a weight inside one family.
+ */
+export const Fonts = {
+  regular: 'AlloGanapps-Regular',
+  medium: 'AlloGanapps-Medium',
+  semibold: 'AlloGanapps-SemiBold',
+  bold: 'AlloGanapps-Bold',
+} as const;
