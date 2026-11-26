@@ -148,10 +148,10 @@ export function AppTabBar({
                   isActive={isActive}
                   user={user}
                   hasUnreadMessages={hasUnreadForTab}
-                  color={isActive ? Colors[theme].primary : Colors[theme]['muted-foreground']}
+                  color={isActive ? Colors[theme]['primary-text'] : Colors[theme]['muted-foreground']}
                 />
               </View>
-              <Text className={`text-label-sm mt-1 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+              <Text className={`text-label-sm mt-1 ${isActive ? 'text-primary-text' : 'text-muted-foreground'}`}>
                 {tab.label}
               </Text>
             </Pressable>

@@ -191,12 +191,12 @@ function PasswordChecklist({ password }: PasswordChecklistProps): ReactElement {
     <View className="-mt-2 mb-2 gap-1" accessibilityLabel="Password requirements">
       {PASSWORD_POLICY.requirements.map((requirement): ReactElement => {
         const met: boolean = status[requirement.id];
-        const color: string = met ? Colors[theme].primary : Colors[theme]['muted-foreground'];
+        const color: string = met ? Colors[theme]['primary-text'] : Colors[theme]['muted-foreground'];
 
         return (
           <View key={requirement.id} className="flex-row items-center gap-2">
             <Check size={14} color={color} strokeWidth={met ? 2.5 : 1.5} />
-            <Text className={met ? 'text-label-sm text-primary' : 'text-label-sm text-muted-foreground'}>
+            <Text className={met ? 'text-label-sm text-primary-text' : 'text-label-sm text-muted-foreground'}>
               {requirement.label}
             </Text>
           </View>
