@@ -76,7 +76,7 @@ function EventChatRow({ summary, onOpen }: { summary: EventChatSummary; onOpen: 
             </Text>
           </View>
         )}
-        <MessageCircle className="ml-sm" size={16} color={Colors[theme].primary} />
+        <MessageCircle className="ml-sm" size={16} color={Colors[theme]['primary-text']} />
       </Card>
     </Pressable>
   );
@@ -109,7 +109,7 @@ export function EventChatListView({
   return (
     <View className="flex-1 bg-background px-md" style={{ paddingTop: insets.top + Spacing.md }}>
       <View className="mb-md flex-row items-center">
-        <MessageCircle size={22} color={Colors[theme].primary} />
+        <MessageCircle size={22} color={Colors[theme]['primary-text']} />
         <Text className="ml-sm font-inter-bold text-headline-md">Event Chat</Text>
       </View>
       <FlatList

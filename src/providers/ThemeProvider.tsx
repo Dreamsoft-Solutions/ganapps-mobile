@@ -40,7 +40,7 @@ export function ThemeProvider({ children }: ThemeProviderProps): ReactElement | 
     (): typeof DefaultTheme => ({
       ...(isDark ? DarkTheme : DefaultTheme),
       colors: {
-        primary: Colors[theme].primary,
+        primary: Colors[theme]['primary-text'],
         background: Colors[theme].background,
         card: Colors[theme].card,
         text: Colors[theme].foreground,
