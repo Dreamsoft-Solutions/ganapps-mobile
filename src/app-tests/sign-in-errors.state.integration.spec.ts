@@ -80,6 +80,12 @@ vi.mock('expo-router', () => ({
 }));
 vi.mock('expo-constants', () => ({ default: { expoConfig: { extra: { googleWebClientId: 'web-client-id' } } } }));
 vi.mock('@expo/vector-icons/AntDesign', () => ({ default: (): null => null }));
+vi.mock('react-native-reanimated', () => ({
+  default: { View: ({ children }: { children: ReactNode }): ReactElement => createElement(Fragment, null, children) },
+  cubicBezier: (): null => null,
+  useReducedMotion: (): boolean => false,
+}));
+vi.mock('nativewind', () => ({ vars: (): Record<string, never> => ({}) }));
 vi.mock('lucide-react-native', () => ({
   LucideProvider: ({ children }: { children: ReactNode }): ReactElement => createElement(Fragment, null, children),
   Check: (): null => null,
