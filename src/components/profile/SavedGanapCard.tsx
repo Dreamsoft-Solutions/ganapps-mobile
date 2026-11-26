@@ -80,7 +80,7 @@ export function SavedGanapCard({ ganap, onPress, onUnsave, businessReturnTo }: S
             />
           ) : (
             <View className="h-full w-full items-center justify-center">
-              <Calendar size={18} className="text-primary" />
+              <Calendar size={18} className="text-primary-text" />
             </View>
           )}
         </View>
