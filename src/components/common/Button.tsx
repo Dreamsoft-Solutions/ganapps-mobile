@@ -2,27 +2,33 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { LucideProvider } from 'lucide-react-native';
 import type { ReactElement, ReactNode } from 'react';
 import { useCallback } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
-import { Colors } from '@/constants/theme';
+import { ActivityIndicator, View } from 'react-native';
+import { BorderRadius, Colors } from '@/constants/theme';
 import type { TouchTarget } from '@/constants/touch-target';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { Capsule, type CapsuleTone } from './Capsule';
+import { Glass, type GlassVariant } from './Glass';
+import { PressableScale, type PressableScaleState } from './PressableScale';
 import { Text } from './Text';
 
 /**
- * Compiled class strings for every {@link Button} variant and size.
+ * Compiled layout class strings for every {@link Button} variant and size.
  *
- * Exported so `Button.test.tsx` can read the rendered padding back out and
+ * Layout only: the Capsule or Glass behind the label draws colour, radius and shadow, so no variant adds
+ * classes of its own. Exported so `Button.test.tsx` can read the rendered padding back out and
  * check it against {@link buttonSizeTargets}, rather than trusting a comment.
  */
-export const buttonVariants = cva('flex flex-row items-center justify-center rounded-lg border active:opacity-70', {
+export const buttonVariants = cva('flex flex-row items-center justify-center border border-transparent', {
   variants: {
     variant: {
-      default: 'border-transparent bg-primary shadow',
-      secondary: 'border-transparent bg-secondary',
-      outline: 'border-input bg-background',
-      ghost: 'border-transparent bg-transparent',
-      destructive: 'border-transparent bg-destructive',
-      link: 'border-transparent bg-transparent',
+      default: '',
+      secondary: '',
+      outline: '',
+      ghost: '',
+      destructive: '',
+      link: '',
+      glass: '',
+      'glass-primary': '',
     },
     size: {
       sm: 'px-3 py-2',
@@ -56,6 +62,8 @@ export const buttonTextVariants = cva('font-allo-semibold text-center', {
       ghost: 'text-primary-text',
       destructive: 'text-destructive-foreground',
       link: 'text-primary-text font-allo-semibold',
+      glass: 'text-foreground',
+      'glass-primary': 'text-primary-foreground',
     },
     size: {
       sm: 'text-sm',
@@ -72,9 +80,41 @@ export const buttonTextVariants = cva('font-allo-semibold text-center', {
 });
 
 /**
+ * The looks a {@link Button} renders in.
+ */
+export type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>['variant']>;
+
+/**
  * The sizes a {@link Button} renders at.
  */
 export type ButtonSize = NonNullable<VariantProps<typeof buttonVariants>['size']>;
+
+/** The Capsule tone behind each filled variant. */
+const CAPSULE_TONES = {
+  default: 'primary',
+  secondary: 'secondary',
+  destructive: 'destructive',
+} as const satisfies Partial<Record<ButtonVariant, CapsuleTone>>;
+
+/** The Glass recipe behind each glass variant. */
+const GLASS_VARIANTS = {
+  outline: 'strong',
+  ghost: 'strong',
+  glass: 'regular',
+  'glass-primary': 'tint',
+} as const satisfies Partial<Record<ButtonVariant, GlassVariant>>;
+
+/** The colour token for each variant's label, spinner and icons. */
+const CONTENT_COLOR_TOKENS = {
+  default: 'primary-foreground',
+  secondary: 'secondary-foreground',
+  destructive: 'destructive-foreground',
+  outline: 'foreground',
+  ghost: 'primary-text',
+  link: 'primary-text',
+  glass: 'foreground',
+  'glass-primary': 'primary-foreground',
+} as const satisfies Record<ButtonVariant, keyof (typeof Colors)['light']>;
 
 /** A size variant's vertical geometry and the target it produces. */
 interface ButtonSizeTarget {
@@ -95,8 +135,8 @@ interface ButtonSizeTarget {
  * Height arithmetic for each {@link Button} size, and the target it produces.
  *
  * A Button has no height class by default — it is padding plus the label's line
- * height, plus a 1dp border on each edge. Every variant draws that border, transparent
- * except on `outline`, so an outline button is the same height as a filled one beside it. Both come off Tailwind's numeric scale, which NativeWind resolves
+ * height, plus a 1dp border on each edge. Every variant keeps that border, transparent, on the
+ * layout view the Capsule or Glass is drawn on, so every variant is the same height as the one beside it. Both come off Tailwind's numeric scale, which NativeWind resolves
  * against a 14px rem, so the numbers here are 0.875x the values Tailwind's
  * documentation states. `Button.test.tsx` resolves them from the real theme
  * rather than trusting this comment.
@@ -154,7 +194,9 @@ interface ButtonProps extends VariantProps<typeof buttonVariants> {
 }
 
 /**
- * Primary button primitive.
+ * Primary button primitive, drawn on {@link Capsule} (`default`, `secondary`, `destructive`) or {@link Glass}
+ * (`outline`, `ghost`, `glass`, `glass-primary`), with press feedback from {@link PressableScale}. `link` is
+ * plain text that dims while pressed.
  *
  * Icons in `leftIcon` and `rightIcon` take the label's color and a size set by the Button: 16dp
  * on `sm`, 18dp otherwise. Pass icons without a `size` so every button matches.
@@ -184,18 +226,68 @@ export function Button({
 
   const resolvedSize: ButtonSize = resolveButtonSize(variant, size);
   const iconSize: number = resolvedSize === 'sm' ? 16 : 18;
-  const isOutlinedOrGhost = variant === 'outline' || variant === 'ghost' || variant === 'link';
   const theme = useResolvedTheme();
-  const contentColor: string = isOutlinedOrGhost
-    ? Colors[theme].foreground
-    : variant === 'secondary'
-      ? Colors[theme]['secondary-foreground']
-      : variant === 'destructive'
-        ? Colors[theme]['destructive-foreground']
-        : Colors[theme]['primary-foreground'];
+  const resolvedVariant: ButtonVariant = variant ?? 'default';
+  const contentColor: string = Colors[theme][CONTENT_COLOR_TOKENS[resolvedVariant]];
+  const layoutClassName: string = buttonVariants({ variant, size: resolvedSize });
+
+  const content: ReactNode = loading ? (
+    <ActivityIndicator color={contentColor} />
+  ) : (
+    <>
+      {leftIcon && (
+        <View className="mr-2">
+          <LucideProvider color={contentColor} size={iconSize}>
+            {leftIcon}
+          </LucideProvider>
+        </View>
+      )}
+      <Text className={buttonTextVariants({ variant, size: resolvedSize })}>{children}</Text>
+      {rightIcon && (
+        <View className="ml-2">
+          <LucideProvider color={contentColor} size={iconSize}>
+            {rightIcon}
+          </LucideProvider>
+        </View>
+      )}
+    </>
+  );
+
+  const renderBody = (pressed: boolean): ReactElement => {
+    if (resolvedVariant === 'link') {
+      return (
+        <View className={layoutClassName} style={{ opacity: pressed ? 0.6 : 1 }}>
+          {content}
+        </View>
+      );
+    }
+    if (resolvedVariant in GLASS_VARIANTS) {
+      return (
+        <Glass
+          variant={GLASS_VARIANTS[resolvedVariant as keyof typeof GLASS_VARIANTS]}
+          rim="md"
+          radius={BorderRadius.full}
+          pressed={pressed}
+          className={layoutClassName}
+        >
+          {content}
+        </Glass>
+      );
+    }
+    return (
+      <Capsule
+        tone={CAPSULE_TONES[resolvedVariant as keyof typeof CAPSULE_TONES]}
+        radius={BorderRadius.full}
+        pressed={pressed}
+        className={layoutClassName}
+      >
+        {content}
+      </Capsule>
+    );
+  };
 
   return (
-    <Pressable
+    <PressableScale
       onPress={handlePress}
       disabled={disabled || loading}
       accessibilityRole="button"
@@ -203,29 +295,10 @@ export function Button({
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: Boolean(disabled || loading), busy: Boolean(loading) }}
       hitSlop={buttonSizeTargets[resolvedSize].target.hitSlop}
-      className={buttonVariants({ variant, size: resolvedSize, disabled: disabled || loading })}
+      scaleTo={resolvedVariant === 'link' ? 1 : undefined}
+      className={disabled || loading ? 'opacity-50' : undefined}
     >
-      {loading ? (
-        <ActivityIndicator color={contentColor} />
-      ) : (
-        <>
-          {leftIcon && (
-            <View className="mr-2">
-              <LucideProvider color={contentColor} size={iconSize}>
-                {leftIcon}
-              </LucideProvider>
-            </View>
-          )}
-          <Text className={buttonTextVariants({ variant, size: resolvedSize })}>{children}</Text>
-          {rightIcon && (
-            <View className="ml-2">
-              <LucideProvider color={contentColor} size={iconSize}>
-                {rightIcon}
-              </LucideProvider>
-            </View>
-          )}
-        </>
-      )}
-    </Pressable>
+      {({ pressed }: PressableScaleState): ReactElement => renderBody(pressed)}
+    </PressableScale>
   );
 }
