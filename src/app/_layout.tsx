@@ -9,8 +9,8 @@ import { cssInterop } from 'nativewind';
 import { type ReactElement, useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ErrorView } from '@/components/common/Error';
-import { Loading } from '@/components/common/Loading';
 import { ToastHost } from '@/components/common/ToastHost';
+import { SplashView } from '@/components/onboarding/SplashView';
 import { Routes } from '@/constants/routes';
 import { db } from '@/db';
 import { refreshGanapEngagement } from '@/hooks/mutations/useGanapMutation';
@@ -111,7 +111,7 @@ function RootLayoutNav(): ReactElement {
   }
 
   if (!isHydrated || !migrationsReady) {
-    return <Loading message="Loading" />;
+    return <SplashView />;
   }
 
   return (
