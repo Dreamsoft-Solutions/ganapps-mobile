@@ -14,7 +14,7 @@ const TOAST_ICONS: Record<ToastType, LucideIcon> = {
 
 const TOAST_ICON_CLASSES: Record<ToastType, string> = {
   error: 'text-destructive',
-  success: 'text-primary',
+  success: 'text-primary-text',
   info: 'text-muted-foreground',
 };
 
