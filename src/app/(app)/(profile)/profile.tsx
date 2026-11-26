@@ -78,7 +78,7 @@ export default function ProfileScreen(): ReactElement {
           <Avatar src={user.displayPicture} name={displayName} size="lg" />
           <View className="mt-md flex-row items-center">
             <Text className="text-headline-md">{displayName}</Text>
-            {user.isVerified && <BadgeCheck size={18} className="ml-2 text-primary" />}
+            {user.isVerified && <BadgeCheck size={18} className="ml-2 text-primary-text" />}
           </View>
           <Text className="mt-1 text-body-md text-muted-foreground">@{user.username}</Text>
           <Text className="mt-1 text-body-md text-muted-foreground">{user.email}</Text>

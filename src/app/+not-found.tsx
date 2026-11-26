@@ -10,7 +10,7 @@ export default function NotFoundScreen(): ReactElement {
       <Stack.Screen options={{ title: 'Not found' }} />
       <Text className="text-headline-md mb-sm">Page not found</Text>
       <Text className="text-muted-foreground text-center mb-lg">The page you're looking for doesn't exist.</Text>
-      <Link href={Routes.app.home} className="text-primary font-inter-semibold">
+      <Link href={Routes.app.home} className="text-primary-text font-inter-semibold">
         Go home
       </Link>
     </View>

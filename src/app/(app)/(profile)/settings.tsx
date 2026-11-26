@@ -71,9 +71,9 @@ export default function SettingsScreen(): ReactElement {
                   isActive ? 'border-primary bg-muted' : 'border-border bg-card'
                 }`}
               >
-                <Icon size={20} className={isActive ? 'text-primary' : 'text-muted-foreground'} />
+                <Icon size={20} className={isActive ? 'text-primary-text' : 'text-muted-foreground'} />
                 <Text className="text-body-md ml-sm flex-1">{option.label}</Text>
-                {isActive && <Check size={20} className="text-primary" />}
+                {isActive && <Check size={20} className="text-primary-text" />}
               </Pressable>
             );
           })}
