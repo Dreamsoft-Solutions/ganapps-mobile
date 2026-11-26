@@ -83,7 +83,7 @@ export function JoinedGanapCard({ ganap, onPress, businessReturnTo }: JoinedGana
             />
           ) : (
             <View className="h-full w-full items-center justify-center">
-              <Calendar size={18} className="text-primary" />
+              <Calendar size={18} className="text-primary-text" />
             </View>
           )}
         </View>
@@ -112,7 +112,7 @@ export function JoinedGanapCard({ ganap, onPress, businessReturnTo }: JoinedGana
         <View className="ml-sm items-end">
           <View className="flex-row items-center rounded-full bg-muted px-2 py-1">
             <View className="mr-xs">
-              <CheckCircle2 size={12} className="text-primary" />
+              <CheckCircle2 size={12} className="text-primary-text" />
             </View>
             <Text className="text-label-sm text-muted-foreground">{registrationLabel}</Text>
           </View>
@@ -152,7 +152,7 @@ function FeedbackFormAction({ ganap }: { ganap: JoinedGanap }): ReactElement {
         className="mt-sm flex-row items-center self-start rounded-full border border-input bg-background px-4 py-2"
       >
         <View className="mr-xs">
-          <CircleCheck size={14} className="text-primary" />
+          <CircleCheck size={14} className="text-primary-text" />
         </View>
         <Text className={chipTextVariants({ selected: false })}>Feedback form submitted</Text>
       </View>
