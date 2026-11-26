@@ -182,7 +182,7 @@ export default function FriendProfileScreen(): ReactElement {
                   <Card key={item.ganapId} className="mb-sm">
                     <Text className="font-inter-semibold text-body-lg">{item.title}</Text>
                     <Text className="mt-xs text-body-md text-muted-foreground">{formatGoingDate(item.startDate)}</Text>
-                    <Text className="mt-xs text-label-md text-primary">{item.status}</Text>
+                    <Text className="mt-xs text-label-md text-primary-text">{item.status}</Text>
                   </Card>
                 ),
               )

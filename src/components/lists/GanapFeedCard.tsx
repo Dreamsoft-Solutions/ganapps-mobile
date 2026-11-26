@@ -68,7 +68,7 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
    * lucide-react-native registers no cssInterop, so a className on an icon is
    * silently ignored. Icon colours come from the resolved theme instead.
    */
-  const accent: string = Colors[theme].primary;
+  const accent: string = Colors[theme]['primary-text'];
   const subdued: string = Colors[theme]['muted-foreground'];
 
   return (
@@ -103,7 +103,7 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
           <View className="min-w-0 flex-1">
             {category && (
               <View testID="ganap-feed-card-category" className="mb-xs self-start rounded-full bg-muted px-sm py-1">
-                <Text className="font-inter-bold text-label-md uppercase text-primary">{category}</Text>
+                <Text className="font-inter-bold text-label-md uppercase text-primary-text">{category}</Text>
               </View>
             )}
 

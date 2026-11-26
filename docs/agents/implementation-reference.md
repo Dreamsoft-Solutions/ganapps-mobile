@@ -299,22 +299,22 @@ Metro wraps the config with `withNativeWind(config, { input: './src/global.css' 
 ### Colors
 
 Semantic roles in `tailwind.config.js`, each mapped to a CSS variable defined light and dark
-in `src/global.css`. `docs/DESIGN.md` holds the full table with both values.
+in `src/global.css`. `docs/DESIGN.md` holds every token with both values and its use.
+Colors come in seven groups:
 
-| Token | Usage |
+| Group | Tokens (see `docs/DESIGN.md` for values) |
 |---|---|
-| `background` / `foreground` | Screen background, primary text |
-| `card` / `card-foreground` | Card and sheet surfaces |
-| `popover` / `popover-foreground` | Overlays |
-| `primary` / `primary-foreground` | Primary actions, active states, links |
-| `secondary` / `secondary-foreground` | Secondary actions, emphasis surfaces |
-| `muted` / `muted-foreground` | Subtle fills; placeholder, disabled, secondary text |
-| `accent` / `accent-foreground` | Subtle emphasis |
-| `destructive` / `destructive-foreground` | Errors, destructive actions |
-| `border`, `input`, `ring` | Borders, input borders, focus rings |
+| Surfaces and text | `background`, `foreground`, `card`, `popover`, `muted`, `muted-foreground`, `accent` and their `-foreground` pairs |
+| Brand and action | `primary` (fill) with `primary-foreground` (label), `primary-text` (green as text), `brand-lime`, `secondary`, `destructive`, `like`, `save` |
+| Status | `info`, `warning`, `notice`, each with a `-foreground` |
+| Lines and focus | `border` (decorative), `input` (interactive outline), `ring` |
+| Glass | `glass-fill`, `glass-fill-strong`, `glass-fill-solid`, `glass-ice`, `mint`, `glass-rim`, `glass-highlight`, `glass-lens`, `glass-tint-primary`, `on-glass-primary`, `on-glass-muted`, `scrim` |
+| Light | `primary-glow`, `glow`, `glow-lime`, `bezel-sheen` |
+| Map | `map-land`, `map-block`, `map-road`, `map-road-major`, `map-water`, `map-park`, `map-label` (Mapbox style only, never on a control) |
 
 Because they are CSS variables, these swap under NativeWind's active color scheme — never
-hardcode a color. The one sanctioned exception is category-tag and third-party brand colors, which use
+hardcode a color. Green as text or a thin icon is `text-primary-text`, not `text-primary`.
+The one sanctioned exception is category-tag and third-party brand colors, which use
 Tailwind primitives; `docs/DESIGN.md` explains why.
 
 Outside a `className` — RN props like `ActivityIndicator`'s `color` or `shadowColor` — read
@@ -342,8 +342,9 @@ follow dark mode.
 
 ### Spacing & radii
 
-Spacing: `base` 4px, `xs` 8px, `sm` 12px, `md` 16px, `lg` 24px, `xl` 32px,
-`margin-mobile` 16px, `gutter-mobile` 12px.
-Radii: `sm` 4px, `md` 12px, `lg` 16px, `xl` 24px, `full` 9999px.
+Spacing: `base` 4px, `xs` 8px, `sm` 12px, `md` 16px, `lg` 24px, `xl` 32px, `touch` 48px,
+`margin-mobile` 16px, `gutter-mobile` 12px, `island-inset` 12px, `tabbar-clearance` 96px.
+Radii: `sm` 4px, `md` 12px, `lg` 16px, `xl` 24px, `2xl` 32px, `full` 9999px. Rim widths
+(`border-rim-hair`, `-sm`, `-md`, `-lg`) and the shadow tokens are in `docs/DESIGN.md`.
 
 ---

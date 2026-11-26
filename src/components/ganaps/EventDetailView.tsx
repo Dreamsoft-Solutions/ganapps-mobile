@@ -357,7 +357,7 @@ function EventDetailContent({
       <Card className="mt-lg">
         <View className="flex-row items-start">
           <View className="mr-sm mt-1">
-            <Users size={20} className="text-primary" />
+            <Users size={20} className="text-primary-text" />
           </View>
           <View className="min-w-0 flex-1">
             <Text className="text-headline-sm">{capacity.summary}</Text>
@@ -376,8 +376,16 @@ function EventDetailContent({
       </Card>
 
       <View className={`mt-lg gap-md ${stackSchedule ? '' : 'flex-row'}`}>
-        <ScheduleItem icon={<Calendar size={20} className="text-primary" />} label="Date" value={schedule.dateLabel} />
-        <ScheduleItem icon={<Clock size={20} className="text-primary" />} label="Time" value={schedule.timeLabel} />
+        <ScheduleItem
+          icon={<Calendar size={20} className="text-primary-text" />}
+          label="Date"
+          value={schedule.dateLabel}
+        />
+        <ScheduleItem
+          icon={<Clock size={20} className="text-primary-text" />}
+          label="Time"
+          value={schedule.timeLabel}
+        />
       </View>
 
       <Text className="mt-xl font-inter-semibold text-headline-sm" accessibilityRole="header">
@@ -405,7 +413,7 @@ function EventDetailContent({
                   )}
                 </View>
                 <Text className="mt-1 text-body-md text-muted-foreground">Event organizer</Text>
-                <Text className="mt-sm text-body-md text-primary">View organization</Text>
+                <Text className="mt-sm text-body-md text-primary-text">View organization</Text>
                 {organizerBio && <Text className="mt-sm text-body-md">{organizerBio}</Text>}
               </View>
             </View>
@@ -529,7 +537,7 @@ export function EventDetailView({
       textDecorationLine: 'line-through',
     },
     link: {
-      color: Colors[theme].primary,
+      color: Colors[theme]['primary-text'],
       textDecorationLine: 'underline',
     },
     bullet_list_icon: {

@@ -94,6 +94,7 @@
   },
   "scripts": {
     "check:docs": "node scripts/check-docs.mjs",
+    "check:tokens": "node scripts/check-tokens.mjs --docs",
     "start": "expo start",
     "dev": "expo start --clear",
     "android": "expo run:android",

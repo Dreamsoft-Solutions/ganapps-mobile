@@ -40,7 +40,7 @@ export function FeedbackRow({ state, onPress }: FeedbackRowProps): ReactElement 
         className="flex-row items-center rounded-lg border border-border bg-muted px-md py-sm"
       >
         <View className="mr-sm">
-          <CircleCheck size={16} color={Colors[theme].primary} />
+          <CircleCheck size={16} color={Colors[theme]['primary-text']} />
         </View>
         <Text className="min-w-0 flex-1 text-body-md">Rating submitted</Text>
       </View>
@@ -57,10 +57,10 @@ export function FeedbackRow({ state, onPress }: FeedbackRowProps): ReactElement 
       className="flex-row items-center rounded-lg border border-primary bg-background px-md py-sm"
     >
       <View className="mr-sm">
-        <MessageSquare size={16} color={Colors[theme].primary} />
+        <MessageSquare size={16} color={Colors[theme]['primary-text']} />
       </View>
       <View className="min-w-0 flex-1">
-        <Text className="font-inter-semibold text-body-md text-primary">Rate this event</Text>
+        <Text className="font-inter-semibold text-body-md text-primary-text">Rate this event</Text>
         {state.formFirst ? <Text className="text-body-md text-muted-foreground">Feedback form first</Text> : null}
       </View>
     </Pressable>

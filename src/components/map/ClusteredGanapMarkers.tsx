@@ -43,7 +43,7 @@ function renderClusterMarker(
         accessibilityLabel={label}
         accessibilityHint="Zooms in until the events separate into individual map pins"
         onPress={(): void => onPress(feature)}
-        className="h-14 min-w-14 items-center justify-center rounded-full border-2 border-primary-foreground bg-primary px-3"
+        className="h-14 min-w-14 items-center justify-center rounded-full border-2 border-glass-ice bg-primary px-3"
       >
         <Text className="font-inter-bold text-body-lg text-primary-foreground">
           {feature.properties.point_count_abbreviated}
