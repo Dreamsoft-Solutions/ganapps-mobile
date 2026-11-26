@@ -156,7 +156,7 @@ export function AttendanceScanView({
         {phase.name === 'recorded' && (
           <View className="flex-1 items-center justify-center p-xl">
             <View className="mb-md">
-              <CircleCheck size={64} color={Colors[theme].primary} />
+              <CircleCheck size={64} color={Colors[theme]['primary-text']} />
             </View>
             <Text className="mb-sm text-center font-inter-semibold text-headline-sm">Attendance recorded</Text>
             <Text className="mb-lg text-center text-body-md text-muted-foreground">
@@ -178,7 +178,7 @@ export function AttendanceScanView({
         {phase.name === 'queued' && (
           <View className="flex-1 items-center justify-center p-xl">
             <View className="mb-md">
-              <CloudUpload size={64} color={Colors[theme].primary} />
+              <CloudUpload size={64} color={Colors[theme]['primary-text']} />
             </View>
             <Text className="mb-sm text-center font-inter-semibold text-headline-sm">Saved on this device</Text>
             <Text className="mb-lg text-center text-body-md text-muted-foreground">

@@ -54,7 +54,7 @@ export function AttendanceScanRow({
         className="flex-row items-center rounded-lg border border-border bg-muted px-md py-sm"
       >
         <View className="mr-sm">
-          <CircleCheck size={16} color={Colors[theme].primary} />
+          <CircleCheck size={16} color={Colors[theme]['primary-text']} />
         </View>
         <Text className="min-w-0 flex-1 text-body-md">Attendance recorded</Text>
       </View>
@@ -117,9 +117,9 @@ export function AttendanceScanRow({
       className="flex-row items-center rounded-lg border border-primary bg-background px-md py-sm"
     >
       <View className="mr-sm">
-        <QrCode size={16} color={Colors[theme].primary} />
+        <QrCode size={16} color={Colors[theme]['primary-text']} />
       </View>
-      <Text className="min-w-0 flex-1 font-inter-semibold text-body-md text-primary">Scan attendance QR</Text>
+      <Text className="min-w-0 flex-1 font-inter-semibold text-body-md text-primary-text">Scan attendance QR</Text>
     </Pressable>
   );
 }
