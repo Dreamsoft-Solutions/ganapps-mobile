@@ -32,7 +32,7 @@ export function ProfilePromptCard({ onDismiss }: ProfilePromptCardProps): ReactE
       <View className="mb-xs flex-row items-start justify-between">
         <View className="mr-xs min-w-0 flex-1 flex-row items-center">
           <View className="mr-xs">
-            <Sparkles size={18} className="text-primary" />
+            <Sparkles size={18} className="text-primary-text" />
           </View>
           <Text className="text-headline-sm">Finish your profile</Text>
         </View>
