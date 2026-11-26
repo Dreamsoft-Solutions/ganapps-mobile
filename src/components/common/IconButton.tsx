@@ -1,6 +1,8 @@
 import { LucideProvider } from 'lucide-react-native';
 import type { ReactElement, ReactNode } from 'react';
-import { Pressable } from 'react-native';
+import { Capsule } from '@/components/common/Capsule';
+import { Glass, type RimWidth } from '@/components/common/Glass';
+import { PressableScale } from '@/components/common/PressableScale';
 import { Colors } from '@/constants/theme';
 import type { TouchTarget } from '@/constants/touch-target';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
@@ -38,10 +40,14 @@ export const iconButtonSizeStyles: Record<IconButtonSize, IconButtonSizeStyle> =
   md: { className: 'w-touch h-touch', target: { sizePx: 48, hitSlop: 0 } },
 };
 
-const variantClasses = {
-  default: 'bg-muted',
-  ghost: 'bg-transparent',
-};
+/** Rim width per size: the small button gets the hairline so the ring does not crowd the icon. */
+const rimBySize: Record<IconButtonSize, RimWidth> = { sm: 'hair', md: 'md' };
+
+/** Layout the material receives: it fills the pressable and centres the icon. */
+const MATERIAL_CLASSES = 'flex-1 items-center justify-center';
+
+/** The looks an {@link IconButton} can take. */
+export type IconButtonVariant = 'default' | 'ghost' | 'glass';
 
 interface IconButtonProps {
   onPress: () => void;
@@ -51,11 +57,15 @@ interface IconButtonProps {
   disabled?: boolean;
   selected?: boolean;
   size?: IconButtonSize;
-  variant?: 'default' | 'ghost';
+  variant?: IconButtonVariant;
 }
 
 /**
  * Circular pressable for icon-only actions.
+ *
+ * `default` is a muted Capsule, `ghost` (the default) a strong Glass pane and `glass` a regular Glass
+ * pane. The `Pressable` keeps the size and the disabled dimming; the material fills it and centres the
+ * icon. A selected button tints its icon with `primary-text`.
  *
  * Icons inside default to the theme's foreground color, as they do in {@link Button}.
  * Without that default a Lucide icon draws black, which disappears on the dark
@@ -77,8 +87,11 @@ export function IconButton({
   const { className: sizeClassName, target } = iconButtonSizeStyles[size];
   const theme = useResolvedTheme();
 
+  const iconColor = Colors[theme][selected ? 'primary-text' : 'foreground'];
+  const rim = rimBySize[size];
+
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       disabled={disabled}
       hitSlop={target.hitSlop}
@@ -86,11 +99,27 @@ export function IconButton({
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: Boolean(disabled), selected: Boolean(selected) }}
-      className={`${sizeClassName} ${variantClasses[variant]} items-center justify-center rounded-full active:opacity-70 ${
-        disabled ? 'opacity-50' : ''
-      }`}
+      className={`${sizeClassName} ${disabled ? 'opacity-50' : ''}`}
+      scaleTo={0.94}
     >
-      <LucideProvider color={Colors[theme].foreground}>{children}</LucideProvider>
-    </Pressable>
+      {({ pressed }) => {
+        const icon = <LucideProvider color={iconColor}>{children}</LucideProvider>;
+
+        return variant === 'default' ? (
+          <Capsule tone="muted" pressed={pressed} className={MATERIAL_CLASSES}>
+            {icon}
+          </Capsule>
+        ) : (
+          <Glass
+            variant={variant === 'glass' ? 'regular' : 'strong'}
+            rim={rim}
+            pressed={pressed}
+            className={MATERIAL_CLASSES}
+          >
+            {icon}
+          </Glass>
+        );
+      }}
+    </PressableScale>
   );
 }
