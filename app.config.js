@@ -232,11 +232,10 @@ module.exports = {
         'expo-font',
         {
           fonts: [
-            './assets/fonts/Inter-Regular.otf',
-            './assets/fonts/Inter-Medium.otf',
-            './assets/fonts/Inter-SemiBold.otf',
-            './assets/fonts/Inter-Bold.otf',
-            './assets/fonts/Inter-Black.otf',
+            './assets/fonts/AlloGanapps-Regular.ttf',
+            './assets/fonts/AlloGanapps-Medium.ttf',
+            './assets/fonts/AlloGanapps-SemiBold.ttf',
+            './assets/fonts/AlloGanapps-Bold.ttf',
           ],
         },
       ],

@@ -2,8 +2,8 @@ import type { ReactElement } from 'react';
 import { Text as RNText, type TextProps } from 'react-native';
 import { Colors } from '@/constants/theme';
 
-/** Matches any font-family utility a caller may supply, e.g. `font-inter-bold`. */
-const FONT_FAMILY_CLASS = /(?:^|\s)font-(?:inter-\w+|mono)(?:\s|$)/;
+/** Matches any font-family utility a caller may supply, e.g. `font-allo-bold`. */
+const FONT_FAMILY_CLASS = /(?:^|\s)font-(?:allo-\w+|mono)(?:\s|$)/;
 
 /** Matches a semantic text colour utility, e.g. `text-destructive-foreground` or `text-primary-text/70`. */
 const TEXT_COLOR_CLASS = new RegExp(`(?:^|\\s)text-(?:${Object.keys(Colors.light).join('|')})(?:/\\d+)?(?:\\s|$)`);

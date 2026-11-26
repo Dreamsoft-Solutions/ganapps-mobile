@@ -56,7 +56,7 @@ export function Toast({ item, onDismiss }: ToastProps): ReactElement {
       >
         <Icon size={18} className={TOAST_ICON_CLASSES[item.type]} />
         <View className="flex-1">
-          <Text className="font-inter-semibold text-body-md text-card-foreground">{item.title}</Text>
+          <Text className="font-allo-semibold text-body-md text-card-foreground">{item.title}</Text>
           {item.message !== undefined && (
             <Text className="text-body-md text-muted-foreground mt-xs">{item.message}</Text>
           )}

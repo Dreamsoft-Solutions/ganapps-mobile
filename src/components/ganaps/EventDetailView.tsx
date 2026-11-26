@@ -13,7 +13,7 @@ import { IconButton } from '@/components/common/IconButton';
 import { Text } from '@/components/common/Text';
 import { formatInterestLabel } from '@/constants/interests';
 import { Routes } from '@/constants/routes';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Fonts, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { BusinessDetail } from '@/types/business.types';
 import type { FriendUserSummary } from '@/types/friends.types';
@@ -124,7 +124,7 @@ function FriendsGoingStatus({ friends, isLoading, error, hasMore }: FriendsGoing
               ),
             )}
           </View>
-          <Text className="min-w-0 flex-1 font-inter-semibold text-body-md">
+          <Text className="min-w-0 flex-1 font-allo-semibold text-body-md">
             {getFriendsGoingLabel(friends, hasMore)}
           </Text>
         </View>
@@ -388,7 +388,7 @@ function EventDetailContent({
         />
       </View>
 
-      <Text className="mt-xl font-inter-semibold text-headline-sm" accessibilityRole="header">
+      <Text className="mt-xl font-allo-semibold text-headline-sm" accessibilityRole="header">
         Hosted by
       </Text>
       <Link href={Routes.businessProfile(ganap.businessId)} asChild>
@@ -421,7 +421,7 @@ function EventDetailContent({
         </Pressable>
       </Link>
 
-      <Text className="mt-xl font-inter-semibold text-headline-sm" accessibilityRole="header">
+      <Text className="mt-xl font-allo-semibold text-headline-sm" accessibilityRole="header">
         About
       </Text>
       <View className="mt-sm">
@@ -437,7 +437,7 @@ function EventDetailContent({
         </Markdown>
       </View>
 
-      <Text className="mt-xl font-inter-semibold text-headline-sm" accessibilityRole="header">
+      <Text className="mt-xl font-allo-semibold text-headline-sm" accessibilityRole="header">
         Location
       </Text>
       <View className="mt-sm">
@@ -496,6 +496,7 @@ export function EventDetailView({
   const markdownStyle: MarkdownStyleMap = {
     body: {
       color: Colors[theme].foreground,
+      fontFamily: Fonts.regular,
       fontSize: 16,
       lineHeight: 24,
     },
@@ -505,25 +506,28 @@ export function EventDetailView({
     },
     heading1: {
       color: Colors[theme].foreground,
+      fontFamily: Fonts.bold,
       fontSize: 24,
       lineHeight: 32,
       marginBottom: 8,
     },
     heading2: {
       color: Colors[theme].foreground,
+      fontFamily: Fonts.bold,
       fontSize: 20,
       lineHeight: 28,
       marginBottom: 8,
     },
     heading3: {
       color: Colors[theme].foreground,
+      fontFamily: Fonts.bold,
       fontSize: 18,
       lineHeight: 24,
       marginBottom: 8,
     },
     strong: {
       color: Colors[theme].foreground,
-      fontWeight: '700',
+      fontFamily: Fonts.bold,
     },
     em: {
       color: Colors[theme].foreground,

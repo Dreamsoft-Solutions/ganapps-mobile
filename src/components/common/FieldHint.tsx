@@ -42,7 +42,7 @@ export function FieldHint({ accessibilityLabel, message, title }: FieldHintProps
           className="absolute right-0 top-8 z-20 w-72 rounded-lg border border-border bg-popover p-3 shadow-md"
           accessibilityLiveRegion="polite"
         >
-          <Text className="font-inter-semibold text-body-md text-popover-foreground">{title}</Text>
+          <Text className="font-allo-semibold text-body-md text-popover-foreground">{title}</Text>
           <Text className="mt-1 text-body-md text-popover-foreground">{message}</Text>
         </View>
       )}

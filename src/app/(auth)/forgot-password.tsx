@@ -31,7 +31,7 @@ export default function ForgotPasswordScreen(): ReactElement {
         keyboardShouldPersistTaps="handled"
       >
         <View className="mb-6 items-center">
-          <Text className="text-center font-inter-bold text-headline-md text-foreground" accessibilityRole="header">
+          <Text className="text-center font-allo-bold text-headline-md text-foreground" accessibilityRole="header">
             Reset your password
           </Text>
           <Text className="text-body-md text-muted-foreground text-center mt-2">

@@ -27,7 +27,7 @@ export function LocationPrimingSheet({ visible, onConfirm, onDismiss }: Location
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
       <View className="flex-1 justify-end bg-black/40">
         <View className="bg-card rounded-t-xl p-lg gap-sm" style={{ paddingBottom: insets.bottom + Spacing.lg }}>
-          <Text className="font-inter-bold text-headline-sm text-card-foreground" accessibilityRole="header">
+          <Text className="font-allo-bold text-headline-sm text-card-foreground" accessibilityRole="header">
             See events near you
           </Text>
           <Text className="text-body-md text-muted-foreground">

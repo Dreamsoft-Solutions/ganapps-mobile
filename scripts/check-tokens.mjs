@@ -311,6 +311,31 @@ const saturateMatch = /GLASS_SATURATE\b[^=]*=\s*(-?\d+\.?\d*)/.exec(themeSrc);
 checks++;
 expectEqual('theme.ts GLASS_SATURATE', saturateMatch?.[1], String(Number.parseFloat(saturate.value) / 100));
 
+const typeStyles = tokens.type.groups.flatMap((group) => group.styles);
+const twFontSize = extend.fontSize ?? {};
+for (const style of typeStyles) {
+  const entry = twFontSize[style.name];
+  checks++;
+  if (!Array.isArray(entry)) {
+    fail(`tailwind fontSize['${style.name}'] is missing`);
+    continue;
+  }
+  const [size, meta] = entry;
+  expectEqual(`tailwind fontSize['${style.name}'] size`, size, style.fontSize);
+  for (const key of ['lineHeight', 'fontWeight', 'letterSpacing']) {
+    checks++;
+    expectEqual(`tailwind fontSize['${style.name}'].${key}`, meta?.[key], String(style[key]));
+  }
+}
+const twFamilies = extend.fontFamily ?? {};
+for (const font of tokens.type.fonts.filter((f) => f.family === 'Allo Ganapps')) {
+  const file = path.basename(font.file, path.extname(font.file));
+  checks++;
+  if (!Object.values(twFamilies).some((list) => Array.isArray(list) && list[0] === file)) {
+    fail(`tailwind fontFamily has no family for ${file}`);
+  }
+}
+
 if (checkDocs) {
   const docs = norm(read('docs/DESIGN.md'));
   const rawDocs = read('docs/DESIGN.md').toLowerCase();

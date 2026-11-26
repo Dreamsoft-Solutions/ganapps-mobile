@@ -34,7 +34,7 @@ function PrivacySettingRow({
   return (
     <View className="flex-row items-center border-b border-border py-md last:border-b-0">
       <View className="mr-md min-w-0 flex-1">
-        <Text className="font-inter-semibold text-body-lg">{label}</Text>
+        <Text className="font-allo-semibold text-body-lg">{label}</Text>
         <Text className="mt-xs text-body-md text-muted-foreground">{description}</Text>
       </View>
       <Switch

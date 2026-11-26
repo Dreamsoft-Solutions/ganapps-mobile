@@ -55,7 +55,7 @@ export function ScreenHeader({
         ) : null}
         <View className="min-w-0 flex-1">
           {title ? (
-            <Text className="font-inter-bold text-headline-md" numberOfLines={1} accessibilityRole="header">
+            <Text className="font-allo-bold text-headline-md" numberOfLines={1} accessibilityRole="header">
               {title}
             </Text>
           ) : null}

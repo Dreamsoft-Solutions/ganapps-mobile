@@ -72,7 +72,7 @@ export function AttendanceScanView({
       >
         <View className="relative flex-row items-center justify-center">
           <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
-            <Text className="font-inter-bold text-headline-sm" accessibilityRole="header">
+            <Text className="font-allo-bold text-headline-sm" accessibilityRole="header">
               Record attendance
             </Text>
           </View>
@@ -97,7 +97,7 @@ export function AttendanceScanView({
             <View className="mb-md">
               <Settings size={64} color={Colors[theme]['muted-foreground']} />
             </View>
-            <Text className="mb-sm text-center font-inter-semibold text-headline-sm">Camera access needed</Text>
+            <Text className="mb-sm text-center font-allo-semibold text-headline-sm">Camera access needed</Text>
             <Text className="mb-lg text-center text-body-md text-muted-foreground">
               Ganapps needs the camera to scan the organizer's attendance QR code. Allow camera access in Settings to
               record your attendance.
@@ -158,7 +158,7 @@ export function AttendanceScanView({
             <View className="mb-md">
               <CircleCheck size={64} color={Colors[theme]['primary-text']} />
             </View>
-            <Text className="mb-sm text-center font-inter-semibold text-headline-sm">Attendance recorded</Text>
+            <Text className="mb-sm text-center font-allo-semibold text-headline-sm">Attendance recorded</Text>
             <Text className="mb-lg text-center text-body-md text-muted-foreground">
               {eventTitle
                 ? `${eventTitle} — you're all set. Thanks for coming.`
@@ -180,7 +180,7 @@ export function AttendanceScanView({
             <View className="mb-md">
               <CloudUpload size={64} color={Colors[theme]['primary-text']} />
             </View>
-            <Text className="mb-sm text-center font-inter-semibold text-headline-sm">Saved on this device</Text>
+            <Text className="mb-sm text-center font-allo-semibold text-headline-sm">Saved on this device</Text>
             <Text className="mb-lg text-center text-body-md text-muted-foreground">
               You're offline right now. Your attendance was saved with the scan time and will be recorded automatically
               when you're back online.
@@ -196,7 +196,7 @@ export function AttendanceScanView({
             <View className="mb-md">
               <CircleAlert size={64} color={Colors[theme].destructive} />
             </View>
-            <Text className="mb-sm text-center font-inter-semibold text-headline-sm">{phase.model.title}</Text>
+            <Text className="mb-sm text-center font-allo-semibold text-headline-sm">{phase.model.title}</Text>
             <Text className="mb-lg text-center text-body-md text-muted-foreground">{phase.model.message}</Text>
             <View className="w-full gap-sm">
               {phase.canRescan && (

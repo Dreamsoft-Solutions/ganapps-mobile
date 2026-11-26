@@ -40,7 +40,7 @@ function getErrorMessage(error: { message?: unknown } | undefined): string | nul
 function QuestionLabel({ block }: QuestionLabelProps): ReactElement {
   return (
     <View className="mb-sm flex-row flex-wrap items-baseline gap-xs">
-      <Text className="font-inter-semibold text-headline-sm">{block.label}</Text>
+      <Text className="font-allo-semibold text-headline-sm">{block.label}</Text>
       {block.isRequired && <Text className="text-label-md text-muted-foreground">Required</Text>}
     </View>
   );

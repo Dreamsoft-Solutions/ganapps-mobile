@@ -19,7 +19,7 @@ export default function VerifyEmailScreen(): ReactElement {
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
       <ScrollView className="flex-1" contentContainerClassName="p-lg gap-sm" keyboardShouldPersistTaps="handled">
-        <Text className="mb-2 text-center font-inter-bold text-headline-md text-foreground" accessibilityRole="header">
+        <Text className="mb-2 text-center font-allo-bold text-headline-md text-foreground" accessibilityRole="header">
           Verify your email
         </Text>
         <Text className="text-muted-foreground text-body-md text-center mb-8">

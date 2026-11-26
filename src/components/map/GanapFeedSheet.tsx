@@ -99,7 +99,7 @@ function FeedSheetHeader({ title, mode, onZoomIn, onClose }: FeedSheetHeaderProp
       <View className="h-1 w-10 self-center rounded-full" style={{ backgroundColor: Colors[theme].border }} />
 
       <View className="mt-sm flex-row items-center justify-between px-md pb-xs">
-        <Text accessibilityRole="header" className="font-inter-bold text-headline-sm text-foreground">
+        <Text accessibilityRole="header" className="font-allo-bold text-headline-sm text-foreground">
           {title}
         </Text>
 

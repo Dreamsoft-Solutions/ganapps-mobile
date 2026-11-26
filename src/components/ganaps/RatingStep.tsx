@@ -62,7 +62,7 @@ export function RatingStep({
 
       <View className="flex-1 justify-center p-xl">
         {stepLabel ? <Text className="mb-sm text-center text-label-sm text-muted-foreground">{stepLabel}</Text> : null}
-        <Text className="mb-xs text-center font-inter-bold text-headline-md" accessibilityRole="header">
+        <Text className="mb-xs text-center font-allo-bold text-headline-md" accessibilityRole="header">
           How was it?
         </Text>
         <Text className="mb-lg text-center text-body-md text-muted-foreground" numberOfLines={2}>

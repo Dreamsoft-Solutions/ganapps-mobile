@@ -169,7 +169,7 @@ export function OnboardingForm(): ReactElement {
           <>
             <View className="mb-6">
               <Text
-                className="mb-2 text-center font-inter-bold text-headline-md text-foreground"
+                className="mb-2 text-center font-allo-bold text-headline-md text-foreground"
                 accessibilityRole="header"
               >
                 What should we call you?
@@ -206,7 +206,7 @@ export function OnboardingForm(): ReactElement {
           <>
             <View className="mb-6">
               <Text
-                className="mb-2 text-center font-inter-bold text-headline-md text-foreground"
+                className="mb-2 text-center font-allo-bold text-headline-md text-foreground"
                 accessibilityRole="header"
               >
                 Add a photo and interests

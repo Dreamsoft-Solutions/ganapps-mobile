@@ -107,7 +107,7 @@ export function MapSearchBar({
                     accessibilityHint="Centers the map on this event"
                   >
                     <View className="flex-1">
-                      <Text className="text-body-md font-inter-semibold" numberOfLines={1}>
+                      <Text className="text-body-md font-allo-semibold" numberOfLines={1}>
                         {suggestion.title}
                       </Text>
                       {suggestion.address ? (
