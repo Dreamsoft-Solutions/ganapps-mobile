@@ -66,7 +66,7 @@ export function SegmentControl<T extends string>({
           >
             <Text
               className="text-label-md"
-              style={{ color: selected ? Colors[theme].primary : Colors[theme]['muted-foreground'] }}
+              style={{ color: selected ? Colors[theme]['primary-text'] : Colors[theme]['muted-foreground'] }}
             >
               {option.label}
             </Text>

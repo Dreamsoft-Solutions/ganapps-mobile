@@ -22,7 +22,7 @@ export const buttonVariants = cva('flex flex-row items-center justify-center rou
       outline: 'border-input bg-background',
       ghost: 'border-transparent bg-transparent',
       destructive: 'border-transparent bg-destructive',
-      link: 'border-transparent bg-transparent underline-offset-4',
+      link: 'border-transparent bg-transparent',
     },
     size: {
       sm: 'px-3 py-2',
@@ -53,9 +53,9 @@ export const buttonTextVariants = cva('font-inter-semibold text-center', {
       default: 'text-primary-foreground',
       secondary: 'text-secondary-foreground',
       outline: 'text-foreground',
-      ghost: 'text-primary',
+      ghost: 'text-primary-text',
       destructive: 'text-destructive-foreground',
-      link: 'text-primary underline',
+      link: 'text-primary-text font-inter-semibold',
     },
     size: {
       sm: 'text-sm',

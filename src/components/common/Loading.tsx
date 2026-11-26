@@ -15,7 +15,7 @@ interface LoadingProps {
  * @returns A centered activity indicator with an optional message.
  */
 export function Loading({ message }: LoadingProps): ReactElement {
-  const color = Colors[useResolvedTheme()].primary;
+  const color = Colors[useResolvedTheme()]['primary-text'];
 
   return (
     <View className="flex-1 items-center justify-center p-xl">
