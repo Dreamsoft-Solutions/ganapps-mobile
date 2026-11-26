@@ -1,7 +1,7 @@
-import type { ReactElement, ReactNode } from 'react';
+import { type ReactElement, type ReactNode, useState } from 'react';
 import { Controller, type ControllerRenderProps, useFormContext } from 'react-hook-form';
 import { TextInput, View } from 'react-native';
-import { Colors } from '@/constants/theme';
+import { Colors, Shadows } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { FieldHint } from './FieldHint';
 import { Text } from './Text';
@@ -33,7 +33,8 @@ interface InputProps {
  *
  * A single-line field is always 48dp tall (`h-touch`), so a field with a trailing icon
  * such as the password toggle matches one without. The text input fills that height, so a
- * tap anywhere in the field focuses it.
+ * tap anywhere in the field focuses it. The field is recessed (`Shadows.well`); focus or an error adds
+ * a 1dp inset ring in `ring` or `destructive` on top of the matching border.
  *
  * @param props - Input configuration, editability, and optional helper text, right icon, and label hint slots.
  * @returns A labeled input field with inline validation errors.
@@ -57,7 +58,12 @@ export function Input({
   const { control, formState } = useFormContext();
   const theme = useResolvedTheme();
   const error = formState.errors[name]?.message as string | undefined;
+  const [focused, setFocused] = useState<boolean>(false);
   const placeholderTextColor: string = Colors[theme]['muted-foreground'];
+  const ringColor: string = error ? Colors[theme].destructive : Colors[theme].ring;
+  const fieldShadow: string =
+    focused || error ? `${Shadows[theme].well}, inset 0 0 0 1px ${ringColor}` : Shadows[theme].well;
+  const borderClass: string = error ? 'border-destructive' : focused ? 'border-ring' : 'border-input';
 
   return (
     <Controller
@@ -80,13 +86,14 @@ export function Input({
             </View>
           )}
           <View
-            className={`flex-row items-center rounded-lg border bg-background px-md ${multiline ? 'py-3' : 'h-touch'} ${
-              error ? 'border-destructive' : 'border-input'
-            }`}
+            className={`flex-row items-center rounded-lg border bg-card px-md ${multiline ? 'py-3' : 'h-touch'} ${borderClass}`}
+            style={{ boxShadow: fieldShadow }}
           >
             <TextInput
               value={value}
               onChangeText={onChange}
+              onFocus={(): void => setFocused(true)}
+              onBlur={(): void => setFocused(false)}
               placeholder={placeholder}
               secureTextEntry={secureTextEntry}
               keyboardType={keyboardType}

@@ -1,10 +1,7 @@
 import { MapPin } from 'lucide-react-native';
 import type { ReactElement } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
-import { chipTextVariants, chipVariants } from '@/components/common/Chip';
-import { Text } from '@/components/common/Text';
-import { Colors } from '@/constants/theme';
-import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { ScrollView, View } from 'react-native';
+import { Chip } from '@/components/common/Chip';
 
 interface TagChipsProps {
   tags: string[];
@@ -33,25 +30,19 @@ export function TagChips({
   onToggleNearby,
 }: TagChipsProps): ReactElement {
   const allTags: string[] = ['All', ...tags];
-  const theme = useResolvedTheme();
-  const iconColor: string = isNearbyActive ? Colors[theme]['primary-foreground'] : Colors[theme]['muted-foreground'];
 
   return (
     <View className="flex-row items-center py-2">
       <View className="pl-4 pr-3 border-r border-border">
-        <Pressable
-          onPress={onToggleNearby}
+        <Chip
+          label="Nearby"
+          icon={<MapPin />}
+          role="switch"
+          selected={isNearbyActive}
           disabled={isNearbyDisabled}
-          className={`flex-row items-center gap-1 ${chipVariants({ selected: isNearbyActive })} ${
-            isNearbyDisabled ? 'opacity-50' : ''
-          }`}
-          accessibilityRole="switch"
+          onPress={onToggleNearby}
           accessibilityLabel="Show events near me"
-          accessibilityState={{ checked: isNearbyActive, disabled: isNearbyDisabled }}
-        >
-          <MapPin size={14} color={iconColor} />
-          <Text className={chipTextVariants({ selected: isNearbyActive })}>Nearby</Text>
-        </Pressable>
+        />
       </View>
 
       <ScrollView
@@ -62,15 +53,13 @@ export function TagChips({
         {allTags.map((tag): ReactElement => {
           const isActive = tag === 'All' ? selectedTag === null : selectedTag === tag;
           return (
-            <Pressable
+            <Chip
               key={tag}
+              label={tag}
+              selected={isActive}
               onPress={(): void => onSelectTag(tag === 'All' ? null : tag)}
-              className={chipVariants({ selected: isActive })}
               accessibilityLabel={`Filter by ${tag}`}
-              accessibilityState={{ selected: isActive }}
-            >
-              <Text className={chipTextVariants({ selected: isActive })}>{tag}</Text>
-            </Pressable>
+            />
           );
         })}
       </ScrollView>
