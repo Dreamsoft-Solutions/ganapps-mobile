@@ -400,8 +400,8 @@ A capsule is a lit solid control. It is raised, so it reads as pressable.
 
 - A light-to-dark fill in the control's own color.
 - `bezel-sheen` falling on the top-left corner only.
-- `shadow-bezel` for the lit volume. The stylesheet adds a drop glow in the control's fill
-  color.
+- `shadow-bezel` for the lit volume, plus a drop glow in the control's fill color. Chips have
+  no glow: they sit in horizontal scroll rows, which clip it to a hard rectangle.
 - `shadow-bezel-pressed` when pressed.
 
 Primary, secondary and destructive buttons, the selected chip and cluster pins are capsules.
@@ -441,9 +441,22 @@ Rules for drawn blur on Android:
 Build order: the `Glass` and `Capsule` primitives with Solid only, then Liquid Glass, then the
 Android map test.
 
-**Not built yet.** The `Glass` and `Capsule` primitives are hub #275. `expo-glass-effect` is
-installed. `expo-blur` is not, so the Drawn blur tier is not available today. Until #275
-lands, build glass-shaped controls from the tokens above with the Solid recipe.
+**In the app today:** `Glass` and `Capsule` in `src/components/common/` draw the Solid tier
+only. Liquid Glass is hub #280, and drawn blur waits on the map test (hub #281). Compose every
+control from these two primitives and `PressableScale`; never rebuild the material in a
+component.
+
+How the Solid recipe is drawn in React Native:
+
+- The rim, the body tint, the sweep and the capsule run are `experimental_backgroundImage`
+  gradients with `experimental_backgroundRepeat: 'no-repeat'`. Without no-repeat the tile
+  repeats into a transparent border and draws a stray arc at the edge.
+- `color-mix()` has no React Native equivalent; `mix()` in `src/utils/color-mix.ts` computes it
+  from the tokens.
+- No gradient position may be negative: Android drops it.
+- Rims and rings never add size. The primitive keeps the control's own layout classes,
+  including a transparent 1dp border where the control had one, so touch targets stay exact.
+- Inset shadows draw only on Android 10 and newer, so Input and Card keep real borders.
 
 ## Typography
 

@@ -94,6 +94,7 @@ export function Glass({
     return {
       borderRadius: flat ? 0 : radius,
       experimental_backgroundImage: flat ? undefined : rimGradient,
+      experimental_backgroundRepeat: 'no-repeat',
       boxShadow: joinShadow(shadow.filter((layer) => !layer.startsWith('inset'))),
     };
   }, [theme, flat, radius, pressed, lift]);

@@ -55,6 +55,7 @@ export function Capsule({
       borderRadius: radius,
       backgroundColor: base,
       experimental_backgroundImage: `${sheen}, ${light}`,
+      experimental_backgroundRepeat: 'no-repeat',
       boxShadow: pressed
         ? `${ring}, ${shadows['bezel-pressed']}`
         : [ring, shadows.bezel, ...(glow ? [lift] : [])].join(', '),

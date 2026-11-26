@@ -98,7 +98,7 @@ export function Chip({
     >
       {({ pressed }) =>
         selected ? (
-          <Capsule tone="primary" pressed={pressed} className={classes}>
+          <Capsule tone="primary" glow={false} pressed={pressed} className={classes}>
             {content}
           </Capsule>
         ) : (
