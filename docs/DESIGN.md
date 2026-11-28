@@ -784,7 +784,9 @@ it. To add, remove or reorder slides, change `Assets.onboarding` (`constants/ass
 **The island.** The controls sit in one glass island at the bottom:
 `Glass variant="strong" rim="lg" lift="island"`, radius `2xl`, with 16dp padding and 12dp gaps.
 
-- Page dots: `border` dots, with the current page as a `primary` pill.
+- Page dots: expanding dots. Each page has a round dot in `on-glass-muted` at 45%, and the current
+  page's dot stretches into a long `primary` dot. A swipe shrinks one and stretches the next under
+  the finger.
 - `Get started`: the default `primary` button, size `auth`.
 - `Log in`: the `secondary` button, size `auth`.
 - The tagline: `label-sm` `muted-foreground`, which resolves to `on-glass-muted` inside glass.

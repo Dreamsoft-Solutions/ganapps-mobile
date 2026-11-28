@@ -1,10 +1,11 @@
-import { memo, useMemo, type ReactElement } from 'react';
+import { memo, useMemo, useState, type ReactElement } from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 import Animated, {
   clamp,
   Extrapolation,
   interpolate,
   useAnimatedProps,
+  useAnimatedReaction,
   useAnimatedStyle,
   useDerivedValue,
   useReducedMotion,
@@ -14,6 +15,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import Svg, { Path, Rect, type PathProps } from 'react-native-svg';
+import { scheduleOnRN } from 'react-native-worklets';
 import { Music, Ticket, Users, type LucideIcon } from 'lucide-react-native';
 
 import { Capsule } from '@/components/common/Capsule';
@@ -59,6 +61,10 @@ const DOT_SIZE = 8;
 const DOT_FADE = 0.15;
 /** Length of one pulse of the pin ring, ms. */
 const PULSE_DURATION = 2400;
+/** Pulses the pin ring plays each time its slide arrives. */
+const PULSE_COUNT = 3;
+/** Scene progress from which the pin counts as in view; under 1 so pager float error cannot hold it. */
+const PIN_SHOWN_AT = 0.99;
 
 /** One theme's colour tokens. */
 type Palette = Record<ThemeColor, string>;
@@ -69,16 +75,16 @@ const PULSE_KEYFRAMES: CSSAnimationKeyframes<ViewStyle> = {
   to: { opacity: 0, transform: [{ scale: 2.2 }] },
 };
 
-/** The pulse on the settled slide's pin ring. */
+/**
+ * The pulses on the settled slide's pin ring. Without a fill mode the ring falls back to its
+ * hidden base opacity once they end; a still ring carries no animation props at all.
+ */
 const PULSE: CSSStyle<ViewStyle> = {
   animationName: PULSE_KEYFRAMES,
   animationDuration: PULSE_DURATION,
-  animationIterationCount: 'infinite',
+  animationIterationCount: PULSE_COUNT,
   animationTimingFunction: CSS_EASE_OUT,
 };
-
-/** A still pin ring, hidden by its base opacity. */
-const NO_PULSE: CSSStyle<ViewStyle> = { animationName: 'none' };
 
 /** Icon shown in each scene's pin. */
 const PIN_ICONS = { find: Music, plan: Users, keep: Ticket } satisfies Record<MapScene['key'], LucideIcon>;
@@ -394,13 +400,27 @@ interface PinProps extends ScenePartProps {
   readonly scene: MapScene;
   readonly width: number;
   readonly height: number;
-  /** Whether the ring pulses: the scene's slide is settled and motion is allowed. */
+  /** Whether the ring may pulse: the scene's slide is settled and motion is allowed. */
   readonly pulsing: boolean;
 }
 
-/** The event pin with its pulsing ring; it pops in as the route completes. */
+/**
+ * The event pin; it pops in as the route completes. Its ring pulses three times each time the
+ * slide settles, once the pin is in view.
+ */
 function Pin({ scene, width, height, pulsing, progress, colors }: PinProps): ReactElement {
   const Icon: LucideIcon = PIN_ICONS[scene.key];
+  /**
+   * Latches the first time the pin is in view, so the first slide does not spend its pulses under
+   * a pin the entrance has not drawn yet. The reaction fires on the crossing only, never per frame.
+   */
+  const [shown, setShown] = useState<boolean>(false);
+  useAnimatedReaction(
+    (): boolean => progress.get() >= PIN_SHOWN_AT,
+    (isShown: boolean, wasShown: boolean | null): void => {
+      if (isShown && !wasShown) scheduleOnRN(setShown, true);
+    },
+  );
   const frame = useMemo(
     (): ViewStyle => ({
       position: 'absolute',
@@ -434,7 +454,7 @@ function Pin({ scene, width, height, pulsing, progress, colors }: PinProps): Rea
 
   return (
     <Animated.View style={[frame, appear]}>
-      <Animated.View style={[ring, pulsing ? PULSE : NO_PULSE]} />
+      <Animated.View style={pulsing && shown ? [ring, PULSE] : ring} />
       <Capsule tone="primary" radius={PIN_SIZE / 2} style={styles.pin}>
         <Icon size={PIN_ICON_SIZE} color={colors['primary-foreground']} />
       </Capsule>
@@ -529,9 +549,9 @@ export interface OnboardingMapProps {
  * The street map of a river city behind the Welcome models. The canvas is two slides wide and pans
  * at half the pager's speed. Each slide has a scene: a puck follows a route to an event pin, drawn
  * by `intro` for the first slide and by the swipe itself for the others, so a reversed swipe undraws
- * it. Only the settled slide's pin pulses, and never under reduced motion. Decorative: hidden from
- * touch and screen readers. Per frame only the arriving route's small Svg and a few transformed
- * views update; nothing re-renders during a scroll.
+ * it. Only the settled slide's pin pulses, three times as the slide arrives, and never under reduced
+ * motion. Decorative: hidden from touch and screen readers. Per frame only the arriving route's
+ * small Svg and a few transformed views update; nothing re-renders per frame during a scroll.
  *
  * @example
  * const scrollX = useSharedValue(0);

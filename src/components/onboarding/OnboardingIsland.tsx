@@ -1,45 +1,85 @@
 import { useMemo, type ReactElement } from 'react';
 import { View, type ViewStyle } from 'react-native';
-import Animated, { Extrapolation, interpolate, type SharedValue, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  interpolateColor,
+  type SharedValue,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 
 import { Button } from '@/components/common/Button';
 import { Glass } from '@/components/common/Glass';
 import { Text } from '@/components/common/Text';
 import { BRAND_TAGLINE } from '@/constants/onboarding';
-import { BorderRadius } from '@/constants/theme';
+import { BorderRadius, Colors } from '@/constants/theme';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { mix } from '@/utils/color-mix';
 
-/** Diameter of one page dot, dp. */
+/** Size of a round page dot, dp. */
 const DOT_SIZE: number = 6;
 
-/** Space between two page dots, dp. */
-const DOT_GAP: number = 8;
+/** Width of the current page's long dot, dp. */
+const DOT_LONG: number = 22;
 
-/** Distance between two dot centres, dp. */
-const DOT_PITCH: number = DOT_SIZE + DOT_GAP;
+/** Space between two neighbouring dots, dp. */
+const DOT_GAP: number = 10;
 
-/** Width of the active-page pill, dp. */
-const PILL_WIDTH: number = 16;
+/** Share of `on-glass-muted` in a resting dot's colour, percent. */
+const DOT_REST_MIX: number = 45;
 
 /** The island's inner layout. Glass draws the material; this only spaces the content. */
 const ISLAND_STYLE = { padding: 16, flexDirection: 'column', gap: 12 } as const satisfies ViewStyle;
 
-/** The dots row, laid out so the pill can sit absolutely over it. */
-const DOTS_STYLE = { flexDirection: 'row', gap: DOT_GAP } as const satisfies ViewStyle;
-
-/** One resting page dot. */
-const DOT_STYLE = { width: DOT_SIZE, height: DOT_SIZE, borderRadius: DOT_SIZE / 2 } as const satisfies ViewStyle;
-
-/** The active-page pill frame, centred on the first dot. */
-const PILL_FRAME_STYLE = {
+/** One dot's static frame, placed by its animated `translateX` inside the track. */
+const DOT_STYLE = {
   position: 'absolute',
   top: 0,
-  left: (DOT_SIZE - PILL_WIDTH) / 2,
-  width: PILL_WIDTH,
+  left: 0,
   height: DOT_SIZE,
+  borderRadius: DOT_SIZE / 2,
 } as const satisfies ViewStyle;
 
-/** The pill's fill, inside its animated frame. */
-const PILL_FILL_STYLE = { flex: 1, borderRadius: DOT_SIZE / 2 } as const satisfies ViewStyle;
+/** Width of dot `index` at pager position `page`: long on its own page, round one page away. */
+function dotWidth(page: number, index: number): number {
+  'worklet';
+  return interpolate(page, [index - 1, index, index + 1], [DOT_SIZE, DOT_LONG, DOT_SIZE], Extrapolation.CLAMP);
+}
+
+/** Left edge of dot `index` at pager position `page`: the dots before it, each with its gap. */
+function dotLeft(page: number, index: number): number {
+  'worklet';
+  let left = 0;
+  for (let before = 0; before < index; before += 1) {
+    left += dotWidth(page, before) + DOT_GAP;
+  }
+  return left;
+}
+
+/** Props for {@link PageDot}. */
+interface PageDotProps {
+  readonly index: number;
+  readonly scrollX: SharedValue<number>;
+  readonly pageWidth: number;
+  /** Colour of a round dot. */
+  readonly restColor: string;
+  /** Colour of the long dot. */
+  readonly activeColor: string;
+}
+
+/** One page dot. It stretches and takes the active colour as its page arrives, 1:1 with the pager. */
+function PageDot({ index, scrollX, pageWidth, restColor, activeColor }: PageDotProps): ReactElement {
+  const motion = useAnimatedStyle((): ViewStyle => {
+    const page = pageWidth > 0 ? scrollX.get() / pageWidth : 0;
+    return {
+      width: dotWidth(page, index),
+      backgroundColor: interpolateColor(page, [index - 1, index, index + 1], [restColor, activeColor, restColor]),
+      transform: [{ translateX: dotLeft(page, index) }],
+    };
+  });
+
+  return <Animated.View style={[DOT_STYLE, motion]} />;
+}
 
 /** Props for {@link OnboardingIsland}. */
 export interface OnboardingIslandProps {
@@ -52,8 +92,9 @@ export interface OnboardingIslandProps {
 
 /**
  * The Welcome island: a strong Glass pane holding the page dots, the two sign-in actions and the
- * tagline. The pill slides between dots with the pager's offset on the UI thread; the dots are
- * hidden from screen readers.
+ * tagline. The current page's dot is the long one; as the pager moves, the dot being left shrinks
+ * and the next one stretches on the UI thread, following the finger. The dots are hidden from
+ * screen readers.
  *
  * @example
  * <OnboardingIsland
@@ -71,14 +112,18 @@ export function OnboardingIsland({
   onGetStarted,
   onLogIn,
 }: OnboardingIslandProps): ReactElement {
-  const lastIndex = Math.max(pageCount - 1, 0);
+  const theme = useResolvedTheme();
+  const restColor: string = useMemo((): string => mix(Colors[theme]['on-glass-muted'], DOT_REST_MIX), [theme]);
+  const activeColor: string = Colors[theme].primary;
 
-  const pillMotion = useAnimatedStyle((): ViewStyle => {
-    const end = lastIndex * pageWidth;
-    const translateX =
-      end > 0 ? interpolate(scrollX.get(), [0, end], [0, lastIndex * DOT_PITCH], Extrapolation.CLAMP) : 0;
-    return { transform: [{ translateX }] };
-  });
+  const trackStyle = useMemo(
+    (): ViewStyle => ({
+      width: Math.max(pageCount - 1, 0) * (DOT_SIZE + DOT_GAP) + DOT_LONG,
+      height: DOT_SIZE,
+      alignSelf: 'center',
+    }),
+    [pageCount],
+  );
 
   const dotKeys = useMemo(
     (): readonly number[] => Array.from({ length: pageCount }, (_: unknown, index: number): number => index),
@@ -91,18 +136,20 @@ export function OnboardingIsland({
         pointerEvents="none"
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
-        className="flex-row items-center justify-center"
+        style={trackStyle}
       >
-        <View style={DOTS_STYLE}>
-          {dotKeys.map(
-            (key: number): ReactElement => (
-              <View key={key} className="bg-border" style={DOT_STYLE} />
-            ),
-          )}
-          <Animated.View style={[PILL_FRAME_STYLE, pillMotion]}>
-            <View className="bg-primary" style={PILL_FILL_STYLE} />
-          </Animated.View>
-        </View>
+        {dotKeys.map(
+          (key: number): ReactElement => (
+            <PageDot
+              key={key}
+              index={key}
+              scrollX={scrollX}
+              pageWidth={pageWidth}
+              restColor={restColor}
+              activeColor={activeColor}
+            />
+          ),
+        )}
       </View>
       <Button size="auth" onPress={onGetStarted}>
         Get started
