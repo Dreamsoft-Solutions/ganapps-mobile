@@ -16,6 +16,7 @@ import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
+import { Glass } from '@/components/common/Glass';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { ClusteredGanapMarkers } from '@/components/map/ClusteredGanapMarkers';
@@ -29,7 +30,7 @@ import { ReducedAccuracyNotice } from '@/components/map/ReducedAccuracyNotice';
 import { TagChips } from '@/components/map/TagChips';
 import { getTabBarIslandTop } from '@/components/navigation/AppTabBar';
 import { Routes } from '@/constants/routes';
-import { Spacing } from '@/constants/theme';
+import { BorderRadius, Spacing } from '@/constants/theme';
 import { useGanapDiscovery } from '@/hooks/useGanapDiscovery';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { Coords } from '@/services/location.service';
@@ -686,8 +687,8 @@ export default function HomeScreen(): ReactElement {
           onDismiss={nearby.dismissAccuracyNotice}
         />
         {nearby.isDisabled && (
-          <View className="mx-4 mt-2 rounded-md bg-card border border-border p-sm gap-1">
-            <Text className="text-label-md text-card-foreground">Location is off</Text>
+          <Glass variant="strong" radius={BorderRadius.xl} className="mx-md mt-xs gap-1 p-md">
+            <Text className="text-label-md text-foreground">Location is off</Text>
             <Text className="text-body-md text-muted-foreground">
               Turn on location for Ganapps in Settings to filter events near you. Everything else on the map still
               works.
@@ -702,12 +703,12 @@ export default function HomeScreen(): ReactElement {
                 Open settings
               </Button>
             </View>
-          </View>
+          </Glass>
         )}
         {nearby.errorMessage !== null && (
-          <View className="mx-4 mt-2 rounded-md bg-card border border-border p-sm">
+          <Glass variant="strong" radius={BorderRadius.xl} className="mx-md mt-xs p-md">
             <Text className="text-body-md text-muted-foreground">{nearby.errorMessage}</Text>
-          </View>
+          </Glass>
         )}
       </View>
 

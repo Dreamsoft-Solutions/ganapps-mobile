@@ -1,9 +1,12 @@
 import { Slider } from '@expo/ui/community/slider';
+import { Layers } from 'lucide-react-native';
 import { type ReactElement, useState } from 'react';
-import { type AccessibilityActionEvent, Pressable, Switch, View } from 'react-native';
+import { type AccessibilityActionEvent, Switch, View } from 'react-native';
 import { Button } from '@/components/common/Button';
+import { Glass } from '@/components/common/Glass';
+import { PressableScale, type PressableScaleState } from '@/components/common/PressableScale';
 import { Text } from '@/components/common/Text';
-import { Colors } from '@/constants/theme';
+import { BorderRadius, Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 
 export const MAX_MAP_PITCH: number = 80;
@@ -19,6 +22,8 @@ interface MapViewControlsProps {
 /**
  * Native pitch adjustment, overhead reset, and building visibility controls.
  * @param props - Camera pitch and view-control handlers.
+ * The Map view pill is regular glass with the `layers` glyph; its panel is strong glass, so the
+ * slider and switch stay readable over the map.
  * @returns The themed controls above the map's selection sheet.
  */
 export function MapViewControls({
@@ -32,17 +37,25 @@ export function MapViewControls({
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   return (
     <View className="gap-xs">
-      <Pressable
-        className="min-h-touch justify-center rounded-lg border border-border bg-card px-sm"
+      <PressableScale
+        className="self-start"
         accessibilityRole="button"
         accessibilityLabel="Map view controls"
         accessibilityState={{ expanded: isExpanded }}
         onPress={(): void => setIsExpanded((expanded: boolean): boolean => !expanded)}
+        scaleTo={0.96}
       >
-        <Text className="text-label-md text-card-foreground">{isExpanded ? 'Close map view' : 'Map view'}</Text>
-      </Pressable>
+        {({ pressed }: PressableScaleState): ReactElement => (
+          <Glass pressed={pressed} className="min-h-touch flex-row items-center gap-xs pl-sm pr-md">
+            <Layers size={20} color={Colors[theme].foreground} />
+            <Text className="font-allo-semibold text-label-md text-foreground">
+              {isExpanded ? 'Close map view' : 'Map view'}
+            </Text>
+          </Glass>
+        )}
+      </PressableScale>
       {isExpanded && (
-        <View className="w-56 gap-xs rounded-xl border border-border bg-card p-sm">
+        <Glass variant="strong" radius={BorderRadius.xl} className="w-60 gap-xs p-md">
           <View
             accessible
             accessibilityRole="adjustable"
@@ -54,7 +67,7 @@ export function MapViewControls({
               onPitchChange(Math.max(0, Math.min(MAX_MAP_PITCH, pitch + change)));
             }}
           >
-            <Text className="text-label-md text-card-foreground">Map pitch: {pitch}°</Text>
+            <Text className="text-label-md text-foreground">Map pitch: {pitch}°</Text>
             <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
               <Slider
                 value={pitch}
@@ -77,7 +90,7 @@ export function MapViewControls({
             Return to overhead view
           </Button>
           <View className="min-h-touch flex-row items-center justify-between gap-xs">
-            <Text className="text-label-md text-card-foreground">3D buildings</Text>
+            <Text className="text-label-md text-foreground">3D buildings</Text>
             <Switch
               accessibilityLabel="Show 3D buildings"
               value={buildingsVisible}
@@ -85,7 +98,7 @@ export function MapViewControls({
               trackColor={{ false: Colors[theme].muted, true: Colors[theme].primary }}
             />
           </View>
-        </View>
+        </Glass>
       )}
     </View>
   );

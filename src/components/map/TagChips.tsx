@@ -16,7 +16,7 @@ interface TagChipsProps {
  * Nearby filter chip alongside the horizontal list of category tag chips.
  *
  * Nearby is a filter rather than a category, so it sits in its own divided
- * section and stacks on a selected tag instead of replacing it.
+ * section, set off by a short hairline, and stacks on a selected tag instead of replacing it.
  *
  * @param props - Available tags, current selection, and the tag and Nearby handlers
  * @returns The chip row
@@ -32,8 +32,8 @@ export function TagChips({
   const allTags: string[] = ['All', ...tags];
 
   return (
-    <View className="flex-row items-center py-2">
-      <View className="pl-4 pr-3 border-r border-border">
+    <View className="flex-row items-center py-xs">
+      <View className="flex-row items-center gap-sm pl-md">
         <Chip
           label="Nearby"
           icon={<MapPin />}
@@ -43,6 +43,7 @@ export function TagChips({
           onPress={onToggleNearby}
           accessibilityLabel="Show events near me"
         />
+        <View accessible={false} className="h-6 w-px rounded-full bg-border" />
       </View>
 
       <ScrollView
