@@ -1,12 +1,14 @@
 import { MarkerView } from '@rnmapbox/maps';
-import type { ReactElement } from 'react';
+import { type ReactElement, useMemo } from 'react';
 import { Pressable } from 'react-native';
-import { Text } from '@/components/common/Text';
+import { CLUSTER_PREVIEW_LIMIT, GanapClusterPin } from '@/components/map/GanapClusterPin';
 import { GanapMapPin } from '@/components/map/GanapMapPin';
 import type { GanapListItem } from '@/types/ganap.types';
 import {
   type GanapClusterFeature,
+  type GanapClusterIndex,
   type GanapMapFeature,
+  getClusterPreviewImages,
   getFeatureCoordinate,
   isClusterFeature,
 } from '@/utils/map-clustering';
@@ -18,36 +20,44 @@ interface ClusteredGanapMarkersProps {
   readonly features: readonly GanapMapFeature[];
   readonly onGanapPress: (ganap: GanapListItem) => void;
   readonly onClusterPress: (cluster: GanapClusterFeature) => void;
+  /** The index the clusters came from, for their preview images. */
+  readonly clusterIndex: GanapClusterIndex;
+  /** Whether cluster previews animate; off while the map is not on screen. */
+  readonly isAnimating: boolean;
 }
 
-function renderClusterMarker(
-  feature: GanapClusterFeature,
-  coordinate: [number, number],
-  onPress: (cluster: GanapClusterFeature) => void,
-): ReactElement {
+interface ClusterMarkerProps {
+  readonly feature: GanapClusterFeature;
+  readonly coordinate: [number, number];
+  readonly clusterIndex: GanapClusterIndex;
+  readonly isAnimating: boolean;
+  readonly onPress: (cluster: GanapClusterFeature) => void;
+}
+
+function ClusterMarker({ feature, coordinate, clusterIndex, isAnimating, onPress }: ClusterMarkerProps): ReactElement {
   const clusterId: number = feature.properties.cluster_id;
   const count: number = feature.properties.point_count;
   const label: string = `Zoom to group of ${count} events`;
+  const images: string[] = useMemo(
+    (): string[] => getClusterPreviewImages(clusterIndex, feature, CLUSTER_PREVIEW_LIMIT),
+    [clusterIndex, feature],
+  );
 
   return (
-    <MarkerView
-      key={`cluster-${clusterId}`}
-      coordinate={coordinate}
-      anchor={CLUSTER_ANCHOR}
-      allowOverlap
-      allowOverlapWithPuck
-    >
+    <MarkerView coordinate={coordinate} anchor={CLUSTER_ANCHOR} allowOverlap allowOverlapWithPuck>
       <Pressable
         testID={`map-cluster-marker-${clusterId}`}
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityHint="Zooms in until the events separate into individual map pins"
         onPress={(): void => onPress(feature)}
-        className="h-14 min-w-14 items-center justify-center rounded-full border-2 border-glass-ice bg-primary px-3"
       >
-        <Text className="font-allo-bold text-body-lg text-primary-foreground">
-          {feature.properties.point_count_abbreviated}
-        </Text>
+        <GanapClusterPin
+          count={count}
+          countLabel={String(feature.properties.point_count_abbreviated)}
+          images={images}
+          isAnimating={isAnimating}
+        />
       </Pressable>
     </MarkerView>
   );
@@ -81,28 +91,32 @@ function renderEventMarker(
   );
 }
 
-function renderFeature(
-  feature: GanapMapFeature,
-  onGanapPress: (ganap: GanapListItem) => void,
-  onClusterPress: (cluster: GanapClusterFeature) => void,
-): ReactElement | null {
+function renderFeature(feature: GanapMapFeature, props: ClusteredGanapMarkersProps): ReactElement | null {
   const coordinate = getFeatureCoordinate(feature);
   if (coordinate === null) return null;
 
-  if (isClusterFeature(feature)) return renderClusterMarker(feature, coordinate, onClusterPress);
-  return renderEventMarker(feature, coordinate, onGanapPress);
+  if (isClusterFeature(feature)) {
+    return (
+      <ClusterMarker
+        key={`cluster-${feature.properties.cluster_id}`}
+        feature={feature}
+        coordinate={coordinate}
+        clusterIndex={props.clusterIndex}
+        isAnimating={props.isAnimating}
+        onPress={props.onClusterPress}
+      />
+    );
+  }
+  return renderEventMarker(feature, coordinate, props.onGanapPress);
 }
 
 /**
- * Renders Supercluster's visible points and clusters through React MarkerView.
+ * Renders Supercluster's visible points and clusters through React MarkerView. A cluster previews
+ * its events with {@link GanapClusterPin}.
  *
- * @param props - Visible features and event/cluster press callbacks.
+ * @param props - Visible features, their index, whether to animate, and event/cluster press callbacks.
  * @returns A fragment containing one marker per visible valid feature.
  */
-export function ClusteredGanapMarkers({
-  features,
-  onGanapPress,
-  onClusterPress,
-}: ClusteredGanapMarkersProps): ReactElement {
-  return <>{features.map((feature): ReactElement | null => renderFeature(feature, onGanapPress, onClusterPress))}</>;
+export function ClusteredGanapMarkers(props: ClusteredGanapMarkersProps): ReactElement {
+  return <>{props.features.map((feature): ReactElement | null => renderFeature(feature, props))}</>;
 }

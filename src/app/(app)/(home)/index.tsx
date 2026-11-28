@@ -8,7 +8,7 @@ import Mapbox, {
   RasterDemSource,
   Terrain,
 } from '@rnmapbox/maps';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import type { ComponentRef, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type LayoutChangeEvent, View } from 'react-native';
@@ -289,6 +289,13 @@ export default function HomeScreen(): ReactElement {
   const [selectedClusterIndex, setSelectedClusterIndex] = useState<GanapClusterIndex | null>(null);
 
   const clusterIndex = useMemo(() => createGanapClusterIndex(items), [items]);
+  const [isMapFocused, setIsMapFocused] = useState<boolean>(true);
+  useFocusEffect(
+    useCallback((): (() => void) => {
+      setIsMapFocused(true);
+      return (): void => setIsMapFocused(false);
+    }, []),
+  );
   const visibleFeatures = useMemo(() => getVisibleMapFeatures(clusterIndex, viewport), [clusterIndex, viewport]);
 
   const activeCluster: GanapClusterFeature | null = selectedClusterIndex === clusterIndex ? selectedCluster : null;
@@ -657,6 +664,8 @@ export default function HomeScreen(): ReactElement {
           features={visibleFeatures}
           onGanapPress={handleGanapPress}
           onClusterPress={handleClusterPress}
+          clusterIndex={clusterIndex}
+          isAnimating={isMapFocused}
         />
       </MapView>
 
