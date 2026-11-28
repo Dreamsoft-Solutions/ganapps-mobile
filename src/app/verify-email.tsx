@@ -6,6 +6,7 @@ import { Text } from '@/components/common/Text';
 import { DeleteAccountForm } from '@/components/forms/DeleteAccountForm';
 import { VerifyEmailForm } from '@/components/forms/VerifyEmailForm';
 import { useAuth } from '@/hooks/useAuth';
+import { showToast } from '@/store/toast.store';
 
 /**
  * Email verification for signed-in, unverified Users, on the shared {@link AuthScreen} frame. It
@@ -49,7 +50,10 @@ export default function VerifyEmailScreen(): ReactElement {
         </Text>
         <Button
           variant="link"
-          onPress={(): Promise<void> => resendVerification()}
+          onPress={async (): Promise<void> => {
+            await resendVerification();
+            showToast('success', 'New code sent. Check your inbox.');
+          }}
           loading={resendVerificationMutation.isPending}
         >
           Resend code
