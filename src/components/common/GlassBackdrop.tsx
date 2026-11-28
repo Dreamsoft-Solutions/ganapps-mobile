@@ -49,6 +49,8 @@ export interface GlassBackdropHandle {
 
 interface GlassBackdropControls extends GlassBackdropHandle {
   targetRef: React.RefObject<View | null>;
+  /** Drops the frame, so panes go Solid while no target is mounted (the map screen's error or loading view). */
+  clear: () => void;
 }
 
 /** Changes on every capture: only the panes read it. */
@@ -220,7 +222,7 @@ export function GlassBackdrop({ children, enabled }: GlassBackdropProps): ReactE
     inFlight.current = true;
     captureView(target, rect)
       .then((next: CapturedFrame): void => {
-        if (!mounted.current || !enabledRef.current) {
+        if (!mounted.current || !enabledRef.current || targetRef.current === null) {
           releaseFrame(next);
           return;
         }
@@ -241,6 +243,10 @@ export function GlassBackdrop({ children, enabled }: GlassBackdropProps): ReactE
 
   const remeasure = useCallback((): void => {
     setVersion((current: number): number => current + 1);
+  }, []);
+
+  const clear = useCallback((): void => {
+    setFrame(null);
   }, []);
 
   useLayoutEffect((): void => {
@@ -265,7 +271,10 @@ export function GlassBackdrop({ children, enabled }: GlassBackdropProps): ReactE
   }, []);
 
   const value = useMemo((): GlassBackdropValue => ({ frame, version, remeasure }), [frame, version, remeasure]);
-  const controls = useMemo((): GlassBackdropControls => ({ capture, remeasure, targetRef }), [capture, remeasure]);
+  const controls = useMemo(
+    (): GlassBackdropControls => ({ capture, remeasure, clear, targetRef }),
+    [capture, remeasure, clear],
+  );
 
   return (
     <GlassBackdropControlsContext.Provider value={controls}>
@@ -282,6 +291,13 @@ export function GlassBackdrop({ children, enabled }: GlassBackdropProps): ReactE
  */
 export function GlassBackdropTarget({ children, ...props }: ViewProps): ReactElement {
   const controls = useContext(GlassBackdropControlsContext);
+
+  useEffect((): (() => void) => {
+    return (): void => {
+      controls?.clear();
+    };
+  }, [controls]);
+
   return (
     <View {...props} ref={controls?.targetRef} collapsable={false}>
       {children}

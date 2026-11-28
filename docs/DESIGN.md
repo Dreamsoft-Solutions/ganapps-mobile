@@ -435,10 +435,15 @@ Solid is the baseline, and the live tier falls back to it. `Glass` picks in this
 
 How live glass works (ADR 0010):
 
-- A screen wraps itself in one `GlassBackdrop` and wraps only the backdrop, today the Mapbox map, in
-  `GlassBackdropTarget`. Never wrap a view that holds glass: the capture would include the glass.
-- The screen asks for a capture through the backdrop's ref: on every camera change and when the map
-  settles. One capture feeds every pane on the screen.
+- There is one `GlassBackdrop`, in the tabs layout, so the tab island shares the map's capture. The
+  screen that owns the backdrop, today the home map, wraps only that view in `GlassBackdropTarget`.
+  Never wrap a view that holds glass: the capture would include the glass. Screens that are not over
+  the target are fenced with `NoGlassBackdrop` (`screenLayout`), and the frame is dropped while no
+  target is mounted.
+- The screen asks for a capture through `useGlassBackdropControls()`: on every camera change and when
+  the map settles. One capture feeds every pane over the map, the island included.
+- A pane can refract its own photo instead (`Glass` `image`): no capture, the photo cover-fitted and
+  blurred 20 dp. Only the feed card does this (see Card).
 - A capture renders the target into a GPU texture with `react-native-webgpu`
   (`drawElementImageToTexture`) and wraps it as a Skia image without a copy. It costs about 45 ms on a
   2021 Android phone (Infinix X6711), so the glass trails the map by about one capture.
