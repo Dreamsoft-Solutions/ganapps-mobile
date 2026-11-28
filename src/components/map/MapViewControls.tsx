@@ -1,10 +1,9 @@
 import { Slider } from '@expo/ui/community/slider';
 import { Layers } from 'lucide-react-native';
 import { type ReactElement, useState } from 'react';
-import { type AccessibilityActionEvent, Switch, View } from 'react-native';
+import { type AccessibilityActionEvent, Pressable, type PressableStateCallbackType, Switch, View } from 'react-native';
 import { Button } from '@/components/common/Button';
 import { Glass } from '@/components/common/Glass';
-import { PressableScale, type PressableScaleState } from '@/components/common/PressableScale';
 import { Text } from '@/components/common/Text';
 import { BorderRadius, Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
@@ -37,15 +36,14 @@ export function MapViewControls({
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   return (
     <View className="gap-xs">
-      <PressableScale
+      <Pressable
         className="self-start"
         accessibilityRole="button"
         accessibilityLabel="Map view controls"
         accessibilityState={{ expanded: isExpanded }}
         onPress={(): void => setIsExpanded((expanded: boolean): boolean => !expanded)}
-        scaleTo={0.96}
       >
-        {({ pressed }: PressableScaleState): ReactElement => (
+        {({ pressed }: PressableStateCallbackType): ReactElement => (
           <Glass pressed={pressed} className="min-h-touch flex-row items-center gap-xs pl-sm pr-md">
             <Layers size={20} color={Colors[theme].foreground} />
             <Text className="font-allo-semibold text-label-md text-foreground">
@@ -53,7 +51,7 @@ export function MapViewControls({
             </Text>
           </Glass>
         )}
-      </PressableScale>
+      </Pressable>
       {isExpanded && (
         <Glass variant="strong" radius={BorderRadius.xl} className="w-60 gap-xs p-md">
           <View
