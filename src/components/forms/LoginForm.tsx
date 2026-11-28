@@ -243,7 +243,6 @@ export function LoginForm({ mode, onModeChange }: LoginFormProps): ReactElement 
           <Input
             name="confirmPassword"
             label="Confirm password"
-            placeholder="Re-enter your password"
             autoCapitalize="none"
             secureTextEntry={!showConfirmPassword}
             iconRight={confirmPasswordToggle}

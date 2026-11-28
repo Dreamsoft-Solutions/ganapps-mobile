@@ -10,7 +10,7 @@ import { showToast } from '@/store/toast.store';
 
 /**
  * Email verification for signed-in, unverified Users, on the shared {@link AuthScreen} frame. It
- * names the address the code went to. Log out, top right, is the way out (signing in again, or with
+ * names the address the code went to. Sign out, top right, is the way out (signing in again, or with
  * another email); account deletion stays reachable as a quiet link pinned to the bottom.
  *
  * @returns The verify email screen.
@@ -38,7 +38,7 @@ export default function VerifyEmailScreen(): ReactElement {
       }
       headerRight={
         <Button variant="link" onPress={logout} loading={logoutMutation.isPending}>
-          Log out
+          Sign out
         </Button>
       }
     >

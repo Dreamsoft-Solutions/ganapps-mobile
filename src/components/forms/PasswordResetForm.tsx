@@ -138,7 +138,6 @@ export function PasswordResetForm({ initialEmail, onStepChange }: PasswordResetF
           <Input
             name="confirmPassword"
             label="Confirm new password"
-            placeholder="Re-enter your password"
             secureTextEntry={!showConfirmPassword}
             iconRight={
               <PasswordVisibilityToggle
