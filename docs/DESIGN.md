@@ -137,7 +137,7 @@ Both mark secondary actions in dense rows where 48dp would crowd the layout, so 
 reach the minimum with `hitSlop` instead of growing — 8dp and 10dp per edge. `Button`
 `size="md"` cannot reach it on padding alone either, so it carries `min-h-touch`.
 
-`Button` `size="auth"` renders 41dp tall (`h-sign-in`) and reaches 48dp with 3.5dp of
+`Button` `size="auth"` renders at least 41dp tall (`min-h-sign-in`) and reaches 48dp with 3.5dp of
 `hitSlop`. Every button in the sign-in flow uses it (welcome, log in and sign up, password
 reset, email verification, onboarding), so those screens share one button height. Apple's native Continue with Apple button
 sizes its title from its own height, and 41pt is where that title measures the same as the
@@ -527,8 +527,8 @@ g, j, p, q and y when a single-line text field has a line height, so these token
 size and weight and let the field take the font's natural height. They carry no tracking for
 the same reason. Multiline inputs keep their `body-*` size.
 
-A single-line form field is 48dp tall (`h-touch`), with or without a trailing icon, and its
-text input fills that height. `Input` applies this, so the password field with its show
+A single-line form field is at least 48dp tall (`min-h-touch`), with or without a trailing icon,
+and its text input fills that height; it grows with the system text size. `Input` applies this, so the password field with its show
 toggle is the same height as the email field above it.
 
 Default body color is `text-foreground`. Each size token carries its own
@@ -702,7 +702,8 @@ better on every surface in both themes.
 ### Screen headers
 
 Every screen that draws its own header uses `ScreenHeader`
-(`components/navigation/ScreenHeader.tsx`). It owns the top inset plus 16dp, a 48dp row,
+(`components/navigation/ScreenHeader.tsx`), except the sign-in screens, which use `AuthScreen` (see
+[Sign-in screens](#sign-in-screens)). It owns the top inset plus 16dp, a 48dp row,
 the filled back button (`IconButton` `variant="default"` with `ArrowLeft` at 20), and a
 bold `text-headline-md` title (`font-allo-bold`). Stacks hide their native headers. Loading and error
 states render the header too, so a screen is never left without a way back; registration and
@@ -770,8 +771,9 @@ Google button stays the glass `outline` Button. There is no glass panel behind t
 **Keyboard.** The scroll area and the optional pinned `footer` sit in a `KeyboardAvoidingView`
 with `behavior="padding"` on both platforms. The app is edge-to-edge on Android, so the window
 does not resize for the keyboard; the padding is what keeps the last field and the button
-reachable. A link `Button` in a column grows to fill it, so in the bounded `footer` put links in
-a `flex-row` (as Skip for now does), or the scroll area collapses.
+reachable. In the bounded `footer`, put a link `Button` in a `flex-row` (as Skip for now does): set
+straight in a column `View` there, it stretched to fill the footer and collapsed the scroll area to
+nothing on Android.
 
 | Screen         | Title                                   | Header right   | Footer                     |
 | -------------- | --------------------------------------- | -------------- | -------------------------- |
