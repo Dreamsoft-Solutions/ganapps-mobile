@@ -7,6 +7,7 @@ import { Stack, useGlobalSearchParams, useRouter, useSegments } from 'expo-route
 import * as SplashScreen from 'expo-splash-screen';
 import { cssInterop } from 'nativewind';
 import { type ReactElement, useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ErrorView } from '@/components/common/Error';
 import { ToastHost } from '@/components/common/ToastHost';
@@ -57,6 +58,11 @@ function RootLayoutNav(): ReactElement {
   const userId = useAuthStore((s) => s.user?.id);
   const [hasHiddenSplash, setHasHiddenSplash] = useState(false);
   const { success: migrationsReady, error: migrationError } = useMigrations(db, migrations);
+  /**
+   * A signed-out launch resolves `/` to the (app) shell before the redirect lands on Welcome. While
+   * this holds, the splash covers the stack, so that empty shell is never shown.
+   */
+  const awaitingWelcome: boolean = token === null && !isUnauthenticatedGroup(segments[0]);
 
   useNotificationQuerySync();
 
@@ -115,13 +121,20 @@ function RootLayoutNav(): ReactElement {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(public)" />
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(app)" />
-      <Stack.Screen name="verify-email" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-      <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(public)" options={{ animation: 'none' }} />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(app)" />
+        <Stack.Screen name="verify-email" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+      </Stack>
+      {awaitingWelcome ? (
+        <View style={StyleSheet.absoluteFill}>
+          <SplashView />
+        </View>
+      ) : null}
+    </>
   );
 }
 

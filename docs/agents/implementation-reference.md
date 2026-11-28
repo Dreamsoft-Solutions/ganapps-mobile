@@ -170,7 +170,9 @@ side effects. Paginated domains use `useInfiniteQuery` here and expose flattened
 
 While it waits for hydration and the local database migrations, the loading gate renders
 `SplashView` (`components/onboarding/SplashView.tsx`), the same composition as the native splash,
-so a reload shows the splash rather than a blank screen or a spinner.
+so a reload shows the splash rather than a blank screen or a spinner. A signed-out launch also
+keeps `SplashView` over the stack until the redirect lands on `(public)`, so the app shell is never
+shown before Welcome.
 
 `verify-email.tsx` and `onboarding.tsx` live at the **root** of `app/`, not inside `(auth)`.
 They are reachable only once a token exists, because registration returns tokens immediately.
