@@ -8,7 +8,6 @@ import { Empty } from '@/components/common/Empty';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
-import { BAR_HEIGHT } from '@/components/navigation/AppTabBar';
 import { Colors, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { EventChatSummary } from '@/types/chat.types';
@@ -126,7 +125,7 @@ export function EventChatListView({
           if (hasNextPage && !isFetchingNextPage) void onLoadMore();
         }}
         onEndReachedThreshold={0.5}
-        contentContainerStyle={{ paddingBottom: insets.bottom + BAR_HEIGHT + Spacing.md }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing['tabbar-clearance'] }}
       />
     </View>
   );

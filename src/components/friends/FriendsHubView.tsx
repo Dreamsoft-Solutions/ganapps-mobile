@@ -774,7 +774,7 @@ export function FriendsHubView({
         className="flex-1 px-md"
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={(): void => void onRefresh()} />}
-        contentContainerStyle={{ paddingTop: Spacing.sm, paddingBottom: insets.bottom + Spacing.lg }}
+        contentContainerStyle={{ paddingTop: Spacing.sm, paddingBottom: insets.bottom + Spacing['tabbar-clearance'] }}
       >
         <View className="mb-lg flex-row gap-sm">
           <Button size="sm" variant="outline" onPress={onOpenAddFriend} leftIcon={<UserPlus />}>

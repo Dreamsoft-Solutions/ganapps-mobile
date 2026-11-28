@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SegmentControl, type SegmentControlOption } from '@/components/common/SegmentControl';
-import { BAR_HEIGHT } from '@/components/navigation/AppTabBar';
 import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { JoinedGanapsFilterBar } from '@/components/profile/JoinedGanapsFilterBar';
 import { JoinedGanapsList } from '@/components/profile/JoinedGanapsList';
@@ -28,7 +27,7 @@ export default function GanapsScreen(): ReactElement {
   const debouncedSearch: string = useDebouncedValue(search, 300);
   const normalizedSearch: string = debouncedSearch.trim();
   const filters: JoinedGanapFilters = normalizedSearch.length > 0 ? { search: normalizedSearch, time } : { time };
-  const contentBottomPadding: number = insets.bottom + BAR_HEIGHT + Spacing.xs;
+  const contentBottomPadding: number = insets.bottom + Spacing['tabbar-clearance'];
 
   return (
     <View className="flex-1 bg-background">

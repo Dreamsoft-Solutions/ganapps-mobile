@@ -1,10 +1,12 @@
 import { useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
 import { ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorView } from '@/components/common/Error';
 import { Loading } from '@/components/common/Loading';
 import { EditProfileForm } from '@/components/forms/EditProfileForm';
 import { ScreenHeader } from '@/components/navigation/ScreenHeader';
+import { Spacing } from '@/constants/theme';
 import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
 import { getQueryFailure } from '@/utils/query-failure';
 
@@ -16,6 +18,7 @@ import { getQueryFailure } from '@/utils/query-failure';
 export default function EditProfileScreen(): ReactElement {
   const profileQuery = useAuthQuery();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const failure: Error | null = getQueryFailure(profileQuery);
 
   let content: ReactElement;
@@ -26,7 +29,7 @@ export default function EditProfileScreen(): ReactElement {
     content = (
       <ScrollView
         className="flex-1 px-md"
-        contentContainerStyle={{ paddingBottom: 96 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing['tabbar-clearance'] }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >

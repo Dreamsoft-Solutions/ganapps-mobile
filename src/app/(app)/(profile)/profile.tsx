@@ -10,6 +10,7 @@ import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { ScreenHeader } from '@/components/navigation/ScreenHeader';
+import { Spacing } from '@/constants/theme';
 import { JoinedGanapCard } from '@/components/profile/JoinedGanapCard';
 import { ProfilePromptCard } from '@/components/profile/ProfilePromptCard';
 import { formatInterestLabel } from '@/constants/interests';
@@ -65,7 +66,7 @@ export default function ProfileScreen(): ReactElement {
       />
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing['tabbar-clearance'] }}
         showsVerticalScrollIndicator={false}
       >
         {profilePrompt.isVisible && (

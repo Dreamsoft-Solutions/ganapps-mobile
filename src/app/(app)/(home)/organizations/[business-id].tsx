@@ -101,7 +101,7 @@ export default function BusinessProfileScreen(): ReactElement {
     <View className="flex-1 bg-background">
       {header}
       <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing['tabbar-clearance'] }}
         refreshControl={
           <RefreshControl
             refreshing={query.isRefetching}

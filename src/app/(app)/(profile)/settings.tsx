@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { Check, Monitor, Moon, Sun } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { Empty } from '@/components/common/Empty';
@@ -12,6 +13,7 @@ import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { DeleteAccountForm } from '@/components/forms/DeleteAccountForm';
 import { ScreenHeader } from '@/components/navigation/ScreenHeader';
+import { Spacing } from '@/constants/theme';
 import { useUnblockUserMutation } from '@/hooks/mutations/useModerationMutation';
 import { useBlockedUsersQuery } from '@/hooks/queries/useModerationQuery';
 import { type ThemeMode, useThemeStore } from '@/store/theme.store';
@@ -41,6 +43,7 @@ export default function SettingsScreen(): ReactElement {
   const blockedUsersQuery = useBlockedUsersQuery();
   const unblockMutation = useUnblockUserMutation();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   async function handleUnblock(userId: string, username: string): Promise<void> {
     await unblockMutation.mutateAsync({ userId });
@@ -50,7 +53,11 @@ export default function SettingsScreen(): ReactElement {
   return (
     <View className="flex-1 bg-background">
       <ScreenHeader title="Settings" onBack={(): void => router.back()} backHint="Returns to your profile" />
-      <ScrollView className="flex-1" contentContainerClassName="p-md">
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="p-md"
+        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing['tabbar-clearance'] }}
+      >
         <Text className="mb-xs font-allo-semibold text-headline-sm" accessibilityRole="header">
           Theme
         </Text>

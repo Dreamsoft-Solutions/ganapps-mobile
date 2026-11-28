@@ -6,7 +6,7 @@ import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { Loading } from '@/components/common/Loading';
-import { AppTabBar, BAR_HEIGHT } from '@/components/navigation/AppTabBar';
+import { AppTabBar } from '@/components/navigation/AppTabBar';
 import { Routes } from '@/constants/routes';
 import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
 import { chatQueryKeys, useChatSummariesQuery } from '@/hooks/queries/useChatQuery';
@@ -117,20 +117,10 @@ export default function AppLayout(): ReactElement {
 
   return (
     <Tabs
-      tabBar={(props: BottomTabBarProps): ReactElement | null =>
-        hideTabBar ? null : <AppTabBar {...props} hasUnreadMessages={hasUnreadMessages} />
-      }
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          height: BAR_HEIGHT,
-          backgroundColor: 'transparent',
-          borderTopWidth: 0,
-          elevation: 0,
-          shadowOpacity: 0,
-          position: 'absolute',
-        },
-      }}
+      tabBar={(props: BottomTabBarProps): ReactElement => (
+        <AppTabBar {...props} hasUnreadMessages={hasUnreadMessages} hidden={hideTabBar} />
+      )}
+      screenOptions={{ headerShown: false }}
     >
       <Tabs.Screen name="(home)" />
       <Tabs.Screen name="(ganaps)" />
