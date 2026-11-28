@@ -5,6 +5,8 @@ import { Button } from './Button';
 
 interface LegalLinksProps {
   includeDeletion?: boolean;
+  /** Shows only the Terms and Privacy links, side by side, for screens with no room for the stack. */
+  inline?: boolean;
 }
 
 const SUPPORT_EMAIL = 'contact@ganapps.com';
@@ -28,10 +30,23 @@ async function openSupportEmail(): Promise<void> {
 
 /**
  * Opens public policy pages, the support email, and the account deletion request resource.
- * @param props - Whether to include account deletion alongside the policy links.
+ * @param props - Whether to include account deletion alongside the policy links, or to show only the two policy links in a row.
  * @returns Accessible policy and contact controls shared by authentication and settings.
  */
-export function LegalLinks({ includeDeletion = false }: LegalLinksProps): ReactElement {
+export function LegalLinks({ includeDeletion = false, inline = false }: LegalLinksProps): ReactElement {
+  if (inline) {
+    return (
+      <View className="flex-row flex-wrap justify-center gap-md">
+        <Button variant="link" onPress={(): Promise<void> => openLegalPage(process.env.EXPO_PUBLIC_TERMS_URL)}>
+          Terms of Service
+        </Button>
+        <Button variant="link" onPress={(): Promise<void> => openLegalPage(process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL)}>
+          Privacy Policy
+        </Button>
+      </View>
+    );
+  }
+
   return (
     <View className="gap-xs">
       <Button variant="link" onPress={(): Promise<void> => openLegalPage(process.env.EXPO_PUBLIC_TERMS_URL)}>

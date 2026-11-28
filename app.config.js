@@ -220,10 +220,11 @@ module.exports = {
       [
         'expo-splash-screen',
         {
-          backgroundColor: '#22C55E',
-          image: './assets/brand/ganap-logo-1.png',
+          backgroundColor: '#f3f6f4',
+          image: './assets/brand/ganap-logo-round.png',
           imageWidth: 200,
-          ios: {
+          dark: {
+            backgroundColor: '#061a22',
             image: './assets/brand/ganap-logo-round.png',
           },
         },

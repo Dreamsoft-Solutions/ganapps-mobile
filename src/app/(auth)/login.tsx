@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import type { ReactElement } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,11 +7,14 @@ import { Text } from '@/components/common/Text';
 import { LoginForm } from '@/components/forms/LoginForm';
 
 /**
- * Login screen with email/password and sign-up toggle.
+ * Login screen with email/password and sign-up toggle. `?mode=signup` opens it on the sign-up
+ * form, which is how Welcome's "Sign up with email" arrives.
  *
  * @returns The authentication screen.
  */
 export default function LoginScreen(): ReactElement {
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
@@ -25,7 +29,7 @@ export default function LoginScreen(): ReactElement {
           </Text>
         </View>
 
-        <LoginForm />
+        <LoginForm initialMode={mode === 'signup' ? 'signup' : 'login'} />
       </ScrollView>
     </SafeAreaView>
   );

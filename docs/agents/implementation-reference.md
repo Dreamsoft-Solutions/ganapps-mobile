@@ -168,6 +168,20 @@ side effects. Paginated domains use `useInfiniteQuery` here and expose flattened
 - **Token** → `(app)` tab navigator, plus `verify-email` and `onboarding` as full-screen modals
 - **No token** → `(auth)` stack
 
+While it waits for hydration and the local database migrations, the loading gate renders
+`SplashView` (`components/onboarding/SplashView.tsx`), the same composition as the native splash,
+so a reload shows the splash rather than a blank screen or a spinner. A signed-out launch also
+keeps the same `SplashView` over the stack until the redirect lands on `(public)` and the Welcome
+screen reports through `useSplashStore` (`store/splash.store.ts`) that its logo has drawn, so
+neither the app shell nor an empty frame is shown before Welcome. Welcome starts its entrance at
+that moment. Share links and the login screen are never covered.
+
+Welcome (`app/(public)/index.tsx`) is also a way in: it offers Continue with Apple and Continue
+with Google through `useSocialSignIn` (`hooks/useSocialSignIn.ts`), the same hook the login form
+uses, plus two links to the login screen. `Routes.auth.signup` opens it in sign-up mode
+(`?mode=signup`) and `Routes.auth.login` in log-in mode. The `(auth)` screen slides up from the
+bottom in the root stack.
+
 `verify-email.tsx` and `onboarding.tsx` live at the **root** of `app/`, not inside `(auth)`.
 They are reachable only once a token exists, because registration returns tokens immediately.
 

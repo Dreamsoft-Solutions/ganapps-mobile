@@ -7,10 +7,11 @@ import { Stack, useGlobalSearchParams, useRouter, useSegments } from 'expo-route
 import * as SplashScreen from 'expo-splash-screen';
 import { cssInterop } from 'nativewind';
 import { type ReactElement, useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ErrorView } from '@/components/common/Error';
-import { Loading } from '@/components/common/Loading';
 import { ToastHost } from '@/components/common/ToastHost';
+import { SplashView } from '@/components/onboarding/SplashView';
 import { Routes } from '@/constants/routes';
 import { db } from '@/db';
 import { refreshGanapEngagement } from '@/hooks/mutations/useGanapMutation';
@@ -20,6 +21,7 @@ import { ThemeProvider } from '@/providers/ThemeProvider';
 import { remoteConfigService } from '@/services/remote-config.service';
 import { type CheckInReplayOutcome, startOutboxDrain } from '@/services/sync.service';
 import { useAuthStore } from '@/store/auth.store';
+import { useSplashStore } from '@/store/splash.store';
 import { handleCheckInReplayOutcome } from '@/utils/attendance';
 import { hasShareLinkReturnTarget } from '@/utils/navigation';
 import migrations from '../../drizzle/migrations';
@@ -46,6 +48,11 @@ function isShareLinkRoute(segments: readonly string[]): boolean {
   );
 }
 
+/** True on the Welcome screen itself: the `(public)` group's index, with nothing after it. */
+function isWelcomeRoute(segments: readonly string[]): boolean {
+  return segments[0] === '(public)' && segments.length === 1;
+}
+
 function RootLayoutNav(): ReactElement {
   const router = useRouter();
   const segments = useSegments();
@@ -57,6 +64,17 @@ function RootLayoutNav(): ReactElement {
   const userId = useAuthStore((s) => s.user?.id);
   const [hasHiddenSplash, setHasHiddenSplash] = useState(false);
   const { success: migrationsReady, error: migrationError } = useMigrations(db, migrations);
+  /** True once the session and the local database are usable, so the stack may mount. */
+  const ready: boolean = isHydrated && migrationsReady;
+  const welcomeShown = useSplashStore((s) => s.welcomeShown);
+  /**
+   * A signed-out launch resolves `/` to the (app) shell before the redirect lands on Welcome, and
+   * Welcome then takes a few frames to draw. The splash covers the stack through both, so neither
+   * the empty shell nor an empty frame is shown. It is the same element here and while loading, so
+   * it is never remounted in between. Share links and the login screen are never covered.
+   */
+  const awaitingWelcome: boolean =
+    token === null && (!isUnauthenticatedGroup(segments[0]) || (isWelcomeRoute(segments) && !welcomeShown));
 
   useNotificationQuerySync();
 
@@ -110,18 +128,23 @@ function RootLayoutNav(): ReactElement {
     return <ErrorView error={migrationError} />;
   }
 
-  if (!isHydrated || !migrationsReady) {
-    return <Loading message="Loading" />;
-  }
-
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(public)" />
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(app)" />
-      <Stack.Screen name="verify-email" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-      <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-    </Stack>
+    <>
+      {ready ? (
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(public)" options={{ animation: 'none' }} />
+          <Stack.Screen name="(auth)" options={{ animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="(app)" />
+          <Stack.Screen name="verify-email" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+        </Stack>
+      ) : null}
+      {!ready || awaitingWelcome ? (
+        <View style={StyleSheet.absoluteFill}>
+          <SplashView />
+        </View>
+      ) : null}
+    </>
   );
 }
 
