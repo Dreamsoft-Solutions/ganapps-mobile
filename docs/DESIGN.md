@@ -632,7 +632,7 @@ the system.
 ### Button
 
 Variants: `default`, `secondary`, `outline`, `ghost`, `destructive`, `link`.
-Sizes: `sm`, `md`, `lg`, and `auth` for every button in the sign-in flow: welcome, log in and sign up, password reset, email verification, and onboarding. A `variant="link"` button always renders at the `link` size, a `body-md` label with no horizontal padding, so links match the copy around them.
+Sizes: `sm`, `md`, `lg`, and `auth` for every button in the sign-in flow: welcome, log in and sign up, password reset, email verification, and onboarding. `auth` is held at Apple's native button height (`min-h-sign-in`, 41dp) by a floor, not a fixed height, so its label grows with the system text size instead of clipping. A `variant="link"` button always renders at the `link` size, a `body-md` label with no horizontal padding, so links match the copy around them.
 
 - `default`: a `primary` capsule with `primary-foreground` text.
 - `secondary`: a `secondary` capsule with `secondary-foreground` text.
@@ -653,7 +653,13 @@ An input is a well: carved in with `shadow-well`, never raised.
 - Error border: `destructive`
 - Placeholder: `muted-foreground` (`on-glass-muted` inside glass)
 - Label: `foreground`, `label-md` size
-- Height: 48dp (`h-touch`) for a single-line field, with or without a trailing icon
+- Height: at least 48dp (`min-h-touch`) for a single-line field, with or without a trailing icon. It
+  grows with the system text size instead of clipping.
+- One-time codes (`variant="code"`): at least 64dp, the digits centred in semibold `headline-md`
+  with wide tracking, and `autoComplete="one-time-code"` so the keyboard can offer the code.
+- Autofill and order: pass `autoComplete` (and `textContentType` for iOS) so password managers can
+  fill the field, and chain fields with `returnKeyType="next"` and `onSubmitEditing` calling
+  react-hook-form's `setFocus`. The last field's return key submits.
 - Horizontal padding: `px-md`
 
 ### Card
@@ -743,6 +749,43 @@ from 70%.
 
 The splash and Welcome share one placement, `ONBOARDING_LOBES` (`constants/onboarding.ts`): a
 460dp lobe off the top-right corner and a 440dp lobe off the bottom-left at 0.85 opacity.
+
+### Sign-in screens
+
+Log in and sign up (`app/(auth)/login.tsx`), password reset (`app/(auth)/forgot-password.tsx`),
+email verification (`app/verify-email.tsx`) and both profile setup steps (`app/onboarding.tsx`)
+share one frame, `AuthScreen` (`components/auth/AuthScreen.tsx`), so the flow reads as Welcome
+continued. They do not use `ScreenHeader`.
+
+**The frame.** The `background` ground with one `Lobe` off the top-right corner (460dp, 0.9
+opacity), the same corner Welcome lights. A 48dp header row 16dp below the safe area holds the
+filled back button (`IconButton` `variant="default"`, `ArrowLeft` at 20) on the left and an
+optional accessory on the right. Under it, top-aligned, the title in `headline-lg` bold and one
+`body-md` `muted-foreground` line, then the form. Nothing is centred vertically, so the keyboard
+never lands on the content.
+
+**Layers.** Everything is solid: fields are wells, the main action is the `primary` capsule, the
+Google button stays the glass `outline` Button. There is no glass panel behind the form.
+
+**Keyboard.** The scroll area and the optional pinned `footer` sit in a `KeyboardAvoidingView`
+with `behavior="padding"` on both platforms. The app is edge-to-edge on Android, so the window
+does not resize for the keyboard; the padding is what keeps the last field and the button
+reachable. A link `Button` in a column grows to fill it, so in the bounded `footer` put links in
+a `flex-row` (as Skip for now does), or the scroll area collapses.
+
+| Screen         | Title                                   | Header right   | Footer                     |
+| -------------- | --------------------------------------- | -------------- | -------------------------- |
+| Log in         | Welcome back                            | none           | none                       |
+| Sign up        | Create your account                     | none           | none                       |
+| Password reset | Reset your password (line follows step) | none           | none                       |
+| Verify email   | Verify your email (names the address)   | Sign out       | Delete account, as a link  |
+| Profile, 1     | What should we call you?                | 1 of 2         | Continue                   |
+| Profile, 2     | Add a photo and interests               | 2 of 2         | Finish, Skip for now       |
+
+**Errors.** A field error shows under its field. A rejected verification code is set on the code
+field, not raised as a toast. A failed log in or sign up shows one `destructive` line above the
+main action. The Terms and Privacy links sit on one line under "By continuing you agree to our",
+as on Welcome.
 
 ### Splash and Welcome
 
