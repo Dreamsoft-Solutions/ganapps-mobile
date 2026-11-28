@@ -12,7 +12,7 @@ import { Button } from '@/components/common/Button';
 import { Chip } from '@/components/common/Chip';
 import { Input } from '@/components/common/Input';
 import { Text } from '@/components/common/Text';
-import { INTEREST_OPTIONS } from '@/constants/interests';
+import { INTEREST_OPTIONS, type InterestOption } from '@/constants/interests';
 import { Routes } from '@/constants/routes';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
@@ -267,7 +267,7 @@ export function OnboardingForm(): ReactElement {
           </Text>
           <View className="flex-row flex-wrap gap-2">
             {INTEREST_OPTIONS.map(
-              (item): ReactElement => (
+              (item: InterestOption): ReactElement => (
                 <Chip
                   key={item.id}
                   label={item.label}

@@ -3,7 +3,6 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-rou
 import { Building2, Check } from 'lucide-react-native';
 import { type ReactElement, useCallback, useState } from 'react';
 import { BackHandler, Linking, RefreshControl, ScrollView, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
@@ -11,9 +10,10 @@ import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { Routes } from '@/constants/routes';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import { useBusinessDetailQuery } from '@/hooks/queries/useBusinessesQuery';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { useTabBarInsets } from '@/hooks/useTabBarInsets';
 import { useAuthStore } from '@/store/auth.store';
 import { showToast } from '@/store/toast.store';
 import { businessEmailUrl, businessWebsiteUrl } from '@/utils/business-profile';
@@ -29,7 +29,7 @@ export default function BusinessProfileScreen(): ReactElement {
   const token: string | null = useAuthStore((state): string | null => state.token);
   const router = useRouter();
   const theme = useResolvedTheme();
-  const insets = useSafeAreaInsets();
+  const { contentClearance } = useTabBarInsets();
   const [failedCover, setFailedCover] = useState<string | null>(null);
   const refetch = query.refetch;
   useFocusEffect(
@@ -101,7 +101,7 @@ export default function BusinessProfileScreen(): ReactElement {
     <View className="flex-1 bg-background">
       {header}
       <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
+        contentContainerStyle={{ paddingBottom: contentClearance }}
         refreshControl={
           <RefreshControl
             refreshing={query.isRefetching}

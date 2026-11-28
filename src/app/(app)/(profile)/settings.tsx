@@ -14,6 +14,7 @@ import { DeleteAccountForm } from '@/components/forms/DeleteAccountForm';
 import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { useUnblockUserMutation } from '@/hooks/mutations/useModerationMutation';
 import { useBlockedUsersQuery } from '@/hooks/queries/useModerationQuery';
+import { useTabBarInsets } from '@/hooks/useTabBarInsets';
 import { type ThemeMode, useThemeStore } from '@/store/theme.store';
 import { showToast } from '@/store/toast.store';
 import type { BlockedUserSummary } from '@/types/moderation.types';
@@ -41,6 +42,7 @@ export default function SettingsScreen(): ReactElement {
   const blockedUsersQuery = useBlockedUsersQuery();
   const unblockMutation = useUnblockUserMutation();
   const router = useRouter();
+  const { contentClearance } = useTabBarInsets();
 
   async function handleUnblock(userId: string, username: string): Promise<void> {
     await unblockMutation.mutateAsync({ userId });
@@ -50,7 +52,11 @@ export default function SettingsScreen(): ReactElement {
   return (
     <View className="flex-1 bg-background">
       <ScreenHeader title="Settings" onBack={(): void => router.back()} backHint="Returns to your profile" />
-      <ScrollView className="flex-1" contentContainerClassName="p-md">
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="p-md"
+        contentContainerStyle={{ paddingBottom: contentClearance }}
+      >
         <Text className="mb-xs font-allo-semibold text-headline-sm" accessibilityRole="header">
           Theme
         </Text>

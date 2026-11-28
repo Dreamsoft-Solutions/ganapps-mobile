@@ -5,7 +5,7 @@ import { Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { Capsule } from './Capsule';
 import { Glass } from './Glass';
-import { PressableScale } from './PressableScale';
+import { PressableScale, type PressableScaleState } from './PressableScale';
 import { Text } from './Text';
 
 /** Layout classes for a {@link Chip}. Colour, radius and the rim come from `Glass` and `Capsule`. */
@@ -96,7 +96,7 @@ export function Chip({
       accessibilityLabel={accessibilityLabel}
       accessibilityState={role === 'switch' ? { checked: selected, disabled } : { selected, disabled }}
     >
-      {({ pressed }) =>
+      {({ pressed }: PressableScaleState): ReactElement =>
         selected ? (
           <Capsule tone="primary" glow={false} pressed={pressed} className={classes}>
             {content}

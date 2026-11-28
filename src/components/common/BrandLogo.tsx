@@ -30,6 +30,9 @@ export interface BrandLogoProps {
  *
  * @example
  * <BrandLogo size={72} glow />
+ *
+ * @param props - The mark size, whether it glows, and the first-draw callback.
+ * @returns The G mark.
  */
 export function BrandLogo({ size, glow = false, onDisplay }: BrandLogoProps): ReactElement {
   const theme = useResolvedTheme();

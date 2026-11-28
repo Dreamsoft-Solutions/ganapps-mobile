@@ -24,6 +24,9 @@ export interface LobeProps {
  * <View className="flex-1 overflow-hidden bg-background">
  *   <Lobe size={460} top={-230} right={-210} />
  * </View>
+ *
+ * @param props - Diameter, position offsets and opacity of the lobe.
+ * @returns The decorative lobe.
  */
 export function Lobe({ size, top, right, bottom, left, opacity = 1 }: LobeProps): ReactElement {
   const theme = useResolvedTheme();

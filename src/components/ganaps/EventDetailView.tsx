@@ -591,7 +591,7 @@ export function EventDetailView({
       <ScrollView
         testID="event-detail-scroll"
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: actionBarClearance }}
+        contentContainerStyle={{ paddingBottom: actionBarClearance + insets.bottom }}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}

@@ -86,6 +86,9 @@ export interface BrandLockupProps {
  * const progress = useSharedValue(0);
  * progress.set(withTiming(1, { duration: 600, easing: EASE_IN_OUT }));
  * <BrandLockup progress={progress} />
+ *
+ * @param props - The shared reveal progress and the logo first-draw callback.
+ * @returns The mark and wordmark lockup.
  */
 export function BrandLockup({ progress, onLogoDisplay }: BrandLockupProps): ReactElement {
   const theme = useResolvedTheme();

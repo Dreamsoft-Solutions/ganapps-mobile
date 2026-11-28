@@ -2,7 +2,7 @@ import { LucideProvider } from 'lucide-react-native';
 import type { ReactElement, ReactNode } from 'react';
 import { Capsule } from '@/components/common/Capsule';
 import { Glass, type RimWidth } from '@/components/common/Glass';
-import { PressableScale } from '@/components/common/PressableScale';
+import { PressableScale, type PressableScaleState } from '@/components/common/PressableScale';
 import { Colors } from '@/constants/theme';
 import type { TouchTarget } from '@/constants/touch-target';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
@@ -102,7 +102,7 @@ export function IconButton({
       className={`${sizeClassName} ${disabled ? 'opacity-50' : ''}`}
       scaleTo={0.94}
     >
-      {({ pressed }) => {
+      {({ pressed }: PressableScaleState): ReactElement => {
         const icon = <LucideProvider color={iconColor}>{children}</LucideProvider>;
 
         return variant === 'default' ? (

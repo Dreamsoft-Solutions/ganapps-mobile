@@ -42,7 +42,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { useSocialSignIn } from '@/hooks/useSocialSignIn';
-import { useSplashStore } from '@/store/splash.store';
+import { type SplashState, useSplashStore } from '@/store/splash.store';
 import { showToast } from '@/store/toast.store';
 import { mix } from '@/utils/color-mix';
 
@@ -193,7 +193,7 @@ export default function WelcomeScreen(): ReactElement {
   const [copyHeights, setCopyHeights] = useState<readonly number[]>([]);
   /** True once the lockup has drawn: the root splash lifts and the entrance clock starts. */
   const [shown, setShown] = useState<boolean>(false);
-  const setWelcomeShown = useSplashStore((state) => state.setWelcomeShown);
+  const setWelcomeShown = useSplashStore((state: SplashState): SplashState['setWelcomeShown'] => state.setWelcomeShown);
 
   const scrollX = useSharedValue<number>(0);
   const clock = useSharedValue<number>(0);
@@ -313,7 +313,9 @@ export default function WelcomeScreen(): ReactElement {
   const headlineBlockStyle = useMemo(
     (): ViewStyle => ({
       minHeight:
-        copyHeights.length > 0 ? Math.max(...copyHeights.map((value) => value ?? 0)) : HEADLINE_HEIGHT * fontScale,
+        copyHeights.length > 0
+          ? Math.max(...copyHeights.map((value: number | undefined): number => value ?? 0))
+          : HEADLINE_HEIGHT * fontScale,
       marginBottom: 12,
     }),
     [copyHeights, fontScale],

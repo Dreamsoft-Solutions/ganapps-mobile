@@ -1,4 +1,8 @@
-import BottomSheet, { BottomSheetFlatList, BottomSheetView } from '@gorhom/bottom-sheet';
+import BottomSheet, {
+  type BottomSheetBackgroundProps,
+  BottomSheetFlatList,
+  BottomSheetView,
+} from '@gorhom/bottom-sheet';
 import { X, ZoomIn } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -6,11 +10,12 @@ import { Pressable, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import { Empty } from '@/components/common/Empty';
 import { ErrorView } from '@/components/common/Error';
+import { Glass } from '@/components/common/Glass';
 import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { GanapFeedCard } from '@/components/lists/GanapFeedCard';
-import { Colors } from '@/constants/theme';
+import { BorderRadius, Colors, Spacing } from '@/constants/theme';
 import { MIN_TOUCH_TARGET } from '@/constants/touch-target';
 import type { UseGanapsResult } from '@/hooks/useGanaps';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
@@ -42,6 +47,11 @@ export interface GanapFeedSheetProps {
    * of the status bar and the filters stay reachable while the feed is expanded.
    */
   topOverlayHeight: number;
+  /**
+   * Height of the strip the tab bar island floats over, in dp. The sheet passes under the island,
+   * so its peek is raised by this much and its list pads by it, keeping the last row clear.
+   */
+  islandReserve: number;
   /** Shared native position keeps floating map controls above the moving sheet. */
   animatedPosition?: SharedValue<number>;
   selectedGanap: GanapListItem | null;
@@ -123,6 +133,25 @@ function FeedSheetHeader({ title, mode, onZoomIn, onClose }: FeedSheetHeaderProp
   );
 }
 
+/**
+ * The sheet's surface: Solid glass with the large rim, rounded at the top only. The sheet runs to
+ * the screen's bottom edge under the tab bar island, so its bottom corners stay square.
+ *
+ * @param props - The library's absolute-fill style and pointer events
+ * @returns The sheet background
+ */
+function FeedSheetBackground({ style, pointerEvents }: BottomSheetBackgroundProps): ReactElement {
+  return (
+    <Glass
+      variant="solid"
+      rim="lg"
+      radius={BorderRadius.xl}
+      pointerEvents={pointerEvents}
+      style={[style, { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }]}
+    />
+  );
+}
+
 interface FeedSheetBodyProps {
   mode: FeedSheetMode;
   feed: UseGanapsResult;
@@ -130,6 +159,7 @@ interface FeedSheetBodyProps {
   hasActiveFilters: boolean;
   onSelectGanap: (ganap: GanapListItem) => void;
   onEndReached: () => void;
+  islandReserve: number;
 }
 
 /**
@@ -148,6 +178,7 @@ function FeedSheetBody({
   hasActiveFilters,
   onSelectGanap,
   onEndReached,
+  islandReserve,
 }: FeedSheetBodyProps): ReactElement {
   if (mode === 'browse' && feed.isLoading) {
     return (
@@ -184,7 +215,7 @@ function FeedSheetBody({
       testID="ganap-feed-sheet-list"
       data={items}
       keyExtractor={(item: GanapListItem): string => item.id}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: islandReserve + Spacing.lg }}
       renderItem={({ item }: { item: GanapListItem }): ReactElement => (
         <GanapFeedCard ganap={item} onPress={(): void => onSelectGanap(item)} />
       )}
@@ -214,6 +245,7 @@ export function GanapFeedSheet({
   hasActiveFilters,
   isNearbyApplied,
   topOverlayHeight,
+  islandReserve,
   animatedPosition,
   selectedGanap,
   selectedCluster,
@@ -224,11 +256,10 @@ export function GanapFeedSheet({
   onZoomToCluster,
 }: GanapFeedSheetProps): ReactElement {
   const sheetRef = useRef<BottomSheet>(null);
-  const theme = useResolvedTheme();
 
   const { mode } = resolveFeedSheetMode({ selectedGanap, selectedCluster });
 
-  const snapPoints = useMemo((): (string | number)[] => buildFeedSheetSnapPoints(), []);
+  const snapPoints = useMemo((): (string | number)[] => buildFeedSheetSnapPoints(islandReserve), [islandReserve]);
 
   /**
    * Re-resolved inside the effect so the selection itself is the dependency.
@@ -293,7 +324,7 @@ export function GanapFeedSheet({
       animatedPosition={animatedPosition}
       enablePanDownToClose
       enableDynamicSizing={false}
-      backgroundStyle={{ backgroundColor: Colors[theme].card }}
+      backgroundComponent={FeedSheetBackground}
       handleComponent={renderHandle}
       onChange={handleSheetChange}
     >
@@ -304,6 +335,7 @@ export function GanapFeedSheet({
         hasActiveFilters={hasActiveFilters}
         onSelectGanap={onSelectGanap}
         onEndReached={handleEndReached}
+        islandReserve={islandReserve}
       />
     </BottomSheet>
   );

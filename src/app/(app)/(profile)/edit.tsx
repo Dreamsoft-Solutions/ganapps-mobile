@@ -6,6 +6,7 @@ import { Loading } from '@/components/common/Loading';
 import { EditProfileForm } from '@/components/forms/EditProfileForm';
 import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
+import { useTabBarInsets } from '@/hooks/useTabBarInsets';
 import { getQueryFailure } from '@/utils/query-failure';
 
 /**
@@ -16,6 +17,7 @@ import { getQueryFailure } from '@/utils/query-failure';
 export default function EditProfileScreen(): ReactElement {
   const profileQuery = useAuthQuery();
   const router = useRouter();
+  const { contentClearance } = useTabBarInsets();
   const failure: Error | null = getQueryFailure(profileQuery);
 
   let content: ReactElement;
@@ -26,7 +28,7 @@ export default function EditProfileScreen(): ReactElement {
     content = (
       <ScrollView
         className="flex-1 px-md"
-        contentContainerStyle={{ paddingBottom: 96 }}
+        contentContainerStyle={{ paddingBottom: contentClearance }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >

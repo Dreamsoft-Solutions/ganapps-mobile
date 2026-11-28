@@ -32,6 +32,9 @@ export interface OnboardingStageProps {
  *   height={stageHeight}
  *   onIndexChange={setActiveIndex}
  * />
+ *
+ * @param props - The slides, the shared scroll offset, the page size, and the settled-slide callback.
+ * @returns The cut-out photo stage.
  */
 export function OnboardingStage({
   slides,

@@ -1,7 +1,9 @@
 import type { ReactElement } from 'react';
 import { View } from 'react-native';
 import { Button } from '@/components/common/Button';
+import { Glass } from '@/components/common/Glass';
 import { Text } from '@/components/common/Text';
+import { BorderRadius } from '@/constants/theme';
 
 interface ReducedAccuracyNoticeProps {
   visible: boolean;
@@ -28,8 +30,8 @@ export function ReducedAccuracyNotice({
   if (!visible) return null;
 
   return (
-    <View className="mx-4 mt-2 rounded-md bg-card border border-border p-sm gap-1">
-      <Text className="text-label-md text-card-foreground">Approximate location</Text>
+    <Glass variant="strong" radius={BorderRadius.xl} className="mx-md mt-xs gap-1 p-md">
+      <Text className="text-label-md text-foreground">Approximate location</Text>
       <Text className="text-body-md text-muted-foreground">
         Precise Location is off, so nearby results may be several kilometres out.
       </Text>
@@ -41,6 +43,6 @@ export function ReducedAccuracyNotice({
           Dismiss
         </Button>
       </View>
-    </View>
+    </Glass>
   );
 }

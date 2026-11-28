@@ -26,6 +26,7 @@ import { Text } from '@/components/common/Text';
 import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { Colors, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { useTabBarInsets } from '@/hooks/useTabBarInsets';
 import type { ChatConversationSummary } from '@/types/chat.types';
 import type {
   FriendCode,
@@ -758,7 +759,7 @@ export function FriendsHubView({
   onRetry,
   onLoadMore,
 }: FriendsHubViewProps): ReactElement {
-  const insets = useSafeAreaInsets();
+  const { contentClearance } = useTabBarInsets();
   const theme = useResolvedTheme();
   return (
     <View className="flex-1 bg-background">
@@ -774,7 +775,7 @@ export function FriendsHubView({
         className="flex-1 px-md"
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={(): void => void onRefresh()} />}
-        contentContainerStyle={{ paddingTop: Spacing.sm, paddingBottom: insets.bottom + Spacing.lg }}
+        contentContainerStyle={{ paddingTop: Spacing.sm, paddingBottom: contentClearance }}
       >
         <View className="mb-lg flex-row gap-sm">
           <Button size="sm" variant="outline" onPress={onOpenAddFriend} leftIcon={<UserPlus />}>

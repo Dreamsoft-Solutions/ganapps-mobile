@@ -95,9 +95,14 @@ window insets from React context and is unaffected. `GanapShareModal` and `onboa
 show the pattern.
 
 A bottom sheet in a transparent `Modal` pads its last row with `insets.bottom` so actions clear
-the home indicator. A screen shown above the app tab bar does not add `insets.bottom` itself:
-the tab bar already reserves it. The floating tab bar sits `island-inset` above the bottom
-edge, so a tab screen's scroll content pads by `tabbar-clearance` plus the bottom inset.
+the home indicator. The tab bar is a floating island over the content, not a docked bar, so it
+reserves nothing: it sits `island-inset` above the bottom inset, and every screen it floats
+over pads its scroll content by `useTabBarInsets().contentClearance` (`tabbar-clearance` plus
+`insets.bottom`, plus the connection banner while it floats above the island). Something pinned
+to the bottom of such a screen rests above the dock; `useTabBarInsets().dockTop` gives its top
+edge, and `getTabBarIslandTop(insets.bottom)` in `AppTabBar.tsx` the island's alone. The island hides on full-screen flows
+(`shouldHideAppTabBar`: every Ganap screen, chat threads, friend profile and settings), and
+those screens pad their own bottom bars by `insets.bottom`.
 
 An opaque full-screen `Modal` also sets `presentationStyle="overFullScreen"`. React Native
 hears about light and dark mode changes only through the app's root view, and iOS takes that
@@ -933,6 +938,13 @@ undo. One row is open at a time.
 
 The tab bar holds the four top-level sections. Actions never go in it, and the unread dot on
 Friends is the only badge. A search field's placeholder says what can be searched.
+
+The tab bar is the Ganapps Glass island (`AppTabBar`): 64dp tall, at most 358dp wide, on
+`Glass` with `lift="island"` and `rim="lg"`. The active tab sits on a `primary` `Capsule` lens
+that slides between tabs on a no-bounce spring (380ms, damping ratio 1); with Reduce Motion it
+fades out, moves and fades back in. Tab content itself never slides. On the map, the feed
+sheet passes under the island and raises its peek by the island's strip, and the bottom
+controls rest above the Mapbox logo row.
 
 ### Haptics
 

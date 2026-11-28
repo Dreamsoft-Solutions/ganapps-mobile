@@ -35,7 +35,7 @@ vi.mock('expo-router', () => ({
   useRootNavigationState: () => ({ key: 'root' }),
 }));
 vi.mock('@/components/common/Loading', () => ({ Loading: () => 'Loading' }));
-vi.mock('@/components/navigation/AppTabBar', () => ({ AppTabBar: () => null, BAR_HEIGHT: 0 }));
+vi.mock('@/components/navigation/AppTabBar', () => ({ AppTabBar: () => null }));
 vi.mock('@/hooks/queries/useChatQuery', () => ({
   chatQueryKeys: { summaries: () => ['chat', 'summaries'] },
   useChatSummariesQuery: () => ({ hasUnreadMessages: false }),

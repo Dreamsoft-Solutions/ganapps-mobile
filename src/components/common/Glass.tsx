@@ -50,7 +50,7 @@ function splitShadowLayers(shadow: string): string[] {
   }
 
   layers.push(shadow.slice(start).trim());
-  return layers.filter((layer) => layer.length > 0);
+  return layers.filter((layer: string): boolean => layer.length > 0);
 }
 
 /**
@@ -66,12 +66,15 @@ function joinShadow(layers: readonly string[]): string | undefined {
  * two. Outset layers go on the outer view, inset layers on the body, so the inset ones are not hidden
  * by the rim. The body is the first child and ignores touches.
  *
- * The Solid tier is the only tier today; Liquid Glass (DS-280) and drawn blur (DS-281) slot in here.
+ * The Solid tier is the only tier today; Liquid Glass (ganapps-home#280) and drawn blur (ganapps-home#281) slot in here.
  *
  * @example
  * <Glass variant="strong" rim="md" className="min-h-touch flex-row items-center justify-center px-lg">
  *   <Text>Label</Text>
  * </Glass>
+ *
+ * @param props - Recipe, rim, lift, radius and press state, plus view props and content.
+ * @returns The glass pane with its content.
  */
 export function Glass({
   variant = 'regular',
@@ -95,7 +98,7 @@ export function Glass({
       borderRadius: flat ? 0 : radius,
       experimental_backgroundImage: flat ? undefined : rimGradient,
       experimental_backgroundRepeat: 'no-repeat',
-      boxShadow: joinShadow(shadow.filter((layer) => !layer.startsWith('inset'))),
+      boxShadow: joinShadow(shadow.filter((layer: string): boolean => !layer.startsWith('inset'))),
     };
   }, [theme, flat, radius, pressed, lift]);
 
@@ -118,7 +121,7 @@ export function Glass({
       borderRadius: flat ? 0 : Math.max(radius - Rim[rim], 0),
       backgroundColor: variant === 'tint' ? colors.primary : colors['glass-fill-solid'],
       experimental_backgroundImage: (flat ? [mintReturn, tint] : [sweep, mintReturn, tint]).join(', '),
-      boxShadow: joinShadow(shadow.filter((layer) => layer.startsWith('inset'))),
+      boxShadow: joinShadow(shadow.filter((layer: string): boolean => layer.startsWith('inset'))),
     };
   }, [theme, flat, rim, radius, variant, pressed, lift]);
 

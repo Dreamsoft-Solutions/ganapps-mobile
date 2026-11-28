@@ -13,7 +13,7 @@ export const CONNECTION_BANNER_COPY: Record<Exclude<ConnectionStatus, 'online'>,
 };
 
 /**
- * A strip above the tab bar that says when the app is offline or its connection is unstable.
+ * A rounded strip floating just above the tab bar island that says when the app is offline or its connection is unstable.
  *
  * Only likes, saves and check-ins wait for the connection to come back, so the offline copy
  * names them rather than promising that every action syncs. VoiceOver and TalkBack announce
@@ -35,7 +35,8 @@ export function ConnectionBanner(): ReactElement | null {
   return (
     <View
       testID="connection-banner"
-      className="flex-row items-center gap-xs border-b border-border bg-muted px-md py-xs"
+      className="w-full flex-row items-center gap-xs rounded-xl border border-border bg-muted px-md py-xs"
+      style={{ maxWidth: 358 }}
       accessibilityRole="text"
     >
       <Icon size={16} color={Colors[theme]['muted-foreground']} />

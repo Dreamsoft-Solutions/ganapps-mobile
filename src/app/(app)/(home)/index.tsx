@@ -8,7 +8,7 @@ import Mapbox, {
   RasterDemSource,
   Terrain,
 } from '@rnmapbox/maps';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import type { ComponentRef, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type LayoutChangeEvent, View } from 'react-native';
@@ -16,6 +16,7 @@ import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
+import { Glass } from '@/components/common/Glass';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { ClusteredGanapMarkers } from '@/components/map/ClusteredGanapMarkers';
@@ -28,8 +29,10 @@ import { MAX_MAP_PITCH, MapViewControls } from '@/components/map/MapViewControls
 import { ReducedAccuracyNotice } from '@/components/map/ReducedAccuracyNotice';
 import { TagChips } from '@/components/map/TagChips';
 import { Routes } from '@/constants/routes';
+import { BorderRadius, Spacing } from '@/constants/theme';
 import { useGanapDiscovery } from '@/hooks/useGanapDiscovery';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { useTabBarInsets } from '@/hooks/useTabBarInsets';
 import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
 import {
@@ -214,14 +217,9 @@ function BuildingExtrusions({
     />
   );
 }
-/**
- * How much of the map the feed sheet covers at rest.
- *
- * Camera padding and anything floating over the map both have to clear it. The
- * tab bar is not included: a custom `tabBar` is a flex sibling of the screens
- * container, so this screen already ends at the top of the bar.
- */
-const MAP_OVERLAY_BOTTOM: number = FEED_SHEET_PEEK_HEIGHT;
+
+/** Height of the Mapbox logo and attribution row, which the bottom controls rest above. */
+const MAP_ORNAMENT_ROW: number = 28;
 
 /**
  * Home screen for authenticated users.
@@ -231,6 +229,9 @@ const MAP_OVERLAY_BOTTOM: number = FEED_SHEET_PEEK_HEIGHT;
  * event list sheet. The sheet shows a selected pin or cluster, or the Nearby
  * list while Nearby is on; closing a Nearby list turns Nearby off.
  *
+ * The tab bar island floats over the map, so the sheet rests just above it, and the camera
+ * padding and the bottom controls clear both the island and the sheet's peek.
+ *
  * @returns The map home screen
  */
 export default function HomeScreen(): ReactElement {
@@ -239,6 +240,9 @@ export default function HomeScreen(): ReactElement {
   const sheetPosition = useSharedValue<number>(-1);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { dockTop } = useTabBarInsets();
+  const sheetBottomInset: number = dockTop + Spacing.xs;
+  const mapOverlayBottom: number = FEED_SHEET_PEEK_HEIGHT + sheetBottomInset;
   const discovery = useGanapDiscovery();
   const { search, setSearch, tag, setTag, tags, map, feed, nearby } = discovery;
   const { items, isLoading, isError, failure, refetch } = map;
@@ -286,6 +290,13 @@ export default function HomeScreen(): ReactElement {
   const [selectedClusterIndex, setSelectedClusterIndex] = useState<GanapClusterIndex | null>(null);
 
   const clusterIndex = useMemo(() => createGanapClusterIndex(items), [items]);
+  const [isMapFocused, setIsMapFocused] = useState<boolean>(true);
+  useFocusEffect(
+    useCallback((): (() => void) => {
+      setIsMapFocused(true);
+      return (): void => setIsMapFocused(false);
+    }, []),
+  );
   const visibleFeatures = useMemo(() => getVisibleMapFeatures(clusterIndex, viewport), [clusterIndex, viewport]);
 
   const activeCluster: GanapClusterFeature | null = selectedClusterIndex === clusterIndex ? selectedCluster : null;
@@ -302,7 +313,7 @@ export default function HomeScreen(): ReactElement {
     (coords: Coords): void => {
       const padding: CameraPadding = {
         paddingTop: insets.top + MAP_OVERLAY_TOP,
-        paddingBottom: MAP_OVERLAY_BOTTOM,
+        paddingBottom: mapOverlayBottom,
         paddingLeft: 0,
         paddingRight: 0,
       };
@@ -320,7 +331,7 @@ export default function HomeScreen(): ReactElement {
         padding,
       });
     },
-    [insets.top],
+    [insets.top, mapOverlayBottom],
   );
 
   useEffect((): void => {
@@ -412,7 +423,7 @@ export default function HomeScreen(): ReactElement {
       setCameraPitch(pitch);
       const padding: CameraPadding = {
         paddingTop: insets.top + MAP_OVERLAY_TOP,
-        paddingBottom: MAP_OVERLAY_BOTTOM,
+        paddingBottom: mapOverlayBottom,
         paddingLeft: 0,
         paddingRight: 0,
       };
@@ -431,7 +442,7 @@ export default function HomeScreen(): ReactElement {
         padding,
       });
     },
-    [insets.top],
+    [insets.top, mapOverlayBottom],
   );
 
   const handleGanapPress = useCallback(
@@ -444,7 +455,7 @@ export default function HomeScreen(): ReactElement {
       const zoom: number = Math.max(mapZoomRef.current, LOCATION_SELECTION_ZOOM);
       const padding: CameraPadding = {
         paddingTop: insets.top + MAP_OVERLAY_TOP,
-        paddingBottom: MAP_OVERLAY_BOTTOM,
+        paddingBottom: mapOverlayBottom,
         paddingLeft: 0,
         paddingRight: 0,
       };
@@ -463,7 +474,7 @@ export default function HomeScreen(): ReactElement {
         padding,
       });
     },
-    [beginSelection, insets.top],
+    [beginSelection, insets.top, mapOverlayBottom],
   );
 
   const handleClusterPress = useCallback(
@@ -565,7 +576,7 @@ export default function HomeScreen(): ReactElement {
       setCameraPitch(OVERHEAD_PITCH);
       const padding: CameraPadding = {
         paddingTop: insets.top + MAP_OVERLAY_TOP,
-        paddingBottom: MAP_OVERLAY_BOTTOM,
+        paddingBottom: mapOverlayBottom,
         paddingLeft: 0,
         paddingRight: 0,
       };
@@ -584,7 +595,7 @@ export default function HomeScreen(): ReactElement {
         padding,
       });
     },
-    [handleClearSelection, insets.top],
+    [handleClearSelection, insets.top, mapOverlayBottom],
   );
 
   const handlePitchChange = useCallback((requestedPitch: number): void => {
@@ -636,7 +647,9 @@ export default function HomeScreen(): ReactElement {
         styleURL={resolveMapStyleURL(theme)}
         scaleBarEnabled={false}
         attributionEnabled
+        attributionPosition={{ bottom: sheetBottomInset, right: Spacing.xs }}
         logoEnabled
+        logoPosition={{ bottom: sheetBottomInset, left: Spacing.xs }}
         onMapIdle={handleMapIdle}
         onCameraChanged={handleCameraChanged}
         onPress={handleMapPress}
@@ -652,6 +665,8 @@ export default function HomeScreen(): ReactElement {
           features={visibleFeatures}
           onGanapPress={handleGanapPress}
           onClusterPress={handleClusterPress}
+          clusterIndex={clusterIndex}
+          isAnimating={isMapFocused}
         />
       </MapView>
 
@@ -682,8 +697,8 @@ export default function HomeScreen(): ReactElement {
           onDismiss={nearby.dismissAccuracyNotice}
         />
         {nearby.isDisabled && (
-          <View className="mx-4 mt-2 rounded-md bg-card border border-border p-sm gap-1">
-            <Text className="text-label-md text-card-foreground">Location is off</Text>
+          <Glass variant="strong" radius={BorderRadius.xl} className="mx-md mt-xs gap-1 p-md">
+            <Text className="text-label-md text-foreground">Location is off</Text>
             <Text className="text-body-md text-muted-foreground">
               Turn on location for Ganapps in Settings to filter events near you. Everything else on the map still
               works.
@@ -698,12 +713,12 @@ export default function HomeScreen(): ReactElement {
                 Open settings
               </Button>
             </View>
-          </View>
+          </Glass>
         )}
         {nearby.errorMessage !== null && (
-          <View className="mx-4 mt-2 rounded-md bg-card border border-border p-sm">
+          <Glass variant="strong" radius={BorderRadius.xl} className="mx-md mt-xs p-md">
             <Text className="text-body-md text-muted-foreground">{nearby.errorMessage}</Text>
-          </View>
+          </Glass>
         )}
       </View>
 
@@ -713,6 +728,8 @@ export default function HomeScreen(): ReactElement {
         mapHeight={mapHeight}
         sheetPosition={sheetPosition}
         topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+        bottomReserve={sheetBottomInset}
+        ornamentReserve={MAP_ORNAMENT_ROW}
       >
         <MapViewControls
           pitch={cameraPitch}
@@ -729,6 +746,8 @@ export default function HomeScreen(): ReactElement {
         mapHeight={mapHeight}
         sheetPosition={sheetPosition}
         topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+        bottomReserve={sheetBottomInset}
+        ornamentReserve={MAP_ORNAMENT_ROW}
       >
         <LocateMeButton onPress={handleLocateMe} />
       </MapControlsOverlay>
@@ -747,6 +766,7 @@ export default function HomeScreen(): ReactElement {
           hasActiveFilters={hasActiveFilters}
           isNearbyApplied={isNearbyApplied}
           topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+          islandReserve={sheetBottomInset}
           animatedPosition={sheetPosition}
           selectedGanap={selectedGanap}
           selectedCluster={activeCluster}

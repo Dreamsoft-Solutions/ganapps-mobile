@@ -125,7 +125,10 @@ export function AttendanceScanView({
               }
             />
             {phase.name === 'scanning' && (
-              <View className="absolute inset-x-0 bottom-0 items-center gap-sm px-xl pb-xl">
+              <View
+                className="absolute inset-x-0 bottom-0 items-center gap-sm px-xl"
+                style={{ paddingBottom: insets.bottom + Spacing.xl }}
+              >
                 <View className="rounded-lg bg-background px-md py-sm">
                   <Text className="text-center text-body-md">
                     Point your camera at the organizer's attendance QR code.
