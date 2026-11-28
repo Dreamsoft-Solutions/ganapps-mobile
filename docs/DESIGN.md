@@ -395,9 +395,9 @@ are the `Rim` constants. Tailwind has matching `borderWidth` entries (for exampl
 | `blur-thick`     | 40px  | The tab island and sheets                          |
 | `glass-saturate` | 180%  | Saturation boost behind every blur                 |
 
-These are CSS values for web and Storybook only. iOS 26 `GlassView` ignores them. In
-`src/constants/theme.ts` they are `Blur` and `GLASS_SATURATE` (1.8), and only the blur tier
-reads them.
+These are CSS values for web and Storybook only. The app's live glass does not frost: it bends the
+map instead, so it uses `GLASS_BACKDROP_BLUR` (0.3dp) in `src/components/common/GlassMaterial.tsx`.
+`Blur` and `GLASS_SATURATE` in `src/constants/theme.ts` are kept for the web reference.
 
 ### Capsules
 
@@ -415,41 +415,44 @@ recessed means typeable.
 
 ### Platform tiers
 
-Glass is drawn three ways. Which one a device gets is decided in one place, not per screen.
+Glass is drawn two ways today, with a third planned. Which one a pane gets is decided in the `Glass`
+primitive, never per screen.
 
-| Tier         | Where                                                                                           | How                                                                                                       |
-| ------------ | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Liquid Glass | iOS 26 and newer                                                                                | `GlassView` from `expo-glass-effect`, behind `isLiquidGlassAvailable()` and `isGlassEffectAPIAvailable()` |
-| Drawn blur   | Android 12 and newer                                                                            | `BlurView` and `BlurTargetView` from `expo-blur`                                                          |
-| Solid        | Everything else: Android 11 and older, iOS 25 and older, Reduce Transparency, Increase Contrast | `glass-fill-solid`, same shape, rim and shadow, no blur                                                   |
+| Tier         | Where                                                                                     | How                                                                                                                  |
+| ------------ | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Live glass   | Android and iOS, a `regular` or `strong` pane inside a `GlassBackdrop` that has a capture | `GlassMaterial` (React Native Skia) refracts a GPU capture of the backdrop under the Solid rim, tint, sweep and bevel |
+| Liquid Glass | iOS 26 and newer (planned, hub #280)                                                      | `GlassView` from `expo-glass-effect`                                                                                 |
+| Solid        | Everything else                                                                           | `glass-fill-solid`, same shape, rim and shadow                                                                       |
 
-Solid is the baseline. The other two tiers are upgrades over it.
+Solid is the baseline, and the live tier falls back to it. `Glass` picks in this order:
 
-The shared `Glass` primitive picks the tier in this order, and screens never check the
-platform:
+1. Performance mode (Settings) or Reduce Transparency is on: Solid.
+2. The pane is `tint`, `solid` or the flat bar (`lift="none"`): Solid.
+3. The pane sits inside a `GlassBackdrop` that has captured its backdrop: live glass.
+4. Otherwise: Solid.
 
-1. Reduce Transparency or Increase Contrast is on: Solid.
-2. The caller asked for `solid`: Solid.
-3. iOS 26 with Liquid Glass available: Liquid Glass.
-4. Android 12 or newer with blur switched on: Drawn blur.
-5. Otherwise: Solid.
+How live glass works (ADR 0010):
 
-Rules for drawn blur on Android:
+- A screen wraps itself in one `GlassBackdrop` and wraps only the backdrop, today the Mapbox map, in
+  `GlassBackdropTarget`. Never wrap a view that holds glass: the capture would include the glass.
+- The screen asks for a capture through the backdrop's ref: on every camera change and when the map
+  settles. One capture feeds every pane on the screen.
+- A capture renders the target into a GPU texture with `react-native-webgpu`
+  (`drawElementImageToTexture`) and wraps it as a Skia image without a copy. It costs about 45 ms on a
+  2021 Android phone (Infinix X6711), so the glass trails the map by about one capture.
+- Mapbox must draw into a TextureView while live glass is on: `surfaceView={!useLiveGlassEnabled()}`,
+  with a `key` on the same value so the map is recreated when it changes. A SurfaceView map captures
+  blank.
+- Each pane measures its place against the capture whenever a new one lands. A pane that moves
+  without a new layout, like a chip in a scrolling row, calls `remeasure()` from the scroll handler. A
+  pane that moves under the finger, like a sheet, uses `solid`.
+- Text limits are unchanged: the material lays 35% of `glass-fill-solid` over the backdrop, which is not
+  enough for long text or data.
+- The material is `GlassMaterial`. Never rebuild the rim, tint or bevel in a screen.
 
-- Wrap the content to blur in a `BlurTargetView` and pass its ref to each `BlurView` as
-  `blurTarget`.
-- `blurMethod` defaults to `"none"`. Use `"dimezisBlurViewSdk31Plus"`, which falls back to none
-  below Android 12. Never plain `"dimezisBlurView"`.
-- At most three blurs on screen, and only after the Android map test passes. If the map is not
-  captured, use `surfaceView={false}`.
-
-Build order: the `Glass` and `Capsule` primitives with Solid only, then Liquid Glass, then the
-Android map test.
-
-**In the app today:** `Glass` and `Capsule` in `src/components/common/` draw the Solid tier
-only. Liquid Glass is hub #280, and drawn blur waits on the map test (hub #281). Compose every
-control from these two primitives and `PressableScale`; never rebuild the material in a
-component.
+**In the app today:** the home map's search bar, filter chips, Map view control, locate button and
+notices draw live glass. The tab island sits outside the home `GlassBackdrop`, so it and every other
+screen draw Solid. Compose every control from `Glass`, `Capsule` and `PressableScale`.
 
 How the Solid recipe is drawn in React Native:
 
