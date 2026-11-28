@@ -10,6 +10,7 @@ import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { Colors, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { useTabBarInsets } from '@/hooks/useTabBarInsets';
 import type { EventChatSummary } from '@/types/chat.types';
 
 /** Props for the server-ordered Event Chat list. */
@@ -101,6 +102,7 @@ export function EventChatListView({
 }: EventChatListViewProps): ReactElement {
   const theme = useResolvedTheme();
   const insets = useSafeAreaInsets();
+  const { contentClearance } = useTabBarInsets();
   if (isLoading && summaries.length === 0) return <Loading message="Loading event chats" />;
   if (error && summaries.length === 0) return <ErrorView error={error} onRetry={(): void => void onRetry()} />;
   if (summaries.length === 0) return <Empty message="No event chats yet." />;
@@ -125,7 +127,7 @@ export function EventChatListView({
           if (hasNextPage && !isFetchingNextPage) void onLoadMore();
         }}
         onEndReachedThreshold={0.5}
-        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing['tabbar-clearance'] }}
+        contentContainerStyle={{ paddingBottom: contentClearance }}
       />
     </View>
   );

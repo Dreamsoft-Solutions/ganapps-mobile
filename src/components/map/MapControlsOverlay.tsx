@@ -10,8 +10,10 @@ interface MapControlsOverlayProps {
   readonly mapHeight: SharedValue<number>;
   readonly sheetPosition: SharedValue<number>;
   readonly topOverlayHeight: number;
-  /** Space kept clear at the bottom of the map for the tab bar island, in dp. */
+  /** Space kept clear at the bottom of the map for the tab bar dock, in dp. The sheet's peek sits on it. */
   readonly bottomReserve: number;
+  /** Height of the Mapbox logo row above `bottomReserve`, kept clear only while no sheet covers it, in dp. */
+  readonly ornamentReserve: number;
   readonly children: ReactNode;
 }
 
@@ -27,13 +29,16 @@ export function MapControlsOverlay({
   sheetPosition,
   topOverlayHeight,
   bottomReserve,
+  ornamentReserve,
   children,
 }: MapControlsOverlayProps): ReactElement {
   const controlHeight = useSharedValue<number>(48);
   const animatedStyle = useAnimatedStyle((): { bottom: number; display: 'flex' | 'none' } => {
     const position: number =
       sheetPosition.value < 0 ? mapHeight.value - bottomReserve - FEED_SHEET_PEEK_HEIGHT : sheetPosition.value;
-    const bottom: number = isSheetVisible ? Math.max(0, mapHeight.value - position) + 12 : bottomReserve + 12;
+    const bottom: number = isSheetVisible
+      ? Math.max(0, mapHeight.value - position) + 12
+      : bottomReserve + ornamentReserve + 12;
     const hasRoom: boolean =
       !isSheetVisible || mapHeight.value === 0 || position >= topOverlayHeight + controlHeight.value + 12;
     return { bottom, display: hasRoom ? 'flex' : 'none' };

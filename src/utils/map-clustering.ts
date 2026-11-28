@@ -193,18 +193,14 @@ const CLUSTER_PREVIEW_SCAN: number = 24;
  * {@link CLUSTER_PREVIEW_SCAN} leaves are read, and a cluster from a replaced index yields none.
  *
  * @param index - The cluster index to resolve against
- * @param cluster - The cluster to preview
+ * @param clusterId - The cluster's `cluster_id`, stable for one index at one zoom, so callers can memoize on it
  * @param limit - The most images to return
  * @returns Distinct image URLs, possibly empty
  */
-export function getClusterPreviewImages(
-  index: GanapClusterIndex,
-  cluster: GanapClusterFeature,
-  limit: number,
-): string[] {
+export function getClusterPreviewImages(index: GanapClusterIndex, clusterId: number, limit: number): string[] {
   try {
     const images: string[] = [];
-    for (const leaf of index.getLeaves(cluster.properties.cluster_id, CLUSTER_PREVIEW_SCAN, 0)) {
+    for (const leaf of index.getLeaves(clusterId, CLUSTER_PREVIEW_SCAN, 0)) {
       const image: string | null = leaf.properties.ganap.mapPinImage ?? leaf.properties.ganap.coverImage ?? null;
       if (image !== null && !images.includes(image)) images.push(image);
       if (images.length === limit) break;

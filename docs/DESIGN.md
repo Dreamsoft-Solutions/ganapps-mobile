@@ -97,9 +97,10 @@ show the pattern.
 A bottom sheet in a transparent `Modal` pads its last row with `insets.bottom` so actions clear
 the home indicator. The tab bar is a floating island over the content, not a docked bar, so it
 reserves nothing: it sits `island-inset` above the bottom inset, and every screen it floats
-over pads its scroll content by `tabbar-clearance` plus `insets.bottom`. Something pinned to
-the bottom of such a screen rests above the island; `getTabBarIslandTop(insets.bottom)` in
-`AppTabBar.tsx` gives the island's top edge. The island hides on full-screen flows
+over pads its scroll content by `useTabBarInsets().contentClearance` (`tabbar-clearance` plus
+`insets.bottom`, plus the connection banner while it floats above the island). Something pinned
+to the bottom of such a screen rests above the dock; `useTabBarInsets().dockTop` gives its top
+edge, and `getTabBarIslandTop(insets.bottom)` in `AppTabBar.tsx` the island's alone. The island hides on full-screen flows
 (`shouldHideAppTabBar`: every Ganap screen, chat threads, friend profile and settings), and
 those screens pad their own bottom bars by `insets.bottom`.
 

@@ -3,10 +3,11 @@ import type { BottomTabBarProps } from 'expo-router/build/react-navigation/botto
 import type { LucideIcon } from 'lucide-react-native';
 import { Calendar, MessageCircle } from 'lucide-react-native';
 import { type ReactElement, type ReactNode, useEffect, useRef, useState } from 'react';
-import { type LayoutChangeEvent, Pressable, View, type ViewStyle } from 'react-native';
+import { type LayoutChangeEvent, View, type ViewStyle } from 'react-native';
 import Animated, {
-  ReduceMotion,
   Easing,
+  type EasingFunctionFactory,
+  ReduceMotion,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -19,18 +20,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/common/Avatar';
 import { Capsule } from '@/components/common/Capsule';
 import { Glass } from '@/components/common/Glass';
+import { PressableScale } from '@/components/common/PressableScale';
 import { Text } from '@/components/common/Text';
 import { Assets } from '@/constants/assets';
 import { Colors, Spacing } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { useAuthStore } from '@/store/auth.store';
+import { type TabBarState, useTabBarStore } from '@/store/tab-bar.store';
 import type { User } from '@/types/user.types';
 import { ConnectionBanner } from './ConnectionBanner';
 
 interface TabGlyphProps {
   isActive: boolean;
   user: User | null;
-  color: string;
 }
 
 interface TabRoute {
@@ -47,8 +49,10 @@ const ISLAND_PADDING: number = 6;
 const ISLAND_MAX_WIDTH: number = 358;
 const TAB_GAP: number = 2;
 const MARK_SIZE: number = 28;
+/** Largest text scale for tab labels: the island is a fixed 64dp, as system tab bars cap theirs. */
+const TAB_LABEL_MAX_SCALE: number = 1.3;
 
-const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
+const EASE_OUT: EasingFunctionFactory = Easing.bezier(0.23, 1, 0.32, 1);
 const LENS_SPRING = { duration: 380, dampingRatio: 1 } as const;
 const LENS_FADE_MS: number = 90;
 const HIDE_MS: number = 200;
@@ -114,7 +118,7 @@ interface TabIconProps {
 function TabIcon({ tab, isActive, user, hasUnreadMessages, color }: TabIconProps): ReactElement | null {
   const Icon = tab.icon;
   const glyph: ReactNode = tab.renderGlyph ? (
-    tab.renderGlyph({ isActive, user, color })
+    tab.renderGlyph({ isActive, user })
   ) : Icon ? (
     <Icon size={24} color={color} strokeWidth={isActive ? 2.25 : 2} />
   ) : null;
@@ -189,7 +193,7 @@ export function getTabBarIslandTop(bottomInset: number): number {
 export type AppTabBarProps = BottomTabBarProps & {
   /** Shows the unread dot on Friends and adds it to that tab's label. */
   hasUnreadMessages: boolean;
-  /** Slides the island down and fades it out, for the full-screen flows in `shouldHideAppTabBar`. */
+  /** Slides the island down and fades it out, for the full-screen flows in `shouldHideAppTabBar`. Reduce Motion drops the slide and keeps the fade, so the change still reads. */
   hidden: boolean;
 };
 
@@ -198,8 +202,8 @@ export type AppTabBarProps = BottomTabBarProps & {
  * the active one on a lit `primary` capsule (the lens) that slides between tabs.
  *
  * The island floats, so content scrolls under it: every tab screen pads its scroll content by
- * `Spacing['tabbar-clearance']` plus the bottom safe-area inset, and map overlays stack above it.
- * The connection banner floats just above the island.
+ * `useTabBarInsets().contentClearance`, and map overlays stack above `dockTop`. The connection
+ * banner floats just above the island; the dock reports its height so both clear it too.
  *
  * The lens is opaque, so the active label and glyph in `primary-foreground` keep their contrast
  * whatever the map shows underneath. Each tab fills the full island height and a quarter of its
@@ -237,11 +241,20 @@ export function AppTabBar({ state, navigation, hasUnreadMessages, hidden }: AppT
     setIslandWidth(event.nativeEvent.layout.width);
   };
 
+  const setAboveIslandHeight = useTabBarStore(
+    (s: TabBarState): TabBarState['setAboveIslandHeight'] => s.setAboveIslandHeight,
+  );
+  const handleDockLayout = (event: LayoutChangeEvent): void => {
+    const above: number = event.nativeEvent.layout.height - getTabBarIslandTop(insets.bottom);
+    setAboveIslandHeight(Math.max(0, Math.round(above)));
+  };
+
   return (
     <Animated.View
       pointerEvents={hidden ? 'none' : 'box-none'}
       accessibilityElementsHidden={hidden}
       importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
+      onLayout={handleDockLayout}
       style={[
         {
           position: 'absolute',
@@ -290,27 +303,27 @@ export function AppTabBar({ state, navigation, hasUnreadMessages, hidden }: AppT
           const ink: string = isActive ? Colors[theme]['primary-foreground'] : Colors[theme]['on-glass-muted'];
 
           return (
-            <Pressable
+            <PressableScale
               key={tab.key}
+              scaleTo={0.94}
               onPress={(): void => navigation.navigate(tab.name)}
-              className="flex-1 items-center justify-center rounded-full"
-              style={({ pressed }): { gap: number; transform: { scale: number }[] } => ({
-                gap: 2,
-                transform: [{ scale: pressed ? 0.94 : 1 }],
-              })}
+              className="flex-1"
               accessibilityRole="tab"
               accessibilityLabel={hasUnreadForTab ? `${tab.label}, unread messages` : tab.label}
               accessibilityState={{ selected: isActive }}
             >
-              <TabIcon tab={tab} isActive={isActive} user={user} hasUnreadMessages={hasUnreadForTab} color={ink} />
-              <Text
-                className={`text-label-sm ${isActive ? 'font-allo-semibold' : ''}`}
-                style={{ color: ink }}
-                numberOfLines={1}
-              >
-                {tab.label}
-              </Text>
-            </Pressable>
+              <View className="flex-1 items-center justify-center" style={{ gap: 2 }}>
+                <TabIcon tab={tab} isActive={isActive} user={user} hasUnreadMessages={hasUnreadForTab} color={ink} />
+                <Text
+                  className={`text-label-sm ${isActive ? 'font-allo-semibold' : ''}`}
+                  style={{ color: ink }}
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={TAB_LABEL_MAX_SCALE}
+                >
+                  {tab.label}
+                </Text>
+              </View>
+            </PressableScale>
           );
         })}
       </Glass>

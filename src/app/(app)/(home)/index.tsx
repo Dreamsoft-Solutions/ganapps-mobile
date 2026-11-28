@@ -28,11 +28,11 @@ import { MapSearchBar } from '@/components/map/MapSearchBar';
 import { MAX_MAP_PITCH, MapViewControls } from '@/components/map/MapViewControls';
 import { ReducedAccuracyNotice } from '@/components/map/ReducedAccuracyNotice';
 import { TagChips } from '@/components/map/TagChips';
-import { getTabBarIslandTop } from '@/components/navigation/AppTabBar';
 import { Routes } from '@/constants/routes';
 import { BorderRadius, Spacing } from '@/constants/theme';
 import { useGanapDiscovery } from '@/hooks/useGanapDiscovery';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { useTabBarInsets } from '@/hooks/useTabBarInsets';
 import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
 import {
@@ -240,7 +240,8 @@ export default function HomeScreen(): ReactElement {
   const sheetPosition = useSharedValue<number>(-1);
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const sheetBottomInset: number = getTabBarIslandTop(insets.bottom) + Spacing.xs;
+  const { dockTop } = useTabBarInsets();
+  const sheetBottomInset: number = dockTop + Spacing.xs;
   const mapOverlayBottom: number = FEED_SHEET_PEEK_HEIGHT + sheetBottomInset;
   const discovery = useGanapDiscovery();
   const { search, setSearch, tag, setTag, tags, map, feed, nearby } = discovery;
@@ -727,7 +728,8 @@ export default function HomeScreen(): ReactElement {
         mapHeight={mapHeight}
         sheetPosition={sheetPosition}
         topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
-        bottomReserve={sheetBottomInset + MAP_ORNAMENT_ROW}
+        bottomReserve={sheetBottomInset}
+        ornamentReserve={MAP_ORNAMENT_ROW}
       >
         <MapViewControls
           pitch={cameraPitch}
@@ -744,7 +746,8 @@ export default function HomeScreen(): ReactElement {
         mapHeight={mapHeight}
         sheetPosition={sheetPosition}
         topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
-        bottomReserve={sheetBottomInset + MAP_ORNAMENT_ROW}
+        bottomReserve={sheetBottomInset}
+        ornamentReserve={MAP_ORNAMENT_ROW}
       >
         <LocateMeButton onPress={handleLocateMe} />
       </MapControlsOverlay>

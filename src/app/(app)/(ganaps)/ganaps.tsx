@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SegmentControl, type SegmentControlOption } from '@/components/common/SegmentControl';
 import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { JoinedGanapsFilterBar } from '@/components/profile/JoinedGanapsFilterBar';
@@ -9,6 +8,7 @@ import { JoinedGanapsList } from '@/components/profile/JoinedGanapsList';
 import { SavedGanapsList } from '@/components/profile/SavedGanapsList';
 import { Spacing } from '@/constants/theme';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useTabBarInsets } from '@/hooks/useTabBarInsets';
 import type { JoinedGanapFilters, JoinedGanapTimeFilter } from '@/types/profile.types';
 
 /** Which collection the My Events tab is showing. */
@@ -20,14 +20,13 @@ const SEGMENTS: ReadonlyArray<SegmentControlOption<MyEventsSegment>> = [
 ];
 
 export default function GanapsScreen(): ReactElement {
-  const insets = useSafeAreaInsets();
+  const { contentClearance } = useTabBarInsets();
   const [segment, setSegment] = useState<MyEventsSegment>('joined');
   const [search, setSearch] = useState<string>('');
   const [time, setTime] = useState<JoinedGanapTimeFilter>('UPCOMING');
   const debouncedSearch: string = useDebouncedValue(search, 300);
   const normalizedSearch: string = debouncedSearch.trim();
   const filters: JoinedGanapFilters = normalizedSearch.length > 0 ? { search: normalizedSearch, time } : { time };
-  const contentBottomPadding: number = insets.bottom + Spacing['tabbar-clearance'];
 
   return (
     <View className="flex-1 bg-background">
@@ -48,14 +47,10 @@ export default function GanapsScreen(): ReactElement {
             onSearchChange={(value: string): void => setSearch(value)}
             onTimeChange={(value: JoinedGanapTimeFilter): void => setTime(value)}
           />
-          <JoinedGanapsList
-            contentTopPadding={Spacing.md}
-            contentBottomPadding={contentBottomPadding}
-            filters={filters}
-          />
+          <JoinedGanapsList contentTopPadding={Spacing.md} contentBottomPadding={contentClearance} filters={filters} />
         </>
       ) : (
-        <SavedGanapsList contentTopPadding={Spacing.md} contentBottomPadding={contentBottomPadding} />
+        <SavedGanapsList contentTopPadding={Spacing.md} contentBottomPadding={contentClearance} />
       )}
     </View>
   );

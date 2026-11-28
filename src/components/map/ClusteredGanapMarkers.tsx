@@ -39,8 +39,8 @@ function ClusterMarker({ feature, coordinate, clusterIndex, isAnimating, onPress
   const count: number = feature.properties.point_count;
   const label: string = `Zoom to group of ${count} events`;
   const images: string[] = useMemo(
-    (): string[] => getClusterPreviewImages(clusterIndex, feature, CLUSTER_PREVIEW_LIMIT),
-    [clusterIndex, feature],
+    (): string[] => getClusterPreviewImages(clusterIndex, clusterId, CLUSTER_PREVIEW_LIMIT),
+    [clusterIndex, clusterId],
   );
 
   return (
@@ -118,5 +118,5 @@ function renderFeature(feature: GanapMapFeature, props: ClusteredGanapMarkersPro
  * @returns A fragment containing one marker per visible valid feature.
  */
 export function ClusteredGanapMarkers(props: ClusteredGanapMarkersProps): ReactElement {
-  return <>{props.features.map((feature): ReactElement | null => renderFeature(feature, props))}</>;
+  return <>{props.features.map((feature: GanapMapFeature): ReactElement | null => renderFeature(feature, props))}</>;
 }

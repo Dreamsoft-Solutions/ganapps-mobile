@@ -3,7 +3,6 @@ import type { LucideIcon } from 'lucide-react-native';
 import { Check, Monitor, Moon, Sun } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { Empty } from '@/components/common/Empty';
@@ -13,9 +12,9 @@ import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { DeleteAccountForm } from '@/components/forms/DeleteAccountForm';
 import { ScreenHeader } from '@/components/navigation/ScreenHeader';
-import { Spacing } from '@/constants/theme';
 import { useUnblockUserMutation } from '@/hooks/mutations/useModerationMutation';
 import { useBlockedUsersQuery } from '@/hooks/queries/useModerationQuery';
+import { useTabBarInsets } from '@/hooks/useTabBarInsets';
 import { type ThemeMode, useThemeStore } from '@/store/theme.store';
 import { showToast } from '@/store/toast.store';
 import type { BlockedUserSummary } from '@/types/moderation.types';
@@ -43,7 +42,7 @@ export default function SettingsScreen(): ReactElement {
   const blockedUsersQuery = useBlockedUsersQuery();
   const unblockMutation = useUnblockUserMutation();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const { contentClearance } = useTabBarInsets();
 
   async function handleUnblock(userId: string, username: string): Promise<void> {
     await unblockMutation.mutateAsync({ userId });
@@ -56,7 +55,7 @@ export default function SettingsScreen(): ReactElement {
       <ScrollView
         className="flex-1"
         contentContainerClassName="p-md"
-        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing['tabbar-clearance'] }}
+        contentContainerStyle={{ paddingBottom: contentClearance }}
       >
         <Text className="mb-xs font-allo-semibold text-headline-sm" accessibilityRole="header">
           Theme

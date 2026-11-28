@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
+  type EasingFunctionFactory,
   type SharedValue,
   useAnimatedStyle,
   useReducedMotion,
@@ -28,7 +29,9 @@ const ORBIT_PERIOD_MS: number = 24000;
 const EMERGE_MS: number = 420;
 const EMERGE_STAGGER_MS: number = 70;
 const FULL_TURN: number = Math.PI * 2;
-const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
+/** Largest text scale for the count: the disc is a fixed size so the group reads as one mark. */
+const COUNT_MAX_SCALE: number = 1.2;
+const EASE_OUT: EasingFunctionFactory = Easing.bezier(0.23, 1, 0.32, 1);
 
 /** Disc diameter by group size, stepping up at 5 and 10 as the Ganapps Glass ClusterPin does. */
 function discSize(count: number): number {
@@ -173,7 +176,11 @@ export function GanapClusterPin({ count, countLabel, images, isAnimating }: Gana
         }}
       >
         <Capsule tone="primary" className="flex-1 items-center justify-center">
-          <Text className="font-allo-bold text-body-lg" style={{ color: Colors[theme]['primary-foreground'] }}>
+          <Text
+            className="font-allo-bold text-body-lg"
+            style={{ color: Colors[theme]['primary-foreground'] }}
+            maxFontSizeMultiplier={COUNT_MAX_SCALE}
+          >
             {countLabel}
           </Text>
         </Capsule>
