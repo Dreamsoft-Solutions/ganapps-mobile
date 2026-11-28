@@ -2,10 +2,13 @@ import { Search, X } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Glass } from '@/components/common/Glass';
 import { Text } from '@/components/common/Text';
+import { BorderRadius } from '@/constants/theme';
 import type { GanapListItem } from '@/types/ganap.types';
 
 const MAX_VISIBLE_SUGGESTIONS = 5;
+const SEARCH_BAR_HEIGHT: number = 56;
 
 interface MapSearchBarProps {
   value: string;
@@ -18,7 +21,8 @@ interface MapSearchBarProps {
 }
 
 /**
- * Floating search bar for the map screen.
+ * Floating search bar for the map screen, on strong glass so the placeholder stays readable over any
+ * street: a 56dp pill, with its suggestions on a strong-glass panel below it.
  *
  * @param props - Search value, filtered suggestions, and their event handlers.
  * @returns The search bar element.
@@ -51,14 +55,18 @@ export function MapSearchBar({
 
   return (
     <View className="relative z-20">
-      <View className="flex-row items-center gap-3 rounded-xl bg-card px-4 py-3 shadow-md">
-        <Search size={20} className="text-muted-foreground" />
+      <Glass
+        variant="strong"
+        className="flex-row items-center gap-sm pl-md pr-xs"
+        style={{ height: SEARCH_BAR_HEIGHT }}
+      >
+        <Search size={22} className="text-muted-foreground" />
         <TextInput
           value={value}
           onChangeText={handleChangeText}
           onFocus={handleFocus}
           placeholder={placeholder}
-          className="flex-1 text-input-md text-foreground placeholder:text-muted-foreground"
+          className="h-full flex-1 text-input-md text-foreground placeholder:text-muted-foreground"
           accessibilityLabel="Search events"
           accessibilityHint="Shows matching events on the map"
         />
@@ -67,15 +75,17 @@ export function MapSearchBar({
             onPress={(): void => handleChangeText('')}
             accessibilityRole="button"
             accessibilityLabel="Clear search"
-            hitSlop={15}
+            className="h-touch w-touch items-center justify-center"
           >
             <X size={18} className="text-muted-foreground" />
           </Pressable>
         )}
-      </View>
+      </Glass>
       {isSuggestionsVisible && value.trim().length > 0 && (
-        <View
-          className="absolute left-0 right-0 top-full mt-2 max-h-72 overflow-hidden rounded-xl border border-border bg-card shadow-md"
+        <Glass
+          variant="strong"
+          radius={BorderRadius.xl}
+          className="absolute left-0 right-0 top-full mt-2 max-h-72 overflow-hidden"
           testID="map-search-suggestions"
         >
           <ScrollView className="max-h-72" keyboardShouldPersistTaps="always">
@@ -101,7 +111,7 @@ export function MapSearchBar({
                     key={suggestion.id}
                     testID={`map-search-suggestion-${suggestion.id}`}
                     onPress={(): void => handleSelectSuggestion(suggestion)}
-                    className="min-h-touch flex-row items-center border-b border-border px-4 py-sm"
+                    className="min-h-touch flex-row items-center border-b border-border px-md py-sm"
                     accessibilityRole="button"
                     accessibilityLabel={suggestion.title}
                     accessibilityHint="Centers the map on this event"
@@ -121,7 +131,7 @@ export function MapSearchBar({
               )
             )}
           </ScrollView>
-        </View>
+        </Glass>
       )}
     </View>
   );

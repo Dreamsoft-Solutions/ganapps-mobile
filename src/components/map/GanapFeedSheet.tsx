@@ -1,4 +1,8 @@
-import BottomSheet, { BottomSheetFlatList, BottomSheetView } from '@gorhom/bottom-sheet';
+import BottomSheet, {
+  type BottomSheetBackgroundProps,
+  BottomSheetFlatList,
+  BottomSheetView,
+} from '@gorhom/bottom-sheet';
 import { X, ZoomIn } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -6,11 +10,12 @@ import { Pressable, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import { Empty } from '@/components/common/Empty';
 import { ErrorView } from '@/components/common/Error';
+import { Glass } from '@/components/common/Glass';
 import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { GanapFeedCard } from '@/components/lists/GanapFeedCard';
-import { Colors, Spacing } from '@/constants/theme';
+import { BorderRadius, Colors, Spacing } from '@/constants/theme';
 import { MIN_TOUCH_TARGET } from '@/constants/touch-target';
 import type { UseGanapsResult } from '@/hooks/useGanaps';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
@@ -128,6 +133,25 @@ function FeedSheetHeader({ title, mode, onZoomIn, onClose }: FeedSheetHeaderProp
   );
 }
 
+/**
+ * The sheet's surface: Solid glass with the large rim, rounded at the top only. The sheet runs to
+ * the screen's bottom edge under the tab bar island, so its bottom corners stay square.
+ *
+ * @param props - The library's absolute-fill style and pointer events
+ * @returns The sheet background
+ */
+function FeedSheetBackground({ style, pointerEvents }: BottomSheetBackgroundProps): ReactElement {
+  return (
+    <Glass
+      variant="solid"
+      rim="lg"
+      radius={BorderRadius.xl}
+      pointerEvents={pointerEvents}
+      style={[style, { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }]}
+    />
+  );
+}
+
 interface FeedSheetBodyProps {
   mode: FeedSheetMode;
   feed: UseGanapsResult;
@@ -232,7 +256,6 @@ export function GanapFeedSheet({
   onZoomToCluster,
 }: GanapFeedSheetProps): ReactElement {
   const sheetRef = useRef<BottomSheet>(null);
-  const theme = useResolvedTheme();
 
   const { mode } = resolveFeedSheetMode({ selectedGanap, selectedCluster });
 
@@ -301,7 +324,7 @@ export function GanapFeedSheet({
       animatedPosition={animatedPosition}
       enablePanDownToClose
       enableDynamicSizing={false}
-      backgroundStyle={{ backgroundColor: Colors[theme].card }}
+      backgroundComponent={FeedSheetBackground}
       handleComponent={renderHandle}
       onChange={handleSheetChange}
     >

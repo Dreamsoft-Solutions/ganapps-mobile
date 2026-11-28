@@ -89,6 +89,9 @@ export interface OnboardingDotsProps {
  *
  * @example
  * <OnboardingDots scrollX={scrollX} pageWidth={width} pageCount={ONBOARDING_SLIDES.length} />
+ *
+ * @param props - Scroll position, page width and page count.
+ * @returns The page indicator.
  */
 export function OnboardingDots({ scrollX, pageWidth, pageCount }: OnboardingDotsProps): ReactElement {
   const theme = useResolvedTheme();

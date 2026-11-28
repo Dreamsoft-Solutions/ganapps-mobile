@@ -8,7 +8,7 @@ import Mapbox, {
   RasterDemSource,
   Terrain,
 } from '@rnmapbox/maps';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import type { ComponentRef, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type LayoutChangeEvent, View } from 'react-native';
@@ -16,6 +16,7 @@ import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
+import { Glass } from '@/components/common/Glass';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { ClusteredGanapMarkers } from '@/components/map/ClusteredGanapMarkers';
@@ -27,11 +28,11 @@ import { MapSearchBar } from '@/components/map/MapSearchBar';
 import { MAX_MAP_PITCH, MapViewControls } from '@/components/map/MapViewControls';
 import { ReducedAccuracyNotice } from '@/components/map/ReducedAccuracyNotice';
 import { TagChips } from '@/components/map/TagChips';
-import { getTabBarIslandTop } from '@/components/navigation/AppTabBar';
 import { Routes } from '@/constants/routes';
-import { Spacing } from '@/constants/theme';
+import { BorderRadius, Spacing } from '@/constants/theme';
 import { useGanapDiscovery } from '@/hooks/useGanapDiscovery';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { useTabBarInsets } from '@/hooks/useTabBarInsets';
 import type { Coords } from '@/services/location.service';
 import type { GanapListItem } from '@/types/ganap.types';
 import {
@@ -239,7 +240,8 @@ export default function HomeScreen(): ReactElement {
   const sheetPosition = useSharedValue<number>(-1);
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const sheetBottomInset: number = getTabBarIslandTop(insets.bottom) + Spacing.xs;
+  const { dockTop } = useTabBarInsets();
+  const sheetBottomInset: number = dockTop + Spacing.xs;
   const mapOverlayBottom: number = FEED_SHEET_PEEK_HEIGHT + sheetBottomInset;
   const discovery = useGanapDiscovery();
   const { search, setSearch, tag, setTag, tags, map, feed, nearby } = discovery;
@@ -288,6 +290,13 @@ export default function HomeScreen(): ReactElement {
   const [selectedClusterIndex, setSelectedClusterIndex] = useState<GanapClusterIndex | null>(null);
 
   const clusterIndex = useMemo(() => createGanapClusterIndex(items), [items]);
+  const [isMapFocused, setIsMapFocused] = useState<boolean>(true);
+  useFocusEffect(
+    useCallback((): (() => void) => {
+      setIsMapFocused(true);
+      return (): void => setIsMapFocused(false);
+    }, []),
+  );
   const visibleFeatures = useMemo(() => getVisibleMapFeatures(clusterIndex, viewport), [clusterIndex, viewport]);
 
   const activeCluster: GanapClusterFeature | null = selectedClusterIndex === clusterIndex ? selectedCluster : null;
@@ -656,6 +665,8 @@ export default function HomeScreen(): ReactElement {
           features={visibleFeatures}
           onGanapPress={handleGanapPress}
           onClusterPress={handleClusterPress}
+          clusterIndex={clusterIndex}
+          isAnimating={isMapFocused}
         />
       </MapView>
 
@@ -686,8 +697,8 @@ export default function HomeScreen(): ReactElement {
           onDismiss={nearby.dismissAccuracyNotice}
         />
         {nearby.isDisabled && (
-          <View className="mx-4 mt-2 rounded-md bg-card border border-border p-sm gap-1">
-            <Text className="text-label-md text-card-foreground">Location is off</Text>
+          <Glass variant="strong" radius={BorderRadius.xl} className="mx-md mt-xs gap-1 p-md">
+            <Text className="text-label-md text-foreground">Location is off</Text>
             <Text className="text-body-md text-muted-foreground">
               Turn on location for Ganapps in Settings to filter events near you. Everything else on the map still
               works.
@@ -702,12 +713,12 @@ export default function HomeScreen(): ReactElement {
                 Open settings
               </Button>
             </View>
-          </View>
+          </Glass>
         )}
         {nearby.errorMessage !== null && (
-          <View className="mx-4 mt-2 rounded-md bg-card border border-border p-sm">
+          <Glass variant="strong" radius={BorderRadius.xl} className="mx-md mt-xs p-md">
             <Text className="text-body-md text-muted-foreground">{nearby.errorMessage}</Text>
-          </View>
+          </Glass>
         )}
       </View>
 
@@ -717,7 +728,8 @@ export default function HomeScreen(): ReactElement {
         mapHeight={mapHeight}
         sheetPosition={sheetPosition}
         topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
-        bottomReserve={sheetBottomInset + MAP_ORNAMENT_ROW}
+        bottomReserve={sheetBottomInset}
+        ornamentReserve={MAP_ORNAMENT_ROW}
       >
         <MapViewControls
           pitch={cameraPitch}
@@ -734,7 +746,8 @@ export default function HomeScreen(): ReactElement {
         mapHeight={mapHeight}
         sheetPosition={sheetPosition}
         topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
-        bottomReserve={sheetBottomInset + MAP_ORNAMENT_ROW}
+        bottomReserve={sheetBottomInset}
+        ornamentReserve={MAP_ORNAMENT_ROW}
       >
         <LocateMeButton onPress={handleLocateMe} />
       </MapControlsOverlay>

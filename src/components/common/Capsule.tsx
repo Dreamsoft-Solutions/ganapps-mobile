@@ -30,6 +30,9 @@ export interface CapsuleProps extends ViewProps {
  * <Capsule tone="primary" className="min-h-touch flex-row items-center justify-center px-lg">
  *   <Text>Label</Text>
  * </Capsule>
+ *
+ * @param props - Tone, radius, press state and glow, plus view props and content.
+ * @returns The lit capsule.
  */
 export function Capsule({
   tone = 'primary',

@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import { BadgeCheck, Edit3, LogOut, Settings } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { ScrollView, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
@@ -10,7 +9,6 @@ import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { ScreenHeader } from '@/components/navigation/ScreenHeader';
-import { Spacing } from '@/constants/theme';
 import { JoinedGanapCard } from '@/components/profile/JoinedGanapCard';
 import { ProfilePromptCard } from '@/components/profile/ProfilePromptCard';
 import { formatInterestLabel } from '@/constants/interests';
@@ -19,6 +17,7 @@ import { useAuthQuery } from '@/hooks/queries/useAuthQuery';
 import { useAuth } from '@/hooks/useAuth';
 import { useJoinedGanaps } from '@/hooks/useJoinedGanaps';
 import { useProfilePrompt } from '@/hooks/useProfilePrompt';
+import { useTabBarInsets } from '@/hooks/useTabBarInsets';
 import type { JoinedGanap } from '@/types/profile.types';
 import { getQueryFailure } from '@/utils/query-failure';
 
@@ -31,7 +30,7 @@ const PROFILE_JOINED_PAGE_SIZE: number = 3;
  */
 export default function ProfileScreen(): ReactElement {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const { contentClearance } = useTabBarInsets();
   const { logout, logoutMutation } = useAuth();
   const profileQuery = useAuthQuery();
   const joinedGanaps = useJoinedGanaps(PROFILE_JOINED_PAGE_SIZE);
@@ -66,7 +65,7 @@ export default function ProfileScreen(): ReactElement {
       />
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: insets.bottom + Spacing['tabbar-clearance'] }}
+        contentContainerStyle={{ paddingBottom: contentClearance }}
         showsVerticalScrollIndicator={false}
       >
         {profilePrompt.isVisible && (

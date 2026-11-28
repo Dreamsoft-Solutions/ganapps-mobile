@@ -183,6 +183,34 @@ export function getClusterLeaves(index: GanapClusterIndex, cluster: GanapCluster
   }
 }
 
+/** How many leaves a cluster preview looks through for images, so a huge cluster stays cheap. */
+const CLUSTER_PREVIEW_SCAN: number = 24;
+
+/**
+ * Picks up to `limit` distinct pin images from a cluster's Ganaps, for the cluster's preview.
+ *
+ * Uses each Ganap's map pin image, falling back to its cover, as the event pin does. Only the first
+ * {@link CLUSTER_PREVIEW_SCAN} leaves are read, and a cluster from a replaced index yields none.
+ *
+ * @param index - The cluster index to resolve against
+ * @param clusterId - The cluster's `cluster_id`, stable for one index at one zoom, so callers can memoize on it
+ * @param limit - The most images to return
+ * @returns Distinct image URLs, possibly empty
+ */
+export function getClusterPreviewImages(index: GanapClusterIndex, clusterId: number, limit: number): string[] {
+  try {
+    const images: string[] = [];
+    for (const leaf of index.getLeaves(clusterId, CLUSTER_PREVIEW_SCAN, 0)) {
+      const image: string | null = leaf.properties.ganap.mapPinImage ?? leaf.properties.ganap.coverImage ?? null;
+      if (image !== null && !images.includes(image)) images.push(image);
+      if (images.length === limit) break;
+    }
+    return images;
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Resolves a bounded zoom where every Ganap in the selected cluster is an individual point.
  *
