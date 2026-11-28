@@ -8,6 +8,11 @@ pacts/
 # Claude Code — personal settings, not shared
 .claude/settings.local.json
 
+# Local agent tooling
+.claude/worktrees/
+.codegraph/
+.orchestrator/
+
 # Expo
 .expo/
 dist/
