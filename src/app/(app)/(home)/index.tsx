@@ -18,12 +18,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
 import { Glass } from '@/components/common/Glass';
-import {
-  GlassBackdropTarget,
-  NoGlassBackdrop,
-  useGlassBackdropControls,
-  useLiveGlassEnabled,
-} from '@/components/common/GlassBackdrop';
+import { GlassBackdropTarget, NoGlassBackdrop, useGlassBackdropControls } from '@/components/common/GlassBackdrop';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { ClusteredGanapMarkers } from '@/components/map/ClusteredGanapMarkers';
@@ -370,7 +365,7 @@ export default function HomeScreen(): ReactElement {
   }, [centreOnUser, nearby.refresh, nearby.toggle, userCoords]);
 
   const backdrop = useGlassBackdropControls();
-  const liveGlass: boolean = useLiveGlassEnabled();
+  const liveGlass: boolean = backdrop?.enabled ?? false;
   const captureBackdrop = useCallback((): void => {
     backdrop?.capture();
   }, [backdrop]);

@@ -50,6 +50,7 @@ export default function AppLayout(): ReactElement {
   const rootNavigationState = useRootNavigationState();
   const { data: user, isLoading } = useAuthQuery();
   const hideTabBar: boolean = shouldHideAppTabBar(segments);
+  const isMapShowing: boolean = segments.at(-1) === MAP_TAB;
   const [pendingNotificationTarget, setPendingNotificationTarget] = useState<Href | null>((): Href | null =>
     getPendingNotificationTarget(),
   );
@@ -137,7 +138,7 @@ export default function AppLayout(): ReactElement {
     <GlassBackdrop enabled={liveGlass}>
       <Tabs
         tabBar={(props: BottomTabBarProps): ReactElement => (
-          <NoGlassBackdrop when={hideTabBar || props.state.routes[props.state.index]?.name !== MAP_TAB}>
+          <NoGlassBackdrop when={hideTabBar || !isMapShowing}>
             <AppTabBar {...props} hasUnreadMessages={hasUnreadMessages} hidden={hideTabBar} />
           </NoGlassBackdrop>
         )}

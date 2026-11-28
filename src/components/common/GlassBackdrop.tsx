@@ -42,6 +42,8 @@ export interface GlassBackdropValue {
 
 /** What the screen holding the {@link GlassBackdropTarget} uses to drive a {@link GlassBackdrop} above it. */
 export interface GlassBackdropHandle {
+  /** Whether live glass runs. Screens read it here so they agree with the backdrop (e.g. the map's TextureView). */
+  enabled: boolean;
   /** Captures the target now; calls during a capture coalesce into one more. */
   capture: () => void;
   remeasure: () => void;
@@ -272,8 +274,8 @@ export function GlassBackdrop({ children, enabled }: GlassBackdropProps): ReactE
 
   const value = useMemo((): GlassBackdropValue => ({ frame, version, remeasure }), [frame, version, remeasure]);
   const controls = useMemo(
-    (): GlassBackdropControls => ({ capture, remeasure, clear, targetRef }),
-    [capture, remeasure, clear],
+    (): GlassBackdropControls => ({ enabled, capture, remeasure, clear, targetRef }),
+    [enabled, capture, remeasure, clear],
   );
 
   return (
@@ -329,10 +331,10 @@ export function useGlassBackdrop(): GlassBackdropValue | null {
 }
 
 /**
- * Reads the capture controls of the nearest {@link GlassBackdrop}, or `null` outside one. The value never
- * changes, so calling it does not re-render on each capture.
+ * Reads the controls of the nearest {@link GlassBackdrop}, or `null` outside one. The value changes only with
+ * `enabled`, so calling it does not re-render on each capture.
  *
- * @returns `capture()` and `remeasure()`.
+ * @returns Whether live glass runs, `capture()` and `remeasure()`.
  */
 export function useGlassBackdropControls(): GlassBackdropHandle | null {
   return useContext(GlassBackdropControlsContext);

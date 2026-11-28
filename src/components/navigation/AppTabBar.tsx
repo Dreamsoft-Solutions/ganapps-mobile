@@ -17,9 +17,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { scheduleOnRN } from 'react-native-worklets';
 import { Avatar } from '@/components/common/Avatar';
 import { Capsule } from '@/components/common/Capsule';
 import { Glass } from '@/components/common/Glass';
+import { useGlassBackdropControls } from '@/components/common/GlassBackdrop';
 import { PressableScale } from '@/components/common/PressableScale';
 import { Text } from '@/components/common/Text';
 import { Assets } from '@/constants/assets';
@@ -229,9 +231,21 @@ export function AppTabBar({ state, navigation, hasUnreadMessages, hidden }: AppT
   const lensStyle = useLens(state.index, lensWidth > 0 ? lensWidth + TAB_GAP : 0);
 
   const shown = useSharedValue<number>(hidden ? 0 : 1);
+  const backdrop = useGlassBackdropControls();
   useEffect((): void => {
-    shown.set(withTiming(hidden ? 0 : 1, { duration: HIDE_MS, easing: EASE_OUT, reduceMotion: ReduceMotion.Never }));
-  }, [hidden, shown]);
+    const remeasure: (() => void) | undefined = backdrop?.remeasure;
+    shown.set(
+      withTiming(
+        hidden ? 0 : 1,
+        { duration: HIDE_MS, easing: EASE_OUT, reduceMotion: ReduceMotion.Never },
+        (finished?: boolean): void => {
+          'worklet';
+          // The island's glass measured itself mid-slide, and a transform fires no onLayout.
+          if (finished === true && !hidden && remeasure !== undefined) scheduleOnRN(remeasure);
+        },
+      ),
+    );
+  }, [hidden, shown, backdrop]);
   const dockStyle = useAnimatedStyle((): { opacity: number; transform: { translateY: number }[] } => ({
     opacity: shown.get(),
     transform: [{ translateY: reduceMotion ? 0 : (1 - shown.get()) * HIDE_OFFSET }],
