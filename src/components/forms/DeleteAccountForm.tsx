@@ -25,11 +25,23 @@ function getDeletionErrorMessage(error: ParsedApiError): string {
   return error.message;
 }
 
+/** Props for {@link DeleteAccountForm}. */
+interface DeleteAccountFormProps {
+  /**
+   * How the entry point is drawn: a destructive `button` (Settings), or a quiet text `link` where
+   * deletion is not the screen's purpose (email verification). The sheet behind it is the same.
+   */
+  trigger?: 'button' | 'link';
+}
+
 /**
  * Opens the shared two-step account deletion sheet for verified and unverified Users.
- * @returns A destructive entry button and a keyboard-safe confirmation form.
+ * @param props - How the entry point is drawn
+ * @returns A destructive entry button or link and a keyboard-safe confirmation form.
+ * @example
+ * <DeleteAccountForm trigger="link" />
  */
-export function DeleteAccountForm(): ReactElement {
+export function DeleteAccountForm({ trigger = 'button' }: DeleteAccountFormProps): ReactElement {
   const { deleteAccount, deleteAccountMutation } = useAuth();
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState<'explain' | 'confirm'>('explain');
@@ -84,7 +96,7 @@ export function DeleteAccountForm(): ReactElement {
   return (
     <>
       <Button
-        variant="destructive"
+        variant={trigger === 'link' ? 'link' : 'destructive'}
         accessibilityHint="Opens confirmation for irreversible account deletion"
         onPress={open}
       >

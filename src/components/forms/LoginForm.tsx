@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
-import { Check } from 'lucide-react-native';
+import { Circle as CircleOpen, CircleCheck } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { useCallback, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -38,7 +38,9 @@ interface PasswordChecklistProps {
 }
 
 /**
- * Shows the signup password rules as the user types.
+ * Shows the signup password rules as the user types: an open circle for a rule still to meet, a
+ * filled check in `primary-text` once it is met, so the state never rests on color alone. Each
+ * row tells screen readers whether its rule is met.
  *
  * @param props - Current signup password
  * @returns The password requirements checklist
@@ -48,14 +50,20 @@ function PasswordChecklist({ password }: PasswordChecklistProps): ReactElement {
   const status = getPasswordRequirementStatus(password);
 
   return (
-    <View className="-mt-2 mb-2 gap-1" accessibilityLabel="Password requirements">
+    <View className="-mt-xs mb-md gap-1" accessibilityLabel="Password requirements">
       {PASSWORD_POLICY.requirements.map((requirement): ReactElement => {
         const met: boolean = status[requirement.id];
         const color: string = met ? Colors[theme]['primary-text'] : Colors[theme]['muted-foreground'];
+        const Icon = met ? CircleCheck : CircleOpen;
 
         return (
-          <View key={requirement.id} className="flex-row items-center gap-2">
-            <Check size={14} color={color} strokeWidth={met ? 2.5 : 1.5} />
+          <View
+            key={requirement.id}
+            className="flex-row items-center gap-2"
+            accessible
+            accessibilityLabel={`${requirement.label}, ${met ? 'met' : 'not met yet'}`}
+          >
+            <Icon size={14} color={color} strokeWidth={met ? 2.25 : 1.75} />
             <Text className={met ? 'text-label-sm text-primary-text' : 'text-label-sm text-muted-foreground'}>
               {requirement.label}
             </Text>
@@ -70,21 +78,28 @@ function PasswordChecklist({ password }: PasswordChecklistProps): ReactElement {
 export type LoginFormMode = 'login' | 'signup';
 
 interface LoginFormProps {
-  /** Mode the form opens in. Defaults to `'login'`. */
-  initialMode?: LoginFormMode;
+  /** The mode showing. The screen owns it, because its title follows the mode. */
+  mode: LoginFormMode;
+  /** Called with the other mode when the person follows the Sign up or Log in link. */
+  onModeChange: (mode: LoginFormMode) => void;
 }
 
 /**
- * Authentication form that toggles between login and sign-up modes.
+ * Authentication form for log in and sign up, drawn inside `AuthScreen`. Fields chain with the
+ * keyboard's next key and carry autofill hints, so a password manager can fill them. Under the
+ * main action sit Apple and Google, the link to the other mode, and the Terms and Privacy links on
+ * one line, as on Welcome.
  *
- * @param props - The mode to open in
+ * @param props - The mode showing and the handler that switches it
  * @returns The login/sign-up form with email/password fields and social sign-in.
+ * @example
+ * const [mode, setMode] = useState<LoginFormMode>('login');
+ * <LoginForm mode={mode} onModeChange={setMode} />
  */
-export function LoginForm({ initialMode = 'login' }: LoginFormProps): ReactElement {
+export function LoginForm({ mode, onModeChange }: LoginFormProps): ReactElement {
   const auth = useAuth();
   const { login, register, isLoading, loginMutation, registerMutation } = auth;
   const router = useRouter();
-  const [mode, setMode] = useState<LoginFormMode>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -113,8 +128,8 @@ export function LoginForm({ initialMode = 'login' }: LoginFormProps): ReactEleme
     clearFormErrors();
   }, [clearSocialError, clearFormErrors]);
 
-  const toggleMode = useCallback(() => {
-    setMode((previous) => (previous === 'login' ? 'signup' : 'login'));
+  const toggleMode = useCallback((): void => {
+    onModeChange(isLogin ? 'signup' : 'login');
     methods.reset({
       email: '',
       password: '',
@@ -124,7 +139,7 @@ export function LoginForm({ initialMode = 'login' }: LoginFormProps): ReactEleme
     setShowPassword(false);
     setShowConfirmPassword(false);
     clearSignInErrors();
-  }, [methods, clearSignInErrors]);
+  }, [isLogin, onModeChange, methods, clearSignInErrors]);
 
   // The rejection is swallowed here on purpose: the failure is rendered from the
   // mutation's own `error` below. Letting it escape leaves an unhandled rejection
@@ -173,9 +188,11 @@ export function LoginForm({ initialMode = 'login' }: LoginFormProps): ReactEleme
     />
   );
 
+  const submit = methods.handleSubmit(onSubmit);
+
   return (
     <FormProvider {...methods}>
-      <View className="gap-4">
+      <View>
         {!isLogin && (
           <Input
             name="username"
@@ -184,6 +201,10 @@ export function LoginForm({ initialMode = 'login' }: LoginFormProps): ReactEleme
             placeholder="johndoe"
             autoCapitalize="none"
             autoCorrect={false}
+            autoComplete="username-new"
+            textContentType="username"
+            returnKeyType="next"
+            onSubmitEditing={(): void => methods.setFocus('email')}
             maxLength={USERNAME_POLICY.maxLength}
             helperText={`${USERNAME_POLICY.minLength}–${USERNAME_POLICY.maxLength} characters; no spaces.`}
           />
@@ -196,15 +217,23 @@ export function LoginForm({ initialMode = 'login' }: LoginFormProps): ReactEleme
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
+          autoComplete="email"
+          textContentType={isLogin ? 'username' : 'emailAddress'}
+          returnKeyType="next"
+          onSubmitEditing={(): void => methods.setFocus('password')}
         />
 
         <Input
           name="password"
           label="Password"
-          placeholder={isLogin ? 'Min. 8 characters' : '8-128 characters'}
+          placeholder={isLogin ? 'Your password' : '8-128 characters'}
           autoCapitalize="none"
           secureTextEntry={!showPassword}
           iconRight={passwordToggle}
+          autoComplete={isLogin ? 'current-password' : 'new-password'}
+          textContentType={isLogin ? 'password' : 'newPassword'}
+          returnKeyType={isLogin ? 'go' : 'next'}
+          onSubmitEditing={isLogin ? submit : (): void => methods.setFocus('confirmPassword')}
           maxLength={isLogin ? undefined : PASSWORD_POLICY.maxLength}
         />
 
@@ -214,18 +243,20 @@ export function LoginForm({ initialMode = 'login' }: LoginFormProps): ReactEleme
           <Input
             name="confirmPassword"
             label="Confirm password"
-            placeholder="Re-enter your password"
             autoCapitalize="none"
             secureTextEntry={!showConfirmPassword}
             iconRight={confirmPasswordToggle}
+            autoComplete="new-password"
+            textContentType="newPassword"
+            returnKeyType="go"
+            onSubmitEditing={submit}
           />
         )}
 
         {isLogin && (
-          <View className="flex-row justify-end -mt-2 mb-2">
+          <View className="-mt-xs mb-sm flex-row justify-end">
             <Button
               variant="link"
-              size="sm"
               onPress={(): void => router.push(Routes.auth.forgotPassword(methods.getValues('email')))}
             >
               Forgot password?
@@ -233,32 +264,38 @@ export function LoginForm({ initialMode = 'login' }: LoginFormProps): ReactEleme
           </View>
         )}
 
-        {submitError && (
-          <Text className="text-destructive text-body-md text-center" accessibilityRole="alert">
-            {submitError}
-          </Text>
-        )}
+        <View className="mt-xs gap-sm">
+          {submitError && (
+            <Text className="text-center text-body-md text-destructive" accessibilityRole="alert">
+              {submitError}
+            </Text>
+          )}
 
-        <Button onPress={methods.handleSubmit(onSubmit)} loading={isLoading} size="auth">
-          {isLogin ? 'Log in' : 'Create account'}
-        </Button>
+          <Button onPress={submit} loading={isLoading} size="auth">
+            {isLogin ? 'Log in' : 'Create account'}
+          </Button>
 
-        {(social.showApple || social.showGoogle) && <Divider label="or" />}
-        <SocialSignInButtons social={social} />
+          {(social.showApple || social.showGoogle) && (
+            <View className="-my-sm">
+              <Divider label="or" />
+            </View>
+          )}
+          <SocialSignInButtons social={social} />
+        </View>
 
-        <View className="flex-row justify-center items-center mt-2">
-          <Text className="text-muted-foreground text-body-md">
+        <View className="mt-lg flex-row flex-wrap items-center justify-center">
+          <Text className="text-body-md text-muted-foreground">
             {isLogin ? "Don't have an account? " : 'Already have an account? '}
           </Text>
-          <Button variant="link" size="sm" onPress={toggleMode}>
+          <Button variant="link" onPress={toggleMode}>
             {isLogin ? 'Sign up' : 'Log in'}
           </Button>
         </View>
 
-        <Text className="text-muted-foreground text-label-sm text-center mt-4 px-2">
-          By continuing, you agree to our Terms and Privacy Policy.
-        </Text>
-        <LegalLinks />
+        <View className="mt-md items-center">
+          <Text className="text-center text-label-sm text-muted-foreground">By continuing you agree to our</Text>
+          <LegalLinks inline />
+        </View>
       </View>
     </FormProvider>
   );

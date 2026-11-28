@@ -1,24 +1,14 @@
 import type { ReactElement } from 'react';
-import { ScrollView, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OnboardingForm } from '@/components/forms/OnboardingForm';
 
 /**
  * Profile setup screen shown after email verification.
  *
- * Headings, step state and the skip control live in {@link OnboardingForm}, which varies all
- * three by step.
+ * The frame, headings, step marker, actions and skip control all live in {@link OnboardingForm},
+ * which varies them by step.
  *
  * @returns The onboarding screen.
  */
 export default function OnboardingScreen(): ReactElement {
-  const insets = useSafeAreaInsets();
-
-  return (
-    <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
-      <ScrollView className="flex-1" contentContainerClassName="px-6 pt-6 pb-8" keyboardShouldPersistTaps="handled">
-        <OnboardingForm />
-      </ScrollView>
-    </View>
-  );
+  return <OnboardingForm />;
 }

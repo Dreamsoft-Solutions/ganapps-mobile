@@ -158,7 +158,10 @@ function saveProfile(queryClient: QueryClient, accountSessionId: number, user: U
   void queryClient.invalidateQueries({ queryKey });
 }
 
-/** Verifies the email of the User in the current sign-in session. */
+/**
+ * Verifies the email of the User in the current sign-in session. Failures skip the global error
+ * toast: the verification form shows them on the code field.
+ */
 export function useVerifyEmailMutation(): UseMutationResult<User, Error, VerifyEmailRequest> {
   const queryClient = useQueryClient();
   const accountSessionId = useAuthStore((s) => s.accountSessionId);
@@ -167,6 +170,7 @@ export function useVerifyEmailMutation(): UseMutationResult<User, Error, VerifyE
     mutationKey: [...authQueryKeys.me(accountSessionId), 'verify-email'],
     mutationFn: (dto: VerifyEmailRequest): Promise<User> =>
       authAPI.verifyEmail(dto, { expectedAuthSessionId: accountSessionId }),
+    meta: { [SUPPRESS_GLOBAL_ERROR_TOAST_META]: true },
     onSuccess: (user: User): void => {
       saveProfile(queryClient, accountSessionId, user);
     },

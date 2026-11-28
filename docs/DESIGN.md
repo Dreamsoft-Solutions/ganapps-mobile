@@ -137,7 +137,7 @@ Both mark secondary actions in dense rows where 48dp would crowd the layout, so 
 reach the minimum with `hitSlop` instead of growing — 8dp and 10dp per edge. `Button`
 `size="md"` cannot reach it on padding alone either, so it carries `min-h-touch`.
 
-`Button` `size="auth"` renders 41dp tall (`h-sign-in`) and reaches 48dp with 3.5dp of
+`Button` `size="auth"` renders at least 41dp tall (`min-h-sign-in`) and reaches 48dp with 3.5dp of
 `hitSlop`. Every button in the sign-in flow uses it (welcome, log in and sign up, password
 reset, email verification, onboarding), so those screens share one button height. Apple's native Continue with Apple button
 sizes its title from its own height, and 41pt is where that title measures the same as the
@@ -527,8 +527,8 @@ g, j, p, q and y when a single-line text field has a line height, so these token
 size and weight and let the field take the font's natural height. They carry no tracking for
 the same reason. Multiline inputs keep their `body-*` size.
 
-A single-line form field is 48dp tall (`h-touch`), with or without a trailing icon, and its
-text input fills that height. `Input` applies this, so the password field with its show
+A single-line form field is at least 48dp tall (`min-h-touch`), with or without a trailing icon,
+and its text input fills that height; it grows with the system text size. `Input` applies this, so the password field with its show
 toggle is the same height as the email field above it.
 
 Default body color is `text-foreground`. Each size token carries its own
@@ -632,7 +632,7 @@ the system.
 ### Button
 
 Variants: `default`, `secondary`, `outline`, `ghost`, `destructive`, `link`.
-Sizes: `sm`, `md`, `lg`, and `auth` for every button in the sign-in flow: welcome, log in and sign up, password reset, email verification, and onboarding. A `variant="link"` button always renders at the `link` size, a `body-md` label with no horizontal padding, so links match the copy around them.
+Sizes: `sm`, `md`, `lg`, and `auth` for every button in the sign-in flow: welcome, log in and sign up, password reset, email verification, and onboarding. `auth` is held at Apple's native button height (`min-h-sign-in`, 41dp) by a floor, not a fixed height, so its label grows with the system text size instead of clipping. A `variant="link"` button always renders at the `link` size, a `body-md` label with no horizontal padding, so links match the copy around them.
 
 - `default`: a `primary` capsule with `primary-foreground` text.
 - `secondary`: a `secondary` capsule with `secondary-foreground` text.
@@ -653,7 +653,13 @@ An input is a well: carved in with `shadow-well`, never raised.
 - Error border: `destructive`
 - Placeholder: `muted-foreground` (`on-glass-muted` inside glass)
 - Label: `foreground`, `label-md` size
-- Height: 48dp (`h-touch`) for a single-line field, with or without a trailing icon
+- Height: at least 48dp (`min-h-touch`) for a single-line field, with or without a trailing icon. It
+  grows with the system text size instead of clipping.
+- One-time codes (`variant="code"`): at least 64dp, the digits centred in semibold `headline-md`
+  with wide tracking, and `autoComplete="one-time-code"` so the keyboard can offer the code.
+- Autofill and order: pass `autoComplete` (and `textContentType` for iOS) so password managers can
+  fill the field, and chain fields with `returnKeyType="next"` and `onSubmitEditing` calling
+  react-hook-form's `setFocus`. The last field's return key submits.
 - Horizontal padding: `px-md`
 
 ### Card
@@ -696,7 +702,8 @@ better on every surface in both themes.
 ### Screen headers
 
 Every screen that draws its own header uses `ScreenHeader`
-(`components/navigation/ScreenHeader.tsx`). It owns the top inset plus 16dp, a 48dp row,
+(`components/navigation/ScreenHeader.tsx`), except the sign-in screens, which use `AuthScreen` (see
+[Sign-in screens](#sign-in-screens)). It owns the top inset plus 16dp, a 48dp row,
 the filled back button (`IconButton` `variant="default"` with `ArrowLeft` at 20), and a
 bold `text-headline-md` title (`font-allo-bold`). Stacks hide their native headers. Loading and error
 states render the header too, so a screen is never left without a way back; registration and
@@ -743,6 +750,44 @@ from 70%.
 
 The splash and Welcome share one placement, `ONBOARDING_LOBES` (`constants/onboarding.ts`): a
 460dp lobe off the top-right corner and a 440dp lobe off the bottom-left at 0.85 opacity.
+
+### Sign-in screens
+
+Log in and sign up (`app/(auth)/login.tsx`), password reset (`app/(auth)/forgot-password.tsx`),
+email verification (`app/verify-email.tsx`) and both profile setup steps (`app/onboarding.tsx`)
+share one frame, `AuthScreen` (`components/auth/AuthScreen.tsx`), so the flow reads as Welcome
+continued. They do not use `ScreenHeader`.
+
+**The frame.** The `background` ground with one `Lobe` off the top-right corner (460dp, 0.9
+opacity), the same corner Welcome lights. A 48dp header row 16dp below the safe area holds the
+filled back button (`IconButton` `variant="default"`, `ArrowLeft` at 20) on the left and an
+optional accessory on the right. Under it, top-aligned, the title in `headline-lg` bold and one
+`body-md` `muted-foreground` line, then the form. Nothing is centred vertically, so the keyboard
+never lands on the content.
+
+**Layers.** Everything is solid: fields are wells, the main action is the `primary` capsule, the
+Google button stays the glass `outline` Button. There is no glass panel behind the form.
+
+**Keyboard.** The scroll area and the optional pinned `footer` sit in a `KeyboardAvoidingView`
+with `behavior="padding"` on both platforms. The app is edge-to-edge on Android, so the window
+does not resize for the keyboard; the padding is what keeps the last field and the button
+reachable. In the bounded `footer`, put a link `Button` in a `flex-row` (as Skip for now does): set
+straight in a column `View` there, it stretched to fill the footer and collapsed the scroll area to
+nothing on Android.
+
+| Screen         | Title                                   | Header right   | Footer                     |
+| -------------- | --------------------------------------- | -------------- | -------------------------- |
+| Log in         | Welcome back                            | none           | none                       |
+| Sign up        | Create your account                     | none           | none                       |
+| Password reset | Reset your password (line follows step) | none           | none                       |
+| Verify email   | Verify your email (names the address)   | Sign out       | Delete account, as a link  |
+| Profile, 1     | What should we call you?                | 1 of 2         | Continue                   |
+| Profile, 2     | Add a photo and interests               | 2 of 2         | Finish, Skip for now       |
+
+**Errors.** A field error shows under its field. A rejected verification code is set on the code
+field, not raised as a toast. A failed log in or sign up shows one `destructive` line above the
+main action. The Terms and Privacy links sit on one line under "By continuing you agree to our",
+as on Welcome.
 
 ### Splash and Welcome
 

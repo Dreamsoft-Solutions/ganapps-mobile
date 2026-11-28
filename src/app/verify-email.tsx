@@ -1,49 +1,64 @@
-import type { ReactElement } from 'react';
-import { ScrollView, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { ReactElement, ReactNode } from 'react';
+import { View } from 'react-native';
+import { AuthScreen } from '@/components/auth/AuthScreen';
 import { Button } from '@/components/common/Button';
 import { Text } from '@/components/common/Text';
 import { DeleteAccountForm } from '@/components/forms/DeleteAccountForm';
 import { VerifyEmailForm } from '@/components/forms/VerifyEmailForm';
 import { useAuth } from '@/hooks/useAuth';
+import { showToast } from '@/store/toast.store';
 
 /**
- * Email verification and account deletion access for authenticated unverified Users.
+ * Email verification for signed-in, unverified Users, on the shared {@link AuthScreen} frame. It
+ * names the address the code went to. Sign out, top right, is the way out (signing in again, or with
+ * another email); account deletion stays reachable as a quiet link pinned to the bottom.
  *
  * @returns The verify email screen.
  */
 export default function VerifyEmailScreen(): ReactElement {
-  const { resendVerification, resendVerificationMutation } = useAuth();
-  const insets = useSafeAreaInsets();
+  const { user, logout, logoutMutation, resendVerification, resendVerificationMutation } = useAuth();
+  const subtitle: ReactNode = user?.email ? (
+    <>
+      We sent a 6-digit code to{'\n'}
+      <Text className="font-allo-semibold text-body-md text-foreground">{user.email}</Text>
+    </>
+  ) : (
+    'We sent a 6-digit code to your email.'
+  );
 
   return (
-    <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
-      <ScrollView className="flex-1" contentContainerClassName="p-lg gap-sm" keyboardShouldPersistTaps="handled">
-        <Text className="mb-2 text-center font-allo-bold text-headline-md text-foreground" accessibilityRole="header">
-          Verify your email
-        </Text>
-        <Text className="text-muted-foreground text-body-md text-center mb-8">
-          Enter the 6-digit code sent to your email.
-        </Text>
-
-        <VerifyEmailForm />
-
-        <View className="mt-6 items-center">
-          <Text className="text-muted-foreground text-body-md mb-2">
-            Didn't receive the code? Check your spam folder.
-          </Text>
-          <Button
-            variant="link"
-            onPress={(): Promise<void> => resendVerification()}
-            loading={resendVerificationMutation.isPending}
-          >
-            Resend code
-          </Button>
+    <AuthScreen
+      title="Verify your email"
+      subtitle={subtitle}
+      footer={
+        <View className="flex-row flex-wrap items-center justify-center">
+          <Text className="text-body-md text-muted-foreground">Signed up by mistake? </Text>
+          <DeleteAccountForm trigger="link" />
         </View>
-        <View className="mt-lg">
-          <DeleteAccountForm />
-        </View>
-      </ScrollView>
-    </View>
+      }
+      headerRight={
+        <Button variant="link" onPress={logout} loading={logoutMutation.isPending}>
+          Sign out
+        </Button>
+      }
+    >
+      <VerifyEmailForm />
+
+      <View className="mt-lg items-center">
+        <Text className="text-center text-body-md text-muted-foreground">
+          Didn't receive the code? Check your spam folder.
+        </Text>
+        <Button
+          variant="link"
+          onPress={async (): Promise<void> => {
+            await resendVerification();
+            showToast('success', 'New code sent. Check your inbox.');
+          }}
+          loading={resendVerificationMutation.isPending}
+        >
+          Resend code
+        </Button>
+      </View>
+    </AuthScreen>
   );
 }
