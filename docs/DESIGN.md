@@ -202,7 +202,7 @@ Green means the action or the place. `destructive` is the only red.
 | `primary`                | `#22c55e` | `#22c55e` | Ganapps green, unchanged from the current app. Fills the one main action per view (Log In, Enter Event Hub, Send), selected chips, cluster pins and the unread dot. Always paired with `primary-foreground` ink, never white.                                      |
 | `primary-foreground`     | `#052e16` | `#052e16` | Label ink on a `primary` fill (6.5:1). Replaces the old white-on-green, which measured 2.3:1.                                                                                                                                                                      |
 | `primary-text`           | `#166534` | `#4ade80` | Green used AS text or a thin icon: links (Forgot Password?, Sign Up), the active tab label and glyph, ghost buttons, the selected segment label. 5.1:1+ on `background`, `card`, every glass fill and the `glass-lens` droplet over any map color, in both themes. |
-| `brand-lime`             | `#69af01` | `#9bd300` | The lime of the G-pin mark. Reserved for brand moments: the splash glow, the Map tab mark ring and your own location puck. Not for buttons or text.                                                                                                                |
+| `brand-lime`             | `#69af01` | `#9bd300` | The lime of the G-pin mark. Reserved for brand moments: the splash halo behind the logo, the Map tab mark ring and your own location puck (on the Map tab and the Welcome map). Not for buttons or text.                                                           |
 | `secondary`              | `#1f2937` | `#1d3a44` | Secondary solid action (My Code, Sign Out). Dark is lifted off the navy ground so it still reads as a button.                                                                                                                                                      |
 | `secondary-foreground`   | `#ffffff` | `#eef6f2` | Label ink on `secondary`.                                                                                                                                                                                                                                          |
 | `destructive`            | `#b91c1c` | `#f87171` | Destructive actions (Delete account, Leave event confirmation) and field errors. Always with a verb label. Light is red-700 so white labels keep 4.8:1 even under the bezel sheen.                                                                                 |
@@ -256,9 +256,9 @@ Glows and highlights. They are light, not paint.
 
 | Token          | Light                       | Dark                        | Use                                                                                                                                                                                                                        |
 | -------------- | --------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `primary-glow` | `rgba(34, 197, 94, 0.35)`   | `rgba(34, 197, 94, 0.45)`   | The soft halo under a selected map pin and the active-tab droplet.                                                                                                                                                         |
+| `primary-glow` | `rgba(34, 197, 94, 0.35)`   | `rgba(34, 197, 94, 0.45)`   | The soft halo under a selected map pin, the active-tab droplet, the logo halo on the splash and Welcome, and the route underlay on the Welcome map.                                                                        |
 | `glow`         | `rgba(34, 197, 94, 0.14)`   | `rgba(74, 222, 128, 0.30)`  | A pool of green light behind glass: the `Lobe` on solid screens and the glow over busy parts of the map. Glass needs light behind it to look like glass. Keep the centre off-canvas or away from `muted-foreground` text.  |
-| `glow-lime`    | `rgba(105, 175, 1, 0.10)`   | `rgba(155, 211, 0, 0.14)`   | The outer ring of a `Lobe` and the second map glow, in the lime of the G-pin mark.                                                                                                                                         |
+| `glow-lime`    | `rgba(105, 175, 1, 0.10)`   | `rgba(155, 211, 0, 0.14)`   | The outer ring of a `Lobe` and of the logo halo, and the second map glow, in the lime of the G-pin mark.                                                                                                                   |
 | `bezel-sheen`  | `rgba(255, 255, 255, 0.55)` | `rgba(255, 255, 255, 0.42)` | The specular highlight on a solid control (primary, secondary and destructive buttons, the selected chip, cluster pins). It falls on the top-left corner only and is gone before the label, so labels keep their contrast. |
 
 ### Map
@@ -729,6 +729,97 @@ such as Add friend and My code. A Button sizes its own icons, 16dp on `sm` and 1
 pass `leftIcon` and `rightIcon` without a `size`. Text that acts as a link is a
 `Button variant="link"`, never a styled `Text` in a `Pressable`.
 
+### Lobe
+
+A `Lobe` (`components/common/Lobe.tsx`) is one static pool of light behind glass on a screen
+without a map. It is a radial gradient: `glow` at the centre, `glow-lime` at 38%, transparent
+from 70%.
+
+- Placement: `size` is the diameter, and `top`, `right`, `bottom` and `left` place it, all in dp.
+  Offsets may be negative, so the centre can sit off-canvas.
+- Opacity: `opacity`, 1 by default.
+- The parent clips it with `overflow-hidden`.
+- It ignores touch and is hidden from screen readers.
+
+The splash and Welcome share one placement, `ONBOARDING_LOBES` (`constants/onboarding.ts`): a
+460dp lobe off the top-right corner and a 440dp lobe off the bottom-left at 0.85 opacity.
+
+### Splash and Welcome
+
+The splash and Welcome are one composition. `SplashView` (`components/onboarding/SplashView.tsx`)
+is the first JS frame under the native splash. Welcome (`app/(public)/index.tsx`) starts from that
+same frame and settles into its own layout, so launch has no visible jump.
+
+**The lockup.** `BrandLockup` (`components/onboarding/BrandLockup.tsx`) draws the logo, the
+`display` bold title and the tagline for both screens from one `progress` value. At 0 it is the
+splash: the logo centred in the window at `SPLASH_LOGO_SIZE` (about 134dp) with a `brand-lime`
+halo, the title under it and the tagline in `body-md` `muted-foreground` under that. At 1 it is the
+Welcome header: the logo at `HEADER_LOGO_SIZE` (72dp), its top 20dp below the safe area. The lime
+halo is gone by 0.6 and the tagline by 0.25; the `BrandLogo` halo stays. Content under the header
+reads `headerBottom` from `useLockupLayout()`, so it follows the lockup at any text size.
+
+**Why it lines up.** The native splash (`app.config.js`) draws
+`assets/brand/ganap-logo-round.png` 200dp wide (`imageWidth`), and the disc is 726 of the PNG's
+1080px. So `SPLASH_LOGO_SIZE` must stay `200 * 726 / 1080`, and `BrandLogo` draws the PNG larger
+than its box so the disc fills it. Change the PNG, its disc or `imageWidth` and update
+`SPLASH_LOGO_SIZE` with them. The native splash ground is `background` in both themes, the same
+ground `SplashView` paints.
+
+**The stage.** Each slide shows a cut-out: a 1080 by 1280 transparent WebP (`STAGE_ASPECT`) with
+the subject bottom-aligned and the top 18% always transparent (`STAGE_HEADROOM`). The stage shows
+it at full size when it fits. On a shorter screen it crops only the headroom first (`cover`,
+pinned to the bottom), then shrinks it (`contain`) to the slide's `shrinkPosition`. The cut-outs
+move 1:1 with the finger. Their bottom edge sits 48dp below the top of the island, inside the
+solid fade, so a subject never ends in a hard line. Under the title, one caption per slide in
+`body-xl` cross-fades with the pager; screen readers hear only the settled caption.
+
+**Swapping a cut-out.** Export the new art on the same 1080 by 1280 canvas with the same headroom
+and save it over `assets/images/onboarding/onboarding-N.webp`, where N is the slide (1 to 3). Then
+update that slide's `imageLabel` in `ONBOARDING_SLIDES` (`constants/onboarding.ts`) to describe
+it. To add, remove or reorder slides, change `Assets.onboarding` (`constants/assets.ts`) and
+`ONBOARDING_SLIDES` together, in slide order, and give each slide a map scene. A slide has a
+`key`, its `image`, a one-line `caption`, an `imageLabel` and a `shrinkPosition` (`bottom` or
+`bottom right`).
+
+**The island.** The controls sit in one glass island at the bottom:
+`Glass variant="strong" rim="lg" lift="island"`, radius `2xl`, with 16dp padding and 12dp gaps.
+
+- Page dots: `border` dots, with the current page as a `primary` pill.
+- `Get started`: the default `primary` button, size `auth`.
+- `Log in`: the `secondary` button, size `auth`.
+- The tagline: `label-sm` `muted-foreground`, which resolves to `on-glass-muted` inside glass.
+
+The buttons are solid capsules, because glass is never set on glass. Both open Log in.
+
+**The entrance.** One clock runs from launch to 2400ms. Nothing blocks touch while it plays.
+
+| Time (ms)    | Element     | Change                          | Easing        |
+| ------------ | ----------- | ------------------------------- | ------------- |
+| 0 to 450     | Lockup      | Held at the splash              | None          |
+| 450 to 1050  | Lockup      | Splash to header (`progress`)   | `EASE_IN_OUT` |
+| 700 to 1100  | Map         | Fades in                        | `EASE_OUT`    |
+| 800 to 1300  | Stage       | Rises 32dp and fades in         | `EASE_OUT`    |
+| 900 to 1100  | Caption     | Fades in                        | `EASE_OUT`    |
+| 950 to 1350  | Island      | Rises 24dp and fades in         | `EASE_OUT`    |
+| 1300 to 2400 | First route | Draws from the puck to the pin  | `EASE_IN_OUT` |
+
+With Reduce Motion on, the lockup is in the header and the first route is drawn from the first
+frame, and one 150ms opacity fade replaces every movement.
+
+**The map.** Behind the stage, `OnboardingMap` (`components/onboarding/OnboardingMap.tsx`) draws
+a stylised street map of a river city in the `map-*` tokens only, with no labels. It pans at half
+the pager's speed. Each slide has one scene: a route from your location puck to a pin, drawn
+under the finger as the slide arrives. Find ends at a `Music` pin, Plan at a `Users` pin with a
+second puck in `mint`, and Keep at a `Ticket` pin.
+
+- Route: a 5dp `primary` line over a 12dp `primary-glow` underlay.
+- Pin: a `primary` capsule. Only the current slide's pin pulses, with a `primary-glow` ring, and
+  not at all with Reduce Motion on.
+- Puck: a `brand-lime` disc ringed in `background`.
+
+The geometry lives in `constants/onboarding-map.ts`. The map is decorative and hidden from screen
+readers.
+
 ## Interaction patterns
 
 This is the short version. Screens follow it, and every gesture has a visible alternative: a
@@ -801,7 +892,7 @@ With Reduce Motion on, use a 150ms cross-fade: no overshoot and no animated blur
   outline.
 - Swipe and hold gestures have VoiceOver custom actions.
 
-**Not built yet.** `SwipeRow`, `ContextMenu` and the `Lobe` are not in the repo. The chat's
+**Not built yet.** `SwipeRow` and `ContextMenu` are not in the repo. The chat's
 `MessageReactionBar` and `MessageReactionOverlay` and the `Toast` and `ToastHost` exist.
 
 ## Dark mode
@@ -834,9 +925,12 @@ Always test both themes when adding new UI, and test glass with Reduce Transpare
 ## Brand assets
 
 - Logo mark (square): `assets/brand/ganap-logo-1.png`
-- Logo mark (round): `assets/brand/ganap-logo-round.png` — the square mark cut to the centered
-  circle Android's splash mask shows, used for the iOS splash so both platforms launch with the
-  same round mark
+- Logo mark (round): `assets/brand/ganap-logo-round.png` (`Assets.logoRound`) — the square mark
+  cut to the centered circle Android's splash mask shows. The native splash draws it 200dp wide on
+  `background` in both themes, on iOS and Android alike, and `BrandLogo` draws it in the app. Its
+  disc is 726 of its 1080px; see [Splash and Welcome](#splash-and-welcome).
+- Welcome cut-outs: `assets/images/onboarding/onboarding-1.webp` to `onboarding-3.webp`
+  (`Assets.onboarding`), one per slide in slide order
 - Logo with wordmark: `assets/brand/ganap-logo-white-text.png`
 - Default avatar: `assets/images/default-avatar.jpg`
 
