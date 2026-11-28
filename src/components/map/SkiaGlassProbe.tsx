@@ -1,18 +1,5 @@
-import {
-  Blur,
-  Canvas,
-  Fill,
-  Group,
-  ImageShader,
-  LinearGradient,
-  makeImageFromView,
-  Paint,
-  RoundedRect,
-  Shader,
-  Skia,
-  type SkImage,
-  vec,
-} from '@shopify/react-native-skia';
+import { Skia, type SkImage } from 'react-native-skia';
+import { importDevice } from 'react-native-webgpu';
 import {
   type MutableRefObject,
   type ReactElement,
@@ -22,8 +9,12 @@ import {
   useRef,
   useState,
 } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { PixelRatio, StyleSheet, View } from 'react-native';
+import { splitShadowLayers } from '@/components/common/Glass';
+import { GlassMaterial } from '@/components/common/GlassMaterial';
 import { Text } from '@/components/common/Text';
+import { Shadows } from '@/constants/theme';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 
 /** Turns the DS-285 proof on. shortcut: dev-only spike, replaced by `GlassBackdrop` in task 2 of ganapps-home#288. */
 export const SKIA_GLASS_PROBE: boolean = __DEV__;
@@ -31,36 +22,35 @@ export const SKIA_GLASS_PROBE: boolean = __DEV__;
 const PROBE_WIDTH = 240;
 const PROBE_HEIGHT = 64;
 const PROBE_RADIUS = PROBE_HEIGHT / 2;
-const BLUR = 6;
+/** 5% of the first probe's 6 dp blur, per the owner's review. */
+const BLUR = 0.3;
 /** How many captures are averaged into one logged timing line. */
 const LOG_EVERY = 30;
 
-/** Bends the backdrop inward near the rounded edge, with a slight colour split, like a thick lens. */
-const REFRACT = Skia.RuntimeEffect.Make(`
-uniform shader backdrop;
-uniform float2 size;
-uniform float radius;
-uniform float strength;
-
-float sdRoundedBox(float2 p, float2 b, float r) {
-  float2 q = abs(p) - b + r;
-  return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+/** A captured frame and the GPU texture behind it, released together. */
+interface CapturedFrame {
+  image: SkImage;
+  texture: GPUTexture;
 }
 
-half4 main(float2 xy) {
-  float2 centred = xy - size * 0.5;
-  float dist = sdRoundedBox(centred, size * 0.5, radius);
-  float edge = clamp(1.0 + dist / (radius * 0.9), 0.0, 1.0);
-  float bend = pow(edge, 2.2) * strength;
-  float2 dir = normalize(centred + float2(0.0001));
-  float2 uv = xy - dir * bend;
-  float split = bend * 0.12;
-  half r = backdrop.eval(uv + dir * split).r;
-  half g = backdrop.eval(uv).g;
-  half b = backdrop.eval(uv - dir * split).b;
-  return half4(r, g, b, 1.0);
+/**
+ * Rasterizes a native view into a GPU texture on Skia's own device and wraps it as an image, without a copy.
+ *
+ * @param target - The view to capture, rendered with `collapsable={false}`.
+ * @param width - The view's width in dp. @param height - The view's height in dp.
+ * @returns The captured frame.
+ */
+async function captureView(target: RefObject<View | null>, width: number, height: number): Promise<CapturedFrame> {
+  const device: GPUDevice = importDevice(Skia.getNativeDevice());
+  const scale: number = PixelRatio.get();
+  const texture: GPUTexture = device.createTexture({
+    size: [Math.round(width * scale), Math.round(height * scale)],
+    format: 'rgba8unorm',
+    usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+  });
+  await device.queue.drawElementImageToTexture({ source: target }, { texture, premultipliedAlpha: true });
+  return { image: Skia.Image.MakeFromGPUTexture(texture), texture };
 }
-`);
 
 /** Props for {@link SkiaGlassProbe}. */
 interface SkiaGlassProbeProps {
@@ -94,6 +84,7 @@ export function SkiaGlassProbe({
   targetHeight,
 }: SkiaGlassProbeProps): ReactElement {
   const [snapshot, setSnapshot] = useState<SkImage | null>(null);
+  const frameRef = useRef<CapturedFrame | null>(null);
   const inFlight = useRef<boolean>(false);
   const pending = useRef<boolean>(false);
   const timings = useRef<number[]>([]);
@@ -105,21 +96,23 @@ export function SkiaGlassProbe({
     }
     inFlight.current = true;
     const started: number = performance.now();
-    makeImageFromView(targetRef as RefObject<View>)
-      .then((image: SkImage | null): void => {
+    captureView(targetRef, targetWidth, targetHeight)
+      .then((frame: CapturedFrame): void => {
+        const image: SkImage = frame.image;
         timings.current.push(performance.now() - started);
         if (timings.current.length >= LOG_EVERY) {
           const sorted: number[] = [...timings.current].sort((a: number, b: number): number => a - b);
           const mean: number = sorted.reduce((sum: number, ms: number): number => sum + ms, 0) / sorted.length;
           console.log(
-            `[skia-glass] captures=${sorted.length} mean=${mean.toFixed(1)}ms p50=${sorted[Math.floor(sorted.length / 2)].toFixed(1)}ms max=${sorted[sorted.length - 1].toFixed(1)}ms size=${image?.width()}x${image?.height()}`,
+            `[skia-glass] captures=${sorted.length} mean=${mean.toFixed(1)}ms p50=${sorted[Math.floor(sorted.length / 2)].toFixed(1)}ms max=${sorted[sorted.length - 1].toFixed(1)}ms size=${image.width()}x${image.height()}`,
           );
           timings.current = [];
         }
-        setSnapshot((previous: SkImage | null): SkImage | null => {
-          previous?.dispose();
-          return image;
-        });
+        const previous: CapturedFrame | null = frameRef.current;
+        frameRef.current = frame;
+        setSnapshot(image);
+        previous?.image.dispose();
+        previous?.texture.destroy();
       })
       .catch((error: unknown): void => {
         console.warn('[skia-glass] capture failed', error);
@@ -131,7 +124,7 @@ export function SkiaGlassProbe({
           captureRef.current?.();
         }
       });
-  }, [targetRef, captureRef]);
+  }, [targetRef, captureRef, targetWidth, targetHeight]);
 
   useEffect((): (() => void) => {
     captureRef.current = capture;
@@ -141,61 +134,23 @@ export function SkiaGlassProbe({
     };
   }, [capture, captureRef]);
 
-  const rect = { x: 0, y: 0, width: PROBE_WIDTH, height: PROBE_HEIGHT };
+  const theme = useResolvedTheme();
+  const outset: string = splitShadowLayers(Shadows[theme].glass)
+    .filter((layer: string): boolean => !layer.startsWith('inset'))
+    .join(', ');
 
   return (
-    <View pointerEvents="none" style={[styles.probe, { left: x, top: y }]}>
-      <Canvas style={StyleSheet.absoluteFill}>
-        <Group clip={Skia.RRectXY(Skia.XYWHRect(0, 0, PROBE_WIDTH, PROBE_HEIGHT), PROBE_RADIUS, PROBE_RADIUS)}>
-          {snapshot !== null && REFRACT !== null ? (
-            <Group
-              layer={
-                <Paint>
-                  <Blur blur={BLUR} mode="clamp" />
-                </Paint>
-              }
-            >
-              <Fill>
-                <Shader
-                  source={REFRACT}
-                  uniforms={{
-                    size: vec(PROBE_WIDTH, PROBE_HEIGHT),
-                    radius: PROBE_RADIUS,
-                    strength: 14,
-                  }}
-                >
-                  <ImageShader
-                    image={snapshot}
-                    fit="fill"
-                    rect={{
-                      x: -x,
-                      y: -y,
-                      width: targetWidth,
-                      height: targetHeight,
-                    }}
-                  />
-                </Shader>
-              </Fill>
-            </Group>
-          ) : null}
-          <RoundedRect {...rect} r={PROBE_RADIUS} color="rgba(255,255,255,0.10)" />
-          <RoundedRect
-            x={0.75}
-            y={0.75}
-            width={PROBE_WIDTH - 1.5}
-            height={PROBE_HEIGHT - 1.5}
-            r={PROBE_RADIUS - 0.75}
-            style="stroke"
-            strokeWidth={1.5}
-          >
-            <LinearGradient
-              start={vec(0, 0)}
-              end={vec(PROBE_WIDTH, PROBE_HEIGHT)}
-              colors={['rgba(255,255,255,0.75)', 'rgba(255,255,255,0.08)', 'rgba(255,255,255,0.35)']}
-            />
-          </RoundedRect>
-        </Group>
-      </Canvas>
+    <View
+      pointerEvents="none"
+      style={[styles.probe, { left: x, top: y, borderRadius: PROBE_RADIUS, boxShadow: outset }]}
+    >
+      <GlassMaterial
+        width={PROBE_WIDTH}
+        height={PROBE_HEIGHT}
+        radius={PROBE_RADIUS}
+        blur={BLUR}
+        backdrop={snapshot === null ? null : { image: snapshot, x, y, width: targetWidth, height: targetHeight }}
+      />
       <Text className="font-allo-semibold text-body-md">Skia glass probe</Text>
     </View>
   );

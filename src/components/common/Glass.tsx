@@ -31,8 +31,11 @@ export interface GlassProps extends ViewProps {
 
 /**
  * Splits a `boxShadow` string into its layers on commas that sit outside parentheses.
+ *
+ * @param shadow - A CSS `boxShadow` value, e.g. one of the `Shadows` tokens.
+ * @returns Each layer, trimmed, in order.
  */
-function splitShadowLayers(shadow: string): string[] {
+export function splitShadowLayers(shadow: string): string[] {
   const layers: string[] = [];
   let depth = 0;
   let start = 0;
