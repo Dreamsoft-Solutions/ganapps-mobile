@@ -168,6 +168,10 @@ side effects. Paginated domains use `useInfiniteQuery` here and expose flattened
 - **Token** → `(app)` tab navigator, plus `verify-email` and `onboarding` as full-screen modals
 - **No token** → `(auth)` stack
 
+While it waits for hydration and the local database migrations, the loading gate renders
+`SplashView` (`components/onboarding/SplashView.tsx`), the same composition as the native splash,
+so a reload shows the splash rather than a blank screen or a spinner.
+
 `verify-email.tsx` and `onboarding.tsx` live at the **root** of `app/`, not inside `(auth)`.
 They are reachable only once a token exists, because registration returns tokens immediately.
 
