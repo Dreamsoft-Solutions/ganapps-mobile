@@ -14,7 +14,8 @@ disagree, `tokens.json` wins and this document is the bug.
 - **Glass floats, content is solid.** Glass is for controls that float over content: the tab
   bar, map search, chips, map buttons, top-bar actions, the action bar, the composer, toasts
   and sheet handles. Lists, cards, chat bubbles, forms and body copy are solid. Never put glass
-  on glass. The one exception is the lens inside a glass segment.
+  on glass. The exceptions are the lens inside a glass segment and the feed card, which is
+  glass over its own blurred cover photo, not over the sheet (see Card).
 - **Decide by layer, never by screen.** If it holds something a person reads or acts on, it is
   solid. If it is a control floating over content, it is glass. If it is pressed and does not
   float, it is a capsule.
@@ -458,8 +459,11 @@ How live glass works (ADR 0010):
 
 **In the app today:** the home map's search bar, filter chips, Map view control and panel, and locate button
 draw live glass. The map notices carry sentences and errors, so they sit on `solid` with the glass rim.
-The tab island sits outside the home `GlassBackdrop`, so it and every other screen draw Solid. Compose
-every control from `Glass`, `Capsule` and `PressableScale`.
+The one `GlassBackdrop` lives in the tabs layout, so the tab island refracts the same map capture
+while the Map tab shows its map, and draws Solid on the other tabs and while it hides. Every other tab
+and every screen pushed over the map is fenced with `NoGlassBackdrop` (`screenLayout`), so their panes
+draw Solid. Feed cards are glass over their own blurred cover (see Card). Compose every control from
+`Glass`, `Capsule` and `PressableScale`.
 
 How the Solid recipe is drawn in React Native:
 
@@ -679,7 +683,11 @@ An input is a well: carved in with `shadow-well`, never raised.
 
 ### Card
 
-Cards are solid, never glass.
+Cards are solid, never glass. The one exception is the feed sheet's event card
+(`GanapFeedCard`): it is `strong` glass over its own cover photo, cover-fitted and blurred
+20 dp, so each event tints its card and the photo is really under it (owner's call,
+ganapps-home#290). With no cover, in Performance mode or under the contrast settings it
+draws the Solid tier.
 
 - Background: `card`
 - Text: `card-foreground`
