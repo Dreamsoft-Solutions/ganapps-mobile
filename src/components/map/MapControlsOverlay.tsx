@@ -10,11 +10,13 @@ interface MapControlsOverlayProps {
   readonly mapHeight: SharedValue<number>;
   readonly sheetPosition: SharedValue<number>;
   readonly topOverlayHeight: number;
+  /** Space kept clear at the bottom of the map for the tab bar island, in dp. */
+  readonly bottomReserve: number;
   readonly children: ReactNode;
 }
 
 /**
- * Keeps map controls above the actual sheet and hides them when the sheet fills the map.
+ * Keeps map controls above the actual sheet, or above the tab bar island when there is no sheet, and hides them when the sheet fills the map.
  * @param props - Map and sheet geometry with the floating control.
  * @returns The positioned control.
  */
@@ -24,12 +26,14 @@ export function MapControlsOverlay({
   mapHeight,
   sheetPosition,
   topOverlayHeight,
+  bottomReserve,
   children,
 }: MapControlsOverlayProps): ReactElement {
   const controlHeight = useSharedValue<number>(48);
   const animatedStyle = useAnimatedStyle((): { bottom: number; display: 'flex' | 'none' } => {
-    const position: number = sheetPosition.value < 0 ? mapHeight.value - FEED_SHEET_PEEK_HEIGHT : sheetPosition.value;
-    const bottom: number = isSheetVisible ? Math.max(0, mapHeight.value - position) + 12 : 40;
+    const position: number =
+      sheetPosition.value < 0 ? mapHeight.value - bottomReserve - FEED_SHEET_PEEK_HEIGHT : sheetPosition.value;
+    const bottom: number = isSheetVisible ? Math.max(0, mapHeight.value - position) + 12 : bottomReserve + 12;
     const hasRoom: boolean =
       !isSheetVisible || mapHeight.value === 0 || position >= topOverlayHeight + controlHeight.value + 12;
     return { bottom, display: hasRoom ? 'flex' : 'none' };

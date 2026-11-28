@@ -10,7 +10,7 @@ import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { GanapFeedCard } from '@/components/lists/GanapFeedCard';
-import { Colors } from '@/constants/theme';
+import { BorderRadius, Colors, Spacing } from '@/constants/theme';
 import { MIN_TOUCH_TARGET } from '@/constants/touch-target';
 import type { UseGanapsResult } from '@/hooks/useGanaps';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
@@ -42,6 +42,11 @@ export interface GanapFeedSheetProps {
    * of the status bar and the filters stay reachable while the feed is expanded.
    */
   topOverlayHeight: number;
+  /**
+   * Space under the sheet, in dp, so it floats above the tab bar island. The sheet is detached:
+   * rounded on every corner and inset from the screen edges, like the other floating surfaces.
+   */
+  bottomInset: number;
   /** Shared native position keeps floating map controls above the moving sheet. */
   animatedPosition?: SharedValue<number>;
   selectedGanap: GanapListItem | null;
@@ -214,6 +219,7 @@ export function GanapFeedSheet({
   hasActiveFilters,
   isNearbyApplied,
   topOverlayHeight,
+  bottomInset,
   animatedPosition,
   selectedGanap,
   selectedCluster,
@@ -290,10 +296,13 @@ export function GanapFeedSheet({
       index={0}
       snapPoints={snapPoints}
       topInset={topOverlayHeight}
+      bottomInset={bottomInset}
+      detached
+      style={{ marginHorizontal: Spacing.xs }}
       animatedPosition={animatedPosition}
       enablePanDownToClose
       enableDynamicSizing={false}
-      backgroundStyle={{ backgroundColor: Colors[theme].card }}
+      backgroundStyle={{ backgroundColor: Colors[theme].card, borderRadius: BorderRadius.xl }}
       handleComponent={renderHandle}
       onChange={handleSheetChange}
     >

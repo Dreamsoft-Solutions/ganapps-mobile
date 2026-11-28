@@ -170,6 +170,17 @@ function useLens(index: number, step: number): ReturnType<typeof useAnimatedStyl
   );
 }
 
+/**
+ * Where the top of the floating island sits, measured up from the bottom of the screen. Anything
+ * floating at the bottom of a screen under the tab bar (map controls, the feed sheet) rests above it.
+ *
+ * @param bottomInset - The bottom safe-area inset.
+ * @returns Distance in dp from the screen's bottom edge to the island's top edge.
+ */
+export function getTabBarIslandTop(bottomInset: number): number {
+  return bottomInset + Spacing['island-inset'] + ISLAND_HEIGHT;
+}
+
 /** Props for {@link AppTabBar}. */
 export type AppTabBarProps = BottomTabBarProps & {
   /** Shows the unread dot on Friends and adds it to that tab's label. */

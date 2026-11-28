@@ -27,7 +27,9 @@ import { MapSearchBar } from '@/components/map/MapSearchBar';
 import { MAX_MAP_PITCH, MapViewControls } from '@/components/map/MapViewControls';
 import { ReducedAccuracyNotice } from '@/components/map/ReducedAccuracyNotice';
 import { TagChips } from '@/components/map/TagChips';
+import { getTabBarIslandTop } from '@/components/navigation/AppTabBar';
 import { Routes } from '@/constants/routes';
+import { Spacing } from '@/constants/theme';
 import { useGanapDiscovery } from '@/hooks/useGanapDiscovery';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { Coords } from '@/services/location.service';
@@ -215,21 +217,15 @@ function BuildingExtrusions({
   );
 }
 /**
- * How much of the map the feed sheet covers at rest.
- *
- * Camera padding and anything floating over the map both have to clear it. The
- * tab bar is not included: a custom `tabBar` is a flex sibling of the screens
- * container, so this screen already ends at the top of the bar.
- */
-const MAP_OVERLAY_BOTTOM: number = FEED_SHEET_PEEK_HEIGHT;
-
-/**
  * Home screen for authenticated users.
  *
  * Full-screen Mapbox map of discoverable Ganaps across Iloilo City, with a
  * floating search bar, category chips, the Nearby distance filter, and an
  * event list sheet. The sheet shows a selected pin or cluster, or the Nearby
  * list while Nearby is on; closing a Nearby list turns Nearby off.
+ *
+ * The tab bar island floats over the map, so the sheet rests just above it, and the camera
+ * padding and the bottom controls clear both the island and the sheet's peek.
  *
  * @returns The map home screen
  */
@@ -239,6 +235,8 @@ export default function HomeScreen(): ReactElement {
   const sheetPosition = useSharedValue<number>(-1);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const sheetBottomInset: number = getTabBarIslandTop(insets.bottom) + Spacing.xs;
+  const mapOverlayBottom: number = FEED_SHEET_PEEK_HEIGHT + sheetBottomInset;
   const discovery = useGanapDiscovery();
   const { search, setSearch, tag, setTag, tags, map, feed, nearby } = discovery;
   const { items, isLoading, isError, failure, refetch } = map;
@@ -302,7 +300,7 @@ export default function HomeScreen(): ReactElement {
     (coords: Coords): void => {
       const padding: CameraPadding = {
         paddingTop: insets.top + MAP_OVERLAY_TOP,
-        paddingBottom: MAP_OVERLAY_BOTTOM,
+        paddingBottom: mapOverlayBottom,
         paddingLeft: 0,
         paddingRight: 0,
       };
@@ -320,7 +318,7 @@ export default function HomeScreen(): ReactElement {
         padding,
       });
     },
-    [insets.top],
+    [insets.top, mapOverlayBottom],
   );
 
   useEffect((): void => {
@@ -412,7 +410,7 @@ export default function HomeScreen(): ReactElement {
       setCameraPitch(pitch);
       const padding: CameraPadding = {
         paddingTop: insets.top + MAP_OVERLAY_TOP,
-        paddingBottom: MAP_OVERLAY_BOTTOM,
+        paddingBottom: mapOverlayBottom,
         paddingLeft: 0,
         paddingRight: 0,
       };
@@ -431,7 +429,7 @@ export default function HomeScreen(): ReactElement {
         padding,
       });
     },
-    [insets.top],
+    [insets.top, mapOverlayBottom],
   );
 
   const handleGanapPress = useCallback(
@@ -444,7 +442,7 @@ export default function HomeScreen(): ReactElement {
       const zoom: number = Math.max(mapZoomRef.current, LOCATION_SELECTION_ZOOM);
       const padding: CameraPadding = {
         paddingTop: insets.top + MAP_OVERLAY_TOP,
-        paddingBottom: MAP_OVERLAY_BOTTOM,
+        paddingBottom: mapOverlayBottom,
         paddingLeft: 0,
         paddingRight: 0,
       };
@@ -463,7 +461,7 @@ export default function HomeScreen(): ReactElement {
         padding,
       });
     },
-    [beginSelection, insets.top],
+    [beginSelection, insets.top, mapOverlayBottom],
   );
 
   const handleClusterPress = useCallback(
@@ -565,7 +563,7 @@ export default function HomeScreen(): ReactElement {
       setCameraPitch(OVERHEAD_PITCH);
       const padding: CameraPadding = {
         paddingTop: insets.top + MAP_OVERLAY_TOP,
-        paddingBottom: MAP_OVERLAY_BOTTOM,
+        paddingBottom: mapOverlayBottom,
         paddingLeft: 0,
         paddingRight: 0,
       };
@@ -584,7 +582,7 @@ export default function HomeScreen(): ReactElement {
         padding,
       });
     },
-    [handleClearSelection, insets.top],
+    [handleClearSelection, insets.top, mapOverlayBottom],
   );
 
   const handlePitchChange = useCallback((requestedPitch: number): void => {
@@ -636,7 +634,9 @@ export default function HomeScreen(): ReactElement {
         styleURL={resolveMapStyleURL(theme)}
         scaleBarEnabled={false}
         attributionEnabled
+        attributionPosition={{ bottom: sheetBottomInset, right: Spacing.xs }}
         logoEnabled
+        logoPosition={{ bottom: sheetBottomInset, left: Spacing.xs }}
         onMapIdle={handleMapIdle}
         onCameraChanged={handleCameraChanged}
         onPress={handleMapPress}
@@ -713,6 +713,7 @@ export default function HomeScreen(): ReactElement {
         mapHeight={mapHeight}
         sheetPosition={sheetPosition}
         topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+        bottomReserve={sheetBottomInset}
       >
         <MapViewControls
           pitch={cameraPitch}
@@ -729,6 +730,7 @@ export default function HomeScreen(): ReactElement {
         mapHeight={mapHeight}
         sheetPosition={sheetPosition}
         topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+        bottomReserve={sheetBottomInset}
       >
         <LocateMeButton onPress={handleLocateMe} />
       </MapControlsOverlay>
@@ -747,6 +749,7 @@ export default function HomeScreen(): ReactElement {
           hasActiveFilters={hasActiveFilters}
           isNearbyApplied={isNearbyApplied}
           topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+          bottomInset={sheetBottomInset}
           animatedPosition={sheetPosition}
           selectedGanap={selectedGanap}
           selectedCluster={activeCluster}
