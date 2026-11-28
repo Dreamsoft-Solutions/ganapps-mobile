@@ -17,6 +17,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
 import { Glass } from '@/components/common/Glass';
+import {
+  GlassBackdrop,
+  type GlassBackdropHandle,
+  GlassBackdropTarget,
+  useLiveGlassEnabled,
+} from '@/components/common/GlassBackdrop';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { ClusteredGanapMarkers } from '@/components/map/ClusteredGanapMarkers';
@@ -27,7 +33,6 @@ import { MapControlsOverlay } from '@/components/map/MapControlsOverlay';
 import { MapSearchBar } from '@/components/map/MapSearchBar';
 import { MAX_MAP_PITCH, MapViewControls } from '@/components/map/MapViewControls';
 import { ReducedAccuracyNotice } from '@/components/map/ReducedAccuracyNotice';
-import { SKIA_GLASS_PROBE, SkiaGlassProbe } from '@/components/map/SkiaGlassProbe';
 import { TagChips } from '@/components/map/TagChips';
 import { Routes } from '@/constants/routes';
 import { BorderRadius, Spacing } from '@/constants/theme';
@@ -368,6 +373,7 @@ export default function HomeScreen(): ReactElement {
   }, []);
 
   const handleMapIdle = useCallback((state: MapState): void => {
+    backdropRef.current?.capture();
     setCameraPitch(Math.round(state.properties.pitch));
     const zoom: number = state.properties.zoom;
     mapZoomRef.current = zoom;
@@ -381,12 +387,11 @@ export default function HomeScreen(): ReactElement {
     );
   }, []);
 
-  const probeTargetRef = useRef<View>(null);
-  const probeCaptureRef = useRef<(() => void) | null>(null);
-  const [probeSize, setProbeSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const backdropRef = useRef<GlassBackdropHandle>(null);
+  const liveGlass: boolean = useLiveGlassEnabled();
 
   const handleCameraChanged = useCallback((state: MapState): void => {
-    probeCaptureRef.current?.();
+    backdropRef.current?.capture();
     if (state.gestures.isGestureActive) setCameraPitch(Math.round(state.properties.pitch));
     const nextViewport: MapViewport = mapStateToViewport({
       bounds: state.properties.bounds,
@@ -642,168 +647,153 @@ export default function HomeScreen(): ReactElement {
   }
 
   return (
-    <View
-      className="flex-1"
-      onLayout={(event: LayoutChangeEvent): void => {
-        mapHeight.value = event.nativeEvent.layout.height;
-      }}
-    >
+    <GlassBackdrop ref={backdropRef} enabled={liveGlass}>
       <View
-        ref={probeTargetRef}
-        collapsable={false}
-        style={{ flex: 1 }}
+        className="flex-1"
         onLayout={(event: LayoutChangeEvent): void => {
-          setProbeSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height });
+          mapHeight.value = event.nativeEvent.layout.height;
         }}
       >
-        <MapView
-          style={{ flex: 1 }}
-          surfaceView={SKIA_GLASS_PROBE ? false : undefined}
-          styleURL={resolveMapStyleURL(theme)}
-          scaleBarEnabled={false}
-          attributionEnabled
-          attributionPosition={{ bottom: sheetBottomInset, right: Spacing.xs }}
-          logoEnabled
-          logoPosition={{ bottom: sheetBottomInset, left: Spacing.xs }}
-          onMapIdle={handleMapIdle}
-          onCameraChanged={handleCameraChanged}
-          onPress={handleMapPress}
-          onDidFinishLoadingMap={handleMapReady}
-          onDidFinishLoadingStyle={handleMapStyleLoaded}
-        >
-          <Camera ref={cameraRef} centerCoordinate={ILOILO_CITY_CENTER} zoomLevel={CITY_ZOOM} animationMode="none" />
-          <SelectionTerrain isActive={hasActiveSelection} />
-          <BuildingExtrusions isEnabled={buildingsVisible} pitch={cameraPitch} />
-          {userCoords !== null && <LocationPuck puckBearing="heading" puckBearingEnabled />}
-          <ClusteredGanapMarkers
-            key={`markers-${mapStyleRevision}`}
-            features={visibleFeatures}
-            onGanapPress={handleGanapPress}
-            onClusterPress={handleClusterPress}
-            clusterIndex={clusterIndex}
-            isAnimating={isMapFocused}
-          />
-        </MapView>
-      </View>
+        <GlassBackdropTarget style={{ flex: 1 }}>
+          <MapView
+            key={liveGlass ? 'map-texture-view' : 'map-surface-view'}
+            style={{ flex: 1 }}
+            surfaceView={!liveGlass}
+            styleURL={resolveMapStyleURL(theme)}
+            scaleBarEnabled={false}
+            attributionEnabled
+            attributionPosition={{ bottom: sheetBottomInset, right: Spacing.xs }}
+            logoEnabled
+            logoPosition={{ bottom: sheetBottomInset, left: Spacing.xs }}
+            onMapIdle={handleMapIdle}
+            onCameraChanged={handleCameraChanged}
+            onPress={handleMapPress}
+            onDidFinishLoadingMap={handleMapReady}
+            onDidFinishLoadingStyle={handleMapStyleLoaded}
+          >
+            <Camera ref={cameraRef} centerCoordinate={ILOILO_CITY_CENTER} zoomLevel={CITY_ZOOM} animationMode="none" />
+            <SelectionTerrain isActive={hasActiveSelection} />
+            <BuildingExtrusions isEnabled={buildingsVisible} pitch={cameraPitch} />
+            {userCoords !== null && <LocationPuck puckBearing="heading" puckBearingEnabled />}
+            <ClusteredGanapMarkers
+              key={`markers-${mapStyleRevision}`}
+              features={visibleFeatures}
+              onGanapPress={handleGanapPress}
+              onClusterPress={handleClusterPress}
+              clusterIndex={clusterIndex}
+              isAnimating={isMapFocused}
+            />
+          </MapView>
+        </GlassBackdropTarget>
 
-      {SKIA_GLASS_PROBE && probeSize.width > 0 ? (
-        <SkiaGlassProbe
-          targetRef={probeTargetRef}
-          captureRef={probeCaptureRef}
-          x={(probeSize.width - 240) / 2}
-          y={probeSize.height * 0.45}
-          targetWidth={probeSize.width}
-          targetHeight={probeSize.height}
-        />
-      ) : null}
-
-      <View className="absolute left-0 right-0" style={{ top: insets.top + 12 }} pointerEvents="box-none">
-        <View className="mx-4">
-          <MapSearchBar
-            value={search}
-            onChangeText={setSearch}
-            suggestions={items}
-            isLoadingSuggestions={hasPendingSearch}
-            isErrorSuggestions={hasSearchError}
-            onSelectSuggestion={handleSelectSearchSuggestion}
+        <View className="absolute left-0 right-0" style={{ top: insets.top + 12 }} pointerEvents="box-none">
+          <View className="mx-4">
+            <MapSearchBar
+              value={search}
+              onChangeText={setSearch}
+              suggestions={items}
+              isLoadingSuggestions={hasPendingSearch}
+              isErrorSuggestions={hasSearchError}
+              onSelectSuggestion={handleSelectSearchSuggestion}
+            />
+          </View>
+          <TagChips
+            tags={tags}
+            selectedTag={tag}
+            onSelectTag={setTag}
+            isNearbyActive={nearby.isActive}
+            isNearbyDisabled={nearby.isDisabled}
+            onToggleNearby={nearby.toggle}
           />
+          <ReducedAccuracyNotice
+            visible={nearby.isAccuracyNoticeVisible}
+            onOpenSettings={(): void => {
+              void nearby.openSettings();
+            }}
+            onDismiss={nearby.dismissAccuracyNotice}
+          />
+          {nearby.isDisabled && (
+            <Glass variant="strong" radius={BorderRadius.xl} className="mx-md mt-xs gap-1 p-md">
+              <Text className="text-label-md text-foreground">Location is off</Text>
+              <Text className="text-body-md text-muted-foreground">
+                Turn on location for Ganapps in Settings to filter events near you. Everything else on the map still
+                works.
+              </Text>
+              <View className="flex-row">
+                <Button
+                  variant="link"
+                  onPress={(): void => {
+                    void nearby.openSettings();
+                  }}
+                >
+                  Open settings
+                </Button>
+              </View>
+            </Glass>
+          )}
+          {nearby.errorMessage !== null && (
+            <Glass variant="strong" radius={BorderRadius.xl} className="mx-md mt-xs p-md">
+              <Text className="text-body-md text-muted-foreground">{nearby.errorMessage}</Text>
+            </Glass>
+          )}
         </View>
-        <TagChips
-          tags={tags}
-          selectedTag={tag}
-          onSelectTag={setTag}
-          isNearbyActive={nearby.isActive}
-          isNearbyDisabled={nearby.isDisabled}
-          onToggleNearby={nearby.toggle}
-        />
-        <ReducedAccuracyNotice
-          visible={nearby.isAccuracyNoticeVisible}
-          onOpenSettings={(): void => {
-            void nearby.openSettings();
+
+        <MapControlsOverlay
+          side="left"
+          isSheetVisible={isFeedSheetVisible}
+          mapHeight={mapHeight}
+          sheetPosition={sheetPosition}
+          topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+          bottomReserve={sheetBottomInset}
+          ornamentReserve={MAP_ORNAMENT_ROW}
+        >
+          <MapViewControls
+            pitch={cameraPitch}
+            buildingsVisible={buildingsVisible}
+            onPitchChange={handlePitchChange}
+            onOverhead={handleOverhead}
+            onBuildingsChange={setBuildingsVisible}
+          />
+        </MapControlsOverlay>
+
+        <MapControlsOverlay
+          side="right"
+          isSheetVisible={isFeedSheetVisible}
+          mapHeight={mapHeight}
+          sheetPosition={sheetPosition}
+          topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+          bottomReserve={sheetBottomInset}
+          ornamentReserve={MAP_ORNAMENT_ROW}
+        >
+          <LocateMeButton onPress={handleLocateMe} />
+        </MapControlsOverlay>
+
+        <LocationPrimingSheet
+          visible={nearby.isPrimingVisible}
+          onConfirm={(): void => {
+            void nearby.confirmPriming();
           }}
-          onDismiss={nearby.dismissAccuracyNotice}
+          onDismiss={nearby.dismissPriming}
         />
-        {nearby.isDisabled && (
-          <Glass variant="strong" radius={BorderRadius.xl} className="mx-md mt-xs gap-1 p-md">
-            <Text className="text-label-md text-foreground">Location is off</Text>
-            <Text className="text-body-md text-muted-foreground">
-              Turn on location for Ganapps in Settings to filter events near you. Everything else on the map still
-              works.
-            </Text>
-            <View className="flex-row">
-              <Button
-                variant="link"
-                onPress={(): void => {
-                  void nearby.openSettings();
-                }}
-              >
-                Open settings
-              </Button>
-            </View>
-          </Glass>
-        )}
-        {nearby.errorMessage !== null && (
-          <Glass variant="strong" radius={BorderRadius.xl} className="mx-md mt-xs p-md">
-            <Text className="text-body-md text-muted-foreground">{nearby.errorMessage}</Text>
-          </Glass>
+
+        {isFeedSheetVisible && (
+          <GanapFeedSheet
+            feed={feed}
+            hasActiveFilters={hasActiveFilters}
+            isNearbyApplied={isNearbyApplied}
+            topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+            islandReserve={sheetBottomInset}
+            animatedPosition={sheetPosition}
+            selectedGanap={selectedGanap}
+            selectedCluster={activeCluster}
+            clusterIndex={clusterIndex}
+            onSelectGanap={handleOpenGanap}
+            onClearSelection={handleClearSelection}
+            onClose={handleFeedSheetClose}
+            onZoomToCluster={handleClusterZoomIn}
+          />
         )}
       </View>
-
-      <MapControlsOverlay
-        side="left"
-        isSheetVisible={isFeedSheetVisible}
-        mapHeight={mapHeight}
-        sheetPosition={sheetPosition}
-        topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
-        bottomReserve={sheetBottomInset}
-        ornamentReserve={MAP_ORNAMENT_ROW}
-      >
-        <MapViewControls
-          pitch={cameraPitch}
-          buildingsVisible={buildingsVisible}
-          onPitchChange={handlePitchChange}
-          onOverhead={handleOverhead}
-          onBuildingsChange={setBuildingsVisible}
-        />
-      </MapControlsOverlay>
-
-      <MapControlsOverlay
-        side="right"
-        isSheetVisible={isFeedSheetVisible}
-        mapHeight={mapHeight}
-        sheetPosition={sheetPosition}
-        topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
-        bottomReserve={sheetBottomInset}
-        ornamentReserve={MAP_ORNAMENT_ROW}
-      >
-        <LocateMeButton onPress={handleLocateMe} />
-      </MapControlsOverlay>
-
-      <LocationPrimingSheet
-        visible={nearby.isPrimingVisible}
-        onConfirm={(): void => {
-          void nearby.confirmPriming();
-        }}
-        onDismiss={nearby.dismissPriming}
-      />
-
-      {isFeedSheetVisible && (
-        <GanapFeedSheet
-          feed={feed}
-          hasActiveFilters={hasActiveFilters}
-          isNearbyApplied={isNearbyApplied}
-          topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
-          islandReserve={sheetBottomInset}
-          animatedPosition={sheetPosition}
-          selectedGanap={selectedGanap}
-          selectedCluster={activeCluster}
-          clusterIndex={clusterIndex}
-          onSelectGanap={handleOpenGanap}
-          onClearSelection={handleClearSelection}
-          onClose={handleFeedSheetClose}
-          onZoomToCluster={handleClusterZoomIn}
-        />
-      )}
-    </View>
+    </GlassBackdrop>
   );
 }

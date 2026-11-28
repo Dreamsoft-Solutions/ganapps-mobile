@@ -57,6 +57,9 @@ export interface GlassMaterialProps {
   refraction?: number;
 }
 
+/** Backdrop blur in dp: light enough that the refraction stays readable (owner's pick, ganapps-home#288). */
+export const GLASS_BACKDROP_BLUR = 0.3;
+
 /** Share of the Solid fill laid over the refracted backdrop, so text stays legible on a busy map. */
 const BACKDROP_FILL_OPACITY = 35;
 
@@ -182,15 +185,16 @@ export function GlassMaterial({
   lift = 'glass',
   pressed = false,
   backdrop,
-  blur = 0.3,
+  blur = GLASS_BACKDROP_BLUR,
   refraction = 14,
 }: GlassMaterialProps): ReactElement {
   const theme = useResolvedTheme();
+  const corner: number = Math.min(radius, width / 2, height / 2);
 
   const layers = useMemo(() => {
     const colors = Colors[theme];
     const inset = Rim[rim];
-    const body = { x: inset, y: inset, w: width - inset * 2, h: height - inset * 2, r: Math.max(radius - inset, 0) };
+    const body = { x: inset, y: inset, w: width - inset * 2, h: height - inset * 2, r: Math.max(corner - inset, 0) };
     const shadows = parseInsetShadows(Shadows[theme][pressed ? 'bezel-pressed' : lift]);
     return {
       colors,
@@ -204,7 +208,7 @@ export function GlassMaterial({
       })),
       bodyClip: Skia.RRectXY(Skia.XYWHRect(body.x, body.y, body.w, body.h), body.r, body.r),
     };
-  }, [theme, rim, width, height, radius, pressed, lift, variant]);
+  }, [theme, rim, width, height, corner, pressed, lift, variant]);
 
   const { colors, body, rimLine, tintLine, specular, shadowPaths, bodyClip } = layers;
   const sweepCentre = vec(body.x + body.w * 0.08, body.y);
@@ -214,7 +218,7 @@ export function GlassMaterial({
 
   return (
     <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
-      <RoundedRect x={0} y={0} width={width} height={height} r={radius}>
+      <RoundedRect x={0} y={0} width={width} height={height} r={corner}>
         <LinearGradient
           start={rimLine[0]}
           end={rimLine[1]}
@@ -232,7 +236,7 @@ export function GlassMaterial({
             }
           >
             <Rect x={body.x} y={body.y} width={body.w} height={body.h}>
-              <Shader source={REFRACT} uniforms={{ size: vec(width, height), radius, strength: refraction }}>
+              <Shader source={REFRACT} uniforms={{ size: vec(width, height), radius: corner, strength: refraction }}>
                 <ImageShader
                   image={backdrop.image}
                   fit="fill"

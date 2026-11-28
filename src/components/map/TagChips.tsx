@@ -2,6 +2,7 @@ import { MapPin } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Chip } from '@/components/common/Chip';
+import { useGlassBackdrop } from '@/components/common/GlassBackdrop';
 
 interface TagChipsProps {
   tags: string[];
@@ -29,6 +30,7 @@ export function TagChips({
   isNearbyDisabled,
   onToggleNearby,
 }: TagChipsProps): ReactElement {
+  const backdrop = useGlassBackdrop();
   const allTags: string[] = ['All', ...tags];
 
   return (
@@ -49,6 +51,8 @@ export function TagChips({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        onScroll={backdrop?.remeasure}
+        scrollEventThrottle={32}
         contentContainerStyle={{ gap: 8, paddingHorizontal: 12 }}
       >
         {allTags.map((tag): ReactElement => {
