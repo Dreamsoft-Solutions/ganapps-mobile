@@ -34,7 +34,7 @@ export const buttonVariants = cva('flex flex-row items-center justify-center bor
       sm: 'px-3 py-2',
       md: 'px-4 py-3 min-h-touch',
       lg: 'px-6 py-4',
-      auth: 'h-sign-in px-6',
+      auth: 'min-h-sign-in px-6 py-1.5',
       link: 'py-2',
     },
     disabled: {
@@ -151,8 +151,10 @@ interface ButtonSizeTarget {
  *
  * `auth` is for every button in the sign-in flow, which sit beside Apple's
  * native Continue with Apple button. That button sizes its title from its own height, and
- * at a fixed `h-sign-in` (41px) the title measures the same as the `lg` label, so its
- * padding is just the space left around the label. 3.5dp per edge takes it to 48dp.
+ * at `h-sign-in` (41px) the title measures the same as the `lg` label, so `auth` is held at
+ * that height by a `min-h-sign-in` floor, with the padding just the space left around the label.
+ * The floor (not a fixed height) lets the label grow with the system text size instead of
+ * clipping. 3.5dp per edge takes it to 48dp.
  *
  * `link` is not passed by callers: every `variant="link"` renders at it, whatever size it
  * is given, so text links match the body copy they sit in. It has no horizontal padding,

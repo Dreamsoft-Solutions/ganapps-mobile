@@ -1,36 +1,39 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
-import { ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LogoWithText } from '@/components/common/LogoWithText';
-import { Text } from '@/components/common/Text';
-import { LoginForm } from '@/components/forms/LoginForm';
+import { useState } from 'react';
+import { AuthScreen } from '@/components/auth/AuthScreen';
+import { LoginForm, type LoginFormMode } from '@/components/forms/LoginForm';
+import { Routes } from '@/constants/routes';
+
+/** The title and line under it for each mode. */
+const COPY = {
+  login: { title: 'Welcome back', subtitle: "Log in to see what's on across Iloilo." },
+  signup: { title: 'Create your account', subtitle: "It takes a minute. Verify your email and you're in." },
+} as const satisfies Record<LoginFormMode, { title: string; subtitle: string }>;
 
 /**
- * Login screen with email/password and sign-up toggle. `?mode=signup` opens it on the sign-up
- * form, which is how Welcome's "Sign up with email" arrives.
+ * Log in and sign up on the shared {@link AuthScreen} frame. `?mode=signup` opens it on the sign-up
+ * form, which is how Welcome's "Sign up with Email" arrives; the title follows the mode as the
+ * person switches between them. Back returns to Welcome.
  *
  * @returns The authentication screen.
  */
 export default function LoginScreen(): ReactElement {
-  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
+  const router = useRouter();
+  const [mode, setMode] = useState<LoginFormMode>(modeParam === 'signup' ? 'signup' : 'login');
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="grow justify-center px-6 py-8"
-        keyboardShouldPersistTaps="handled"
-      >
-        <View className="items-center mb-6">
-          <LogoWithText />
-          <Text className="text-muted-foreground text-body-md text-center mt-3">
-            Verified accounts help keep meetups real.
-          </Text>
-        </View>
-
-        <LoginForm initialMode={mode === 'signup' ? 'signup' : 'login'} />
-      </ScrollView>
-    </SafeAreaView>
+    <AuthScreen
+      title={COPY[mode].title}
+      subtitle={COPY[mode].subtitle}
+      onBack={(): void => {
+        if (router.canGoBack()) router.back();
+        else router.replace(Routes.public.welcome);
+      }}
+      backHint="Returns to the welcome screen"
+    >
+      <LoginForm mode={mode} onModeChange={setMode} />
+    </AuthScreen>
   );
 }

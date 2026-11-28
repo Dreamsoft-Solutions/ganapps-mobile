@@ -1,6 +1,6 @@
 import { type ReactElement, type ReactNode, useState } from 'react';
 import { Controller, type ControllerRenderProps, useFormContext } from 'react-hook-form';
-import { TextInput, View } from 'react-native';
+import { type ReturnKeyTypeOptions, TextInput, type TextInputProps, View } from 'react-native';
 import { Colors, Shadows } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { FieldHint } from './FieldHint';
@@ -26,18 +26,32 @@ interface InputProps {
   multiline?: boolean;
   numberOfLines?: number;
   maxLength?: number;
+  /** Autofill hint, so password managers and one-time-code suggestions can fill the field. */
+  autoComplete?: TextInputProps['autoComplete'];
+  /** iOS autofill hint; pair it with `autoComplete`. */
+  textContentType?: TextInputProps['textContentType'];
+  returnKeyType?: ReturnKeyTypeOptions;
+  /** Called by the keyboard's return key, for example to focus the next field with `setFocus`. */
+  onSubmitEditing?: () => void;
+  /** `code` draws a one-time code: large, centred, widely spaced digits. */
+  variant?: 'default' | 'code';
 }
 
 /**
  * Form input primitive integrated with react-hook-form.
  *
- * A single-line field is always 48dp tall (`h-touch`), so a field with a trailing icon
- * such as the password toggle matches one without. The text input fills that height, so a
- * tap anywhere in the field focuses it. The field is recessed (`Shadows.well`); focus or an error adds
+ * A single-line field is at least 48dp tall (`min-h-touch`), so a field with a trailing icon
+ * such as the password toggle matches one without, and it grows with the system text size
+ * instead of clipping. The text input fills that height, so a tap anywhere in the field focuses
+ * it. The field registers its ref with react-hook-form, so `setFocus(name)` moves the cursor to
+ * it (chain fields with `returnKeyType="next"` and `onSubmitEditing`). The field is recessed (`Shadows.well`); focus or an error adds
  * a 1dp inset ring in `ring` or `destructive` on top of the matching border.
  *
- * @param props - Input configuration, editability, and optional helper text, right icon, and label hint slots.
+ * @param props - Input configuration, editability, autofill and return-key behavior, and optional helper text,
+ *   right icon, and label hint slots.
  * @returns A labeled input field with inline validation errors.
+ * @example
+ * <Input name="email" label="Email" autoComplete="email" returnKeyType="next" onSubmitEditing={(): void => setFocus('password')} />
  */
 export function Input({
   name,
@@ -54,6 +68,11 @@ export function Input({
   multiline,
   numberOfLines,
   maxLength,
+  autoComplete,
+  textContentType,
+  returnKeyType,
+  onSubmitEditing,
+  variant = 'default',
 }: InputProps): ReactElement {
   const { control, formState } = useFormContext();
   const theme = useResolvedTheme();
@@ -64,12 +83,19 @@ export function Input({
   const fieldShadow: string =
     focused || error ? `${Shadows[theme].well}, inset 0 0 0 1px ${ringColor}` : Shadows[theme].well;
   const borderClass: string = error ? 'border-destructive' : focused ? 'border-ring' : 'border-input';
+  const isCode: boolean = variant === 'code';
+  const heightClass: string = multiline ? 'py-3' : isCode ? 'min-h-16' : 'min-h-touch';
+  const textClass: string = multiline
+    ? 'min-h-24 text-body-md'
+    : isCode
+      ? 'self-stretch text-center font-allo-semibold text-headline-md tracking-[8px]'
+      : 'self-stretch text-input-md';
 
   return (
     <Controller
       control={control}
       name={name}
-      render={({ field: { value, onChange } }: { field: ControllerRenderProps }): ReactElement => (
+      render={({ field: { value, onChange, ref } }: { field: ControllerRenderProps }): ReactElement => (
         <View className="mb-4">
           {label && (
             <View className="relative mb-2 flex-row items-center">
@@ -86,10 +112,11 @@ export function Input({
             </View>
           )}
           <View
-            className={`flex-row items-center rounded-lg border bg-card px-md ${multiline ? 'py-3' : 'h-touch'} ${borderClass}`}
+            className={`flex-row items-center rounded-lg border bg-card px-md ${heightClass} ${borderClass}`}
             style={{ boxShadow: fieldShadow }}
           >
             <TextInput
+              ref={ref}
               value={value}
               onChangeText={onChange}
               onFocus={(): void => setFocused(true)}
@@ -105,8 +132,13 @@ export function Input({
               multiline={multiline}
               numberOfLines={numberOfLines}
               maxLength={maxLength}
+              autoComplete={autoComplete}
+              textContentType={textContentType}
+              returnKeyType={returnKeyType}
+              onSubmitEditing={onSubmitEditing}
+              submitBehavior={returnKeyType === 'next' ? 'submit' : undefined}
               textAlignVertical={multiline ? 'top' : 'center'}
-              className={`flex-1 text-foreground ${multiline ? 'min-h-24 text-body-md' : 'self-stretch text-input-md'}`}
+              className={`flex-1 text-foreground ${textClass}`}
               placeholderTextColor={placeholderTextColor}
             />
             {iconRight && <View className="ml-2">{iconRight}</View>}
