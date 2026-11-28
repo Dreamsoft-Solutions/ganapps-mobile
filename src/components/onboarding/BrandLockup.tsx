@@ -72,6 +72,8 @@ export function useLockupLayout(): LockupLayout {
 export interface BrandLockupProps {
   /** 0 is the splash composition, 1 is the Welcome header. */
   progress: SharedValue<number> | DerivedValue<number>;
+  /** Called once the logo has been drawn on screen, the last part of the lockup to appear. */
+  onLogoDisplay?: () => void;
 }
 
 /**
@@ -85,7 +87,7 @@ export interface BrandLockupProps {
  * progress.set(withTiming(1, { duration: 600, easing: EASE_IN_OUT }));
  * <BrandLockup progress={progress} />
  */
-export function BrandLockup({ progress }: BrandLockupProps): ReactElement {
+export function BrandLockup({ progress, onLogoDisplay }: BrandLockupProps): ReactElement {
   const theme = useResolvedTheme();
   const { height } = useWindowDimensions();
   const { headerTop, splashShift } = useLockupLayout();
@@ -167,7 +169,7 @@ export function BrandLockup({ progress }: BrandLockupProps): ReactElement {
             importantForAccessibility="no-hide-descendants"
             style={[splashGlowStyle, splashGlowMotion]}
           />
-          <BrandLogo size={SPLASH_LOGO_SIZE} glow />
+          <BrandLogo size={SPLASH_LOGO_SIZE} glow onDisplay={onLogoDisplay} />
         </View>
       </Animated.View>
       <Animated.View style={[titleBlockStyle, titleMotion]}>

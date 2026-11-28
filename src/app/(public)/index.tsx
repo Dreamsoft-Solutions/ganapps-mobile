@@ -33,6 +33,7 @@ import {
 import { Routes } from '@/constants/routes';
 import { Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { useSplashStore } from '@/store/splash.store';
 
 /** Gap between the lockup header and the caption block, dp. */
 const CAPTION_GAP: number = 8;
@@ -63,6 +64,9 @@ const ENTRANCE_MS: number = 2400;
 
 /** Length of the single reduced-motion fade, ms. */
 const REDUCED_FADE_MS: number = 150;
+
+/** How long to wait for the logo to report that it drew before starting anyway, ms. */
+const REVEAL_FALLBACK_MS: number = 600;
 
 /** The root clips the lobes; edge to edge, no safe-area padding. */
 const ROOT_STYLE = { overflow: 'hidden' } as const satisfies ViewStyle;
@@ -148,14 +152,38 @@ export default function WelcomeScreen(): ReactElement {
 
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [islandTop, setIslandTop] = useState<number | null>(null);
+  /** True once the lockup has drawn: the root splash lifts and the entrance clock starts. */
+  const [shown, setShown] = useState<boolean>(false);
+  const setWelcomeShown = useSplashStore((state) => state.setWelcomeShown);
 
   const scrollX = useSharedValue<number>(0);
   const clock = useSharedValue<number>(0);
 
-  useEffect((): void => {
+  /** Waits two frames after the logo reports, so its bitmap is on screen before the root splash lifts. */
+  const reveal = useCallback((): void => {
+    requestAnimationFrame((): void => {
+      requestAnimationFrame((): void => {
+        setShown(true);
+      });
+    });
+  }, []);
+
+  useEffect((): (() => void) => {
+    const fallback = setTimeout(reveal, REVEAL_FALLBACK_MS);
+    return (): void => {
+      clearTimeout(fallback);
+    };
+  }, [reveal]);
+
+  useEffect((): (() => void) | undefined => {
+    if (!shown) return undefined;
     const duration = reduced ? REDUCED_FADE_MS : ENTRANCE_MS;
+    setWelcomeShown(true);
     clock.set(withTiming(duration, { duration, easing: Easing.linear, reduceMotion: ReduceMotion.Never }));
-  }, [clock, reduced]);
+    return (): void => {
+      setWelcomeShown(false);
+    };
+  }, [shown, clock, reduced, setWelcomeShown]);
 
   const bandTop = lockup.headerBottom + CAPTION_GAP + CAPTION_HEIGHT * fontScale;
   const bandHeight = Math.max(height - bandTop, 0);
@@ -292,7 +320,7 @@ export default function WelcomeScreen(): ReactElement {
         style={bottomFadeStyle}
       />
 
-      <BrandLockup progress={lockupProgress} />
+      <BrandLockup progress={lockupProgress} onLogoDisplay={reveal} />
 
       <View pointerEvents="none" style={captionBlockStyle}>
         {ONBOARDING_SLIDES.map(

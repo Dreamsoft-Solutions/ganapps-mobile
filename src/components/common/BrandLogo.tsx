@@ -19,6 +19,8 @@ export interface BrandLogoProps {
   size: number;
   /** Adds the green halo behind the mark. Once per screen, splash and Welcome only. Defaults to false. */
   glow?: boolean;
+  /** Called once the mark has been drawn on screen. */
+  onDisplay?: () => void;
 }
 
 /**
@@ -29,7 +31,7 @@ export interface BrandLogoProps {
  * @example
  * <BrandLogo size={72} glow />
  */
-export function BrandLogo({ size, glow = false }: BrandLogoProps): ReactElement {
+export function BrandLogo({ size, glow = false, onDisplay }: BrandLogoProps): ReactElement {
   const theme = useResolvedTheme();
 
   const boxStyle = useMemo((): ViewStyle => ({ width: size, height: size }), [size]);
@@ -72,6 +74,7 @@ export function BrandLogo({ size, glow = false }: BrandLogoProps): ReactElement 
         accessible
         accessibilityLabel="Ganapps logo"
         accessibilityRole="image"
+        onDisplay={onDisplay}
         style={imageStyle}
       />
     </View>
