@@ -22,6 +22,8 @@ export interface RouteTable {
   /** Screens reachable without a token. */
   auth: {
     login: Href;
+    /** The login screen opened in sign-up mode. */
+    signup: Href;
     loginForFriendShare: (code: string) => Href;
     loginForGanapShare: (ganapId: string) => Href;
     loginForBusinessShare: (slug: string) => Href;
@@ -106,6 +108,7 @@ export const Routes: RouteTable = {
 
   auth: {
     login: { pathname: '/(auth)/login' },
+    signup: { pathname: '/(auth)/login', params: { mode: 'signup' } },
     loginForFriendShare: (code: string): Href => ({
       pathname: '/(auth)/login',
       params: { returnFriendCode: code },
