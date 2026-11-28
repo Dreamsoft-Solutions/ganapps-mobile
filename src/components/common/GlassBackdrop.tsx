@@ -70,6 +70,21 @@ const SOLID_GLASS_SETTINGS = [
   event: 'reduceTransparencyChanged' | 'darkerSystemColorsChanged' | 'highTextContrastChanged';
 }[];
 
+/** One accessibility setting that forces the Solid tier. */
+type SolidGlassSetting = (typeof SOLID_GLASS_SETTINGS)[number];
+
+/** Last known state of each {@link SOLID_GLASS_SETTINGS} entry, read once at app start so screens mount on the right tier. */
+const solidGlassSettingsOn: boolean[] = SOLID_GLASS_SETTINGS.map((): boolean => false);
+
+SOLID_GLASS_SETTINGS.forEach((setting: SolidGlassSetting, index: number): void => {
+  setting
+    .query()
+    .then((enabled: boolean): void => {
+      solidGlassSettingsOn[index] = enabled;
+    })
+    .catch((): void => undefined);
+});
+
 /**
  * Whether live glass may run: off in Performance mode, and under Reduce Transparency or Increase Contrast
  * (iOS) or high-contrast text (Android).
@@ -81,25 +96,17 @@ const SOLID_GLASS_SETTINGS = [
  */
 export function useLiveGlassEnabled(): boolean {
   const performanceMode: boolean = useThemeStore((state) => state.performanceMode);
-  const [settingsOn, setSettingsOn] = useState<readonly boolean[]>(SOLID_GLASS_SETTINGS.map((): boolean => false));
+  const [settingsOn, setSettingsOn] = useState<readonly boolean[]>((): readonly boolean[] => [...solidGlassSettingsOn]);
 
   useEffect((): (() => void) => {
-    let active = true;
-    const update = (index: number, enabled: boolean): void => {
-      if (!active) return;
-      setSettingsOn((current: readonly boolean[]): readonly boolean[] =>
-        current.map((value: boolean, at: number): boolean => (at === index ? enabled : value)),
-      );
-    };
-    const subscriptions = SOLID_GLASS_SETTINGS.map((setting, index: number) => {
-      setting
-        .query()
-        .then((enabled: boolean): void => update(index, enabled))
-        .catch((): void => undefined);
-      return AccessibilityInfo.addEventListener(setting.event, (enabled: boolean): void => update(index, enabled));
-    });
+    const subscriptions: { remove: () => void }[] = SOLID_GLASS_SETTINGS.map(
+      (setting: SolidGlassSetting, index: number): { remove: () => void } =>
+        AccessibilityInfo.addEventListener(setting.event, (enabled: boolean): void => {
+          solidGlassSettingsOn[index] = enabled;
+          setSettingsOn([...solidGlassSettingsOn]);
+        }),
+    );
     return (): void => {
-      active = false;
       for (const subscription of subscriptions) subscription.remove();
     };
   }, []);
@@ -135,11 +142,12 @@ async function captureView(target: View, rect: WindowRect): Promise<CapturedFram
 }
 
 /**
- * Releases a capture: the image goes before its texture, as the WebGPU snapshot docs require.
+ * Releases a capture: the image goes before its texture, as the WebGPU snapshot docs require. Only call it
+ * after React has committed a render that no longer draws the image.
  */
-function releaseFrame(frame: CapturedFrame | null): void {
-  frame?.image.dispose();
-  frame?.texture.destroy();
+function releaseFrame(frame: CapturedFrame): void {
+  frame.image.dispose();
+  frame.texture.destroy();
 }
 
 /** Props for {@link GlassBackdrop}. */
@@ -171,14 +179,20 @@ export interface GlassBackdropProps {
  */
 export function GlassBackdrop({ children, enabled, ref }: GlassBackdropProps): ReactElement {
   const targetRef = useRef<View | null>(null);
-  const frameRef = useRef<CapturedFrame | null>(null);
+  const liveFrames = useRef<CapturedFrame[]>([]);
   const inFlight = useRef<boolean>(false);
   const pending = useRef<boolean>(false);
+  const mounted = useRef<boolean>(true);
   const enabledRef = useRef<boolean>(enabled);
+  const captureRef = useRef<() => void>((): void => undefined);
   const [frame, setFrame] = useState<GlassBackdropFrame | null>(null);
   const [version, setVersion] = useState<number>(0);
+  const [wasEnabled, setWasEnabled] = useState<boolean>(enabled);
 
-  const captureRef = useRef<() => void>((): void => undefined);
+  if (wasEnabled !== enabled) {
+    setWasEnabled(enabled);
+    if (!enabled) setFrame(null);
+  }
 
   useLayoutEffect((): void => {
     enabledRef.current = enabled;
@@ -197,21 +211,19 @@ export function GlassBackdrop({ children, enabled, ref }: GlassBackdropProps): R
     inFlight.current = true;
     captureView(target, rect)
       .then((next: CapturedFrame): void => {
-        if (!enabledRef.current) {
+        if (!mounted.current || !enabledRef.current) {
           releaseFrame(next);
           return;
         }
-        const previous: CapturedFrame | null = frameRef.current;
-        frameRef.current = next;
+        liveFrames.current.push(next);
         setFrame({ image: next.image, rect: next.rect });
-        releaseFrame(previous);
       })
       .catch((error: unknown): void => {
         console.warn('[glass] backdrop capture failed', error);
       })
       .finally((): void => {
         inFlight.current = false;
-        if (pending.current) {
+        if (pending.current && mounted.current) {
           pending.current = false;
           captureRef.current();
         }
@@ -229,22 +241,25 @@ export function GlassBackdrop({ children, enabled, ref }: GlassBackdropProps): R
   useImperativeHandle(ref, (): GlassBackdropHandle => ({ capture, remeasure }), [capture, remeasure]);
 
   useEffect((): void => {
-    if (enabled) return;
-    releaseFrame(frameRef.current);
-    frameRef.current = null;
-  }, [enabled]);
+    liveFrames.current = liveFrames.current.filter((live: CapturedFrame): boolean => {
+      if (live.image === frame?.image) return true;
+      releaseFrame(live);
+      return false;
+    });
+  }, [frame]);
 
-  useEffect(
-    (): (() => void) => (): void => {
-      releaseFrame(frameRef.current);
-      frameRef.current = null;
-    },
-    [],
-  );
+  useEffect((): (() => void) => {
+    mounted.current = true;
+    return (): void => {
+      mounted.current = false;
+      for (const live of liveFrames.current) releaseFrame(live);
+      liveFrames.current = [];
+    };
+  }, []);
 
   const value = useMemo(
-    (): GlassBackdropInternal => ({ frame: enabled ? frame : null, version, remeasure, targetRef }),
-    [enabled, frame, version, remeasure],
+    (): GlassBackdropInternal => ({ frame, version, remeasure, targetRef }),
+    [frame, version, remeasure],
   );
 
   return <GlassBackdropContext.Provider value={value}>{children}</GlassBackdropContext.Provider>;

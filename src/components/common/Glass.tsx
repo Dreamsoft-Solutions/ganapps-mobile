@@ -5,7 +5,7 @@ import { StyleSheet, View, type ViewProps, type ViewStyle } from 'react-native';
 import { BorderRadius, Colors, Rim, Shadows } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { splitShadowLayers } from '@/utils/box-shadow';
-import { mix } from '@/utils/color-mix';
+import { type GlassRecipe, glassRecipe, linearCss, radialCss } from '@/utils/glass-recipe';
 import { measureInWindow, NoGlassBackdrop, useGlassBackdrop, type WindowRect } from './GlassBackdrop';
 import { GlassMaterial } from './GlassMaterial';
 
@@ -87,8 +87,7 @@ export function Glass({
   const skia: boolean = frame !== null && placement !== null && !flat;
 
   const material = useMemo((): ViewStyle => {
-    const colors = Colors[theme];
-    const rimGradient = `linear-gradient(145deg, ${mix(colors['glass-ice'], 90)} 0%, ${colors['glass-rim']} 26%, ${mix(colors.mint, 16)} 62%, ${mix(colors.mint, 72)} 100%)`;
+    const rimGradient: string = linearCss(glassRecipe(theme, variant === 'regular').rim);
     const shadow = flat ? [] : splitShadowLayers(Shadows[theme][pressed ? 'bezel-pressed' : lift]);
 
     return {
@@ -97,16 +96,15 @@ export function Glass({
       experimental_backgroundRepeat: 'no-repeat',
       boxShadow: joinShadow(shadow.filter((layer: string): boolean => !layer.startsWith('inset'))),
     };
-  }, [theme, flat, radius, pressed, lift, skia]);
+  }, [theme, variant, flat, radius, pressed, lift, skia]);
 
   const body = useMemo((): ViewStyle => {
     const colors = Colors[theme];
     const inset = flat ? 0 : Rim[rim];
-    const specular = variant === 'regular' ? colors['glass-highlight'] : mix(colors['glass-highlight'], 45);
-
-    const tint = `linear-gradient(140deg, ${mix(colors['glass-ice'], 14)} 0%, ${mix(colors.mint, 6)} 42%, ${mix(colors['glass-ice'], 8)} 100%)`;
-    const sweep = `radial-gradient(120% 80% at 8% 0%, ${specular} 0%, transparent 40%)`;
-    const mintReturn = `radial-gradient(90% 70% at 100% 120%, ${mix(colors.mint, 22)} 0%, transparent 55%)`;
+    const recipe: GlassRecipe = glassRecipe(theme, variant === 'regular');
+    const tint: string = linearCss(recipe.tint);
+    const sweep: string = radialCss(recipe.sweep);
+    const mintReturn: string = radialCss(recipe.mintReturn);
     const shadow = flat ? [] : splitShadowLayers(Shadows[theme][pressed ? 'bezel-pressed' : lift]);
 
     return {

@@ -24,7 +24,7 @@ import { StyleSheet } from 'react-native';
 import { Colors, Rim, Shadows } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { splitShadowLayers } from '@/utils/box-shadow';
-import { mix } from '@/utils/color-mix';
+import { type GlassRecipe, type GradientStop, glassRecipe, type RadialLayer } from '@/utils/glass-recipe';
 import type { GlassLift, RimWidth } from './Glass';
 
 /** What the material refracts: a captured image and where the material sits inside it, in dp. */
@@ -36,6 +36,23 @@ export interface GlassBackdropImage {
   /** The captured view's size, so the image lines up with what is under the material. */
   width: number;
   height: number;
+}
+
+/** An inset shadow layer and the path that draws it. */
+interface InsetShadowPath {
+  shadow: InsetShadow;
+  path: SkPath;
+}
+
+/** Everything {@link GlassMaterial} draws, computed once per size, theme and state. */
+interface MaterialLayers {
+  body: BodyRect;
+  rim: SkiaStops & { line: [Vector, Vector] };
+  tint: SkiaStops & { line: [Vector, Vector] };
+  sweep: SkiaRadial;
+  mintReturn: SkiaRadial;
+  shadowPaths: InsetShadowPath[];
+  bodyClip: ReturnType<typeof Skia.RRectXY>;
 }
 
 /** Props for {@link GlassMaterial}. */
@@ -133,14 +150,68 @@ function cssGradientLine(degrees: number, width: number, height: number, origin:
   return [vec(cx - dx * half, cy - dy * half), vec(cx + dx * half, cy + dy * half)];
 }
 
+/** The body inside the rim ring, in dp. */
+interface BodyRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  r: number;
+}
+
+/** A gradient's colors and positions, as Skia's gradient components take them. */
+interface SkiaStops {
+  colors: string[];
+  positions: number[];
+}
+
+/**
+ * Splits recipe stops into Skia's parallel color and position arrays.
+ *
+ * @param stops - The recipe stops.
+ * @returns The colors and positions.
+ */
+function skiaStops(stops: readonly GradientStop[]): SkiaStops {
+  return {
+    colors: stops.map((stop: GradientStop): string => stop.color),
+    positions: stops.map((stop: GradientStop): number => stop.at),
+  };
+}
+
+/** A CSS ellipse gradient placed on the body: a circle squashed on y around its centre. */
+interface SkiaRadial extends SkiaStops {
+  c: Vector;
+  r: number;
+  scaleY: number;
+}
+
+/**
+ * Places a recipe {@link RadialLayer} on the body the way CSS sizes its ellipse: width by the body's width,
+ * height by its height.
+ *
+ * @param layer - The recipe layer.
+ * @param body - The body it fills.
+ * @returns Centre, radius, y squash and stops for `RadialGradient`.
+ */
+function skiaRadial(layer: RadialLayer, body: BodyRect): SkiaRadial {
+  const r: number = body.w * layer.width;
+  return {
+    c: vec(body.x + body.w * layer.x, body.y + body.h * layer.y),
+    r,
+    scaleY: (body.h * layer.height) / r,
+    ...skiaStops(layer.stops),
+  };
+}
+
 /**
  * The area outside a CSS inset shadow's hole: the body offset by the shadow and shrunk by its spread.
  *
- * @param x - Body left. @param y - Body top. @param w - Body width. @param h - Body height.
- * @param r - Body radius. @param shadow - The inset layer.
+ * @param body - The body the shadow falls inside.
+ * @param shadow - The inset layer.
  * @returns An even-odd path that paints everywhere except the hole.
  */
-function insetShadowPath(x: number, y: number, w: number, h: number, r: number, shadow: InsetShadow): SkPath {
+function insetShadowPath(body: BodyRect, shadow: InsetShadow): SkPath {
+  const { x, y, w, h, r } = body;
   const builder = Skia.PathBuilder.Make();
   const pad = shadow.blur * 2 + Math.abs(shadow.dx) + Math.abs(shadow.dy) + 8;
   builder.addRect(Skia.XYWHRect(x - pad, y - pad, w + pad * 2, h + pad * 2));
@@ -188,39 +259,44 @@ export function GlassMaterial({
   const theme = useResolvedTheme();
   const corner: number = Math.min(radius, width / 2, height / 2);
 
-  const layers = useMemo(() => {
-    const colors = Colors[theme];
-    const inset = Rim[rim];
-    const body = { x: inset, y: inset, w: width - inset * 2, h: height - inset * 2, r: Math.max(corner - inset, 0) };
-    const shadows = parseInsetShadows(Shadows[theme][pressed ? 'bezel-pressed' : lift]);
+  const layers = useMemo((): MaterialLayers => {
+    const inset: number = Rim[rim];
+    const body: BodyRect = {
+      x: inset,
+      y: inset,
+      w: width - inset * 2,
+      h: height - inset * 2,
+      r: Math.max(corner - inset, 0),
+    };
+    const recipe: GlassRecipe = glassRecipe(theme, variant === 'regular');
+    const shadows: InsetShadow[] = parseInsetShadows(Shadows[theme][pressed ? 'bezel-pressed' : lift]);
     return {
-      colors,
       body,
-      rimLine: cssGradientLine(145, width, height, vec(0, 0)),
-      tintLine: cssGradientLine(140, body.w, body.h, vec(body.x, body.y)),
-      specular: variant === 'regular' ? colors['glass-highlight'] : mix(colors['glass-highlight'], 45),
-      shadowPaths: shadows.map((shadow: InsetShadow) => ({
-        shadow,
-        path: insetShadowPath(body.x, body.y, body.w, body.h, body.r, shadow),
-      })),
+      rim: { line: cssGradientLine(recipe.rim.angle, width, height, vec(0, 0)), ...skiaStops(recipe.rim.stops) },
+      tint: {
+        line: cssGradientLine(recipe.tint.angle, body.w, body.h, vec(body.x, body.y)),
+        ...skiaStops(recipe.tint.stops),
+      },
+      sweep: skiaRadial(recipe.sweep, body),
+      mintReturn: skiaRadial(recipe.mintReturn, body),
+      shadowPaths: shadows.map(
+        (shadow: InsetShadow): InsetShadowPath => ({ shadow, path: insetShadowPath(body, shadow) }),
+      ),
       bodyClip: Skia.RRectXY(Skia.XYWHRect(body.x, body.y, body.w, body.h), body.r, body.r),
     };
   }, [theme, rim, width, height, corner, pressed, lift, variant]);
 
-  const { colors, body, rimLine, tintLine, specular, shadowPaths, bodyClip } = layers;
-  const sweepCentre = vec(body.x + body.w * 0.08, body.y);
-  const sweepRadius = body.w * 1.2;
-  const returnCentre = vec(body.x + body.w, body.y + body.h * 1.2);
-  const returnRadius = body.w * 0.9;
+  const colors = Colors[theme];
+  const { body, rim: rimRing, tint, sweep, mintReturn, shadowPaths, bodyClip } = layers;
 
   return (
     <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
       <RoundedRect x={0} y={0} width={width} height={height} r={corner}>
         <LinearGradient
-          start={rimLine[0]}
-          end={rimLine[1]}
-          colors={[mix(colors['glass-ice'], 90), colors['glass-rim'], mix(colors.mint, 16), mix(colors.mint, 72)]}
-          positions={[0, 0.26, 0.62, 1]}
+          start={rimRing.line[0]}
+          end={rimRing.line[1]}
+          colors={rimRing.colors}
+          positions={rimRing.positions}
         />
       </RoundedRect>
       <Group clip={bodyClip}>
@@ -255,35 +331,30 @@ export function GlassMaterial({
           }
         />
         <Rect x={body.x} y={body.y} width={body.w} height={body.h}>
-          <LinearGradient
-            start={tintLine[0]}
-            end={tintLine[1]}
-            colors={[mix(colors['glass-ice'], 14), mix(colors.mint, 6), mix(colors['glass-ice'], 8)]}
-            positions={[0, 0.42, 1]}
+          <LinearGradient start={tint.line[0]} end={tint.line[1]} colors={tint.colors} positions={tint.positions} />
+        </Rect>
+        <Rect x={body.x} y={body.y} width={body.w} height={body.h}>
+          <RadialGradient
+            c={mintReturn.c}
+            r={mintReturn.r}
+            colors={mintReturn.colors}
+            positions={mintReturn.positions}
+            transform={[{ scaleY: mintReturn.scaleY }]}
+            origin={mintReturn.c}
           />
         </Rect>
         <Rect x={body.x} y={body.y} width={body.w} height={body.h}>
           <RadialGradient
-            c={returnCentre}
-            r={returnRadius}
-            colors={[mix(colors.mint, 22), 'transparent']}
-            positions={[0, 0.55]}
-            transform={[{ scaleY: (body.h * 0.7) / returnRadius }]}
-            origin={returnCentre}
-          />
-        </Rect>
-        <Rect x={body.x} y={body.y} width={body.w} height={body.h}>
-          <RadialGradient
-            c={sweepCentre}
-            r={sweepRadius}
-            colors={[specular, 'transparent']}
-            positions={[0, 0.4]}
-            transform={[{ scaleY: (body.h * 0.8) / sweepRadius }]}
-            origin={sweepCentre}
+            c={sweep.c}
+            r={sweep.r}
+            colors={sweep.colors}
+            positions={sweep.positions}
+            transform={[{ scaleY: sweep.scaleY }]}
+            origin={sweep.c}
           />
         </Rect>
         {shadowPaths.map(
-          ({ shadow, path }: { shadow: InsetShadow; path: SkPath }, index: number): ReactElement => (
+          ({ shadow, path }: InsetShadowPath, index: number): ReactElement => (
             <Path key={index} path={path} color={shadow.color}>
               {shadow.blur > 0 ? <BlurMask blur={shadow.blur / 2} style="normal" /> : null}
             </Path>

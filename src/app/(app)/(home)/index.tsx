@@ -370,6 +370,12 @@ export default function HomeScreen(): ReactElement {
     })();
   }, [centreOnUser, nearby.refresh, nearby.toggle, userCoords]);
 
+  const backdropRef = useRef<GlassBackdropHandle>(null);
+  const liveGlass: boolean = useLiveGlassEnabled();
+  const captureBackdrop = useCallback((): void => {
+    backdropRef.current?.capture();
+  }, []);
+
   const handleMapReady = useCallback((): void => {
     setIsMapReady(true);
   }, []);
@@ -378,26 +384,23 @@ export default function HomeScreen(): ReactElement {
     setMapStyleRevision((revision: number): number => revision + 1);
   }, []);
 
-  const handleMapIdle = useCallback((state: MapState): void => {
-    backdropRef.current?.capture();
-    setCameraPitch(Math.round(state.properties.pitch));
-    const zoom: number = state.properties.zoom;
-    mapZoomRef.current = zoom;
-    cameraViewRef.current = getCameraViewSnapshot(state, cameraViewRef.current.padding);
-    isClusterZoomPendingRef.current = false;
-    setViewport(
-      mapStateToViewport({
-        bounds: state.properties.bounds,
-        zoom,
-      }),
-    );
-  }, []);
-
-  const backdropRef = useRef<GlassBackdropHandle>(null);
-  const liveGlass: boolean = useLiveGlassEnabled();
-  const captureBackdrop = useCallback((): void => {
-    backdropRef.current?.capture();
-  }, []);
+  const handleMapIdle = useCallback(
+    (state: MapState): void => {
+      captureBackdrop();
+      setCameraPitch(Math.round(state.properties.pitch));
+      const zoom: number = state.properties.zoom;
+      mapZoomRef.current = zoom;
+      cameraViewRef.current = getCameraViewSnapshot(state, cameraViewRef.current.padding);
+      isClusterZoomPendingRef.current = false;
+      setViewport(
+        mapStateToViewport({
+          bounds: state.properties.bounds,
+          zoom,
+        }),
+      );
+    },
+    [captureBackdrop],
+  );
 
   const remeasureBackdrop = useCallback((): void => {
     backdropRef.current?.remeasure();
@@ -415,20 +418,23 @@ export default function HomeScreen(): ReactElement {
     return (): void => clearTimeout(timer);
   }, [captureBackdrop, visibleFeatures]);
 
-  const handleCameraChanged = useCallback((state: MapState): void => {
-    backdropRef.current?.capture();
-    if (state.gestures.isGestureActive) setCameraPitch(Math.round(state.properties.pitch));
-    const nextViewport: MapViewport = mapStateToViewport({
-      bounds: state.properties.bounds,
-      zoom: state.properties.zoom,
-    });
-    setViewport((current: MapViewport): MapViewport => (current.zoom === nextViewport.zoom ? current : nextViewport));
-    mapZoomRef.current = state.properties.zoom;
-    cameraViewRef.current = getCameraViewSnapshot(state, cameraViewRef.current.padding);
-    if (isSelectionActiveRef.current && state.gestures.isGestureActive) {
-      hasUserGestureDuringSelectionRef.current = true;
-    }
-  }, []);
+  const handleCameraChanged = useCallback(
+    (state: MapState): void => {
+      captureBackdrop();
+      if (state.gestures.isGestureActive) setCameraPitch(Math.round(state.properties.pitch));
+      const nextViewport: MapViewport = mapStateToViewport({
+        bounds: state.properties.bounds,
+        zoom: state.properties.zoom,
+      });
+      setViewport((current: MapViewport): MapViewport => (current.zoom === nextViewport.zoom ? current : nextViewport));
+      mapZoomRef.current = state.properties.zoom;
+      cameraViewRef.current = getCameraViewSnapshot(state, cameraViewRef.current.padding);
+      if (isSelectionActiveRef.current && state.gestures.isGestureActive) {
+        hasUserGestureDuringSelectionRef.current = true;
+      }
+    },
+    [captureBackdrop],
+  );
 
   const beginSelection = useCallback((): void => {
     if (mapPressTimeoutRef.current !== null) {
@@ -739,7 +745,7 @@ export default function HomeScreen(): ReactElement {
             onDismiss={nearby.dismissAccuracyNotice}
           />
           {nearby.isDisabled && (
-            <Glass variant="strong" radius={BorderRadius.xl} className="mx-md mt-xs gap-1 p-md">
+            <Glass variant="solid" radius={BorderRadius.xl} className="mx-md mt-xs gap-1 p-md">
               <Text className="text-label-md text-foreground">Location is off</Text>
               <Text className="text-body-md text-muted-foreground">
                 Turn on location for Ganapps in Settings to filter events near you. Everything else on the map still
@@ -758,7 +764,7 @@ export default function HomeScreen(): ReactElement {
             </Glass>
           )}
           {nearby.errorMessage !== null && (
-            <Glass variant="strong" radius={BorderRadius.xl} className="mx-md mt-xs p-md">
+            <Glass variant="solid" radius={BorderRadius.xl} className="mx-md mt-xs p-md">
               <Text className="text-body-md text-muted-foreground">{nearby.errorMessage}</Text>
             </Glass>
           )}
@@ -802,9 +808,7 @@ export default function HomeScreen(): ReactElement {
             }}
             onDismiss={nearby.dismissPriming}
           />
-        </NoGlassBackdrop>
 
-        <NoGlassBackdrop>
           {isFeedSheetVisible && (
             <GanapFeedSheet
               feed={feed}

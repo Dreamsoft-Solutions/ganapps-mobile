@@ -30,6 +30,12 @@ interface ThemeState {
   hydrate: () => Promise<void>;
 }
 
+/**
+ * Appearance preferences: the theme mode and Performance mode, persisted and hydrated before the app renders.
+ *
+ * @example
+ * const performanceMode = useThemeStore((state) => state.performanceMode);
+ */
 export const useThemeStore = create<ThemeState>((set, get) => ({
   mode: 'system',
   performanceMode: false,

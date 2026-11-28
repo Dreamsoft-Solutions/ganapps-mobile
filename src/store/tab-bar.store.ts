@@ -8,6 +8,12 @@ export interface TabBarState {
   setAboveIslandHeight: (height: number) => void;
 }
 
+/**
+ * Shared tab bar dock state: how much floats above the island, so screens can clear it.
+ *
+ * @example
+ * const aboveIsland = useTabBarStore((state) => state.aboveIslandHeight);
+ */
 export const useTabBarStore = create<TabBarState>((set, get) => ({
   aboveIslandHeight: 0,
 

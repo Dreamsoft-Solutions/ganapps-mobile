@@ -244,7 +244,7 @@ The material for controls that float over content. See [Glass](#glass).
 | -------------------- | --------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `glass-fill`         | `rgba(255, 255, 255, 0.46)` | `rgba(9, 32, 40, 0.42)`     | The default liquid-glass body for controls floating over the map: the tab bar island, map control buttons, top-bar actions. Thin on purpose, so the map glows through. Glyphs and one-word labels only, in `foreground`, `on-glass-muted` or `on-glass-primary`. No sentences.            |
 | `glass-fill-strong`  | `rgba(255, 255, 255, 0.76)` | `rgba(9, 32, 40, 0.66)`     | Glass that carries sentences or inputs: the map search bar, toasts, the peek state of the Ganap sheet, the chat composer, chips. Keeps `foreground`, `primary-text` and `on-glass-muted` at 4.5:1 over every map color and map glow.                                                      |
-| `glass-fill-solid`   | `#f7faf8`                   | `#0c242d`                   | The Reduce Transparency fallback and the default on Android, where GlassView renders as a plain View. Same shape, rim and shadow; no blur.                                                                                                                                                |
+| `glass-fill-solid`   | `#f7faf8`                   | `#0c242d`                   | The Solid tier: every pane outside a live `GlassBackdrop`, in Performance mode, and under Reduce Transparency or Increase Contrast. Same shape, rim and shadow; no blur.                                                                                                                                                |
 | `glass-ice`          | `#ffffff`                   | `#e6fff5`                   | The brightest light in the material: the top-left stop of the rim and the tint that runs across a glass body. Never a fill or a text color.                                                                                                                                               |
 | `mint`               | `#16a34a`                   | `#86efac`                   | The green light inside glass: the bottom-right stop of the rim, the floor light and the inner volume. A lighter step of Ganapps green, so the whole system stays one hue. It is light, not paint: never a control fill or a text color. `primary` stays reserved for the one main action. |
 | `glass-rim`          | `rgba(255, 255, 255, 0.72)` | `rgba(255, 255, 255, 0.14)` | The quiet middle of the rim ring, between its lit top-left (`glass-ice`) and bottom-right (`mint`) ends. The rim is what makes glass read as an object rather than a blur.                                                                                                                |
@@ -450,11 +450,16 @@ How live glass works (ADR 0010):
 - The fill over the backdrop is the token for the pane: `glass-fill` for `regular` (glyphs, one word) and
   `glass-fill-strong` for `strong` (a line of text, inputs). Text limits are unchanged; longer text and data
   sit on a solid surface.
-- The material is `GlassMaterial`. Never rebuild the rim, tint or bevel in a screen.
+- Every live pane draws its own 0.3dp Skia blur over the shared capture. The "at most three blurs" house
+  rule was written for `expo-blur`, which re-blurs the live map per view; it does not apply here. With every
+  map control live, panning stayed within noise of the no-glass baseline on a 2021 Android phone (ADR 0010).
+- The material is `GlassMaterial`, and its gradients come from `glassRecipe()` in `src/utils/glass-recipe.ts`,
+  which the Solid tier reads too. Never rebuild the rim, tint or bevel in a screen.
 
-**In the app today:** the home map's search bar, filter chips, Map view control, locate button and
-notices draw live glass. The tab island sits outside the home `GlassBackdrop`, so it and every other
-screen draw Solid. Compose every control from `Glass`, `Capsule` and `PressableScale`.
+**In the app today:** the home map's search bar, filter chips, Map view control and panel, and locate button
+draw live glass. The map notices carry sentences and errors, so they sit on `solid` with the glass rim.
+The tab island sits outside the home `GlassBackdrop`, so it and every other screen draw Solid. Compose
+every control from `Glass`, `Capsule` and `PressableScale`.
 
 How the Solid recipe is drawn in React Native:
 
