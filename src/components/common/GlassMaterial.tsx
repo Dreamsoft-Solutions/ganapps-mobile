@@ -23,9 +23,9 @@ import { StyleSheet } from 'react-native';
 
 import { Colors, Rim, Shadows } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { splitShadowLayers } from '@/utils/box-shadow';
 import { mix } from '@/utils/color-mix';
 import type { GlassLift, RimWidth } from './Glass';
-import { splitShadowLayers } from './Glass';
 
 /** What the material refracts: a captured image and where the material sits inside it, in dp. */
 export interface GlassBackdropImage {
@@ -59,9 +59,6 @@ export interface GlassMaterialProps {
 
 /** Backdrop blur in dp: light enough that the refraction stays readable (owner's pick, ganapps-home#288). */
 export const GLASS_BACKDROP_BLUR = 0.3;
-
-/** Share of the Solid fill laid over the refracted backdrop, so text stays legible on a busy map. */
-const BACKDROP_FILL_OPACITY = 35;
 
 /** Bends the backdrop inward near the rounded edge, with a slight colour split, like a thick lens. */
 const REFRACT = Skia.RuntimeEffect.Make(`
@@ -163,7 +160,7 @@ function insetShadowPath(x: number, y: number, w: number, h: number, r: number, 
 
 /**
  * Draws the Ganapps Glass material in Skia: the same rim ring, tint, sweep, mint return and inset bevel as
- * `Glass`, with a captured backdrop refracted under a thin Solid fill in place of the opaque one.
+ * `Glass`, with a captured backdrop refracted under `glass-fill` (or `glass-fill-strong`) in place of the opaque fill.
  *
  * Fills its parent; the parent owns layout, the outset (drop) shadow and the content on top.
  *
@@ -252,7 +249,9 @@ export function GlassMaterial({
           width={body.w}
           height={body.h}
           color={
-            backdrop === null ? colors['glass-fill-solid'] : mix(colors['glass-fill-solid'], BACKDROP_FILL_OPACITY)
+            backdrop === null
+              ? colors['glass-fill-solid']
+              : colors[variant === 'strong' ? 'glass-fill-strong' : 'glass-fill']
           }
         />
         <Rect x={body.x} y={body.y} width={body.w} height={body.h}>

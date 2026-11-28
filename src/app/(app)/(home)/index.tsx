@@ -12,8 +12,9 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import type { ComponentRef, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type LayoutChangeEvent, View } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
+import { useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { scheduleOnRN } from 'react-native-worklets';
 import { Button } from '@/components/common/Button';
 import { ErrorView } from '@/components/common/Error';
 import { Glass } from '@/components/common/Glass';
@@ -21,6 +22,7 @@ import {
   GlassBackdrop,
   type GlassBackdropHandle,
   GlassBackdropTarget,
+  NoGlassBackdrop,
   useLiveGlassEnabled,
 } from '@/components/common/GlassBackdrop';
 import { Loading } from '@/components/common/Loading';
@@ -68,6 +70,10 @@ const LOCATION_SELECTION_ZOOM: number = 16.5;
 const LOCATION_SELECTION_PITCH: number = 80;
 const OVERHEAD_PITCH: number = 0;
 const MAP_FEATURE_PRESS_GUARD_MS: number = 150;
+/** How long new pins take to finish their entrance before the glass captures them. */
+const PIN_SETTLE_MS: number = 450;
+/** Sheet travel, in dp, between glass re-measures while the sheet carries the map controls. */
+const SHEET_REMEASURE_STEP: number = 8;
 const FEATURE_PRESS_PROPAGATION_WINDOW_MS: number = 75;
 const TERRAIN_SOURCE_ID = 'ganapps-map-terrain-dem';
 const TERRAIN_SOURCE_URL = 'mapbox://mapbox.mapbox-terrain-dem-v1';
@@ -389,6 +395,25 @@ export default function HomeScreen(): ReactElement {
 
   const backdropRef = useRef<GlassBackdropHandle>(null);
   const liveGlass: boolean = useLiveGlassEnabled();
+  const captureBackdrop = useCallback((): void => {
+    backdropRef.current?.capture();
+  }, []);
+
+  const remeasureBackdrop = useCallback((): void => {
+    backdropRef.current?.remeasure();
+  }, []);
+
+  useAnimatedReaction(
+    (): number => Math.round(sheetPosition.value / SHEET_REMEASURE_STEP),
+    (step: number, previous: number | null): void => {
+      if (step !== previous) scheduleOnRN(remeasureBackdrop);
+    },
+  );
+
+  useEffect((): (() => void) => {
+    const timer = setTimeout(captureBackdrop, PIN_SETTLE_MS);
+    return (): void => clearTimeout(timer);
+  }, [captureBackdrop, visibleFeatures]);
 
   const handleCameraChanged = useCallback((state: MapState): void => {
     backdropRef.current?.capture();
@@ -670,6 +695,7 @@ export default function HomeScreen(): ReactElement {
             onPress={handleMapPress}
             onDidFinishLoadingMap={handleMapReady}
             onDidFinishLoadingStyle={handleMapStyleLoaded}
+            onDidFinishRenderingMapFully={captureBackdrop}
           >
             <Camera ref={cameraRef} centerCoordinate={ILOILO_CITY_CENTER} zoomLevel={CITY_ZOOM} animationMode="none" />
             <SelectionTerrain isActive={hasActiveSelection} />
@@ -768,31 +794,35 @@ export default function HomeScreen(): ReactElement {
           <LocateMeButton onPress={handleLocateMe} />
         </MapControlsOverlay>
 
-        <LocationPrimingSheet
-          visible={nearby.isPrimingVisible}
-          onConfirm={(): void => {
-            void nearby.confirmPriming();
-          }}
-          onDismiss={nearby.dismissPriming}
-        />
-
-        {isFeedSheetVisible && (
-          <GanapFeedSheet
-            feed={feed}
-            hasActiveFilters={hasActiveFilters}
-            isNearbyApplied={isNearbyApplied}
-            topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
-            islandReserve={sheetBottomInset}
-            animatedPosition={sheetPosition}
-            selectedGanap={selectedGanap}
-            selectedCluster={activeCluster}
-            clusterIndex={clusterIndex}
-            onSelectGanap={handleOpenGanap}
-            onClearSelection={handleClearSelection}
-            onClose={handleFeedSheetClose}
-            onZoomToCluster={handleClusterZoomIn}
+        <NoGlassBackdrop>
+          <LocationPrimingSheet
+            visible={nearby.isPrimingVisible}
+            onConfirm={(): void => {
+              void nearby.confirmPriming();
+            }}
+            onDismiss={nearby.dismissPriming}
           />
-        )}
+        </NoGlassBackdrop>
+
+        <NoGlassBackdrop>
+          {isFeedSheetVisible && (
+            <GanapFeedSheet
+              feed={feed}
+              hasActiveFilters={hasActiveFilters}
+              isNearbyApplied={isNearbyApplied}
+              topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
+              islandReserve={sheetBottomInset}
+              animatedPosition={sheetPosition}
+              selectedGanap={selectedGanap}
+              selectedCluster={activeCluster}
+              clusterIndex={clusterIndex}
+              onSelectGanap={handleOpenGanap}
+              onClearSelection={handleClearSelection}
+              onClose={handleFeedSheetClose}
+              onZoomToCluster={handleClusterZoomIn}
+            />
+          )}
+        </NoGlassBackdrop>
       </View>
     </GlassBackdrop>
   );

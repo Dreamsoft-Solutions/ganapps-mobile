@@ -446,8 +446,9 @@ How live glass works (ADR 0010):
 - Each pane measures its place against the capture whenever a new one lands. A pane that moves
   without a new layout, like a chip in a scrolling row, calls `remeasure()` from the scroll handler. A
   pane that moves under the finger, like a sheet, uses `solid`.
-- Text limits are unchanged: the material lays 35% of `glass-fill-solid` over the backdrop, which is not
-  enough for long text or data.
+- The fill over the backdrop is the token for the pane: `glass-fill` for `regular` (glyphs, one word) and
+  `glass-fill-strong` for `strong` (a line of text, inputs). Text limits are unchanged; longer text and data
+  sit on a solid surface.
 - The material is `GlassMaterial`. Never rebuild the rim, tint or bevel in a screen.
 
 **In the app today:** the home map's search bar, filter chips, Map view control, locate button and

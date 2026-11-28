@@ -248,6 +248,18 @@ export function GlassBackdropTarget({ children, ...props }: ViewProps): ReactEle
 }
 
 /**
+ * Hides the backdrop from everything inside it, so glass there draws the Solid tier. Use it for content
+ * that sits on another surface, like a sheet: refracting the map through it would ignore what is between.
+ * `Glass` wraps its own children in one.
+ *
+ * @param props - The content to cut off from the backdrop.
+ * @returns The content, outside any backdrop.
+ */
+export function NoGlassBackdrop({ children }: { children: ReactNode }): ReactElement {
+  return <GlassBackdropContext.Provider value={null}>{children}</GlassBackdropContext.Provider>;
+}
+
+/**
  * Reads the nearest {@link GlassBackdrop}, or `null` outside one.
  *
  * @returns The latest frame, the re-measure counter and trigger.

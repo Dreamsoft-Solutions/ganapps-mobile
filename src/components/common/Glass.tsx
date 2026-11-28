@@ -4,8 +4,9 @@ import { StyleSheet, View, type ViewProps, type ViewStyle } from 'react-native';
 
 import { BorderRadius, Colors, Rim, Shadows } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { splitShadowLayers } from '@/utils/box-shadow';
 import { mix } from '@/utils/color-mix';
-import { measureInWindow, useGlassBackdrop, type WindowRect } from './GlassBackdrop';
+import { measureInWindow, NoGlassBackdrop, useGlassBackdrop, type WindowRect } from './GlassBackdrop';
 import { GlassMaterial } from './GlassMaterial';
 
 /** Which Glass recipe to draw: the base pane, a denser pane, a green-tinted pane or a flat solid one. */
@@ -29,33 +30,6 @@ export interface GlassProps extends ViewProps {
   radius?: number;
   /** Draws the pressed bezel instead of the resting shadow. */
   pressed?: boolean;
-}
-
-/**
- * Splits a `boxShadow` string into its layers on commas that sit outside parentheses.
- *
- * @param shadow - A CSS `boxShadow` value, e.g. one of the `Shadows` tokens.
- * @returns Each layer, trimmed, in order.
- */
-export function splitShadowLayers(shadow: string): string[] {
-  const layers: string[] = [];
-  let depth = 0;
-  let start = 0;
-
-  for (let index = 0; index < shadow.length; index += 1) {
-    const char = shadow[index];
-    if (char === '(') {
-      depth += 1;
-    } else if (char === ')') {
-      depth -= 1;
-    } else if (char === ',' && depth === 0) {
-      layers.push(shadow.slice(start, index).trim());
-      start = index + 1;
-    }
-  }
-
-  layers.push(shadow.slice(start).trim());
-  return layers.filter((layer: string): boolean => layer.length > 0);
 }
 
 /**
@@ -190,7 +164,7 @@ export function Glass({
         </View>
       ) : null}
       {skia ? null : <View pointerEvents="none" style={body} />}
-      {children}
+      <NoGlassBackdrop>{children}</NoGlassBackdrop>
     </View>
   );
 }
