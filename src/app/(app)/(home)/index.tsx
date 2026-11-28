@@ -27,6 +27,7 @@ import { MapControlsOverlay } from '@/components/map/MapControlsOverlay';
 import { MapSearchBar } from '@/components/map/MapSearchBar';
 import { MAX_MAP_PITCH, MapViewControls } from '@/components/map/MapViewControls';
 import { ReducedAccuracyNotice } from '@/components/map/ReducedAccuracyNotice';
+import { SKIA_GLASS_PROBE, SkiaGlassProbe } from '@/components/map/SkiaGlassProbe';
 import { TagChips } from '@/components/map/TagChips';
 import { Routes } from '@/constants/routes';
 import { BorderRadius, Spacing } from '@/constants/theme';
@@ -380,7 +381,12 @@ export default function HomeScreen(): ReactElement {
     );
   }, []);
 
+  const probeTargetRef = useRef<View>(null);
+  const probeCaptureRef = useRef<(() => void) | null>(null);
+  const [probeSize, setProbeSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+
   const handleCameraChanged = useCallback((state: MapState): void => {
+    probeCaptureRef.current?.();
     if (state.gestures.isGestureActive) setCameraPitch(Math.round(state.properties.pitch));
     const nextViewport: MapViewport = mapStateToViewport({
       bounds: state.properties.bounds,
@@ -642,33 +648,54 @@ export default function HomeScreen(): ReactElement {
         mapHeight.value = event.nativeEvent.layout.height;
       }}
     >
-      <MapView
+      <View
+        ref={probeTargetRef}
+        collapsable={false}
         style={{ flex: 1 }}
-        styleURL={resolveMapStyleURL(theme)}
-        scaleBarEnabled={false}
-        attributionEnabled
-        attributionPosition={{ bottom: sheetBottomInset, right: Spacing.xs }}
-        logoEnabled
-        logoPosition={{ bottom: sheetBottomInset, left: Spacing.xs }}
-        onMapIdle={handleMapIdle}
-        onCameraChanged={handleCameraChanged}
-        onPress={handleMapPress}
-        onDidFinishLoadingMap={handleMapReady}
-        onDidFinishLoadingStyle={handleMapStyleLoaded}
+        onLayout={(event: LayoutChangeEvent): void => {
+          setProbeSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height });
+        }}
       >
-        <Camera ref={cameraRef} centerCoordinate={ILOILO_CITY_CENTER} zoomLevel={CITY_ZOOM} animationMode="none" />
-        <SelectionTerrain isActive={hasActiveSelection} />
-        <BuildingExtrusions isEnabled={buildingsVisible} pitch={cameraPitch} />
-        {userCoords !== null && <LocationPuck puckBearing="heading" puckBearingEnabled />}
-        <ClusteredGanapMarkers
-          key={`markers-${mapStyleRevision}`}
-          features={visibleFeatures}
-          onGanapPress={handleGanapPress}
-          onClusterPress={handleClusterPress}
-          clusterIndex={clusterIndex}
-          isAnimating={isMapFocused}
+        <MapView
+          style={{ flex: 1 }}
+          surfaceView={SKIA_GLASS_PROBE ? false : undefined}
+          styleURL={resolveMapStyleURL(theme)}
+          scaleBarEnabled={false}
+          attributionEnabled
+          attributionPosition={{ bottom: sheetBottomInset, right: Spacing.xs }}
+          logoEnabled
+          logoPosition={{ bottom: sheetBottomInset, left: Spacing.xs }}
+          onMapIdle={handleMapIdle}
+          onCameraChanged={handleCameraChanged}
+          onPress={handleMapPress}
+          onDidFinishLoadingMap={handleMapReady}
+          onDidFinishLoadingStyle={handleMapStyleLoaded}
+        >
+          <Camera ref={cameraRef} centerCoordinate={ILOILO_CITY_CENTER} zoomLevel={CITY_ZOOM} animationMode="none" />
+          <SelectionTerrain isActive={hasActiveSelection} />
+          <BuildingExtrusions isEnabled={buildingsVisible} pitch={cameraPitch} />
+          {userCoords !== null && <LocationPuck puckBearing="heading" puckBearingEnabled />}
+          <ClusteredGanapMarkers
+            key={`markers-${mapStyleRevision}`}
+            features={visibleFeatures}
+            onGanapPress={handleGanapPress}
+            onClusterPress={handleClusterPress}
+            clusterIndex={clusterIndex}
+            isAnimating={isMapFocused}
+          />
+        </MapView>
+      </View>
+
+      {SKIA_GLASS_PROBE && probeSize.width > 0 ? (
+        <SkiaGlassProbe
+          targetRef={probeTargetRef}
+          captureRef={probeCaptureRef}
+          x={(probeSize.width - 240) / 2}
+          y={probeSize.height * 0.45}
+          targetWidth={probeSize.width}
+          targetHeight={probeSize.height}
         />
-      </MapView>
+      ) : null}
 
       <View className="absolute left-0 right-0" style={{ top: insets.top + 12 }} pointerEvents="box-none">
         <View className="mx-4">
