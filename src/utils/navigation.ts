@@ -59,11 +59,13 @@ export function getShareLinkReturnRoute(params: ShareLinkReturnParams): Href {
  * Determines whether the authenticated tab bar should be hidden for a focused route.
  *
  * @param segments - Active Expo Router path segments
- * @returns `true` while completing an event registration form, inside the Event Hub,
- * a focused Event Chat thread, or a focused Friends profile/settings screen
+ * @returns `true` on any Ganap screen (detail, registration, Event Hub, feedback, attendance scan),
+ * which carries its own bottom action bar, in a focused Event Chat or direct chat thread, or on a
+ * focused Friends profile/settings screen
  */
 export function shouldHideAppTabBar(segments: readonly string[]): boolean {
   return (
+    segments.includes('[ganap-id]') ||
     segments.includes('registration') ||
     segments.includes('event-hub') ||
     segments.includes('event-chat') ||

@@ -1,7 +1,9 @@
 import type { ReactElement } from 'react';
 import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
 import { Text } from '@/components/common/Text';
+import { Spacing } from '@/constants/theme';
 import type { GanapActionModel } from '@/utils/ganap-detail';
 
 interface EventActionBarProps {
@@ -16,8 +18,7 @@ interface EventActionBarProps {
 /**
  * Sticky action surface for registration and Event Hub entry decisions.
  *
- * It sits directly above the app tab bar, which already reserves the bottom safe-area
- * inset, so the bar adds only its own padding.
+ * The tab bar hides on Ganap screens, so the bar pads itself by the bottom safe-area inset.
  *
  * The primary button is keyed by its variant, so a switch from `outline` to `default` mounts a new
  * button. react-native-css-interop cannot add the default variant's shadow variables to a mounted
@@ -33,10 +34,14 @@ export function EventActionBar({
   onSecondaryAction,
   onReport,
 }: EventActionBarProps): ReactElement {
+  const insets = useSafeAreaInsets();
   const primaryVariant: 'outline' | 'default' = model.primary?.action === 'leave' ? 'outline' : 'default';
 
   return (
-    <View className="absolute bottom-0 left-0 right-0 border-t border-border bg-background px-md pb-xs pt-sm">
+    <View
+      className="absolute bottom-0 left-0 right-0 border-t border-border bg-background px-md pt-sm"
+      style={{ paddingBottom: insets.bottom + Spacing.xs }}
+    >
       <View className="w-full max-w-3xl self-center">
         {model.statusLabel && (
           <Text className="mb-sm text-center text-body-md text-muted-foreground">{model.statusLabel}</Text>
