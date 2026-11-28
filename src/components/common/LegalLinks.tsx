@@ -36,7 +36,7 @@ async function openSupportEmail(): Promise<void> {
 export function LegalLinks({ includeDeletion = false, inline = false }: LegalLinksProps): ReactElement {
   if (inline) {
     return (
-      <View className="flex-row justify-center gap-md">
+      <View className="flex-row flex-wrap justify-center gap-md">
         <Button variant="link" onPress={(): Promise<void> => openLegalPage(process.env.EXPO_PUBLIC_TERMS_URL)}>
           Terms of Service
         </Button>

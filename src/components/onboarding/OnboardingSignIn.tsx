@@ -31,7 +31,8 @@ export interface OnboardingSignInProps {
  * than one slide), Continue with Apple
  * and Continue with Google where they are available, the one green action (Sign up with email),
  * the policy links and the log-in link. It sits over the photo on the screen's bottom scrim, so
- * secondary text uses `on-glass-muted`, which holds its contrast over a backdrop.
+ * secondary text uses `on-glass-muted`, which holds its contrast over a backdrop. A failed social
+ * sign-in is not shown here: the screen raises it as a toast, because errors never sit on a photo.
  *
  * @example
  * <OnboardingSignIn
@@ -63,12 +64,6 @@ export function OnboardingSignIn({
         </View>
       ) : null}
 
-      {social.error ? (
-        <Text className="text-destructive text-body-md text-center" accessibilityRole="alert">
-          {social.error}
-        </Text>
-      ) : null}
-
       <SocialSignInButtons social={social} />
 
       <Button size="auth" leftIcon={<Mail />} onPress={onSignUpWithEmail}>
@@ -82,7 +77,7 @@ export function OnboardingSignIn({
         <LegalLinks inline />
       </View>
 
-      <View className="flex-row items-center justify-center">
+      <View className="flex-row flex-wrap items-center justify-center">
         <Text className="text-body-md" style={mutedStyle}>
           Already have an account?{' '}
         </Text>

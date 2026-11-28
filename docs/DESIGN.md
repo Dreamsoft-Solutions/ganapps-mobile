@@ -500,7 +500,7 @@ Outside `className` (for example a Markdown style map), use `Fonts` from
 
 Use:
 
-- `display` is the Welcome and splash wordmark title. Once per screen.
+- `display` is the splash wordmark title. Once per screen.
 - Screen titles are `headline-lg`.
 - Section and sheet titles are `headline-md`.
 - Card and row titles are `headline-sm`.
@@ -710,7 +710,7 @@ radius, and the content fades under it.
 
 | Role                                | Style                                                           | Weight   |
 | ----------------------------------- | --------------------------------------------------------------- | -------- |
-| Welcome and splash title            | `display`                                                       | Bold     |
+| Splash title                        | `display`                                                       | Bold     |
 | Screen title                        | `headline-lg`                                                   | Bold     |
 | Full-screen modal title             | `headline-md`                                                   | Bold     |
 | Bottom sheet title                  | `headline-sm`                                                   | Bold     |
@@ -809,15 +809,20 @@ loses contrast over a backdrop.
 bottom: the page dots, Continue with Apple and Continue with Google where they are available, Sign
 up with Email, the Terms and Privacy links, and "Already have an account? Log in".
 
-- Sign up with Email is the one green action. Apple and Google stay neutral.
+- Sign up with Email is the one green action, with a mail icon. Apple and Google stay neutral. Its
+  capital E is a product decision and the one exception to sentence case.
 - Every button is the `auth` size, which matches Apple's native button.
 - The buttons sit straight on the scrim. There is no glass panel behind them: the Google button is
   glass, and glass never sits on glass.
 - Apple and Google sign in from here with the same code as the login form: `useSocialSignIn`
   (`hooks/useSocialSignIn.ts`) and `SocialSignInButtons` (`components/forms/SocialSignInButtons.tsx`).
-  A failure shows as one line above the buttons.
+  A failure raises the error toast; an error never sits over the photo.
 - Sign up with Email opens the login screen in sign-up mode (`Routes.auth.signup`); Log in opens it
   in log-in mode. The form slides up from the bottom and covers the photo.
+
+**Text size.** The copy block measures its text and makes room for it, so large text pushes the
+buttons down rather than sliding under them, and the link rows wrap. If the copy and the ways in
+ever outgrow the room under the logo, they scroll.
 
 **The page dots.** `OnboardingDots` shows one dot per slide, and none when there is one slide. The
 current slide's dot is long (22dp); the others are round (6dp), 10dp apart. As the pager moves, the

@@ -1,6 +1,13 @@
 import { useRouter } from 'expo-router';
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { type LayoutChangeEvent, StyleSheet, useWindowDimensions, View, type ViewStyle } from 'react-native';
+import {
+  type LayoutChangeEvent,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import Animated, {
   clamp,
   type DerivedValue,
@@ -36,6 +43,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { useSocialSignIn } from '@/hooks/useSocialSignIn';
 import { useSplashStore } from '@/store/splash.store';
+import { showToast } from '@/store/toast.store';
 import { mix } from '@/utils/color-mix';
 
 /** Width and height of the wordmark logo in the header, dp. */
@@ -131,13 +139,15 @@ interface HeadlineProps {
   pageWidth: number;
   /** Whether this is the slide the pager settled on; only that headline reaches screen readers. */
   settled: boolean;
+  /** Reports the height of this slide's copy, so the block can make room for the tallest one. */
+  onHeight: (index: number, height: number) => void;
 }
 
 /**
  * One slide's headline and supporting line, faded in as its photo nears the centre and out as it
  * leaves.
  */
-function Headline({ slide, index, scrollX, pageWidth, settled }: HeadlineProps): ReactElement {
+function Headline({ slide, index, scrollX, pageWidth, settled, onHeight }: HeadlineProps): ReactElement {
   const motion = useAnimatedStyle((): ViewStyle => {
     const position = pageWidth > 0 ? scrollX.get() / pageWidth : 0;
     return { opacity: interpolate(position, [index - 0.5, index, index + 0.5], [0, 1, 0], Extrapolation.CLAMP) };
@@ -147,6 +157,7 @@ function Headline({ slide, index, scrollX, pageWidth, settled }: HeadlineProps):
     <Animated.View
       accessibilityElementsHidden={!settled}
       importantForAccessibility={settled ? 'yes' : 'no-hide-descendants'}
+      onLayout={(event: LayoutChangeEvent): void => onHeight(index, event.nativeEvent.layout.height)}
       style={[HEADLINE_OVERLAY_STYLE, motion]}
     >
       <Text accessibilityRole="header" className="text-headline-lg font-allo-bold text-foreground text-center">
@@ -163,7 +174,8 @@ function Headline({ slide, index, scrollX, pageWidth, settled }: HeadlineProps):
  * slide headline and the ways in (Apple, Google, email, log in) sit over the bottom scrim. The
  * screen opens in the splash composition and settles from it: the lockup lifts and fades as the
  * photo, the wordmark and the sign-in block arrive. Under reduced motion everything shares one
- * short fade.
+ * short fade. The copy and the ways in grow with the text size setting and scroll if they ever run
+ * out of room under the logo.
  *
  * @returns The Welcome screen.
  */
@@ -177,6 +189,8 @@ export default function WelcomeScreen(): ReactElement {
 
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [blockTop, setBlockTop] = useState<number | null>(null);
+  /** Measured height of each slide's copy, so large text pushes the buttons down, not under. */
+  const [copyHeights, setCopyHeights] = useState<readonly number[]>([]);
   /** True once the lockup has drawn: the root splash lifts and the entrance clock starts. */
   const [shown, setShown] = useState<boolean>(false);
   const setWelcomeShown = useSplashStore((state) => state.setWelcomeShown);
@@ -209,6 +223,11 @@ export default function WelcomeScreen(): ReactElement {
       setWelcomeShown(false);
     };
   }, [shown, clock, reduced, setWelcomeShown]);
+
+  const socialError = social.error;
+  useEffect((): void => {
+    if (socialError) showToast('error', socialError);
+  }, [socialError]);
 
   const logoTop = insets.top + LOGO_TOP_GAP;
   const resolvedBlockTop = blockTop ?? height - insets.bottom - BLOCK_MARGIN - BLOCK_FALLBACK_HEIGHT;
@@ -286,14 +305,28 @@ export default function WelcomeScreen(): ReactElement {
       left: BLOCK_MARGIN,
       right: BLOCK_MARGIN,
       bottom: insets.bottom + BLOCK_MARGIN,
+      maxHeight: Math.max(height - (logoTop + LOGO_HEIGHT + BLOCK_MARGIN) - (insets.bottom + BLOCK_MARGIN), 0),
     }),
-    [insets.bottom],
+    [insets.bottom, height, logoTop],
   );
 
   const headlineBlockStyle = useMemo(
-    (): ViewStyle => ({ minHeight: HEADLINE_HEIGHT * fontScale, marginBottom: 12 }),
-    [fontScale],
+    (): ViewStyle => ({
+      minHeight:
+        copyHeights.length > 0 ? Math.max(...copyHeights.map((value) => value ?? 0)) : HEADLINE_HEIGHT * fontScale,
+      marginBottom: 12,
+    }),
+    [copyHeights, fontScale],
   );
+
+  const recordCopyHeight = useCallback((index: number, measured: number): void => {
+    setCopyHeights((current: readonly number[]): readonly number[] => {
+      if (current[index] === measured) return current;
+      const next = [...current];
+      next[index] = measured;
+      return next;
+    });
+  }, []);
 
   const handleBlockLayout = useCallback((event: LayoutChangeEvent): void => {
     setBlockTop(event.nativeEvent.layout.y);
@@ -342,30 +375,33 @@ export default function WelcomeScreen(): ReactElement {
         <LogoWithText width={LOGO_WIDTH} height={LOGO_HEIGHT} />
       </Animated.View>
 
-      <Animated.View pointerEvents="box-none" onLayout={handleBlockLayout} style={[blockFrameStyle, blockMotion]}>
-        <View pointerEvents="none" style={headlineBlockStyle}>
-          {ONBOARDING_SLIDES.map(
-            (slide: OnboardingSlide, index: number): ReactElement => (
-              <Headline
-                key={slide.key}
-                slide={slide}
-                index={index}
-                scrollX={scrollX}
-                pageWidth={width}
-                settled={index === activeIndex}
-              />
-            ),
-          )}
-        </View>
+      <Animated.View onLayout={handleBlockLayout} style={[blockFrameStyle, blockMotion]}>
+        <ScrollView bounces={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <View pointerEvents="none" style={headlineBlockStyle}>
+            {ONBOARDING_SLIDES.map(
+              (slide: OnboardingSlide, index: number): ReactElement => (
+                <Headline
+                  key={slide.key}
+                  slide={slide}
+                  index={index}
+                  scrollX={scrollX}
+                  pageWidth={width}
+                  settled={index === activeIndex}
+                  onHeight={recordCopyHeight}
+                />
+              ),
+            )}
+          </View>
 
-        <OnboardingSignIn
-          scrollX={scrollX}
-          pageWidth={width}
-          pageCount={ONBOARDING_SLIDES.length}
-          social={social}
-          onSignUpWithEmail={openSignUp}
-          onLogIn={openLogIn}
-        />
+          <OnboardingSignIn
+            scrollX={scrollX}
+            pageWidth={width}
+            pageCount={ONBOARDING_SLIDES.length}
+            social={social}
+            onSignUpWithEmail={openSignUp}
+            onLogIn={openLogIn}
+          />
+        </ScrollView>
       </Animated.View>
     </View>
   );
