@@ -14,14 +14,11 @@ export const Assets = {
   /** Round logo mark on its navy disc. The disc is 726 of the 1080px canvas; the rest is transparent. */
   logoRound: require('../../assets/brand/ganap-logo-round.png'),
   /**
-   * Welcome stage cut-outs in slide order. Each file is a 1080x1280 transparent canvas with the
-   * subject bottom-aligned. Replace a file in `assets/images/onboarding/` to swap a slide.
+   * Welcome stage photos in slide order. Each file is a 1080x2400 canvas (a 9:20 screen) with the
+   * phone's centre on the canvas centre, so drawing it with `cover` keeps the phone centred on any
+   * screen. Replace a file in `assets/images/onboarding/` to swap a slide; add one here to add a slide.
    */
-  onboarding: [
-    require('../../assets/images/onboarding/onboarding-1.webp'),
-    require('../../assets/images/onboarding/onboarding-2.webp'),
-    require('../../assets/images/onboarding/onboarding-3.webp'),
-  ],
+  onboarding: [require('../../assets/images/onboarding/onboarding-1.webp')],
   /** Default placeholder avatar. */
   defaultAvatar: require('../../assets/images/default-avatar.jpg'),
 } as const;

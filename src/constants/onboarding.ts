@@ -2,59 +2,41 @@ import { cubicBezier, Easing } from 'react-native-reanimated';
 
 import { Assets } from '@/constants/assets';
 
-/** One Welcome slide: a cut-out and the line shown with it. */
+/** One Welcome slide: a full-screen photo and the copy shown over it. */
 export interface OnboardingSlide {
-  readonly key: 'find' | 'plan' | 'keep';
-  /** Metro asset id of the 1080x1280 cut-out. */
+  readonly key: string;
+  /** Metro asset id of the 1080x2400 stage photo. */
   readonly image: number;
-  /** The one line shown under the title while this slide is active. */
+  /** The headline shown while this slide is active. */
   readonly caption: string;
-  /** Screen-reader description of the cut-out. */
+  /** The supporting line under the headline. */
+  readonly body: string;
+  /** Screen-reader description of the photo. */
   readonly imageLabel: string;
-  /** Where the cut-out is pinned when a short screen forces it to shrink. */
-  readonly shrinkPosition: 'bottom' | 'bottom right';
 }
 
 /**
- * The Welcome slides in swipe order.
+ * The Welcome slides in swipe order. One slide ships for now; the pager, the headline cross-fade
+ * and the page dots already handle more, so adding a slide is one entry here and one photo in
+ * `Assets.onboarding`.
  *
  * @example
  * ONBOARDING_SLIDES.map((slide) => <Image key={slide.key} source={slide.image} />);
  */
 export const ONBOARDING_SLIDES: readonly OnboardingSlide[] = [
   {
-    key: 'find',
+    key: 'together',
     image: Assets.onboarding[0],
     caption: 'Find what is happening across Iloilo.',
-    imageLabel: 'A woman points at the phone she holds out toward you',
-    shrinkPosition: 'bottom right',
-  },
-  {
-    key: 'plan',
-    image: Assets.onboarding[1],
-    caption: 'Make the plan with your people.',
-    imageLabel: 'Two friends hold a phone out toward you',
-    shrinkPosition: 'bottom',
-  },
-  {
-    key: 'keep',
-    image: Assets.onboarding[2],
-    caption: 'Keep every event detail close.',
-    imageLabel: 'A man holds his phone out toward you',
-    shrinkPosition: 'bottom right',
+    body: 'Make the plan with your people and keep every event detail close.',
+    imageLabel: 'Two friends look at a phone together',
   },
 ];
-
-/** Width divided by height of every cut-out canvas. */
-export const STAGE_ASPECT: number = 1080 / 1280;
-
-/** Share of a cut-out canvas, from the top, that is always transparent. */
-export const STAGE_HEADROOM: number = 0.18;
 
 /** Wordmark shown as the display title. */
 export const BRAND_NAME: string = 'Ganapps';
 
-/** Line shown under the wordmark on the splash and in the Welcome island. */
+/** Line shown under the wordmark on the splash. */
 export const BRAND_TAGLINE: string = 'Made for Iloilo. Built for everyone.';
 
 /** Visible diameter of the round mark in the Welcome header, dp. */

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { type LayoutChangeEvent, useWindowDimensions, View, type ViewStyle } from 'react-native';
+import { type LayoutChangeEvent, StyleSheet, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import Animated, {
   clamp,
   type DerivedValue,
@@ -18,10 +18,10 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Lobe } from '@/components/common/Lobe';
+import { LogoWithText } from '@/components/common/LogoWithText';
 import { Text } from '@/components/common/Text';
-import { BrandLockup, useLockupLayout } from '@/components/onboarding/BrandLockup';
-import { OnboardingIsland } from '@/components/onboarding/OnboardingIsland';
-import { OnboardingMap } from '@/components/onboarding/OnboardingMap';
+import { BrandLockup } from '@/components/onboarding/BrandLockup';
+import { OnboardingSignIn } from '@/components/onboarding/OnboardingSignIn';
 import { OnboardingStage } from '@/components/onboarding/OnboardingStage';
 import {
   EASE_IN_OUT,
@@ -32,35 +32,42 @@ import {
 } from '@/constants/onboarding';
 import { Routes } from '@/constants/routes';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/hooks/useAuth';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { useSocialSignIn } from '@/hooks/useSocialSignIn';
 import { useSplashStore } from '@/store/splash.store';
+import { mix } from '@/utils/color-mix';
 
-/** Gap between the lockup header and the caption block, dp. */
-const CAPTION_GAP: number = 8;
+/** Width and height of the wordmark logo in the header, dp. */
+const LOGO_WIDTH: number = 132;
+const LOGO_HEIGHT: number = 51;
 
-/** Caption block height at the default type size, dp; scaled by the font scale. */
-const CAPTION_HEIGHT: number = 56;
+/** Gap between the safe-area top and the wordmark logo, dp. */
+const LOGO_TOP_GAP: number = 16;
 
-/** Height of the fade that softens the map's top edge, dp. */
-const TOP_FADE_HEIGHT: number = 64;
+/** How far below the logo the top scrim runs before it is clear, dp. */
+const TOP_SCRIM_TAIL: number = 96;
 
-/** How far above the island the bottom fade starts, dp. */
-const FADE_LEAD: number = 24;
+/**
+ * Copy height at the default type size: two `headline-lg` lines, the gap and two `body-md` lines,
+ * dp; scaled by the font scale.
+ */
+const HEADLINE_HEIGHT: number = 128;
 
-/** Depth into the bottom fade at which it reaches the solid background, dp. */
-const FADE_SOLID_DEPTH: number = 72;
+/** How far above the sign-in block the bottom scrim starts, dp. */
+const BOTTOM_SCRIM_LEAD: number = 140;
 
-/** How far below the island top the cut-outs' bottom edge sits, dp. */
-const CUTOUT_BELOW_ISLAND: number = 48;
+/** Sign-in block height assumed until its first layout reports, dp. */
+const BLOCK_FALLBACK_HEIGHT: number = 340;
 
-/** Island height assumed until its first layout reports, dp. */
-const ISLAND_FALLBACK_HEIGHT: number = 196;
+/** Side and bottom margin of the sign-in block, dp. */
+const BLOCK_MARGIN: number = 16;
 
-/** Side and bottom margin of the island, dp. */
-const ISLAND_MARGIN: number = 16;
+/** The stops of the two scrims, top to bottom. */
+type ScrimStop = 'top' | 'logo' | 'headline' | 'copy' | 'buttons' | 'legal' | 'bottom';
 
 /** Length of the full entrance clock, ms. */
-const ENTRANCE_MS: number = 2400;
+const ENTRANCE_MS: number = 1400;
 
 /** Length of the single reduced-motion fade, ms. */
 const REDUCED_FADE_MS: number = 150;
@@ -68,11 +75,26 @@ const REDUCED_FADE_MS: number = 150;
 /** How long to wait for the logo to report that it drew before starting anyway, ms. */
 const REVEAL_FALLBACK_MS: number = 600;
 
-/** The root clips the lobes; edge to edge, no safe-area padding. */
+/**
+ * How much of the theme background each scrim lays over the photo, percent, at its stops. Each
+ * value is the least that keeps the text at that stop at 4.5:1 (3:1 for the headline) over the
+ * worst photo for the theme (black under dark ink, white under light ink), plus a margin, so the
+ * contrast holds whatever photo is swapped in. The buttons are opaque, so the veil behind them is
+ * thinner and the photo shows through there.
+ */
+const SCRIM = {
+  light: { top: 68, logo: 60, headline: 50, copy: 60, buttons: 66, legal: 86, bottom: 90 },
+  dark: { top: 80, logo: 72, headline: 60, copy: 70, buttons: 74, legal: 84, bottom: 90 },
+} as const satisfies Record<'light' | 'dark', Record<ScrimStop, number>>;
+
+/** Where each bottom-scrim stop sits below the top of the sign-in block, dp. */
+const SCRIM_OFFSET = { copy: 90, buttons: 180, legal: 245 } as const;
+
+/** The root clips the lobes and the settling photo; edge to edge, no safe-area padding. */
 const ROOT_STYLE = { overflow: 'hidden' } as const satisfies ViewStyle;
 
-/** Each caption sits on top of the others, so the block never reflows while swiping. */
-const CAPTION_OVERLAY_STYLE = { position: 'absolute', top: 0, left: 0, right: 0 } as const satisfies ViewStyle;
+/** Each headline sits on top of the others, so the block never reflows while swiping. */
+const HEADLINE_OVERLAY_STYLE = { position: 'absolute', top: 0, left: 0, right: 0 } as const satisfies ViewStyle;
 
 const [topRightLobe, bottomLeftLobe] = ONBOARDING_LOBES;
 
@@ -101,44 +123,47 @@ function reducedFade(t: number): number {
   return clamp(t / REDUCED_FADE_MS, 0, 1);
 }
 
-/** Props for {@link Caption}. */
-interface CaptionProps {
+/** Props for {@link Headline}. */
+interface HeadlineProps {
   slide: OnboardingSlide;
   index: number;
   scrollX: SharedValue<number>;
   pageWidth: number;
-  /** Entrance opacity of the caption block. */
-  entrance: DerivedValue<number>;
-  /** Whether this is the slide the pager settled on; only that caption reaches screen readers. */
+  /** Whether this is the slide the pager settled on; only that headline reaches screen readers. */
   settled: boolean;
 }
 
 /**
- * One slide's caption, faded in as its page nears the centre and out as it leaves.
+ * One slide's headline and supporting line, faded in as its photo nears the centre and out as it
+ * leaves.
  */
-function Caption({ slide, index, scrollX, pageWidth, entrance, settled }: CaptionProps): ReactElement {
+function Headline({ slide, index, scrollX, pageWidth, settled }: HeadlineProps): ReactElement {
   const motion = useAnimatedStyle((): ViewStyle => {
     const position = pageWidth > 0 ? scrollX.get() / pageWidth : 0;
-    const visible = interpolate(position, [index - 0.5, index, index + 0.5], [0, 1, 0], Extrapolation.CLAMP);
-    return { opacity: visible * entrance.get() };
+    return { opacity: interpolate(position, [index - 0.5, index, index + 0.5], [0, 1, 0], Extrapolation.CLAMP) };
   });
 
   return (
     <Animated.View
       accessibilityElementsHidden={!settled}
       importantForAccessibility={settled ? 'yes' : 'no-hide-descendants'}
-      style={[CAPTION_OVERLAY_STYLE, motion]}
+      style={[HEADLINE_OVERLAY_STYLE, motion]}
     >
-      <Text className="text-body-xl text-foreground text-center">{slide.caption}</Text>
+      <Text accessibilityRole="header" className="text-headline-lg font-allo-bold text-foreground text-center">
+        {slide.caption}
+      </Text>
+      <Text className="mt-xs text-body-md text-foreground text-center">{slide.body}</Text>
     </Animated.View>
   );
 }
 
 /**
- * Public Welcome screen shown to signed-out users: the brand lockup settles into the header, the map
- * draws in behind the swipeable cut-out stage, and the glass island offers Get started and Log in.
- * Both actions open the login screen. Under reduced motion the lockup starts settled and everything
- * else shares one short fade.
+ * Public Welcome screen shown to signed-out users. A full-screen photo per slide sits behind
+ * everything, with the phone in it on the screen's centre; the wordmark is at the top, and the
+ * slide headline and the ways in (Apple, Google, email, log in) sit over the bottom scrim. The
+ * screen opens in the splash composition and settles from it: the lockup lifts and fades as the
+ * photo, the wordmark and the sign-in block arrive. Under reduced motion everything shares one
+ * short fade.
  *
  * @returns The Welcome screen.
  */
@@ -146,12 +171,12 @@ export default function WelcomeScreen(): ReactElement {
   const router = useRouter();
   const theme = useResolvedTheme();
   const insets = useSafeAreaInsets();
-  const lockup = useLockupLayout();
   const reduced = useReducedMotion();
   const { width, height, fontScale } = useWindowDimensions();
+  const social = useSocialSignIn(useAuth());
 
   const [activeIndex, setActiveIndex] = useState<number>(0);
-  const [islandTop, setIslandTop] = useState<number | null>(null);
+  const [blockTop, setBlockTop] = useState<number | null>(null);
   /** True once the lockup has drawn: the root splash lifts and the entrance clock starts. */
   const [shown, setShown] = useState<boolean>(false);
   const setWelcomeShown = useSplashStore((state) => state.setWelcomeShown);
@@ -185,98 +210,100 @@ export default function WelcomeScreen(): ReactElement {
     };
   }, [shown, clock, reduced, setWelcomeShown]);
 
-  const bandTop = lockup.headerBottom + CAPTION_GAP + CAPTION_HEIGHT * fontScale;
-  const bandHeight = Math.max(height - bandTop, 0);
-  const resolvedIslandTop = islandTop ?? height - insets.bottom - ISLAND_MARGIN - ISLAND_FALLBACK_HEIGHT;
-  const bottomInset = Math.max(height - (resolvedIslandTop + CUTOUT_BELOW_ISLAND), 0);
-  const fadeTop = resolvedIslandTop - FADE_LEAD;
+  const logoTop = insets.top + LOGO_TOP_GAP;
+  const resolvedBlockTop = blockTop ?? height - insets.bottom - BLOCK_MARGIN - BLOCK_FALLBACK_HEIGHT;
+  const bottomScrimTop = Math.max(resolvedBlockTop - BOTTOM_SCRIM_LEAD, 0);
 
-  const lockupProgress = useDerivedValue((): number =>
-    reduced ? 1 : windowProgress(clock.get(), 450, 1050, EASE_IN_OUT),
-  );
-  const intro = useDerivedValue((): number => (reduced ? 1 : windowProgress(clock.get(), 1300, 2400, EASE_IN_OUT)));
-  const captionEntrance = useDerivedValue((): number =>
-    reduced ? reducedFade(clock.get()) : windowProgress(clock.get(), 900, 1100, EASE_OUT),
+  const lockupProgress: DerivedValue<number> = useDerivedValue((): number =>
+    reduced ? 0 : windowProgress(clock.get(), 450, 950, EASE_IN_OUT),
   );
 
-  const mapMotion = useAnimatedStyle(
+  const lockupMotion = useAnimatedStyle(
     (): ViewStyle => ({
-      opacity: reduced ? reducedFade(clock.get()) : windowProgress(clock.get(), 700, 1100, EASE_OUT),
+      opacity: reduced ? 1 - reducedFade(clock.get()) : 1 - windowProgress(clock.get(), 700, 950, EASE_OUT),
     }),
   );
 
   const stageMotion = useAnimatedStyle((): ViewStyle => {
     if (reduced) return { opacity: reducedFade(clock.get()) };
-    const progress = windowProgress(clock.get(), 800, 1300, EASE_OUT);
-    return { opacity: progress, transform: [{ translateY: 32 * (1 - progress) }] };
+    const progress = windowProgress(clock.get(), 600, 1150, EASE_OUT);
+    return { opacity: progress, transform: [{ scale: 1.06 - 0.06 * progress }] };
   });
 
-  const islandMotion = useAnimatedStyle((): ViewStyle => {
+  const logoMotion = useAnimatedStyle(
+    (): ViewStyle => ({
+      opacity: reduced ? reducedFade(clock.get()) : windowProgress(clock.get(), 850, 1150, EASE_OUT),
+    }),
+  );
+
+  const blockMotion = useAnimatedStyle((): ViewStyle => {
     if (reduced) return { opacity: reducedFade(clock.get()) };
-    const progress = windowProgress(clock.get(), 950, 1350, EASE_OUT);
+    const progress = windowProgress(clock.get(), 800, 1300, EASE_OUT);
     return { opacity: progress, transform: [{ translateY: 24 * (1 - progress) }] };
   });
 
-  const bandStyle = useMemo(
-    (): ViewStyle => ({ position: 'absolute', top: bandTop, left: 0, width, height: bandHeight }),
-    [bandTop, width, bandHeight],
-  );
-
-  const topFadeStyle = useMemo((): ViewStyle => {
+  const topScrimStyle = useMemo((): ViewStyle => {
     const background = Colors[theme].background;
+    const veil = SCRIM[theme];
+    const scrimHeight = logoTop + LOGO_HEIGHT + TOP_SCRIM_TAIL;
+    const solidStop = Math.round(((logoTop + LOGO_HEIGHT + 8) / scrimHeight) * 100);
     return {
       position: 'absolute',
-      top: bandTop,
+      top: 0,
       left: 0,
       right: 0,
-      height: TOP_FADE_HEIGHT,
-      experimental_backgroundImage: `linear-gradient(180deg, ${background} 0%, transparent 100%)`,
+      height: scrimHeight,
+      experimental_backgroundImage: `linear-gradient(180deg, ${mix(background, veil.top)} 0%, ${mix(background, veil.logo)} ${solidStop}%, ${mix(background, 0)} 100%)`,
       experimental_backgroundRepeat: 'no-repeat',
     };
-  }, [theme, bandTop]);
+  }, [theme, logoTop]);
 
-  const bottomFadeStyle = useMemo((): ViewStyle => {
+  const bottomScrimStyle = useMemo((): ViewStyle => {
     const background = Colors[theme].background;
-    const fadeHeight = Math.max(height - fadeTop, 1);
-    const solidStop = Math.round(Math.min((FADE_SOLID_DEPTH / fadeHeight) * 100, 100) * 100) / 100;
+    const veil = SCRIM[theme];
+    const scrimHeight = Math.max(height - bottomScrimTop, 1);
+    const stop = (offset: number): number =>
+      Math.round(Math.min(((BOTTOM_SCRIM_LEAD + offset) / scrimHeight) * 100, 100));
     return {
       position: 'absolute',
-      top: fadeTop,
+      top: bottomScrimTop,
       left: 0,
       right: 0,
       bottom: 0,
-      experimental_backgroundImage: `linear-gradient(180deg, transparent 0%, ${background} ${solidStop}%, ${background} 100%)`,
+      experimental_backgroundImage: `linear-gradient(180deg, ${mix(background, 0)} 0%, ${mix(background, veil.headline)} ${stop(0)}%, ${mix(background, veil.copy)} ${stop(SCRIM_OFFSET.copy)}%, ${mix(background, veil.buttons)} ${stop(SCRIM_OFFSET.buttons)}%, ${mix(background, veil.legal)} ${stop(SCRIM_OFFSET.legal)}%, ${mix(background, veil.bottom)} 100%)`,
       experimental_backgroundRepeat: 'no-repeat',
     };
-  }, [theme, height, fadeTop]);
+  }, [theme, height, bottomScrimTop]);
 
-  const captionBlockStyle = useMemo(
-    (): ViewStyle => ({
-      position: 'absolute',
-      top: lockup.headerBottom + CAPTION_GAP,
-      left: 0,
-      right: 0,
-      paddingHorizontal: 32,
-      minHeight: CAPTION_HEIGHT * fontScale,
-    }),
-    [lockup.headerBottom, fontScale],
+  const logoFrameStyle = useMemo(
+    (): ViewStyle => ({ position: 'absolute', top: logoTop, left: 0, right: 0, alignItems: 'center' }),
+    [logoTop],
   );
 
-  const islandFrameStyle = useMemo(
+  const blockFrameStyle = useMemo(
     (): ViewStyle => ({
       position: 'absolute',
-      left: ISLAND_MARGIN,
-      right: ISLAND_MARGIN,
-      bottom: insets.bottom + ISLAND_MARGIN,
+      left: BLOCK_MARGIN,
+      right: BLOCK_MARGIN,
+      bottom: insets.bottom + BLOCK_MARGIN,
     }),
     [insets.bottom],
   );
 
-  const handleIslandLayout = useCallback((event: LayoutChangeEvent): void => {
-    setIslandTop(event.nativeEvent.layout.y);
+  const headlineBlockStyle = useMemo(
+    (): ViewStyle => ({ minHeight: HEADLINE_HEIGHT * fontScale, marginBottom: 12 }),
+    [fontScale],
+  );
+
+  const handleBlockLayout = useCallback((event: LayoutChangeEvent): void => {
+    setBlockTop(event.nativeEvent.layout.y);
   }, []);
 
-  const openLogin = useCallback((): void => {
+  const openSignUp = useCallback((): void => {
+    router.push(Routes.auth.signup);
+  }, [router]);
+
+  const openLogIn = useCallback((): void => {
     router.push(Routes.auth.login);
   }, [router]);
 
@@ -285,66 +312,59 @@ export default function WelcomeScreen(): ReactElement {
       <Lobe {...topRightLobe} />
       <Lobe {...bottomLeftLobe} />
 
-      <Animated.View pointerEvents="none" style={[bandStyle, mapMotion]}>
-        <OnboardingMap
-          scrollX={scrollX}
-          pageWidth={width}
-          height={bandHeight}
-          intro={intro}
-          activeIndex={activeIndex}
-        />
-      </Animated.View>
-
-      <View
-        pointerEvents="none"
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={topFadeStyle}
-      />
-
-      <Animated.View style={[bandStyle, stageMotion]}>
+      <Animated.View style={[StyleSheet.absoluteFill, stageMotion]}>
         <OnboardingStage
           slides={ONBOARDING_SLIDES}
           scrollX={scrollX}
           pageWidth={width}
-          height={bandHeight}
-          bottomInset={bottomInset}
+          height={height}
           onIndexChange={setActiveIndex}
+        />
+        <View
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={topScrimStyle}
+        />
+        <View
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={bottomScrimStyle}
         />
       </Animated.View>
 
-      <View
-        pointerEvents="none"
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={bottomFadeStyle}
-      />
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, lockupMotion]}>
+        <BrandLockup progress={lockupProgress} onLogoDisplay={reveal} />
+      </Animated.View>
 
-      <BrandLockup progress={lockupProgress} onLogoDisplay={reveal} />
+      <Animated.View pointerEvents="none" style={[logoFrameStyle, logoMotion]}>
+        <LogoWithText width={LOGO_WIDTH} height={LOGO_HEIGHT} />
+      </Animated.View>
 
-      <View pointerEvents="none" style={captionBlockStyle}>
-        {ONBOARDING_SLIDES.map(
-          (slide: OnboardingSlide, index: number): ReactElement => (
-            <Caption
-              key={slide.key}
-              slide={slide}
-              index={index}
-              scrollX={scrollX}
-              pageWidth={width}
-              entrance={captionEntrance}
-              settled={index === activeIndex}
-            />
-          ),
-        )}
-      </View>
+      <Animated.View pointerEvents="box-none" onLayout={handleBlockLayout} style={[blockFrameStyle, blockMotion]}>
+        <View pointerEvents="none" style={headlineBlockStyle}>
+          {ONBOARDING_SLIDES.map(
+            (slide: OnboardingSlide, index: number): ReactElement => (
+              <Headline
+                key={slide.key}
+                slide={slide}
+                index={index}
+                scrollX={scrollX}
+                pageWidth={width}
+                settled={index === activeIndex}
+              />
+            ),
+          )}
+        </View>
 
-      <Animated.View onLayout={handleIslandLayout} style={[islandFrameStyle, islandMotion]}>
-        <OnboardingIsland
+        <OnboardingSignIn
           scrollX={scrollX}
           pageWidth={width}
           pageCount={ONBOARDING_SLIDES.length}
-          onGetStarted={openLogin}
-          onLogIn={openLogin}
+          social={social}
+          onSignUpWithEmail={openSignUp}
+          onLogIn={openLogIn}
         />
       </Animated.View>
     </View>

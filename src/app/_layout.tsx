@@ -133,7 +133,7 @@ function RootLayoutNav(): ReactElement {
       {ready ? (
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(public)" options={{ animation: 'none' }} />
-          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(auth)" options={{ animation: 'slide_from_bottom' }} />
           <Stack.Screen name="(app)" />
           <Stack.Screen name="verify-email" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
           <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'fullScreenModal' }} />

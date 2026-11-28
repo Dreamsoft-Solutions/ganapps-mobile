@@ -3,7 +3,7 @@ import { useCallback, useMemo, type ReactElement } from 'react';
 import { type ImageStyle, type NativeScrollEvent, type NativeSyntheticEvent, View, type ViewStyle } from 'react-native';
 import Animated, { type ScrollEvent, type SharedValue, useAnimatedScrollHandler } from 'react-native-reanimated';
 
-import { type OnboardingSlide, STAGE_ASPECT, STAGE_HEADROOM } from '@/constants/onboarding';
+import type { OnboardingSlide } from '@/constants/onboarding';
 
 /** Props for {@link OnboardingStage}. */
 export interface OnboardingStageProps {
@@ -11,53 +11,25 @@ export interface OnboardingStageProps {
   /** Written by the stage on every scroll frame. */
   scrollX: SharedValue<number>;
   pageWidth: number;
-  /** Height of the band the stage fills, dp. */
+  /** Height of the stage, dp (the window height). */
   height: number;
-  /** Distance from the band bottom up to where the cut-outs' bottom edge sits, dp. */
-  bottomInset: number;
   /** Called once when the pager settles on a slide. */
   onIndexChange: (index: number) => void;
 }
 
 /**
- * How the cut-outs fit the room above `bottomInset`: at full size, cropped into the transparent
- * headroom, or shrunk and pinned to each slide's `shrinkPosition`.
- */
-type StageFit = 'full' | 'crop' | 'shrink';
-
-/** The fit and drawn height shared by every cut-out on the stage. */
-interface StageSizing {
-  readonly fit: StageFit;
-  /** Height of each cut-out's frame, dp. */
-  readonly imageHeight: number;
-}
-
-/**
- * Picks how the cut-outs are sized for the room left above `bottomInset`.
- *
- * @param pageWidth - Width of one page, dp
- * @param available - Height between the band top and the cut-outs' bottom edge, dp
- * @returns The fit and the frame height every cut-out uses
- */
-function resolveSizing(pageWidth: number, available: number): StageSizing {
-  const full = pageWidth / STAGE_ASPECT;
-  if (available >= full) return { fit: 'full', imageHeight: full };
-  if (available >= full * (1 - STAGE_HEADROOM)) return { fit: 'crop', imageHeight: available };
-  return { fit: 'shrink', imageHeight: Math.max(available, 0) };
-}
-
-/**
- * The Welcome pager: one full-width page per slide, each holding a cut-out whose bottom edge sits
- * `bottomInset` above the band bottom. It writes the horizontal offset into `scrollX` on every frame
- * on the UI thread and reports the settled slide once momentum ends.
+ * The Welcome pager: one full-screen photo per slide. Each photo covers the stage from its centre,
+ * and every stage canvas keeps the phone in it on the canvas centre, so the phone stays on the
+ * centre of any screen: a wider stage crops the top and bottom evenly, a taller one the sides. The
+ * stage writes the horizontal offset into `scrollX` on every frame on the UI thread and reports the
+ * settled slide once momentum ends.
  *
  * @example
  * <OnboardingStage
  *   slides={ONBOARDING_SLIDES}
  *   scrollX={scrollX}
  *   pageWidth={width}
- *   height={bandHeight}
- *   bottomInset={120}
+ *   height={stageHeight}
  *   onIndexChange={setActiveIndex}
  * />
  */
@@ -66,27 +38,11 @@ export function OnboardingStage({
   scrollX,
   pageWidth,
   height,
-  bottomInset,
   onIndexChange,
 }: OnboardingStageProps): ReactElement {
-  const sizing = useMemo(
-    (): StageSizing => resolveSizing(pageWidth, height - bottomInset),
-    [pageWidth, height, bottomInset],
-  );
-
-  /** The pager frame and each page share one size: a full page of the band. */
+  /** The pager frame, each page and each photo share one size. */
   const pageStyle = useMemo((): ViewStyle => ({ width: pageWidth, height }), [pageWidth, height]);
-
-  const imageStyle = useMemo(
-    (): ImageStyle => ({
-      position: 'absolute',
-      left: 0,
-      bottom: bottomInset,
-      width: pageWidth,
-      height: sizing.imageHeight,
-    }),
-    [bottomInset, pageWidth, sizing.imageHeight],
-  );
+  const imageStyle = useMemo((): ImageStyle => ({ width: pageWidth, height }), [pageWidth, height]);
 
   const handleScroll = useAnimatedScrollHandler(
     {
@@ -123,8 +79,8 @@ export function OnboardingStage({
             <Image
               source={slide.image}
               style={imageStyle}
-              contentFit={sizing.fit === 'shrink' ? 'contain' : 'cover'}
-              contentPosition={sizing.fit === 'shrink' ? slide.shrinkPosition : 'bottom'}
+              contentFit="cover"
+              contentPosition="center"
               accessible
               accessibilityRole="image"
               accessibilityLabel={slide.imageLabel}
