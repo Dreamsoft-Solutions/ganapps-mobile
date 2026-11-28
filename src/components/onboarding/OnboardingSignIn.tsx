@@ -43,6 +43,9 @@ export interface OnboardingSignInProps {
  *   onSignUpWithEmail={openSignUp}
  *   onLogIn={openLogIn}
  * />
+ *
+ * @param props - Pager position for the dots, the social sign-in state, and the email sign-up and log-in handlers.
+ * @returns The sign-in island.
  */
 export function OnboardingSignIn({
   scrollX,

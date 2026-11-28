@@ -21,7 +21,7 @@ import { ThemeProvider } from '@/providers/ThemeProvider';
 import { remoteConfigService } from '@/services/remote-config.service';
 import { type CheckInReplayOutcome, startOutboxDrain } from '@/services/sync.service';
 import { useAuthStore } from '@/store/auth.store';
-import { useSplashStore } from '@/store/splash.store';
+import { type SplashState, useSplashStore } from '@/store/splash.store';
 import { handleCheckInReplayOutcome } from '@/utils/attendance';
 import { hasShareLinkReturnTarget } from '@/utils/navigation';
 import migrations from '../../drizzle/migrations';
@@ -66,7 +66,7 @@ function RootLayoutNav(): ReactElement {
   const { success: migrationsReady, error: migrationError } = useMigrations(db, migrations);
   /** True once the session and the local database are usable, so the stack may mount. */
   const ready: boolean = isHydrated && migrationsReady;
-  const welcomeShown = useSplashStore((s) => s.welcomeShown);
+  const welcomeShown = useSplashStore((s: SplashState): boolean => s.welcomeShown);
   /**
    * A signed-out launch resolves `/` to the (app) shell before the redirect lands on Welcome, and
    * Welcome then takes a few frames to draw. The splash covers the stack through both, so neither

@@ -27,7 +27,7 @@ function parseColor(input: string): Rgba {
       digits.length === 3
         ? digits
             .split('')
-            .map((digit) => digit + digit)
+            .map((digit: string): string => digit + digit)
             .join('')
         : digits;
     return {

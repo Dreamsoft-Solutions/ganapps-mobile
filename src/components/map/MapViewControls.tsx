@@ -20,9 +20,11 @@ interface MapViewControlsProps {
 
 /**
  * Native pitch adjustment, overhead reset, and building visibility controls.
- * @param props - Camera pitch and view-control handlers.
+ *
  * The Map view pill is regular glass with the `layers` glyph; its panel is strong glass, so the
  * slider and switch stay readable over the map.
+ *
+ * @param props - Camera pitch and view-control handlers.
  * @returns The themed controls above the map's selection sheet.
  */
 export function MapViewControls({

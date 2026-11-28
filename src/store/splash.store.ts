@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
-interface SplashState {
+/** The splash store's state and its one action. */
+export interface SplashState {
   /** True while the Welcome screen is mounted and has drawn its first frame. */
   welcomeShown: boolean;
   /** Called by the Welcome screen when it has drawn, and again with `false` when it unmounts. */
