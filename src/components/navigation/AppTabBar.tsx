@@ -244,6 +244,7 @@ export function AppTabBar({ state, navigation, hasUnreadMessages, hidden }: AppT
           left: 0,
           right: 0,
           bottom: 0,
+          zIndex: 10,
           paddingHorizontal: Spacing['margin-mobile'],
           paddingBottom: insets.bottom + Spacing['island-inset'],
           alignItems: 'center',

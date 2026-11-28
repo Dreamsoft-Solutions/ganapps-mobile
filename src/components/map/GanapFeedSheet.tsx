@@ -10,7 +10,7 @@ import { IconButton } from '@/components/common/IconButton';
 import { Loading } from '@/components/common/Loading';
 import { Text } from '@/components/common/Text';
 import { GanapFeedCard } from '@/components/lists/GanapFeedCard';
-import { BorderRadius, Colors, Spacing } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { MIN_TOUCH_TARGET } from '@/constants/touch-target';
 import type { UseGanapsResult } from '@/hooks/useGanaps';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
@@ -43,10 +43,10 @@ export interface GanapFeedSheetProps {
    */
   topOverlayHeight: number;
   /**
-   * Space under the sheet, in dp, so it floats above the tab bar island. The sheet is detached:
-   * rounded on every corner and inset from the screen edges, like the other floating surfaces.
+   * Height of the strip the tab bar island floats over, in dp. The sheet passes under the island,
+   * so its peek is raised by this much and its list pads by it, keeping the last row clear.
    */
-  bottomInset: number;
+  islandReserve: number;
   /** Shared native position keeps floating map controls above the moving sheet. */
   animatedPosition?: SharedValue<number>;
   selectedGanap: GanapListItem | null;
@@ -135,6 +135,7 @@ interface FeedSheetBodyProps {
   hasActiveFilters: boolean;
   onSelectGanap: (ganap: GanapListItem) => void;
   onEndReached: () => void;
+  islandReserve: number;
 }
 
 /**
@@ -153,6 +154,7 @@ function FeedSheetBody({
   hasActiveFilters,
   onSelectGanap,
   onEndReached,
+  islandReserve,
 }: FeedSheetBodyProps): ReactElement {
   if (mode === 'browse' && feed.isLoading) {
     return (
@@ -189,7 +191,7 @@ function FeedSheetBody({
       testID="ganap-feed-sheet-list"
       data={items}
       keyExtractor={(item: GanapListItem): string => item.id}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: islandReserve + Spacing.lg }}
       renderItem={({ item }: { item: GanapListItem }): ReactElement => (
         <GanapFeedCard ganap={item} onPress={(): void => onSelectGanap(item)} />
       )}
@@ -219,7 +221,7 @@ export function GanapFeedSheet({
   hasActiveFilters,
   isNearbyApplied,
   topOverlayHeight,
-  bottomInset,
+  islandReserve,
   animatedPosition,
   selectedGanap,
   selectedCluster,
@@ -234,7 +236,7 @@ export function GanapFeedSheet({
 
   const { mode } = resolveFeedSheetMode({ selectedGanap, selectedCluster });
 
-  const snapPoints = useMemo((): (string | number)[] => buildFeedSheetSnapPoints(), []);
+  const snapPoints = useMemo((): (string | number)[] => buildFeedSheetSnapPoints(islandReserve), [islandReserve]);
 
   /**
    * Re-resolved inside the effect so the selection itself is the dependency.
@@ -296,13 +298,10 @@ export function GanapFeedSheet({
       index={0}
       snapPoints={snapPoints}
       topInset={topOverlayHeight}
-      bottomInset={bottomInset}
-      detached
-      style={{ marginHorizontal: Spacing.xs }}
       animatedPosition={animatedPosition}
       enablePanDownToClose
       enableDynamicSizing={false}
-      backgroundStyle={{ backgroundColor: Colors[theme].card, borderRadius: BorderRadius.xl }}
+      backgroundStyle={{ backgroundColor: Colors[theme].card }}
       handleComponent={renderHandle}
       onChange={handleSheetChange}
     >
@@ -313,6 +312,7 @@ export function GanapFeedSheet({
         hasActiveFilters={hasActiveFilters}
         onSelectGanap={onSelectGanap}
         onEndReached={handleEndReached}
+        islandReserve={islandReserve}
       />
     </BottomSheet>
   );

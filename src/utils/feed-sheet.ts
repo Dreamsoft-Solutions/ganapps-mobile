@@ -24,11 +24,9 @@ export interface FeedSheetState {
  * this too — anything floating over the map has to clear it, and the map camera
  * has to pad for it, or pins centre underneath the sheet.
  *
- * This is the whole of what the sheet covers. The tab bar is **not** included:
- * a custom `tabBar` is rendered by `BottomTabView` as a flex sibling of the
- * screen container, so the screen — and therefore the sheet — already ends at
- * the top of the bar. `tabBarStyle.position: 'absolute'` does not change that,
- * because only React Navigation's own `BottomTabBar` reads `tabBarStyle`.
+ * This is the part above the tab bar island. The island floats over the map and
+ * the sheet passes under it, so the sheet's real peek adds the island's strip
+ * (see {@link buildFeedSheetSnapPoints}).
  */
 export const FEED_SHEET_PEEK_HEIGHT = 180;
 
@@ -49,10 +47,11 @@ export const FEED_SHEET_PEEK_HEIGHT = 180;
  * A fresh array each call, because the sheet hands this straight to a prop the
  * library treats as mutable.
  *
+ * @param islandReserve - Height of the strip the tab bar island covers, added to the peek
  * @returns Snap points ordered peek, half, full
  */
-export function buildFeedSheetSnapPoints(): (string | number)[] {
-  return [FEED_SHEET_PEEK_HEIGHT, '50%', '100%'];
+export function buildFeedSheetSnapPoints(islandReserve: number): (string | number)[] {
+  return [FEED_SHEET_PEEK_HEIGHT + islandReserve, '50%', '100%'];
 }
 
 export interface FeedSheetSelection {

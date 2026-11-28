@@ -216,6 +216,10 @@ function BuildingExtrusions({
     />
   );
 }
+
+/** Height of the Mapbox logo and attribution row, which the bottom controls rest above. */
+const MAP_ORNAMENT_ROW: number = 28;
+
 /**
  * Home screen for authenticated users.
  *
@@ -713,7 +717,7 @@ export default function HomeScreen(): ReactElement {
         mapHeight={mapHeight}
         sheetPosition={sheetPosition}
         topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
-        bottomReserve={sheetBottomInset}
+        bottomReserve={sheetBottomInset + MAP_ORNAMENT_ROW}
       >
         <MapViewControls
           pitch={cameraPitch}
@@ -730,7 +734,7 @@ export default function HomeScreen(): ReactElement {
         mapHeight={mapHeight}
         sheetPosition={sheetPosition}
         topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
-        bottomReserve={sheetBottomInset}
+        bottomReserve={sheetBottomInset + MAP_ORNAMENT_ROW}
       >
         <LocateMeButton onPress={handleLocateMe} />
       </MapControlsOverlay>
@@ -749,7 +753,7 @@ export default function HomeScreen(): ReactElement {
           hasActiveFilters={hasActiveFilters}
           isNearbyApplied={isNearbyApplied}
           topOverlayHeight={insets.top + MAP_OVERLAY_TOP}
-          bottomInset={sheetBottomInset}
+          islandReserve={sheetBottomInset}
           animatedPosition={sheetPosition}
           selectedGanap={selectedGanap}
           selectedCluster={activeCluster}
