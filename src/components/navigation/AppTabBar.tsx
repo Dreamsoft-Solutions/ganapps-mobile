@@ -5,6 +5,7 @@ import { Calendar, MessageCircle } from 'lucide-react-native';
 import { type ReactElement, type ReactNode, useEffect, useRef, useState } from 'react';
 import { type LayoutChangeEvent, Pressable, View, type ViewStyle } from 'react-native';
 import Animated, {
+  ReduceMotion,
   Easing,
   useAnimatedStyle,
   useReducedMotion,
@@ -133,7 +134,9 @@ function TabIcon({ tab, isActive, user, hasUnreadMessages, color }: TabIconProps
 
 /**
  * Slides the lens to the active tab on a no-bounce spring, or, with Reduce Motion on, fades it
- * out, moves it and fades it back in. The first position is set without motion.
+ * out, moves it and fades it back in. The fades opt out of Reanimated's system Reduce Motion skip
+ * (`ReduceMotion.Never`): an opacity change is the gentle form Reduce Motion asks for. The first
+ * position is set without motion.
  */
 function useLens(index: number, step: number): ReturnType<typeof useAnimatedStyle<ViewStyle>> {
   const reduceMotion: boolean = useReducedMotion();
@@ -152,11 +155,12 @@ function useLens(index: number, step: number): ReturnType<typeof useAnimatedStyl
     if (reduceMotion) {
       opacity.set(
         withSequence(
-          withTiming(0, { duration: LENS_FADE_MS, easing: EASE_OUT }),
-          withTiming(1, { duration: LENS_FADE_MS * 2, easing: EASE_OUT }),
+          ReduceMotion.Never,
+          withTiming(0, { duration: LENS_FADE_MS, easing: EASE_OUT, reduceMotion: ReduceMotion.Never }),
+          withTiming(1, { duration: LENS_FADE_MS * 2, easing: EASE_OUT, reduceMotion: ReduceMotion.Never }),
         ),
       );
-      x.set(withDelay(LENS_FADE_MS, withTiming(target, { duration: 0 })));
+      x.set(withDelay(LENS_FADE_MS, withTiming(target, { duration: 0 }), ReduceMotion.Never));
       return;
     }
     x.set(withSpring(target, LENS_SPRING));
@@ -222,7 +226,7 @@ export function AppTabBar({ state, navigation, hasUnreadMessages, hidden }: AppT
 
   const shown = useSharedValue<number>(hidden ? 0 : 1);
   useEffect((): void => {
-    shown.set(withTiming(hidden ? 0 : 1, { duration: HIDE_MS, easing: EASE_OUT }));
+    shown.set(withTiming(hidden ? 0 : 1, { duration: HIDE_MS, easing: EASE_OUT, reduceMotion: ReduceMotion.Never }));
   }, [hidden, shown]);
   const dockStyle = useAnimatedStyle((): { opacity: number; transform: { translateY: number }[] } => ({
     opacity: shown.get(),
