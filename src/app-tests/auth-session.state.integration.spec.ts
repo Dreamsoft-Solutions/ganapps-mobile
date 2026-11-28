@@ -34,6 +34,11 @@ vi.mock('expo-router', () => ({
   useSegments: () => runtime.segments,
   useRootNavigationState: () => ({ key: 'root' }),
 }));
+vi.mock('@/components/common/GlassBackdrop', () => ({
+  GlassBackdrop: ({ children }: { children: ReactElement }): ReactElement => children,
+  NoGlassBackdrop: ({ children }: { children: ReactElement }): ReactElement => children,
+  useLiveGlassEnabled: (): boolean => false,
+}));
 vi.mock('@/components/common/Loading', () => ({ Loading: () => 'Loading' }));
 vi.mock('@/components/navigation/AppTabBar', () => ({ AppTabBar: () => null }));
 vi.mock('@/hooks/queries/useChatQuery', () => ({
