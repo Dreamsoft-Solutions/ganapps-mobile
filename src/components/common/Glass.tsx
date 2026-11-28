@@ -1,13 +1,14 @@
 import { vars } from 'nativewind';
 import { type ReactElement, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, type ViewProps, type ViewStyle } from 'react-native';
+import { type LayoutChangeEvent, StyleSheet, View, type ViewProps, type ViewStyle } from 'react-native';
+import type { SkImage } from 'react-native-skia';
 
 import { BorderRadius, Colors, Rim, Shadows } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { splitShadowLayers } from '@/utils/box-shadow';
 import { type GlassRecipe, glassRecipe, linearCss, radialCss } from '@/utils/glass-recipe';
 import { measureInWindow, NoGlassBackdrop, useGlassBackdrop, type WindowRect } from './GlassBackdrop';
-import { GlassMaterial } from './GlassMaterial';
+import { type GlassBackdropImage, GlassMaterial } from './GlassMaterial';
 
 /** Which Glass recipe to draw: the base pane, a denser pane, a green-tinted pane or a flat solid one. */
 export type GlassVariant = 'regular' | 'strong' | 'tint' | 'solid';
@@ -30,6 +31,28 @@ export interface GlassProps extends ViewProps {
   radius?: number;
   /** Draws the pressed bezel instead of the resting shadow. */
   pressed?: boolean;
+  /**
+   * Refracts this image, cover-fitted to the pane and blurred, instead of the screen's backdrop: a card over its
+   * own photo. `null` (loading, no photo, live glass off) draws the Solid tier.
+   */
+  image?: SkImage | null;
+}
+
+/** Blur over a pane's own photo, in dp: enough to read text over any photo, little enough to know the photo. */
+const IMAGE_BLUR = 20;
+
+/**
+ * Places an image the way `contentFit="cover"` does: scaled to fill the pane, centred, the overflow cropped.
+ *
+ * @param image - The photo.
+ * @param width - Pane width.
+ * @param height - Pane height.
+ * @returns The backdrop for `GlassMaterial`.
+ */
+function coverFit(image: SkImage, width: number, height: number): GlassBackdropImage {
+  const scale: number = Math.max(width / image.width(), height / image.height());
+  const fitted = { width: image.width() * scale, height: image.height() * scale };
+  return { image, x: (fitted.width - width) / 2, y: (fitted.height - height) / 2, ...fitted };
 }
 
 /**
@@ -48,7 +71,8 @@ function joinShadow(layers: readonly string[]): string | undefined {
  * Inside a `GlassBackdrop` with a capture, a `regular` or `strong` pane that is not the flat bar draws the Skia
  * tier instead: `GlassMaterial` refracts its slice of the captured backdrop under the same rim and bevel. It
  * re-measures its place on every capture and on `remeasure()`, from an absolute layer inside any border, so a
- * bordered pane's shape is not clipped. Everywhere else it draws the Solid tier.
+ * bordered pane's shape is not clipped. With an `image`, it refracts that photo, blurred, instead: no capture,
+ * no measuring, so it holds still in a scrolling list. Everywhere else it draws the Solid tier.
  * Liquid Glass on iOS 26 (ganapps-home#280) slots in here too.
  *
  * @example
@@ -65,6 +89,7 @@ export function Glass({
   lift = 'glass',
   radius = BorderRadius.full,
   pressed = false,
+  image = null,
   style,
   children,
   ...rest
@@ -74,17 +99,40 @@ export function Glass({
   const backdrop = useGlassBackdrop();
   const layerRef = useRef<View>(null);
   const [placement, setPlacement] = useState<WindowRect | null>(null);
-  const [layoutVersion, setLayoutVersion] = useState<number>(0);
-  const frame = backdrop?.frame ?? null;
+  const [layerSize, setLayerSize] = useState<{ width: number; height: number } | null>(null);
+  const frame = image === null ? (backdrop?.frame ?? null) : null;
   const eligible: boolean = !flat && (variant === 'regular' || variant === 'strong');
 
   useLayoutEffect((): void => {
     if (!eligible || frame === null) return;
     const rect: WindowRect | null = measureInWindow(layerRef.current);
     setPlacement(rect === null ? null : { ...rect, x: rect.x - frame.rect.x, y: rect.y - frame.rect.y });
-  }, [eligible, frame, backdrop?.version, layoutVersion]);
+  }, [eligible, frame, backdrop?.version, layerSize]);
 
-  const skia: boolean = frame !== null && placement !== null && !flat;
+  const source = useMemo((): (GlassBackdropImage & { paneWidth: number; paneHeight: number }) | null => {
+    if (!eligible) return null;
+    if (image !== null) {
+      return layerSize === null
+        ? null
+        : {
+            ...coverFit(image, layerSize.width, layerSize.height),
+            paneWidth: layerSize.width,
+            paneHeight: layerSize.height,
+          };
+    }
+    if (frame === null || placement === null) return null;
+    return {
+      image: frame.image,
+      x: placement.x,
+      y: placement.y,
+      width: frame.rect.width,
+      height: frame.rect.height,
+      paneWidth: placement.width,
+      paneHeight: placement.height,
+    };
+  }, [eligible, image, layerSize, frame, placement]);
+
+  const skia: boolean = source !== null;
 
   const material = useMemo((): ViewStyle => {
     const rimGradient: string = linearCss(glassRecipe(theme, variant === 'regular').rim);
@@ -132,31 +180,27 @@ export function Glass({
 
   return (
     <View {...rest} style={[material, style, glassVars]}>
-      {eligible && frame !== null ? (
+      {eligible && (frame !== null || image !== null) ? (
         <View
           ref={layerRef}
           pointerEvents="none"
           style={StyleSheet.absoluteFill}
-          onLayout={(): void => {
-            setLayoutVersion((current: number): number => current + 1);
+          onLayout={(event: LayoutChangeEvent): void => {
+            const { width, height } = event.nativeEvent.layout;
+            setLayerSize({ width, height });
           }}
         >
-          {skia && placement !== null && lift !== 'none' ? (
+          {source !== null && lift !== 'none' ? (
             <GlassMaterial
-              width={placement.width}
-              height={placement.height}
+              width={source.paneWidth}
+              height={source.paneHeight}
               radius={radius}
               rim={rim}
               variant={variant === 'strong' ? 'strong' : 'regular'}
               lift={lift}
               pressed={pressed}
-              backdrop={{
-                image: frame.image,
-                x: placement.x,
-                y: placement.y,
-                width: frame.rect.width,
-                height: frame.rect.height,
-              }}
+              backdrop={source}
+              blur={image === null ? undefined : IMAGE_BLUR}
             />
           ) : null}
         </View>

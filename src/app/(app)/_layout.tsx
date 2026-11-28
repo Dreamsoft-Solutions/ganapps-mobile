@@ -2,9 +2,10 @@ import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import type { Href } from 'expo-router';
 import { Tabs, useRootNavigationState, useRouter, useSegments } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
+import { GlassBackdrop, NoGlassBackdrop, useLiveGlassEnabled } from '@/components/common/GlassBackdrop';
 import { Loading } from '@/components/common/Loading';
 import { AppTabBar } from '@/components/navigation/AppTabBar';
 import { Routes } from '@/constants/routes';
@@ -21,8 +22,24 @@ import {
 import { shouldHideAppTabBar } from '@/utils/navigation';
 import { needsOnboarding } from '@/utils/onboarding';
 
+/** The tab whose screen holds the map the glass backdrop captures. */
+const MAP_TAB = '(home)';
+
+/**
+ * Keeps every tab but the map's off the glass backdrop, so their panes draw Solid.
+ *
+ * @param props - The route and its screen.
+ * @returns The screen, fenced unless it is the map tab.
+ */
+function renderTabScreen({ route, children }: { route: { name: string }; children: ReactNode }): ReactElement {
+  return <NoGlassBackdrop when={route.name !== MAP_TAB}>{children}</NoGlassBackdrop>;
+}
+
 /**
  * Authenticated app shell with a custom bottom tab navigator.
+ *
+ * The one `GlassBackdrop` lives here so the tab island shares the home map's capture. The island reads it
+ * only while the Map tab is showing its map; elsewhere a cached frame of the map would be wrong under it.
  *
  * @returns The tab navigator or a loading state.
  */
@@ -33,6 +50,7 @@ export default function AppLayout(): ReactElement {
   const rootNavigationState = useRootNavigationState();
   const { data: user, isLoading } = useAuthQuery();
   const hideTabBar: boolean = shouldHideAppTabBar(segments);
+  const isMapShowing: boolean = segments.at(-1) === MAP_TAB;
   const [pendingNotificationTarget, setPendingNotificationTarget] = useState<Href | null>((): Href | null =>
     getPendingNotificationTarget(),
   );
@@ -40,6 +58,7 @@ export default function AppLayout(): ReactElement {
   const isVerifiedUserReady: boolean = user?.isVerified === true;
   const isNotificationReady: boolean = isVerifiedUserReady && !needsOnboarding(user ?? null);
   const { hasUnreadMessages } = useChatSummariesQuery(isNotificationReady);
+  const liveGlass: boolean = useLiveGlassEnabled();
 
   useEffect((): (() => void) | undefined => {
     if (!isNotificationReady) return undefined;
@@ -116,16 +135,21 @@ export default function AppLayout(): ReactElement {
   }
 
   return (
-    <Tabs
-      tabBar={(props: BottomTabBarProps): ReactElement => (
-        <AppTabBar {...props} hasUnreadMessages={hasUnreadMessages} hidden={hideTabBar} />
-      )}
-      screenOptions={{ headerShown: false }}
-    >
-      <Tabs.Screen name="(home)" />
-      <Tabs.Screen name="(ganaps)" />
-      <Tabs.Screen name="(chat)" />
-      <Tabs.Screen name="(profile)" />
-    </Tabs>
+    <GlassBackdrop enabled={liveGlass}>
+      <Tabs
+        tabBar={(props: BottomTabBarProps): ReactElement => (
+          <NoGlassBackdrop when={hideTabBar || !isMapShowing}>
+            <AppTabBar {...props} hasUnreadMessages={hasUnreadMessages} hidden={hideTabBar} />
+          </NoGlassBackdrop>
+        )}
+        screenLayout={renderTabScreen}
+        screenOptions={{ headerShown: false }}
+      >
+        <Tabs.Screen name={MAP_TAB} />
+        <Tabs.Screen name="(ganaps)" />
+        <Tabs.Screen name="(chat)" />
+        <Tabs.Screen name="(profile)" />
+      </Tabs>
+    </GlassBackdrop>
   );
 }

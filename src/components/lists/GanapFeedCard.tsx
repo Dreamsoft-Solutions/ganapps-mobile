@@ -3,10 +3,12 @@ import { useRouter } from 'expo-router';
 import { Calendar, Clock, MapPin, Users } from 'lucide-react-native';
 import type { ReactElement } from 'react';
 import { Pressable, View, type AccessibilityActionEvent } from 'react-native';
-import { Card } from '@/components/common/Card';
+import { useImage } from 'react-native-skia';
+import { Glass } from '@/components/common/Glass';
+import { useLiveGlassEnabled } from '@/components/common/GlassBackdrop';
 import { Text } from '@/components/common/Text';
 import { Routes } from '@/constants/routes';
-import { Colors } from '@/constants/theme';
+import { BorderRadius, Colors } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { GanapListItem } from '@/types/ganap.types';
 import { formatFeedEventTimeRange } from '@/utils/formatting';
@@ -43,6 +45,10 @@ export interface GanapFeedCardProps {
  * a map: density is what makes dragging the sheet open worth doing, and a
  * full-width image leaves roughly one event per screen.
  *
+ * The card is glass over its own cover, blurred, so each event tints its card (owner's call, ganapps-home#290).
+ * It is the one glass card: the photo sits directly under it, so nothing is refracted that is not there. With
+ * no cover, or with live glass off, it draws the Solid tier.
+ *
  * Ported from the MagicPath `Ganapps – Map Home` design. Three of the fields
  * that design draws do not exist on the public list response, so each degrades
  * rather than being faked: no organization logo (initial letter instead), no
@@ -60,6 +66,8 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
   const address: string | null = ganap.address ?? null;
   const initial: string = ganap.businessName.charAt(0).toUpperCase();
   const viewBusinessLabel = `View ${ganap.businessName} organization profile`;
+  const liveGlass: boolean = useLiveGlassEnabled();
+  const cover = useImage(liveGlass ? ganap.coverImage : null);
   const openBusiness = (): void => {
     router.push(Routes.businessProfile(ganap.businessId));
   };
@@ -83,7 +91,7 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
       }}
       className="active:opacity-80"
     >
-      <Card className="mb-sm">
+      <Glass variant="strong" rim="md" radius={BorderRadius.xl} image={cover} className="mb-sm p-md">
         <View className="flex-row gap-sm">
           <View className="h-28 w-28 overflow-hidden rounded-lg bg-muted">
             {ganap.coverImage ? (
@@ -159,7 +167,7 @@ export function GanapFeedCard({ ganap, onPress }: GanapFeedCardProps): ReactElem
             </Text>
           </View>
         </View>
-      </Card>
+      </Glass>
     </Pressable>
   );
 }
