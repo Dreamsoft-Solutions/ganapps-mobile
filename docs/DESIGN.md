@@ -426,7 +426,8 @@ primitive, never per screen.
 
 Solid is the baseline, and the live tier falls back to it. `Glass` picks in this order:
 
-1. Performance mode (Settings) or Reduce Transparency is on: Solid.
+1. Performance mode (Settings), Reduce Transparency, Increase Contrast (iOS) or high-contrast text
+   (Android) is on: Solid.
 2. The pane is `tint`, `solid` or the flat bar (`lift="none"`): Solid.
 3. The pane sits inside a `GlassBackdrop` that has captured its backdrop: live glass.
 4. Otherwise: Solid.

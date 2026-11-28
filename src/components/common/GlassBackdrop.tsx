@@ -60,8 +60,19 @@ interface CapturedFrame extends GlassBackdropFrame {
   texture: GPUTexture;
 }
 
+/** The accessibility settings that put every pane on the Solid tier, with the event that reports each change. */
+const SOLID_GLASS_SETTINGS = [
+  { query: AccessibilityInfo.isReduceTransparencyEnabled, event: 'reduceTransparencyChanged' },
+  { query: AccessibilityInfo.isDarkerSystemColorsEnabled, event: 'darkerSystemColorsChanged' },
+  { query: AccessibilityInfo.isHighTextContrastEnabled, event: 'highTextContrastChanged' },
+] as const satisfies readonly {
+  query: () => Promise<boolean>;
+  event: 'reduceTransparencyChanged' | 'darkerSystemColorsChanged' | 'highTextContrastChanged';
+}[];
+
 /**
- * Whether live glass may run: off in Performance mode and under Reduce Transparency.
+ * Whether live glass may run: off in Performance mode, and under Reduce Transparency or Increase Contrast
+ * (iOS) or high-contrast text (Android).
  *
  * Screens use it to opt their backdrop into the capture-friendly mode it needs, such as Mapbox's
  * `surfaceView={false}`.
@@ -70,23 +81,30 @@ interface CapturedFrame extends GlassBackdropFrame {
  */
 export function useLiveGlassEnabled(): boolean {
   const performanceMode: boolean = useThemeStore((state) => state.performanceMode);
-  const [reduceTransparency, setReduceTransparency] = useState<boolean>(false);
+  const [settingsOn, setSettingsOn] = useState<readonly boolean[]>(SOLID_GLASS_SETTINGS.map((): boolean => false));
 
   useEffect((): (() => void) => {
     let active = true;
-    AccessibilityInfo.isReduceTransparencyEnabled()
-      .then((enabled: boolean): void => {
-        if (active) setReduceTransparency(enabled);
-      })
-      .catch((): void => undefined);
-    const subscription = AccessibilityInfo.addEventListener('reduceTransparencyChanged', setReduceTransparency);
+    const update = (index: number, enabled: boolean): void => {
+      if (!active) return;
+      setSettingsOn((current: readonly boolean[]): readonly boolean[] =>
+        current.map((value: boolean, at: number): boolean => (at === index ? enabled : value)),
+      );
+    };
+    const subscriptions = SOLID_GLASS_SETTINGS.map((setting, index: number) => {
+      setting
+        .query()
+        .then((enabled: boolean): void => update(index, enabled))
+        .catch((): void => undefined);
+      return AccessibilityInfo.addEventListener(setting.event, (enabled: boolean): void => update(index, enabled));
+    });
     return (): void => {
       active = false;
-      subscription.remove();
+      for (const subscription of subscriptions) subscription.remove();
     };
   }, []);
 
-  return !performanceMode && !reduceTransparency;
+  return !performanceMode && !settingsOn.some(Boolean);
 }
 
 /**
