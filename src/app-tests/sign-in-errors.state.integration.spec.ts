@@ -88,7 +88,8 @@ vi.mock('react-native-reanimated', () => ({
 vi.mock('nativewind', () => ({ vars: (): Record<string, never> => ({}) }));
 vi.mock('lucide-react-native', () => ({
   LucideProvider: ({ children }: { children: ReactNode }): ReactElement => createElement(Fragment, null, children),
-  Check: (): null => null,
+  Circle: (): null => null,
+  CircleCheck: (): null => null,
   CircleHelp: (): null => null,
   Eye: (): null => null,
   EyeOff: (): null => null,
