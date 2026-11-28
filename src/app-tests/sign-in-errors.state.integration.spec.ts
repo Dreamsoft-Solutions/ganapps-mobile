@@ -86,6 +86,11 @@ vi.mock('react-native-reanimated', () => ({
   useReducedMotion: (): boolean => false,
 }));
 vi.mock('nativewind', () => ({ vars: (): Record<string, never> => ({}) }));
+vi.mock('@/components/common/GlassBackdrop', () => ({
+  useGlassBackdrop: (): null => null,
+  measureInWindow: (): null => null,
+}));
+vi.mock('@/components/common/GlassMaterial', () => ({ GlassMaterial: (): null => null }));
 vi.mock('lucide-react-native', () => ({
   LucideProvider: ({ children }: { children: ReactNode }): ReactElement => createElement(Fragment, null, children),
   Circle: (): null => null,
