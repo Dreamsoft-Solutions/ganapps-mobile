@@ -6,6 +6,7 @@ import type { ReactElement } from 'react';
 import { useCallback, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Pressable, View } from 'react-native';
+import { AuthScreen } from '@/components/auth/AuthScreen';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { Chip } from '@/components/common/Chip';
@@ -13,7 +14,9 @@ import { Input } from '@/components/common/Input';
 import { Text } from '@/components/common/Text';
 import { INTEREST_OPTIONS } from '@/constants/interests';
 import { Routes } from '@/constants/routes';
+import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { recordPromptDismissal } from '@/hooks/useProfilePrompt';
 import { showToast } from '@/store/toast.store';
 import { prepareProfileUploadPhoto, profilePhotoFile } from '@/utils/photo-upload';
@@ -36,7 +39,12 @@ type Step = 'names' | 'extras';
  * dismissal, so the card inviting the user back to these fields does not appear on their next
  * visit to the Profile tab.
  *
- * @returns The onboarding form for whichever step is active.
+ * Each step is drawn on the shared `AuthScreen` frame, with "1 of 2" or "2 of 2" in the header and
+ * its actions pinned at the bottom, above the keyboard.
+ *
+ * @returns The onboarding screen for whichever step is active.
+ * @example
+ * <OnboardingForm />
  */
 export function OnboardingForm(): ReactElement {
   const router = useRouter();
@@ -44,6 +52,7 @@ export function OnboardingForm(): ReactElement {
   const [step, setStep] = useState<Step>('names');
   const [localAvatar, setLocalAvatar] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [isPreparingAvatar, setIsPreparingAvatar] = useState<boolean>(false);
+  const theme = useResolvedTheme();
 
   const methods = useForm<OnboardingFormData>({
     resolver: zodResolver(onboardingSchema),
@@ -161,101 +170,115 @@ export function OnboardingForm(): ReactElement {
   }, [isPreparingAvatar, seedPromptCooldown, router]);
 
   const fullName = `${methods.watch('firstName') ?? ''} ${methods.watch('lastName') ?? ''}`.trim();
+  const isNames: boolean = step === 'names';
+  const stepMarker: ReactElement = (
+    <Text className="text-label-md text-muted-foreground" accessibilityLabel={`Step ${isNames ? 1 : 2} of 2`}>
+      {isNames ? '1 of 2' : '2 of 2'}
+    </Text>
+  );
 
   return (
     <FormProvider {...methods}>
-      <View className="gap-4">
-        {step === 'names' ? (
-          <>
-            <View className="mb-6">
-              <Text
-                className="mb-2 text-center font-allo-bold text-headline-md text-foreground"
-                accessibilityRole="header"
-              >
-                What should we call you?
-              </Text>
-              <Text className="text-center text-body-md text-muted-foreground">
-                Your name is shown to organizers and to other people at events you join.
-              </Text>
-            </View>
-
-            <Input
-              name="firstName"
-              label="First name"
-              placeholder="Maria"
-              autoCapitalize="words"
-              maxLength={PROFILE_FIELD_LIMITS.nameMaxLength}
-              helperText={`Enter 1–${PROFILE_FIELD_LIMITS.nameMaxLength} characters.`}
-            />
-            <Input
-              name="lastName"
-              label="Last name"
-              placeholder="Santos"
-              autoCapitalize="words"
-              maxLength={PROFILE_FIELD_LIMITS.nameMaxLength}
-              helperText={`Enter 1–${PROFILE_FIELD_LIMITS.nameMaxLength} characters.`}
-            />
-
-            {submitError && <Text className="text-destructive text-body-md mb-2">{submitError.message}</Text>}
-
+      {isNames ? (
+        <AuthScreen
+          title="What should we call you?"
+          subtitle="Your name is shown to organizers and to other people at events you join."
+          headerRight={stepMarker}
+          footer={
             <Button onPress={submitNames} loading={updateProfileMutation.isPending} size="auth">
               Continue
             </Button>
-          </>
-        ) : (
-          <>
-            <View className="mb-6">
-              <Text
-                className="mb-2 text-center font-allo-bold text-headline-md text-foreground"
-                accessibilityRole="header"
-              >
-                Add a photo and interests
-              </Text>
-              <Text className="text-center text-body-md text-muted-foreground">
-                Optional. You can do this later from your profile.
-              </Text>
-            </View>
+          }
+        >
+          <Input
+            name="firstName"
+            label="First name"
+            placeholder="Maria"
+            autoCapitalize="words"
+            autoComplete="given-name"
+            textContentType="givenName"
+            returnKeyType="next"
+            onSubmitEditing={(): void => methods.setFocus('lastName')}
+            maxLength={PROFILE_FIELD_LIMITS.nameMaxLength}
+            helperText={`Enter 1–${PROFILE_FIELD_LIMITS.nameMaxLength} characters.`}
+          />
+          <Input
+            name="lastName"
+            label="Last name"
+            placeholder="Santos"
+            autoCapitalize="words"
+            autoComplete="family-name"
+            textContentType="familyName"
+            returnKeyType="go"
+            onSubmitEditing={submitNames}
+            maxLength={PROFILE_FIELD_LIMITS.nameMaxLength}
+            helperText={`Enter 1–${PROFILE_FIELD_LIMITS.nameMaxLength} characters.`}
+          />
 
-            <View className="items-center mb-8">
-              <Pressable onPress={pickAvatar} className="relative" disabled={isPreparingAvatar}>
-                <Avatar src={localAvatar?.uri ?? null} name={fullName} size="lg" />
-                <View className="absolute bottom-0 right-0 h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-primary">
-                  <Camera size={14} className="text-primary-foreground" />
-                </View>
-              </Pressable>
-              <Text className="text-muted-foreground text-body-md mt-3">Tap to add a photo</Text>
-            </View>
-
-            <View className="mb-4">
-              <Text className="text-label-md text-foreground mb-3">Your interests</Text>
-              <View className="flex-row flex-wrap gap-2">
-                {INTEREST_OPTIONS.map(
-                  (item): ReactElement => (
-                    <Chip
-                      key={item.id}
-                      label={item.label}
-                      selected={selectedInterests.includes(item.id)}
-                      onPress={(): void => toggleInterest(item.id)}
-                    />
-                  ),
-                )}
-              </View>
-            </View>
-
-            {submitError && <Text className="text-destructive text-body-md mb-2">{submitError.message}</Text>}
-
-            <Button onPress={submitExtras} loading={isPreparingAvatar || updateProfileMutation.isPending} size="auth">
-              Finish
-            </Button>
-
-            <View className="items-center mt-2">
-              <Button variant="ghost" onPress={skipExtras} disabled={isPreparingAvatar}>
-                Skip for now
+          {submitError && (
+            <Text className="text-body-md text-destructive" accessibilityRole="alert">
+              {submitError.message}
+            </Text>
+          )}
+        </AuthScreen>
+      ) : (
+        <AuthScreen
+          title="Add a photo and interests"
+          subtitle="Optional. You can do this later from your profile."
+          headerRight={stepMarker}
+          footer={
+            <>
+              {submitError && (
+                <Text className="text-center text-body-md text-destructive" accessibilityRole="alert">
+                  {submitError.message}
+                </Text>
+              )}
+              <Button onPress={submitExtras} loading={isPreparingAvatar || updateProfileMutation.isPending} size="auth">
+                Finish
               </Button>
-            </View>
-          </>
-        )}
-      </View>
+              <View className="flex-row justify-center">
+                <Button variant="link" onPress={skipExtras} disabled={isPreparingAvatar}>
+                  Skip for now
+                </Button>
+              </View>
+            </>
+          }
+        >
+          <View className="mb-xl items-center">
+            <Pressable
+              onPress={pickAvatar}
+              disabled={isPreparingAvatar}
+              accessibilityRole="button"
+              accessibilityLabel={localAvatar ? 'Change your photo' : 'Add a photo'}
+              className="relative active:opacity-80"
+            >
+              <Avatar src={localAvatar?.uri ?? null} name={fullName} size="lg" />
+              <View className="absolute bottom-0 right-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-primary">
+                <Camera size={16} color={Colors[theme]['primary-foreground']} />
+              </View>
+            </Pressable>
+            <Text className="mt-sm text-body-md text-muted-foreground">
+              {localAvatar ? 'Tap to change your photo' : 'Tap to add a photo'}
+            </Text>
+          </View>
+
+          <Text className="mb-sm font-allo-semibold text-headline-sm text-foreground" accessibilityRole="header">
+            Your interests
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            {INTEREST_OPTIONS.map(
+              (item): ReactElement => (
+                <Chip
+                  key={item.id}
+                  label={item.label}
+                  selected={selectedInterests.includes(item.id)}
+                  onPress={(): void => toggleInterest(item.id)}
+                />
+              ),
+            )}
+          </View>
+        </AuthScreen>
+      )}
     </FormProvider>
   );
 }
