@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import type { LucideIcon } from 'lucide-react-native';
 import { Check, Monitor, Moon, Sun } from 'lucide-react-native';
 import type { ReactElement } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, Switch, View } from 'react-native';
 import { Avatar } from '@/components/common/Avatar';
 import { Button } from '@/components/common/Button';
 import { Empty } from '@/components/common/Empty';
@@ -13,11 +13,14 @@ import { Text } from '@/components/common/Text';
 import { DeleteAccountForm } from '@/components/forms/DeleteAccountForm';
 import { ScreenHeader } from '@/components/navigation/ScreenHeader';
 import { useUnblockUserMutation } from '@/hooks/mutations/useModerationMutation';
+import { Colors } from '@/constants/theme';
 import { useBlockedUsersQuery } from '@/hooks/queries/useModerationQuery';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { useTabBarInsets } from '@/hooks/useTabBarInsets';
 import { type ThemeMode, useThemeStore } from '@/store/theme.store';
 import { showToast } from '@/store/toast.store';
 import type { BlockedUserSummary } from '@/types/moderation.types';
+import { mix } from '@/utils/color-mix';
 import { getModerationErrorMessage } from '@/utils/moderation';
 
 interface ThemeOption {
@@ -39,6 +42,9 @@ const THEME_OPTIONS: ThemeOption[] = [
 export default function SettingsScreen(): ReactElement {
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
+  const performanceMode = useThemeStore((s) => s.performanceMode);
+  const setPerformanceMode = useThemeStore((s) => s.setPerformanceMode);
+  const theme = useResolvedTheme();
   const blockedUsersQuery = useBlockedUsersQuery();
   const unblockMutation = useUnblockUserMutation();
   const router = useRouter();
@@ -84,6 +90,37 @@ export default function SettingsScreen(): ReactElement {
             );
           })}
         </View>
+
+        <Text className="mb-xs mt-xl font-allo-semibold text-headline-sm" accessibilityRole="header">
+          Visual effects
+        </Text>
+        <Pressable
+          onPress={(): void => {
+            void setPerformanceMode(!performanceMode);
+          }}
+          accessibilityRole="switch"
+          accessibilityLabel="Performance mode"
+          accessibilityHint="Draws flat glass instead of live glass over the map"
+          accessibilityState={{ checked: performanceMode }}
+          className="min-h-touch flex-row items-center gap-sm rounded-lg border border-border bg-card px-md py-sm"
+        >
+          <View className="flex-1">
+            <Text className="text-body-md">Performance mode</Text>
+            <Text className="text-body-md text-muted-foreground">
+              Flat glass instead of live glass over the map. Smoother on older phones and easier on the battery.
+            </Text>
+          </View>
+          <Switch
+            value={performanceMode}
+            onValueChange={(enabled: boolean): void => {
+              void setPerformanceMode(enabled);
+            }}
+            trackColor={{ false: mix(Colors[theme]['muted-foreground'], 45), true: Colors[theme].primary }}
+            thumbColor={performanceMode ? Colors[theme]['primary-foreground'] : Colors[theme]['muted-foreground']}
+            importantForAccessibility="no-hide-descendants"
+            accessibilityElementsHidden
+          />
+        </Pressable>
 
         <View className="mt-xl">
           <Text className="mb-sm font-allo-semibold text-headline-sm" accessibilityRole="header">

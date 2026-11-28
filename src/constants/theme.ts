@@ -156,7 +156,8 @@ export const Rim = {
 } as const;
 
 /**
- * Backdrop blur radii for the blur glass tier only. The Solid tier ignores them.
+ * Backdrop blur radii from the web reference. The app does not read them: live glass bends the map instead
+ * of frosting it (`GLASS_BACKDROP_BLUR` in `GlassMaterial`).
  */
 export const Blur = {
   thin: 12,
@@ -165,7 +166,7 @@ export const Blur = {
 } as const;
 
 /**
- * Backdrop saturation boost for the blur glass tier only. The Solid tier ignores it.
+ * Backdrop saturation boost from the web reference. The app does not read it.
  */
 export const GLASS_SATURATE = 1.8;
 

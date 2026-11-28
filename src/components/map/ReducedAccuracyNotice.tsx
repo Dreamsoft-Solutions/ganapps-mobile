@@ -30,7 +30,7 @@ export function ReducedAccuracyNotice({
   if (!visible) return null;
 
   return (
-    <Glass variant="strong" radius={BorderRadius.xl} className="mx-md mt-xs gap-1 p-md">
+    <Glass variant="solid" radius={BorderRadius.xl} className="mx-md mt-xs gap-1 p-md">
       <Text className="text-label-md text-foreground">Approximate location</Text>
       <Text className="text-body-md text-muted-foreground">
         Precise Location is off, so nearby results may be several kilometres out.

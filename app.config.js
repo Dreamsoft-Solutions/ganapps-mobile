@@ -180,6 +180,8 @@ module.exports = {
       [
         'expo-build-properties', // see ganapps-home docs/adr/mobile/0002
         {
+          // react-native-skia v3 needs API 26 (ganapps-home#288).
+          android: { minSdkVersion: 26 },
           ios: {
             useFrameworks: 'static',
             usePrecompiledModules: false,
